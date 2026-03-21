@@ -43,9 +43,12 @@ func (p *Publisher) Connect(ctx context.Context) error {
 	if p.cfg.Password != "" {
 		opts.SetPassword(p.cfg.Password)
 	}
-	opts.SetKeepAlive(30 * time.Second)
-	opts.SetAutoReconnect(true) // 自动重连
-	opts.SetOrderMatters(false) // 允许乱序（提高吞吐量）
+	opts.SetKeepAlive(60 * time.Second)           // 心跳间隔改为60秒（避免Aliyun断开空闲连接）
+	opts.SetPingTimeout(10 * time.Second)         //  ping超时时间
+	opts.SetAutoReconnect(true)                   // 启用自动重连
+	opts.SetMaxReconnectInterval(5 * time.Minute) // 最大重连间隔5分钟
+	opts.SetCleanSession(false)                   // 保持会话（断开后恢复订阅）
+	opts.SetOrderMatters(false)                   // 允许乱序（提高吞吐量）
 
 	// 连接成功回调：打印日志并重新发布 Discovery
 	// 重新发布确保 HA 在 broker 重启后仍能识别设备
