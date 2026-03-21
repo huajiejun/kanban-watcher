@@ -4,13 +4,13 @@
 # vibe-kanban 本地 API 地址（通常无需修改）
 kanban_api_url: "http://127.0.0.1:7777"
 
-# MQTT 配置 ─ 连接到自部署的 broker（内网 IP，无 TLS）
+# MQTT 配置 ─ 连接到外部部署的 broker（域名方式，无 TLS）
 mqtt:
-  # 格式：tcp://<broker内网IP>:1883
-  # 示例：tcp://192.168.1.100:1883
-  broker: "tcp://192.168.1.100:1883"
-  username: "your_mqtt_username"   # MQTT 用户名
-  password: "your_mqtt_password"   # MQTT 密码
+  # 格式：tcp://<域名>:1883
+  # 示例：tcp://aliyun.huajiejun.cn:1883
+  broker: "tcp://aliyun.huajiejun.cn:1883"
+  username: "mqtt"                 # MQTT 用户名
+  password: "wolale1990"           # MQTT 密码
   client_id: "kanban-watcher"      # 唯一标识，同一网络内不能重复
 
 # 企业微信机器人 Webhook
