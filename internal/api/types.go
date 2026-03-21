@@ -8,10 +8,11 @@ type summariesAPIResponse struct {
 }
 
 // workspacesAPIResponse /api/workspaces 接口的响应信封
+// 注意：与 summaries 不同，此接口的 data 直接是数组 []Workspace
 type workspacesAPIResponse struct {
-	Success bool                `json:"success"`
-	Data    *WorkspacesResponse `json:"data"`
-	Message *string             `json:"message"`
+	Success bool        `json:"success"`
+	Data    []Workspace `json:"data"` // 直接是数组，不是对象
+	Message *string     `json:"message"`
 }
 
 // WorkspaceSummary 工作区状态汇总信息（从 POST /api/workspaces/summaries 获取）

@@ -90,7 +90,7 @@ func (c *Client) FetchWorkspaces(ctx context.Context) ([]Workspace, error) {
 		}
 		return nil, fmt.Errorf("fetch workspaces: API error: %s", msg)
 	}
-	return apiResp.Data.Workspaces, nil
+	return apiResp.Data, nil
 }
 
 // FetchAll 同时获取 workspaces 和 summaries，按 workspace_id 关联合并
