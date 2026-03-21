@@ -1,24 +1,26 @@
-# kanban-watcher 配置文件示例
-# 复制此文件到 ~/.config/kanban-watcher/config.yaml 并按需修改
+# kanban-watcher 配置文件
+# 复制到 ~/.config/kanban-watcher/config.yaml 后修改
 
-# vibe-kanban 本地 API 地址
+# vibe-kanban 本地 API 地址（通常无需修改）
 kanban_api_url: "http://127.0.0.1:7777"
 
-# Home Assistant MQTT 配置
+# MQTT 配置 ─ 连接到自部署的 broker（内网 IP，无 TLS）
 mqtt:
-  broker: "tcp://homeassistant.local:1883"  # 或 "tcp://192.168.1.x:1883"
-  username: ""         # 留空表示不需要认证
-  password: ""
-  client_id: "kanban-watcher"
+  # 格式：tcp://<broker内网IP>:1883
+  # 示例：tcp://192.168.1.100:1883
+  broker: "tcp://192.168.1.100:1883"
+  username: "your_mqtt_username"   # MQTT 用户名
+  password: "your_mqtt_password"   # MQTT 密码
+  client_id: "kanban-watcher"      # 唯一标识，同一网络内不能重复
 
-# 企业微信机器人 Webhook 配置
+# 企业微信机器人 Webhook
 wechat:
+  # 在企业微信群里添加机器人，复制 webhook 地址填这里
   webhook_url: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY"
-  # 任务需要关注超过多少分钟后发送通知
+  # has_unseen_turns 或 has_pending_approval 持续多少分钟后发通知
   notify_threshold_minutes: 10
 
-# 工作时间窗口（仅在此时间段内轮询 API）
-# 支持跨午夜配置，例如 08:00 到次日 01:00
+# 工作时间（仅在此范围内轮询，跨午夜写法：08:00 到次日 01:00）
 working_hours:
   start: "08:00"
   end: "01:00"

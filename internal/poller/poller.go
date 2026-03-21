@@ -10,18 +10,18 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/config"
 )
 
-// PollResult carries the outcome of one polling cycle.
+// PollResult 单次轮询的结果
+// 包含工作区数据列表、获取时间戳，以及可能发生的错误
 type PollResult struct {
-	Workspaces []api.EnrichedWorkspace
-	FetchedAt  time.Time
-	Err        error
+	Workspaces []api.EnrichedWorkspace // 工作区列表
+	FetchedAt  time.Time               // 数据获取时间
+	Err        error                   // 错误信息（发生错误时）
 }
 
-// Run starts the polling loop and sends results on the results channel.
-// It blocks until ctx is cancelled. The channel should be buffered to avoid
-// dropping results if the consumer is momentarily busy.
+// Run 启动轮询循环，阻塞直到 ctx 被取消
+// 结果通过 channel 异步发送给调用者，channel 应带有缓冲以避免阻塞
 func Run(ctx context.Context, cfg *config.Config, client *api.Client, results chan<- PollResult) {
-	// Poll immediately on start
+	// 启动后立即执行第一次轮询，确保启动时能立即获取数据
 	poll(ctx, cfg, client, results)
 
 	ticker := time.NewTicker(time.Duration(cfg.PollIntervalSecs) * time.Second)
@@ -37,19 +37,20 @@ func Run(ctx context.Context, cfg *config.Config, client *api.Client, results ch
 	}
 }
 
-// poll performs a single fetch cycle, respecting working hours.
-// If outside working hours, the poll is silently skipped.
+// poll 执行单次数据获取，遵守工作时间设置
+// 若当前不在工作时间内，静默跳过（不发送结果）
 func poll(ctx context.Context, cfg *config.Config, client *api.Client, results chan<- PollResult) {
 	now := time.Now()
 
+	// 检查是否在工作时间内
 	inHours, err := config.IsWorkingHours(cfg.WorkingHours, now)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "working hours check error: %v\n", err)
-		// Treat as in-hours to avoid missing data due to config error
+		fmt.Fprintf(os.Stderr, "工作时间检查错误: %v\n", err)
+		// 配置出错时保守处理：视为工作时间内，避免遗漏数据
 		inHours = true
 	}
 	if !inHours {
-		return
+		return // 非工作时间，静默跳过
 	}
 
 	workspaces, fetchErr := client.FetchAll(ctx)
@@ -60,10 +61,11 @@ func poll(ctx context.Context, cfg *config.Config, client *api.Client, results c
 		Err:        fetchErr,
 	}
 
-	// Non-blocking send: skip if consumer hasn't read the previous result yet
+	// 非阻塞发送：若消费者（主循环）尚未处理上一轮结果，则丢弃本次
+	// 这避免轮询器阻塞在慢速消费者上，保证轮询间隔的准确性
 	select {
 	case results <- result:
 	default:
-		// Consumer is busy; discard this result to avoid blocking the poller
+		// 消费者繁忙，丢弃本次结果
 	}
 }

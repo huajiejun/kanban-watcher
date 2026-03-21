@@ -7,20 +7,22 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/state"
 )
 
-// TrackedWorkspace pairs an EnrichedWorkspace with how long it has been waiting.
+// TrackedWorkspace 带等待时长的工作区信息
+// 用于通知时展示该工作区已需要关注多长时间
 type TrackedWorkspace struct {
-	Workspace      api.EnrichedWorkspace
-	ElapsedMinutes int
+	Workspace      api.EnrichedWorkspace // 工作区完整信息
+	ElapsedMinutes int                   // 已持续需要关注的分钟数
 }
 
-// Tracker manages notification deduplication and threshold logic.
-// It is not goroutine-safe; call from a single goroutine.
+// Tracker 管理通知去重和阈值判断逻辑
+// 非并发安全，应由单 goroutine 调用（通过 channel 串行化）
 type Tracker struct {
-	current          state.AppState
-	thresholdMinutes int
+	current          state.AppState // 当前跟踪状态
+	thresholdMinutes int            // 通知阈值（分钟）
 }
 
-// NewTracker creates a Tracker seeded with persisted state.
+// NewTracker 使用持久化状态创建跟踪器
+// 启动时从磁盘加载上次保存的状态，确保跨进程去重
 func NewTracker(s state.AppState, thresholdMinutes int) *Tracker {
 	return &Tracker{
 		current:          s,
@@ -28,22 +30,28 @@ func NewTracker(s state.AppState, thresholdMinutes int) *Tracker {
 	}
 }
 
-// ProcessWorkspaces evaluates the latest workspace data against the current state.
-// It returns:
-//   - an updated AppState (immutable, caller must call GetState to persist it)
-//   - a list of workspaces that should trigger a notification right now
+// ProcessWorkspaces 评估最新工作区数据，决定是否需要发送通知
 //
-// Dedup rule: one notification per (workspace_id, latest_process_completed_at) pair.
+// 核心逻辑（去重规则）：
+//   1. 为每个工作区生成去重键 Key = (workspace_id, latest_process_completed_at)
+//   2. 同一 Key 在一次构建周期内（CompletedAt 不变）只通知一次
+//   3. 需要持续关注达到阈值后才触发通知
+//   4. 当问题消失（resolved）或工作区被删除，清理对应跟踪记录
+//
+// 返回值：
+//   - 需要立即通知的工作区列表（已达到阈值且未通知过）
+//   - 内部状态会更新，调用者需通过 GetState() 获取并持久化
 func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time.Time) []TrackedWorkspace {
 	threshold := time.Duration(t.thresholdMinutes) * time.Minute
 
-	// Build a set of currently active workspace IDs to clean up stale entries
+	// 步骤 1：构建当前活跃工作区 ID 集合
+	// 用于清理已不存在（被归档或删除）的工作区的残留记录
 	activeIDs := make(map[string]struct{}, len(workspaces))
 	for _, w := range workspaces {
 		activeIDs[w.ID] = struct{}{}
 	}
 
-	// Remove entries for workspaces no longer returned by the API
+	// 步骤 2：清理已不存在的工作区条目
 	updated := t.current.WithoutWorkspacesNotIn(activeIDs)
 
 	var toNotify []TrackedWorkspace
@@ -51,16 +59,16 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 	for _, w := range workspaces {
 		key := notificationKey(w)
 
+		// 若工作区已不需要关注，移除其所有跟踪记录
 		if !w.NeedsAttention() {
-			// Workspace is fine: remove all its tracking entries
 			updated = updated.WithoutWorkspace(w.ID)
 			continue
 		}
 
-		// Workspace needs attention
+		// 工作区需要关注：检查是否已跟踪
 		existing, found := updated.Entries[key]
 		if !found {
-			// First time seeing this issue: start the clock
+			// 首次发现此问题：创建条目，开始计时
 			updated = updated.WithEntry(key, state.AttentionEntry{
 				Key:         key,
 				FirstSeenAt: now,
@@ -68,18 +76,20 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 			continue
 		}
 
+		// 已存在条目
 		if existing.NotifiedAt != nil {
-			// Already notified for this (workspace, completedAt) pair — skip
+			// 已发送过通知，跳过（去重）
 			continue
 		}
 
+		// 未通知过，检查是否达到阈值
 		elapsed := now.Sub(existing.FirstSeenAt)
 		if elapsed < threshold {
-			// Still within grace period
+			// 仍在宽限期内，继续等待
 			continue
 		}
 
-		// Threshold exceeded: queue notification and mark as notified
+		// 达到阈值：标记为已通知，加入待通知列表
 		notifiedAt := now
 		updated = updated.WithEntry(key, state.AttentionEntry{
 			Key:         existing.Key,
@@ -96,13 +106,13 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 	return toNotify
 }
 
-// GetState returns the current AppState for persistence.
+// GetState 返回当前跟踪状态，供调用者持久化到磁盘
 func (t *Tracker) GetState() state.AppState {
 	return t.current
 }
 
-// notificationKey builds the dedup key for a workspace.
-// CompletedAt is "" when the process is running (nil from API).
+// notificationKey 为工作区构建去重键
+// CompletedAt 使用空字符串表示进程仍在运行中（对应 API 的 null）
 func notificationKey(w api.EnrichedWorkspace) state.NotificationKey {
 	completedAt := ""
 	if w.Summary.LatestProcessCompletedAt != nil {
