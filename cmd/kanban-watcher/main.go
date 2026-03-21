@@ -11,6 +11,7 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/config"
 	mqttclient "github.com/huajiejun/kanban-watcher/internal/mqtt"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
+	"github.com/huajiejun/kanban-watcher/internal/server"
 	"github.com/huajiejun/kanban-watcher/internal/singleton"
 	"github.com/huajiejun/kanban-watcher/internal/state"
 	"github.com/huajiejun/kanban-watcher/internal/tray"
@@ -41,6 +42,13 @@ func main() {
 	tracker := wechat.NewTracker(persistedState, cfg.WeChat.NotifyThresholdMinutes)
 	trayApp := tray.New()
 
+	// 启动 HTTP 代理服务器（供 HomeAssistant 调用）
+	proxyClient := api.NewProxyClient(cfg.KanbanAPIURL)
+	httpServer := server.NewServer(proxyClient, 7778, "your-api-key-here")
+	if err := httpServer.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "HTTP 服务器启动失败: %v\n", err)
+	}
+
 	// 创建可取消的根上下文
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -67,7 +75,10 @@ func main() {
 		trayApp.OnExit(cancel), // 退出时的清理回调
 	)
 
-	// 优雅退出：断开 MQTT，保存状态
+	// 优雅退出：停止 HTTP 服务器，断开 MQTT，保存状态
+	if httpServer != nil {
+		httpServer.Stop(context.Background())
+	}
 	mqttPub.Disconnect()
 	if err := state.SaveState(tracker.GetState()); err != nil {
 		fmt.Fprintf(os.Stderr, "警告: 退出时保存状态失败: %v\n", err)
