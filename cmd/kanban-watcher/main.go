@@ -11,12 +11,23 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/config"
 	mqttclient "github.com/huajiejun/kanban-watcher/internal/mqtt"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
+	"github.com/huajiejun/kanban-watcher/internal/singleton"
 	"github.com/huajiejun/kanban-watcher/internal/state"
 	"github.com/huajiejun/kanban-watcher/internal/tray"
 	"github.com/huajiejun/kanban-watcher/internal/wechat"
 )
 
 func main() {
+	// 单实例检查：确保只有一个 kanban-watcher 在运行
+	// 如果已有实例在运行，会返回错误并退出
+	lock, err := singleton.Acquire("kanban-watcher")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+		fmt.Fprintf(os.Stderr, "提示: 如果确定没有实例在运行，请手动删除 PID 文件\n")
+		os.Exit(1)
+	}
+	defer lock.Release() // 程序退出时自动清理 PID 文件
+
 	// 加载配置（出错时直接退出）
 	cfg := config.MustLoad()
 
