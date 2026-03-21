@@ -1,0 +1,463 @@
+// @vitest-environment jsdom
+
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { getStatusMeta } from "../src/lib/status-meta";
+import "../src/index";
+import { cardStyles } from "../src/styles";
+import type { KanbanEntityAttributes, KanbanWorkspace } from "../src/types";
+
+type HassEntity = {
+  attributes?: KanbanEntityAttributes;
+};
+
+type HassLike = {
+  states: Record<string, HassEntity>;
+};
+
+type KanbanWatcherCardElement = HTMLElement & {
+  hass?: HassLike;
+  setConfig(config: { entity: string }): void;
+  updateComplete?: Promise<unknown>;
+};
+
+const entityId = "sensor.kanban_watcher_kanban_watcher";
+
+function createWorkspaces(): KanbanWorkspace[] {
+  return [
+    {
+      id: "attention-1",
+      name: "Needs Attention",
+      status: "completed",
+      has_unseen_turns: true,
+      files_changed: 3,
+      lines_added: 12,
+      lines_removed: 4,
+    },
+    {
+      id: "running-1",
+      name: "Running Workspace",
+      status: "running",
+      has_unseen_turns: true,
+      files_changed: 5,
+      lines_added: 20,
+      lines_removed: 8,
+    },
+    {
+      id: "idle-1",
+      name: "Idle Workspace",
+      status: "completed",
+      completed_at: "2026-03-21T11:45:00Z",
+      files_changed: 2,
+      lines_added: 6,
+      lines_removed: 1,
+    },
+  ];
+}
+
+function createHass(
+  workspaces: KanbanWorkspace[] | string | undefined = createWorkspaces(),
+  updatedAt = "2026-03-21T11:55:00Z",
+): HassLike {
+  return {
+    states: {
+      [entityId]: {
+        attributes: {
+          updated_at: updatedAt,
+          workspaces,
+        },
+      },
+    },
+  };
+}
+
+async function renderCard(hass = createHass()) {
+  const card = document.createElement(
+    "kanban-watcher-card",
+  ) as KanbanWatcherCardElement;
+  card.setConfig({ entity: entityId });
+  card.hass = hass;
+  document.body.append(card);
+  await card.updateComplete;
+  return card;
+}
+
+function normalizeText(value?: string | null) {
+  return value?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+describe("getStatusMeta", () => {
+  it("returns display metadata for attention, running, and idle states", () => {
+    expect(getStatusMeta({ status: "completed", has_unseen_turns: true })).toEqual({
+      leadingIcon: "●",
+      unseenIcon: "●",
+      accentClass: "is-attention",
+    });
+
+    expect(getStatusMeta({ status: "running", has_unseen_turns: true })).toEqual({
+      leadingIcon: "▶",
+      unseenIcon: "●",
+      accentClass: "is-running",
+    });
+
+    expect(getStatusMeta({ status: "running" })).toEqual({
+      leadingIcon: "▶",
+      accentClass: "is-running",
+    });
+
+    expect(getStatusMeta({ status: "completed", has_pending_approval: true })).toEqual({
+      leadingIcon: "•",
+      approvalIcon: "✋",
+      accentClass: "is-attention",
+    });
+
+    expect(getStatusMeta({ status: "completed" })).toEqual({
+      leadingIcon: "•",
+      accentClass: "is-idle",
+    });
+
+    expect(getStatusMeta({ status: "paused" })).toEqual({
+      leadingIcon: "•",
+      accentClass: "is-idle",
+    });
+  });
+
+  it("preserves unread and approval indicators together when both are present", () => {
+    expect(
+      getStatusMeta({
+        status: "completed",
+        has_unseen_turns: true,
+        has_pending_approval: true,
+      }),
+    ).toEqual({
+      leadingIcon: "●",
+      unseenIcon: "●",
+      approvalIcon: "✋",
+      accentClass: "is-attention",
+    });
+  });
+});
+
+describe("kanban-watcher-card", () => {
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-21T12:00:00Z"));
+  });
+
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("registers the custom card with Home Assistant metadata", () => {
+    const registry = (window as typeof window & { customCards?: unknown[] })
+      .customCards;
+
+    expect(customElements.get("kanban-watcher-card")).toBeDefined();
+    expect(registry).toEqual([
+      expect.objectContaining({
+        type: "kanban-watcher-card",
+        name: "Kanban Watcher Card",
+      }),
+    ]);
+  });
+
+  it("requires an entity in the card config", () => {
+    const card = document.createElement(
+      "kanban-watcher-card",
+    ) as KanbanWatcherCardElement;
+
+    expect(() => card.setConfig({ entity: "" })).toThrow("`entity` is required");
+  });
+
+  it("renders visible sections in attention, running, idle order with compact task metadata", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+
+    const content = normalizeText(shadowRoot?.textContent);
+
+    expect(content).toContain("需要注意");
+    expect(content).toContain("运行中");
+    expect(content).toContain("空闲");
+    expect(content).toContain("Needs Attention");
+    expect(content).toContain("Running Workspace");
+    expect(content).toContain("Idle Workspace");
+    expect(content).toContain("5m ago");
+    expect(content).toContain("15m ago");
+    expect(content).toContain("📄 3 +12 -4");
+
+    const sectionTitles = Array.from(
+      shadowRoot?.querySelectorAll(".section-title") ?? [],
+    ).map((element) => element.textContent?.trim());
+
+    expect(sectionTitles).toEqual(["需要注意", "运行中", "空闲"]);
+    expect(shadowRoot?.querySelectorAll(".task-card")).toHaveLength(3);
+    expect(shadowRoot?.querySelector(".relative-time")?.textContent?.trim()).toBe(
+      "5m ago",
+    );
+  });
+
+  it("uses completed_at only for completed workspaces and updated_at otherwise", async () => {
+    const card = await renderCard(
+      createHass(
+        [
+          {
+            id: "running-with-old-completion",
+            name: "Running Freshness",
+            status: "running",
+            completed_at: "2026-03-01T12:00:00Z",
+            files_changed: 1,
+            lines_added: 5,
+            lines_removed: 2,
+          },
+          {
+            id: "completed-with-own-completion",
+            name: "Completed Freshness",
+            status: "completed",
+            completed_at: "2026-03-21T11:45:00Z",
+            files_changed: 2,
+            lines_added: 8,
+            lines_removed: 1,
+          },
+        ],
+        "2026-03-21T11:55:00Z",
+      ),
+    );
+
+    const relativeTimes = Array.from(
+      card.shadowRoot?.querySelectorAll(".relative-time") ?? [],
+    ).map((element) => element.textContent?.trim());
+
+    expect(relativeTimes).toContain("5m ago");
+    expect(relativeTimes).toContain("15m ago");
+    expect(relativeTimes).not.toContain("20d ago");
+  });
+
+  it("prefers backend relative_time when provided", async () => {
+    const card = await renderCard(
+      createHass([
+        {
+          id: "completed-with-relative-time",
+          name: "Completed Relative Time",
+          status: "completed",
+          completed_at: "2026-03-21T11:45:00Z",
+          relative_time: "15分钟前",
+          files_changed: 2,
+          lines_added: 8,
+          lines_removed: 1,
+        },
+      ]),
+    );
+
+    const relativeTimes = Array.from(
+      card.shadowRoot?.querySelectorAll(".relative-time") ?? [],
+    ).map((element) => element.textContent?.trim());
+
+    expect(relativeTimes).toContain("15分钟前");
+    expect(relativeTimes).not.toContain("15m ago");
+  });
+
+  it("parses workspaces when the backend provides a JSON string", async () => {
+    const card = await renderCard(
+      createHass(
+        JSON.stringify([
+          {
+            id: "json-workspace-1",
+            name: "JSON Workspace",
+            status: "completed",
+            relative_time: "1分钟前",
+            files_changed: 4,
+            lines_added: 10,
+            lines_removed: 2,
+            needs_attention: false,
+            has_pending_approval: false,
+          },
+        ]),
+      ),
+    );
+
+    const text = normalizeText(card.shadowRoot?.textContent);
+
+    expect(text).toContain("JSON Workspace");
+    expect(text).toContain("1分钟前");
+    expect(text).toContain("空闲");
+  });
+
+  it("renders only the attention section when all tasks need attention", async () => {
+    const card = await renderCard(
+      createHass([
+        {
+          id: "attention-only",
+          name: "Attention Only",
+          status: "completed",
+          has_unseen_turns: true,
+          files_changed: 2,
+          lines_added: 50,
+          lines_removed: 10,
+        },
+      ]),
+    );
+
+    const text = normalizeText(card.shadowRoot?.textContent);
+
+    expect(text).toContain("需要注意");
+    expect(text).not.toContain("运行中");
+    expect(text).not.toContain("空闲");
+  });
+
+  it("hides empty sections and shows the empty state when there are no tasks", async () => {
+    const cardWithRunningOnly = await renderCard(
+      createHass([
+        {
+          id: "running-only",
+          name: "Solo Running",
+          status: "running",
+          files_changed: 1,
+          lines_added: 1,
+          lines_removed: 0,
+        },
+      ]),
+    );
+
+    expect(cardWithRunningOnly.shadowRoot?.textContent).not.toContain(
+      "需要注意",
+    );
+    expect(cardWithRunningOnly.shadowRoot?.textContent).toContain("运行中");
+    expect(cardWithRunningOnly.shadowRoot?.textContent).not.toContain("空闲");
+
+    document.body.innerHTML = "";
+
+    const emptyCard = await renderCard(createHass([]));
+    expect(emptyCard.shadowRoot?.textContent).toContain("当前没有任务");
+    expect(emptyCard.shadowRoot?.querySelectorAll(".section")).toHaveLength(0);
+  });
+
+  it("renders only the idle section when tasks are completed", async () => {
+    const card = await renderCard(
+      createHass([
+        {
+          id: "idle-only",
+          name: "Idle Only",
+          status: "completed",
+          completed_at: "2026-03-20T12:00:00Z",
+          files_changed: 1,
+          lines_added: 3,
+          lines_removed: 1,
+        },
+      ]),
+    );
+
+    const text = normalizeText(card.shadowRoot?.textContent);
+
+    expect(text).not.toContain("需要注意");
+    expect(text).not.toContain("运行中");
+    expect(text).toContain("空闲");
+  });
+
+  it("falls back unknown backend statuses into the idle section with neutral styling", async () => {
+    const card = await renderCard(
+      createHass([
+        {
+          id: "paused-only",
+          name: "Paused Workspace",
+          status: "paused",
+          files_changed: 4,
+          lines_added: 9,
+          lines_removed: 2,
+        },
+      ]),
+    );
+
+    const text = normalizeText(card.shadowRoot?.textContent);
+    const taskCard = card.shadowRoot?.querySelector(".task-card");
+
+    expect(text).not.toContain("需要注意");
+    expect(text).not.toContain("运行中");
+    expect(text).toContain("空闲");
+    expect(text).toContain("Paused Workspace");
+    expect(taskCard?.classList.contains("is-idle")).toBe(true);
+  });
+
+  it("shows running workspaces under running even when they have unseen turns", async () => {
+    const card = await renderCard(
+      createHass([
+        {
+          id: "running-unseen",
+          name: "Running Unseen",
+          status: "running",
+          has_unseen_turns: true,
+          files_changed: 4,
+          lines_added: 9,
+          lines_removed: 2,
+        },
+      ]),
+    );
+
+    const text = normalizeText(card.shadowRoot?.textContent);
+
+    expect(text).not.toContain("需要注意");
+    expect(text).toContain("运行中");
+    expect(text).not.toContain("空闲");
+    expect(text).toContain("Running Unseen");
+  });
+
+  it("toggles section collapse when the header is clicked", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const firstSectionHeader = shadowRoot?.querySelector(
+      ".section-toggle",
+    ) as HTMLButtonElement | null;
+
+    expect(
+      shadowRoot?.querySelectorAll(".section-body .task-card").length,
+    ).toBeGreaterThan(0);
+
+    firstSectionHeader?.click();
+    await card.updateComplete;
+
+    expect(shadowRoot?.querySelector(".section")?.hasAttribute("collapsed")).toBe(
+      true,
+    );
+    expect(
+      shadowRoot?.querySelectorAll(".section-body .task-card").length,
+    ).toBeLessThan(4);
+
+    firstSectionHeader?.click();
+    await card.updateComplete;
+
+    expect(shadowRoot?.querySelector(".section")?.hasAttribute("collapsed")).toBe(
+      false,
+    );
+  });
+
+  it("declares truncation rules for long workspace names", () => {
+    const cssText = cardStyles.cssText;
+
+    expect(cssText).toContain(".workspace-name");
+    expect(cssText).toContain("overflow: hidden");
+    expect(cssText).toContain("text-overflow: ellipsis");
+    expect(cssText).toContain("white-space: nowrap");
+  });
+
+  it("renders large diff counts without dropping the metadata summary", async () => {
+    const card = await renderCard(
+      createHass([
+        {
+          id: "diff-heavy",
+          name: "Large Diff Workspace",
+          status: "completed",
+          completed_at: "2026-03-19T12:00:00Z",
+          files_changed: 999,
+          lines_added: 12345,
+          lines_removed: 6789,
+        },
+      ]),
+    );
+
+    const text = normalizeText(card.shadowRoot?.textContent);
+
+    expect(text).toContain("📄 999 +12345 -6789");
+  });
+});
