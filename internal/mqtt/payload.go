@@ -41,19 +41,20 @@ type haDevice struct {
 // WorkspaceItem 单个工作区的属性字段
 // 作为 attributes payload 中 workspaces 数组的元素
 type WorkspaceItem struct {
-	ID                 string `json:"id"`                   // 工作区 ID
-	Name               string `json:"name"`                 // 显示名称
-	Status             string `json:"status"`               // 状态：running/completed/failed
-	HasUnseenTurns     bool   `json:"has_unseen_turns"`     // 是否有未读消息
-	HasPendingApproval bool   `json:"has_pending_approval"` // 是否有待审批
-	FilesChanged       *int   `json:"files_changed,omitempty"` // 变更文件数（可选）
-	LinesAdded         *int   `json:"lines_added,omitempty"`   // 新增行数（可选）
-	LinesRemoved       *int   `json:"lines_removed,omitempty"` // 删除行数（可选）
-	CompletedAt        string `json:"completed_at,omitempty"`  // 完成时间（可选）
-	RelativeTime       string `json:"relative_time"`           // 相对时间（如：5分钟前，进行中）
-	PrStatus           string `json:"pr_status,omitempty"`     // PR 状态（可选）
-	PrURL              string `json:"pr_url,omitempty"`        // PR 链接（可选）
-	NeedsAttention     bool   `json:"needs_attention"`         // 是否需要关注
+	ID                  string `json:"id"`                       // 工作区 ID
+	Name                string `json:"name"`                     // 显示名称
+	Status              string `json:"status"`                   // 状态：running/completed/failed
+	HasUnseenTurns      bool   `json:"has_unseen_turns"`         // 是否有未读消息
+	HasPendingApproval  bool   `json:"has_pending_approval"`     // 是否有待审批
+	HasRunningDevServer bool   `json:"has_running_dev_server"`   // 是否有正在运行的 dev server
+	FilesChanged        *int   `json:"files_changed,omitempty"`  // 变更文件数（可选）
+	LinesAdded          *int   `json:"lines_added,omitempty"`    // 新增行数（可选）
+	LinesRemoved        *int   `json:"lines_removed,omitempty"`  // 删除行数（可选）
+	CompletedAt         string `json:"completed_at,omitempty"`   // 完成时间（可选）
+	RelativeTime        string `json:"relative_time"`            // 相对时间（如：5分钟前，进行中）
+	PrStatus            string `json:"pr_status,omitempty"`      // PR 状态（可选）
+	PrURL               string `json:"pr_url,omitempty"`         // PR 链接（可选）
+	NeedsAttention      bool   `json:"needs_attention"`          // 是否需要关注
 }
 
 // AttributesPayload 发送到 attributes Topic 的完整 JSON 结构
@@ -119,19 +120,20 @@ func BuildAttributesJSON(workspaces []api.EnrichedWorkspace) ([]byte, error) {
 		relativeTime := calculateRelativeTime(now, w.Summary.LatestProcessCompletedAt, w.StatusText())
 
 		items = append(items, WorkspaceItem{
-			ID:                 w.ID,
-			Name:               w.DisplayName,
-			Status:             w.StatusText(),
-			HasUnseenTurns:     w.Summary.HasUnseenTurns,
-			HasPendingApproval: w.Summary.HasPendingApproval,
-			FilesChanged:       w.Summary.FilesChanged,
-			LinesAdded:         w.Summary.LinesAdded,
-			LinesRemoved:       w.Summary.LinesRemoved,
-			CompletedAt:        completedAt,
-			RelativeTime:       relativeTime,
-			PrStatus:           prStatus,
-			PrURL:              prURL,
-			NeedsAttention:     w.NeedsAttention(),
+			ID:                  w.ID,
+			Name:                w.DisplayName,
+			Status:              w.StatusText(),
+			HasUnseenTurns:      w.Summary.HasUnseenTurns,
+			HasPendingApproval:  w.Summary.HasPendingApproval,
+			HasRunningDevServer: w.Summary.HasRunningDevServer,
+			FilesChanged:        w.Summary.FilesChanged,
+			LinesAdded:          w.Summary.LinesAdded,
+			LinesRemoved:        w.Summary.LinesRemoved,
+			CompletedAt:         completedAt,
+			RelativeTime:        relativeTime,
+			PrStatus:            prStatus,
+			PrURL:               prURL,
+			NeedsAttention:      w.NeedsAttention(),
 		})
 	}
 
