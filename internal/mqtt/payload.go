@@ -50,6 +50,7 @@ type WorkspaceItem struct {
 	LinesAdded         *int   `json:"lines_added,omitempty"`   // 新增行数（可选）
 	LinesRemoved       *int   `json:"lines_removed,omitempty"` // 删除行数（可选）
 	CompletedAt        string `json:"completed_at,omitempty"`  // 完成时间（可选）
+	RelativeTime       string `json:"relative_time"`           // 相对时间（如：5分钟前，进行中）
 	PrStatus           string `json:"pr_status,omitempty"`     // PR 状态（可选）
 	PrURL              string `json:"pr_url,omitempty"`        // PR 链接（可选）
 	NeedsAttention     bool   `json:"needs_attention"`         // 是否需要关注
@@ -93,6 +94,7 @@ func BuildStateValue(workspaces []api.EnrichedWorkspace) string {
 func BuildAttributesJSON(workspaces []api.EnrichedWorkspace) ([]byte, error) {
 	attentionCount := 0
 	items := make([]WorkspaceItem, 0, len(workspaces))
+	now := time.Now()
 
 	for _, w := range workspaces {
 		if w.NeedsAttention() {
@@ -113,6 +115,9 @@ func BuildAttributesJSON(workspaces []api.EnrichedWorkspace) ([]byte, error) {
 			prURL = *w.Summary.PrURL
 		}
 
+		// 计算相对时间
+		relativeTime := calculateRelativeTime(now, w.Summary.LatestProcessCompletedAt, w.StatusText())
+
 		items = append(items, WorkspaceItem{
 			ID:                 w.ID,
 			Name:               w.DisplayName,
@@ -123,6 +128,7 @@ func BuildAttributesJSON(workspaces []api.EnrichedWorkspace) ([]byte, error) {
 			LinesAdded:         w.Summary.LinesAdded,
 			LinesRemoved:       w.Summary.LinesRemoved,
 			CompletedAt:        completedAt,
+			RelativeTime:       relativeTime,
 			PrStatus:           prStatus,
 			PrURL:              prURL,
 			NeedsAttention:     w.NeedsAttention(),
@@ -132,8 +138,64 @@ func BuildAttributesJSON(workspaces []api.EnrichedWorkspace) ([]byte, error) {
 	attrs := AttributesPayload{
 		Count:          len(workspaces),
 		AttentionCount: attentionCount,
-		UpdatedAt:      time.Now().UTC().Format(time.RFC3339),
+		UpdatedAt:      now.UTC().Format(time.RFC3339),
 		Workspaces:     items,
 	}
 	return json.Marshal(attrs)
+}
+
+// calculateRelativeTime 计算相对时间（如：5分钟前，进行中）
+// now: 当前时间
+// completedAt: 完成时间（nil 表示进行中）
+// status: 任务状态
+func calculateRelativeTime(now time.Time, completedAt *string, status string) string {
+	// 如果任务还在运行，显示状态
+	if status == "running" {
+		return "进行中"
+	}
+	if status == "failed" {
+		return "失败"
+	}
+	if status == "killed" {
+		return "已终止"
+	}
+
+	// 如果没有完成时间，返回未知
+	if completedAt == nil || *completedAt == "" {
+		return "未知"
+	}
+
+	// 解析完成时间
+	t, err := time.Parse(time.RFC3339Nano, *completedAt)
+	if err != nil {
+		// 尝试解析不带纳秒的格式
+		t, err = time.Parse(time.RFC3339, *completedAt)
+		if err != nil {
+			return "未知"
+		}
+	}
+
+	// 计算时间差
+	diff := now.Sub(t)
+
+	// 小于1分钟
+	if diff < time.Minute {
+		return "刚刚"
+	}
+
+	// 小于1小时
+	if diff < time.Hour {
+		minutes := int(diff.Minutes())
+		return fmt.Sprintf("%d分钟前", minutes)
+	}
+
+	// 小于24小时
+	if diff < 24*time.Hour {
+		hours := int(diff.Hours())
+		return fmt.Sprintf("%d小时前", hours)
+	}
+
+	// 大于24小时
+	days := int(diff.Hours() / 24)
+	return fmt.Sprintf("%d天前", days)
 }
