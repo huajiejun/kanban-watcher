@@ -11,7 +11,9 @@ export function groupWorkspaces(
 ): WorkspaceSections {
   return workspaces.reduce<WorkspaceSections>(
     (sections, workspace) => {
-      if (workspace.status === "running") {
+      if (workspace.has_pending_approval) {
+        sections.attention.push(workspace);
+      } else if (workspace.status === "running") {
         sections.running.push(workspace);
       } else if (
         workspace.status === "completed" &&

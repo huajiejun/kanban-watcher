@@ -115,13 +115,11 @@ export class KanbanWatcherCard extends LitElement {
         <div class="workspace-name">${workspace.name}</div>
         <div class="task-meta">
           <span class="meta-status">
-            <span class="leading-icon">${statusMeta.leadingIcon}</span>
-            ${statusMeta.unseenIcon
-              ? html`<span class="unseen-icon">${statusMeta.unseenIcon}</span>`
-              : nothing}
-            ${statusMeta.approvalIcon
-              ? html`<span class="approval-icon">${statusMeta.approvalIcon}</span>`
-              : nothing}
+            ${statusMeta.icons.map(
+              (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
+                >${icon.symbol}</span
+              >`,
+            )}
           </span>
           <span class="relative-time">${relativeTime}</span>
           <span class="meta-files"

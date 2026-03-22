@@ -77,11 +77,45 @@ describe("groupWorkspaces", () => {
     });
   });
 
+  it("routes pending approval workspaces into attention even when they are running", () => {
+    const workspaces: KanbanWorkspace[] = [
+      {
+        id: "running-pending-approval-1",
+        name: "Running Pending Approval",
+        status: "running",
+        has_pending_approval: true,
+      },
+    ];
+
+    expect(groupWorkspaces(workspaces)).toEqual({
+      attention: [workspaces[0]],
+      running: [],
+      idle: [],
+    });
+  });
+
   it("keeps empty sections as empty arrays", () => {
     expect(groupWorkspaces([])).toEqual({
       attention: [],
       running: [],
       idle: [],
+    });
+  });
+
+  it("keeps killed workspaces in idle for abnormal but non-attention display", () => {
+    const workspaces: KanbanWorkspace[] = [
+      {
+        id: "killed-1",
+        name: "Killed Workspace",
+        status: "completed",
+        latest_process_status: "killed",
+      },
+    ];
+
+    expect(groupWorkspaces(workspaces)).toEqual({
+      attention: [],
+      running: [],
+      idle: [workspaces[0]],
     });
   });
 });

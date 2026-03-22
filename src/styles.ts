@@ -129,19 +129,29 @@ export const cardStyles = css`
     text-align: left;
   }
 
-  .leading-icon {
+  .status-icon {
     font-weight: 700;
+    line-height: 1;
   }
 
-  .task-card.is-attention .leading-icon,
-  .task-card.is-attention .unseen-icon,
-  .task-card.is-attention .approval-icon {
-    color: #f59e0b;
+  .tone-brand {
+    color: var(--primary-color, #f59e0b);
   }
 
-  .task-card.is-running .leading-icon,
-  .task-card.is-running .unseen-icon {
-    color: #10b981;
+  .tone-error {
+    color: var(--error-color, #f87171);
+  }
+
+  .tone-success {
+    color: var(--success-color, #34d399);
+  }
+
+  .tone-merged {
+    color: #a78bfa;
+  }
+
+  .tone-muted {
+    color: var(--secondary-text-color, #94a3b8);
   }
 
   .file-count {

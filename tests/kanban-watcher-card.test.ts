@@ -29,6 +29,7 @@ function createWorkspaces(): KanbanWorkspace[] {
       name: "Needs Attention",
       status: "completed",
       has_unseen_turns: true,
+      has_running_dev_server: true,
       files_changed: 3,
       lines_added: 12,
       lines_removed: 4,
@@ -88,35 +89,48 @@ function normalizeText(value?: string | null) {
 describe("getStatusMeta", () => {
   it("returns display metadata for attention, running, and idle states", () => {
     expect(getStatusMeta({ status: "completed", has_unseen_turns: true })).toEqual({
-      leadingIcon: "●",
-      unseenIcon: "●",
+      icons: [{ symbol: "●", kind: "unseen", tone: "brand" }],
       accentClass: "is-attention",
     });
 
-    expect(getStatusMeta({ status: "running", has_unseen_turns: true })).toEqual({
-      leadingIcon: "▶",
-      unseenIcon: "●",
+    expect(
+      getStatusMeta({
+        status: "running",
+        has_unseen_turns: true,
+        has_running_dev_server: true,
+      }),
+    ).toEqual({
+      icons: [
+        { symbol: "🖥️", kind: "dev-server", tone: "brand" },
+        { symbol: "⋯", kind: "running", tone: "brand" },
+      ],
       accentClass: "is-running",
     });
 
     expect(getStatusMeta({ status: "running" })).toEqual({
-      leadingIcon: "▶",
+      icons: [{ symbol: "⋯", kind: "running", tone: "brand" }],
       accentClass: "is-running",
     });
 
+    expect(
+      getStatusMeta({ status: "completed", has_running_dev_server: true }),
+    ).toEqual({
+      icons: [{ symbol: "🖥️", kind: "dev-server", tone: "brand" }],
+      accentClass: "is-idle",
+    });
+
     expect(getStatusMeta({ status: "completed", has_pending_approval: true })).toEqual({
-      leadingIcon: "•",
-      approvalIcon: "✋",
+      icons: [{ symbol: "✋", kind: "approval", tone: "brand" }],
       accentClass: "is-attention",
     });
 
     expect(getStatusMeta({ status: "completed" })).toEqual({
-      leadingIcon: "•",
+      icons: [{ symbol: "•", kind: "idle", tone: "muted" }],
       accentClass: "is-idle",
     });
 
     expect(getStatusMeta({ status: "paused" })).toEqual({
-      leadingIcon: "•",
+      icons: [{ symbol: "•", kind: "idle", tone: "muted" }],
       accentClass: "is-idle",
     });
   });
@@ -129,9 +143,66 @@ describe("getStatusMeta", () => {
         has_pending_approval: true,
       }),
     ).toEqual({
-      leadingIcon: "●",
-      unseenIcon: "●",
-      approvalIcon: "✋",
+      icons: [
+        { symbol: "✋", kind: "approval", tone: "brand" },
+        { symbol: "●", kind: "unseen", tone: "brand" },
+      ],
+      accentClass: "is-attention",
+    });
+  });
+
+  it("does not show an extra unread dot for running workspaces", () => {
+    expect(
+      getStatusMeta({
+        status: "running",
+        has_unseen_turns: true,
+      }),
+    ).toEqual({
+      icons: [{ symbol: "⋯", kind: "running", tone: "brand" }],
+      accentClass: "is-running",
+    });
+  });
+
+  it("keeps pending approval icon on running workspaces that will be grouped into attention", () => {
+    expect(
+      getStatusMeta({
+        status: "running",
+        has_pending_approval: true,
+      }),
+    ).toEqual({
+      icons: [{ symbol: "✋", kind: "approval", tone: "brand" }],
+      accentClass: "is-attention",
+    });
+  });
+
+  it("shows a red triangle for killed or failed non-running workspaces", () => {
+    expect(
+      getStatusMeta({
+        status: "completed",
+        latest_process_status: "killed",
+      }),
+    ).toEqual({
+      icons: [{ symbol: "▲", kind: "process-error", tone: "error" }],
+      accentClass: "is-idle",
+    });
+  });
+
+  it("orders dev server, process state, unread, pr, and pin icons by priority", () => {
+    expect(
+      getStatusMeta({
+        status: "completed",
+        has_unseen_turns: true,
+        has_running_dev_server: true,
+        pr_status: "open",
+        is_pinned: true,
+      }),
+    ).toEqual({
+      icons: [
+        { symbol: "🖥️", kind: "dev-server", tone: "brand" },
+        { symbol: "●", kind: "unseen", tone: "brand" },
+        { symbol: "⎇", kind: "pr-open", tone: "success" },
+        { symbol: "📌", kind: "pin", tone: "brand" },
+      ],
       accentClass: "is-attention",
     });
   });
@@ -187,6 +258,7 @@ describe("kanban-watcher-card", () => {
     expect(content).toContain("5m ago");
     expect(content).toContain("15m ago");
     expect(content).toContain("📄 3 +12 -4");
+    expect(content).toContain("🖥️");
 
     const sectionTitles = Array.from(
       shadowRoot?.querySelectorAll(".section-title") ?? [],
@@ -307,6 +379,30 @@ describe("kanban-watcher-card", () => {
     expect(text).not.toContain("空闲");
   });
 
+  it("renders running tasks with pending approval under attention", async () => {
+    const card = await renderCard(
+      createHass([
+        {
+          id: "running-approval",
+          name: "Running Approval",
+          status: "running",
+          has_pending_approval: true,
+          files_changed: 2,
+          lines_added: 7,
+          lines_removed: 1,
+        },
+      ]),
+    );
+
+    const text = normalizeText(card.shadowRoot?.textContent);
+
+    expect(text).toContain("需要注意");
+    expect(text).not.toContain("运行中");
+    expect(text).not.toContain("空闲");
+    expect(text).toContain("Running Approval");
+    expect(text).toContain("✋");
+  });
+
   it("hides empty sections and shows the empty state when there are no tasks", async () => {
     const cardWithRunningOnly = await renderCard(
       createHass([
@@ -401,6 +497,28 @@ describe("kanban-watcher-card", () => {
     expect(text).toContain("运行中");
     expect(text).not.toContain("空闲");
     expect(text).toContain("Running Unseen");
+  });
+
+  it("renders only one attention dot for completed unseen tasks", async () => {
+    const card = await renderCard(
+      createHass([
+        {
+          id: "attention-dot",
+          name: "Single Attention Dot",
+          status: "completed",
+          has_unseen_turns: true,
+          files_changed: 1,
+          lines_added: 2,
+          lines_removed: 0,
+        },
+      ]),
+    );
+
+    const icons = Array.from(card.shadowRoot?.querySelectorAll(".meta-status span") ?? []).map(
+      (element) => element.textContent?.trim(),
+    );
+
+    expect(icons).toEqual(["●"]);
   });
 
   it("toggles section collapse when the header is clicked", async () => {
