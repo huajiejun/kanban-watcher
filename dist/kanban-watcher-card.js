@@ -249,12 +249,12 @@ let y = class extends HTMLElement {
 y.elementStyles = [], y.shadowRootOptions = { mode: "open" }, y[w("elementProperties")] = /* @__PURE__ */ new Map(), y[w("finalized")] = /* @__PURE__ */ new Map(), $e?.({ ReactiveElement: y }), (R.reactiveElementVersions ??= []).push("2.1.2");
 const I = globalThis, J = (r) => r, D = I.trustedTypes, Z = D ? D.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, ie = "$lit$", m = `lit$${Math.random().toFixed(9).slice(2)}$`, re = "?" + m, be = `<${re}>`, v = document, k = () => v.createComment(""), E = (r) => r === null || typeof r != "object" && typeof r != "function", L = Array.isArray, ve = (r) => L(r) || typeof r?.[Symbol.iterator] == "function", T = `[ 	
 \f\r]`, A = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, G = /-->/g, Q = />/g, $ = RegExp(`>|${T}(?:([^\\s"'>=/]+)(${T}*=${T}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), X = /'/g, Y = /"/g, ne = /^(?:script|style|textarea|title)$/i, ye = (r) => (e, ...t) => ({ _$litType$: r, strings: e, values: t }), f = ye(1), _ = /* @__PURE__ */ Symbol.for("lit-noChange"), c = /* @__PURE__ */ Symbol.for("lit-nothing"), ee = /* @__PURE__ */ new WeakMap(), b = v.createTreeWalker(v, 129);
+\f\r"'\`<>=]|("|')|))|$)`, "g"), X = /'/g, Y = /"/g, ne = /^(?:script|style|textarea|title)$/i, ye = (r) => (e, ...t) => ({ _$litType$: r, strings: e, values: t }), f = ye(1), x = /* @__PURE__ */ Symbol.for("lit-noChange"), c = /* @__PURE__ */ Symbol.for("lit-nothing"), ee = /* @__PURE__ */ new WeakMap(), b = v.createTreeWalker(v, 129);
 function oe(r, e) {
   if (!L(r) || !r.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return Z !== void 0 ? Z.createHTML(e) : e;
 }
-const _e = (r, e) => {
+const xe = (r, e) => {
   const t = r.length - 1, s = [];
   let i, n = e === 2 ? "<svg>" : e === 3 ? "<math>" : "", o = A;
   for (let l = 0; l < t; l++) {
@@ -271,7 +271,7 @@ class C {
     let i;
     this.parts = [];
     let n = 0, o = 0;
-    const l = e.length - 1, a = this.parts, [h, p] = _e(e, t);
+    const l = e.length - 1, a = this.parts, [h, p] = xe(e, t);
     if (this.el = C.createElement(h, s), b.currentNode = this.el.content, t === 2 || t === 3) {
       const d = this.el.content.firstChild;
       d.replaceWith(...d.childNodes);
@@ -303,13 +303,13 @@ class C {
     return s.innerHTML = e, s;
   }
 }
-function x(r, e, t = r, s) {
-  if (e === _) return e;
+function _(r, e, t = r, s) {
+  if (e === x) return e;
   let i = s !== void 0 ? t._$Co?.[s] : t._$Cl;
   const n = E(e) ? void 0 : e._$litDirective$;
-  return i?.constructor !== n && (i?._$AO?.(!1), n === void 0 ? i = void 0 : (i = new n(r), i._$AT(r, t, s)), s !== void 0 ? (t._$Co ??= [])[s] = i : t._$Cl = i), i !== void 0 && (e = x(r, i._$AS(r, e.values), i, s)), e;
+  return i?.constructor !== n && (i?._$AO?.(!1), n === void 0 ? i = void 0 : (i = new n(r), i._$AT(r, t, s)), s !== void 0 ? (t._$Co ??= [])[s] = i : t._$Cl = i), i !== void 0 && (e = _(r, i._$AS(r, e.values), i, s)), e;
 }
-class xe {
+class _e {
   constructor(e, t) {
     this._$AV = [], this._$AN = void 0, this._$AD = e, this._$AM = t;
   }
@@ -356,7 +356,7 @@ class P {
     return this._$AB;
   }
   _$AI(e, t = this) {
-    e = x(this, e, t), E(e) ? e === c || e == null || e === "" ? (this._$AH !== c && this._$AR(), this._$AH = c) : e !== this._$AH && e !== _ && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : ve(e) ? this.k(e) : this._(e);
+    e = _(this, e, t), E(e) ? e === c || e == null || e === "" ? (this._$AH !== c && this._$AR(), this._$AH = c) : e !== this._$AH && e !== x && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : ve(e) ? this.k(e) : this._(e);
   }
   O(e) {
     return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -371,7 +371,7 @@ class P {
     const { values: t, _$litType$: s } = e, i = typeof s == "number" ? this._$AC(e) : (s.el === void 0 && (s.el = C.createElement(oe(s.h, s.h[0]), this.options)), s);
     if (this._$AH?._$AD === i) this._$AH.p(t);
     else {
-      const n = new xe(i, this), o = n.u(this.options);
+      const n = new _e(i, this), o = n.u(this.options);
       n.p(t), this.T(o), this._$AH = n;
     }
   }
@@ -409,11 +409,11 @@ class N {
   _$AI(e, t = this, s, i) {
     const n = this.strings;
     let o = !1;
-    if (n === void 0) e = x(this, e, t, 0), o = !E(e) || e !== this._$AH && e !== _, o && (this._$AH = e);
+    if (n === void 0) e = _(this, e, t, 0), o = !E(e) || e !== this._$AH && e !== x, o && (this._$AH = e);
     else {
       const l = e;
       let a, h;
-      for (e = n[0], a = 0; a < n.length - 1; a++) h = x(this, l[s + a], t, a), h === _ && (h = this._$AH[a]), o ||= !E(h) || h !== this._$AH[a], h === c ? e = c : e !== c && (e += (h ?? "") + n[a + 1]), this._$AH[a] = h;
+      for (e = n[0], a = 0; a < n.length - 1; a++) h = _(this, l[s + a], t, a), h === x && (h = this._$AH[a]), o ||= !E(h) || h !== this._$AH[a], h === c ? e = c : e !== c && (e += (h ?? "") + n[a + 1]), this._$AH[a] = h;
     }
     o && !i && this.j(e);
   }
@@ -442,7 +442,7 @@ class Se extends N {
     super(e, t, s, i, n), this.type = 5;
   }
   _$AI(e, t = this) {
-    if ((e = x(this, e, t, 0) ?? c) === _) return;
+    if ((e = _(this, e, t, 0) ?? c) === x) return;
     const s = this._$AH, i = e === c && s !== c || e.capture !== s.capture || e.once !== s.once || e.passive !== s.passive, n = e !== c && (s === c || i);
     i && this.element.removeEventListener(this.name, this, s), n && this.element.addEventListener(this.name, this, e), this._$AH = e;
   }
@@ -458,7 +458,7 @@ class ke {
     return this._$AM._$AU;
   }
   _$AI(e) {
-    x(this, e);
+    _(this, e);
   }
 }
 const Ee = I.litHtmlPolyfillSupport;
@@ -492,7 +492,7 @@ class S extends y {
     super.disconnectedCallback(), this._$Do?.setConnected(!1);
   }
   render() {
-    return _;
+    return x;
   }
 }
 S._$litElement$ = !0, S.finalized = !0, B.litElementHydrateSupport?.({ LitElement: S });
@@ -1148,19 +1148,31 @@ const We = le`
         { sender: "user", text: "请先确认这个工作区的下一步安排。" },
         { sender: "ai", text: "我先整理最新状态，稍后给你结论。" },
         { sender: "user", text: "如果需要审批，直接告诉我卡在哪一步。" },
-        { sender: "ai", text: "目前还差最后一条确认消息，我会继续跟进。" }
+        { sender: "ai", text: "目前还差最后一条确认消息，我会继续跟进。" },
+        { sender: "user", text: "如果下午还没有结果，就先给我一个阻塞说明。" },
+        { sender: "ai", text: "可以，我会先把阻塞点、影响范围和建议处理顺序写清楚。" },
+        { sender: "user", text: "顺便看下是不是有人还没回复你。" },
+        { sender: "ai", text: "我已经补发了一次提醒，接下来等对方确认后再继续推进。" }
       ],
       "running-1": [
         { sender: "user", text: "运行中的任务目前有新的输出吗？" },
         { sender: "ai", text: "有，刚刚补充了一段新的处理结果，还在继续执行。" },
         { sender: "user", text: "先盯住结果，如果异常就立刻提醒我。" },
-        { sender: "ai", text: "收到，我会在异常出现时第一时间同步。" }
+        { sender: "ai", text: "收到，我会在异常出现时第一时间同步。" },
+        { sender: "user", text: "日志里面如果出现重复重试，也一起带上。" },
+        { sender: "ai", text: "好的，我会继续观察日志，并在下一轮输出后同步你。" },
+        { sender: "user", text: "如果今晚之前能跑完，就顺手帮我总结一次。" },
+        { sender: "ai", text: "明白，结束后我会整理一版简短总结放在最后一条消息里。" }
       ],
       "idle-1": [
         { sender: "user", text: "这个任务已经结束了吗？" },
         { sender: "ai", text: "已经结束，当前没有新的待处理动作。" },
         { sender: "user", text: "那先保留记录，后续有变更再通知。" },
-        { sender: "ai", text: "好的，我会保留上下文并等待下一步指令。" }
+        { sender: "ai", text: "好的，我会保留上下文并等待下一步指令。" },
+        { sender: "user", text: "之前确认过的问题点也一起保留下来。" },
+        { sender: "ai", text: "已记录，后续如果重新打开这个任务，我会先把这些点带出来。" },
+        { sender: "user", text: "那就先这样，今天不用再继续追了。" },
+        { sender: "ai", text: "收到，当前先保持静默，等待新的输入。" }
       ]
     }[e.id] ?? [
       { sender: "user", text: `请同步 ${e.name} 的最新情况。` },

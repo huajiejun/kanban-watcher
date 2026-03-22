@@ -595,6 +595,8 @@ describe("kanban-watcher-card", () => {
     expect(text).toContain("对话消息");
     expect(text).toContain("请先确认这个工作区的下一步安排。");
     expect(text).toContain("我先整理最新状态，稍后给你结论。");
+    expect(text).toContain("如果下午还没有结果，就先给我一个阻塞说明。");
+    expect(shadowRoot?.querySelectorAll(".message-row").length).toBeGreaterThan(6);
     expect(text).not.toContain("查看兑换内容");
     expect(shadowRoot?.querySelector(".dialog-summary")).toBeNull();
     expect(shadowRoot?.querySelector(".message-list")).not.toBeNull();
@@ -662,6 +664,9 @@ describe("kanban-watcher-card", () => {
     expect(
       normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
     ).toContain("运行中的任务目前有新的输出吗？");
+    expect(
+      normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
+    ).toContain("我会继续观察日志，并在下一轮输出后同步你。");
 
     expect(
       (shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null)?.value,
