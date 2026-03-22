@@ -32,6 +32,8 @@ type ConversationSyncConfig struct {
 	BaseDir             string `yaml:"base_dir"`               // Vibe Kanban 日志根目录
 	RecentMessageLimit  int    `yaml:"recent_message_limit"`   // 最近主消息条数
 	RecentToolCallLimit int    `yaml:"recent_tool_call_limit"` // 最近工具调用条数
+	SessionPreservedDays int   `yaml:"session_preserved_days"` // 保留最近 N 天的 session（过期会被清理）
+	SessionCleanupHours int    `yaml:"session_cleanup_hours"`  // 清理间隔（小时），默认 1
 }
 
 // WeChatConfig 企业微信配置（支持应用API + Webhook降级）
@@ -157,6 +159,12 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.ConversationSync.RecentToolCallLimit <= 0 {
 		cfg.ConversationSync.RecentToolCallLimit = 5
+	}
+	if cfg.ConversationSync.SessionPreservedDays <= 0 {
+		cfg.ConversationSync.SessionPreservedDays = 7 // 默认保留 7 天
+	}
+	if cfg.ConversationSync.SessionCleanupHours <= 0 {
+		cfg.ConversationSync.SessionCleanupHours = 1 // 默认每小时清理一次
 	}
 	if cfg.ConversationSync.Enabled == nil {
 		cfg.ConversationSync.Enabled = boolPtr(true)

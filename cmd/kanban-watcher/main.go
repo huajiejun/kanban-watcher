@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/config"
 	mqttclient "github.com/huajiejun/kanban-watcher/internal/mqtt"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
+	"github.com/huajiejun/kanban-watcher/internal/sessioncleaner"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 	"github.com/huajiejun/kanban-watcher/internal/state"
 	"github.com/huajiejun/kanban-watcher/internal/tray"
@@ -40,6 +42,28 @@ func runEventLoop(
 	tracker *wechat.Tracker,
 	trayApp *tray.App,
 ) {
+	// 创建 session 清理器
+	var cleaner *sessioncleaner.Cleaner
+	var cleanupTicker *time.Ticker
+	var cleanupCh <-chan time.Time
+
+	if cfg.ConversationSync.IsEnabled() && cfg.ConversationSync.BaseDir != "" {
+		cleaner = sessioncleaner.NewCleaner(
+			cfg.ConversationSync.BaseDir,
+			cfg.ConversationSync.SessionPreservedDays,
+		)
+		cleanupInterval := time.Duration(cfg.ConversationSync.SessionCleanupHours) * time.Hour
+		if cleanupInterval <= 0 {
+			cleanupInterval = time.Hour
+		}
+		cleanupTicker = time.NewTicker(cleanupInterval)
+		cleanupCh = cleanupTicker.C
+		defer cleanupTicker.Stop()
+	}
+
+	// 缓存最新的工作区列表，供清理器使用
+	var latestWorkspaces []api.EnrichedWorkspace
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -49,7 +73,22 @@ func runEventLoop(
 				fmt.Fprintf(os.Stderr, "轮询错误: %v\n", result.Err)
 				continue
 			}
+			latestWorkspaces = result.Workspaces
 			handlePollResult(ctx, result, mqttPub, sessionExtractor, cfg, wechatNotifier, tracker, trayApp)
+		case <-cleanupCh:
+			// 每小时清理一次过期 session
+			if cleaner != nil && len(latestWorkspaces) > 0 {
+				cleanResult := cleaner.Cleanup(latestWorkspaces)
+				if cleanResult.DeletedCount > 0 || cleanResult.FailedCount > 0 {
+					fmt.Printf("sessioncleaner: 清理完成 - 扫描=%d, 活跃=%d, 过期=%d, 已删除=%d, 失败=%d\n",
+						cleanResult.ScannedCount,
+						cleanResult.ActiveCount,
+						cleanResult.ExpiredCount,
+						cleanResult.DeletedCount,
+						cleanResult.FailedCount,
+					)
+				}
+			}
 		}
 	}
 }
