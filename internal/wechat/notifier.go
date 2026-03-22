@@ -7,26 +7,38 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/config"
 )
 
-// Notifier 向企业微信机器人 Webhook 发送通知消息
+// Notifier 向企业微信应用发送通知消息
 type Notifier struct {
-	webhookURL string       // Webhook 完整地址
-	httpClient *http.Client // HTTP 客户端（带超时）
+	corpID    string
+	agentID   string
+	secret    string
+	toUser    string
+	httpClient *http.Client
+
+	// accessToken 缓存
+	tokenMu    sync.RWMutex
+	accessToken string
+	tokenExpiry  time.Time
 }
 
 // NewNotifier 创建通知器
-// 若未配置 Webhook URL，返回 nil（后续调用不会报错，直接返回）
+// 若未配置应用参数，返回 nil（后续调用不会报错，直接返回）
 func NewNotifier(cfg config.WeChatConfig) *Notifier {
-	if cfg.WebhookURL == "" {
+	if cfg.CorpID == "" || cfg.AgentID == "" || cfg.Secret == "" {
 		return nil
 	}
 	return &Notifier{
-		webhookURL: cfg.WebhookURL,
+		corpID:    cfg.CorpID,
+		agentID:   cfg.AgentID,
+		secret:    cfg.Secret,
+		toUser:    cfg.ToUser,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
 }
@@ -38,46 +50,135 @@ func (n *Notifier) Send(ctx context.Context, tw TrackedWorkspace) error {
 		return nil
 	}
 	content := buildMarkdown(tw.Workspace, tw.ElapsedMinutes)
-	return n.post(ctx, content)
+	return n.postMessage(ctx, content)
 }
 
-// wechatPayload 企业微信 Webhook 请求体结构
-type wechatPayload struct {
-	MsgType  string         `json:"msgtype"`  // 消息类型：markdown
-	Markdown wechatMarkdown `json:"markdown"` // markdown 内容
-}
-
-type wechatMarkdown struct {
-	Content string `json:"content"` // markdown 文本
-}
-
-// post 发送 POST 请求到 Webhook
-func (n *Notifier) post(ctx context.Context, content string) error {
-	payload := wechatPayload{
-		MsgType:  "markdown",
-		Markdown: wechatMarkdown{Content: content},
+// getAccessToken 获取企业微信 access_token，带缓存
+func (n *Notifier) getAccessToken(ctx context.Context) (string, error) {
+	n.tokenMu.RLock()
+	if n.accessToken != "" && time.Now().Before(n.tokenExpiry) {
+		token := n.accessToken
+		n.tokenMu.RUnlock()
+		return token, nil
 	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("序列化微信消息: %w", err)
+	n.tokenMu.RUnlock()
+
+	// 需要重新获取
+	n.tokenMu.Lock()
+	defer n.tokenMu.Unlock()
+
+	// 双重检查
+	if n.accessToken != "" && time.Now().Before(n.tokenExpiry) {
+		return n.accessToken, nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, n.webhookURL, bytes.NewReader(body))
+	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=%s&corpsecret=%s",
+		n.corpID, n.secret)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return fmt.Errorf("构建微信请求: %w", err)
+		return "", fmt.Errorf("构建获取 token 请求: %w", err)
+	}
+
+	resp, err := n.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("获取 access_token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		ErrCode   int    `json:"errcode"`
+		ErrMsg    string `json:"errmsg"`
+		AccessToken string `json:"access_token"`
+		ExpiresIn int    `json:"expires_in"` // 有效期（秒），通常 7200
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("解析 token 响应: %w", err)
+	}
+	if result.ErrCode != 0 {
+		return "", fmt.Errorf("获取 token 失败: [%d] %s", result.ErrCode, result.ErrMsg)
+	}
+
+	n.accessToken = result.AccessToken
+	// 提前 5 分钟过期，避免临界情况
+	n.tokenExpiry = time.Now().Add(time.Duration(result.ExpiresIn-300) * time.Second)
+
+	return n.accessToken, nil
+}
+
+// postMessage 发送应用消息
+func (n *Notifier) postMessage(ctx context.Context, content string) error {
+	token, err := n.getAccessToken(ctx)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=%s", token)
+
+	// 构建消息体
+	msg := appMessage{
+		ToUser:  n.toUser,
+		MsgType: "markdown",
+		AgentID: n.agentID,
+		Markdown: appMarkdown{
+			Content: content,
+		},
+	}
+
+	body, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("序列化消息体: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("构建消息请求: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := n.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("发送微信消息: %w", err)
+		return fmt.Errorf("发送消息: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("微信 Webhook 返回 HTTP %d", resp.StatusCode)
+	var result struct {
+		ErrCode   int    `json:"errcode"`
+		ErrMsg    string `json:"errmsg"`
+		MsgID     string `json:"msgid"`
 	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("解析消息响应: %w", err)
+	}
+	if result.ErrCode != 0 {
+		// token 过期时重试一次
+		if result.ErrCode == 40014 || result.ErrCode == 42001 {
+			n.tokenMu.Lock()
+			n.accessToken = ""
+			n.tokenExpiry = time.Time{}
+			n.tokenMu.Unlock()
+			return n.postMessage(ctx, content)
+		}
+		return fmt.Errorf("发送消息失败: [%d] %s", result.ErrCode, result.ErrMsg)
+	}
+
 	return nil
+}
+
+// appMessage 企业微信应用消息请求体
+type appMessage struct {
+	ToUser  string      `json:"touser"`  // 成员账号，多个用 | 分隔
+	Toparty string      `json:"toparty"` // 部门 ID
+	ToTag   string      `json:"totag"`   // 标签 ID
+	MsgType string      `json:"msgtype"` // 消息类型
+	AgentID string      `json:"agentid"` // 应用 AgentID
+	Markdown appMarkdown `json:"markdown"` // markdown 内容
+}
+
+type appMarkdown struct {
+	Content string `json:"content"` // markdown 文本
 }
 
 // buildMarkdown 构建企业微信 Markdown 通知正文

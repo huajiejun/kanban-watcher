@@ -25,9 +25,12 @@ type MQTTConfig struct {
 	ClientID string `yaml:"client_id"` // 客户端标识符，需全局唯一
 }
 
-// WeChatConfig 企业微信机器人配置
+// WeChatConfig 企业微信应用配置
 type WeChatConfig struct {
-	WebhookURL             string `yaml:"webhook_url"`              // Webhook 完整地址
+	CorpID                 string `yaml:"corp_id"`                  // 企业 ID
+	AgentID                string `yaml:"agent_id"`                // 应用 AgentID
+	Secret                 string `yaml:"secret"`                  // 应用 Secret
+	ToUser                 string `yaml:"to_user"`                 // 接收消息的成员账号（默认为 @all 表示全部成员）
 	NotifyThresholdMinutes int    `yaml:"notify_threshold_minutes"` // 通知阈值（分钟）
 }
 
@@ -104,6 +107,7 @@ func defaultConfig() *Config {
 			ClientID: "kanban-watcher",
 		},
 		WeChat: WeChatConfig{
+			ToUser:                 "@all",
 			NotifyThresholdMinutes: 10, // 默认 10 分钟阈值
 		},
 		WorkingHours: WorkingHours{
@@ -128,6 +132,9 @@ func applyDefaults(cfg *Config) {
 	if cfg.WeChat.NotifyThresholdMinutes <= 0 {
 		cfg.WeChat.NotifyThresholdMinutes = 10
 	}
+	if cfg.WeChat.ToUser == "" {
+		cfg.WeChat.ToUser = "@all"
+	}
 	if cfg.WorkingHours.Start == "" {
 		cfg.WorkingHours.Start = "08:00"
 	}
@@ -145,7 +152,10 @@ func writeExampleConfig(path string) error {
 		return err
 	}
 	example := defaultConfig()
-	example.WeChat.WebhookURL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY"
+	example.WeChat.CorpID = "ww1234567890abcdef"
+	example.WeChat.AgentID = "1000001"
+	example.WeChat.Secret = "YOUR_SECRET"
+	example.WeChat.ToUser = "@all"
 	data, err := yaml.Marshal(example)
 	if err != nil {
 		return err
