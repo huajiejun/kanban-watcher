@@ -792,6 +792,26 @@ describe("kanban-watcher-card", () => {
     expect(messageRows.length).toBeGreaterThanOrEqual(15);
   });
 
+  it("renders the mocked real session history for the design dialog workspace in preview", async () => {
+    const card = await renderCard(createPreviewHass());
+    const shadowRoot = card.shadowRoot;
+    const taskCards = Array.from(
+      shadowRoot?.querySelectorAll(".task-card") ?? [],
+    ) as HTMLButtonElement[];
+    const designDialogCard = taskCards.find((element) =>
+      normalizeText(element.textContent).includes("设计点击弹框界面"),
+    );
+
+    designDialogCard?.click();
+    await card.updateComplete;
+
+    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+
+    expect(dialogText).toContain("我们用的id不是`workspace_id 而是上层接口里的last_session_id");
+    expect(dialogText).toContain("明白，这个约束现在很关键：");
+    expect(dialogText).toContain("弹窗真实对话不能按 `workspace_id` 关联");
+  });
+
   it("prefers real recent_messages matched by latest_session_id for dialog history", async () => {
     const card = await renderCard();
     const shadowRoot = card.shadowRoot;

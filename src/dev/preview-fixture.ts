@@ -36,15 +36,15 @@ function createPreviewWorkspaces(): KanbanWorkspace[] {
       relative_time: "2 分钟前",
     },
     {
-      id: "idle-completed",
-      name: "常规对话已完成",
+      id: "ea34b79d-f77e-4302-a1df-937c01067d34",
+      name: "设计点击弹框界面",
       status: "completed",
-      latest_session_id: "preview-session-idle-completed",
-      completed_at: "2026-03-22T11:25:00Z",
-      files_changed: 2,
-      lines_added: 7,
-      lines_removed: 1,
-      relative_time: "18 分钟前",
+      latest_session_id: "4f495318-07a4-4882-b4c1-4453ea9e2818",
+      completed_at: "2026-03-22T07:00:15.475015Z",
+      files_changed: 10,
+      lines_added: 1850,
+      lines_removed: 363,
+      relative_time: "11分钟前",
     },
     {
       id: "attention-failed",
@@ -111,27 +111,29 @@ function createPreviewSessions(): Record<string, { attributes: KanbanSessionAttr
         ],
       },
     },
-    "sensor.kanban_watcher_kanban_session_preview_idle_completed": {
+    "sensor.kanban_watcher_kanban_session_4f495318": {
       attributes: {
-        session_id: "preview-session-idle-completed",
-        workspace_id: "idle-completed",
-        workspace_name: "常规对话已完成",
+        session_id: "4f495318-07a4-4882-b4c1-4453ea9e2818",
+        workspace_id: "ea34b79d-f77e-4302-a1df-937c01067d34",
+        workspace_name: "设计点击弹框界面",
+        last_message:
+          "明白，这个约束现在很关键：\n\n- 弹窗真实对话不能按 `workspace_id` 关联\n- 正确关联键应该是上层接口里的 `last_session_id`\n- 但这个字段目前还没同步到卡片依赖的工作区数据里",
         recent_messages: [
-          { role: "user", content: "这个任务已经结束了吗？" },
-          { role: "assistant", content: "已经结束，当前没有新的待处理动作。" },
-          { role: "user", content: "那先保留记录，后续有变更再通知。" },
-          { role: "assistant", content: "好的，我会保留上下文并等待下一步指令。" },
-          { role: "user", content: "之前确认过的问题点也一起保留下来。" },
-          { role: "assistant", content: "已记录，后续如果重新打开这个任务，我会先把这些点带出来。" },
-          { role: "user", content: "那就先这样，今天不用再继续追了。" },
-          { role: "assistant", content: "收到，当前先保持静默，等待新的输入。" },
-          { role: "user", content: "如果有人重新提这个任务，就先提醒我历史结论。" },
-          { role: "assistant", content: "可以，我会优先附上之前的结论和保留意见。" },
-          { role: "user", content: "这条线程先别清掉，可能明天还要继续。" },
-          { role: "assistant", content: "明白，我会保留完整上下文，方便后续直接续接。" },
-          { role: "user", content: "若有新的相关消息，也合并到这里。" },
-          { role: "assistant", content: "可以，相关更新我会继续归档到同一个会话中。" },
-          { role: "user", content: "好，先归档但不要删除。" },
+          {
+            role: "user",
+            content:
+              "我们用的id不是`workspace_id 而是上层接口里的last_session_id，目前好像没有同步过来，后面会把数据同步`1. 请使用中文\n2. 请遵循CLAUDE.md",
+          },
+          {
+            role: "user",
+            content:
+              "我们用的id不是`workspace_id 而是上层接口里的last_session_id，目前好像没有同步过来，后面会把数据同步`1. 请使用中文\n2. 请遵循CLAUDE.md",
+          },
+          {
+            role: "assistant",
+            content:
+              "明白，这个约束现在很关键：\n\n- 弹窗真实对话不能按 `workspace_id` 关联\n- 正确关联键应该是上层接口里的 `last_session_id`\n- 但这个字段目前还没同步到卡片依赖的工作区数据里\n\n这意味着现阶段我不建议直接把弹窗改成读取真实 `recent_messages`，因为关联链还缺一段，做了也只能靠猜，后面很容易返工。\n\n等上层把 `last_session_id` 同步过来后，最稳的做法就是：\n\n- 外层卡片列表继续用现有工作区数据渲染\n- 点开弹窗时，用当前工作区的 `last_session_id` 去匹配对应的 `sensor.kanban_watcher_kanban_session_*`\n- 弹窗消息区直接渲染该实体里的 `recent_messages`\n- 如果没匹配到，再回退到现在的占位消息或空态提示\n\n你后面把同步后的字段样例贴给我，我就可以按这个链路直接改。当前仓库和上级目录里我仍然没找到 `CLAUDE.md`，所以这次仍按现有仓库约束和你的中文要求处理。",
+          },
         ],
       },
     },
