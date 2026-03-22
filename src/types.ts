@@ -2,6 +2,8 @@ export interface KanbanWorkspace {
   id: string;
   name: string;
   status?: string;
+  latest_session_id?: string;
+  latestSessionId?: string;
   relative_time?: string;
   has_unseen_turns?: boolean;
   hasUnseenActivity?: boolean;

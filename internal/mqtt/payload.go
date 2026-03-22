@@ -60,6 +60,7 @@ type WorkspaceItem struct {
 	ID                  string `json:"id"`                      // 工作区 ID
 	Name                string `json:"name"`                    // 显示名称
 	Status              string `json:"status"`                  // 状态：running/completed/failed
+	LatestSessionID     string `json:"latest_session_id,omitempty"` // 最新会话 ID（可选）
 	HasUnseenTurns      bool   `json:"has_unseen_turns"`        // 是否有未读消息
 	HasPendingApproval  bool   `json:"has_pending_approval"`    // 是否有待审批
 	HasRunningDevServer bool   `json:"has_running_dev_server"`  // 是否有正在运行的 dev server
@@ -131,6 +132,10 @@ func BuildAttributesJSON(workspaces []api.EnrichedWorkspace) ([]byte, error) {
 		if w.Summary.PrURL != nil {
 			prURL = *w.Summary.PrURL
 		}
+		latestSessionID := ""
+		if w.Summary.LatestSessionID != nil {
+			latestSessionID = *w.Summary.LatestSessionID
+		}
 
 		// 计算相对时间
 		relativeTime := calculateRelativeTime(now, w.Summary.LatestProcessCompletedAt, w.StatusText())
@@ -139,6 +144,7 @@ func BuildAttributesJSON(workspaces []api.EnrichedWorkspace) ([]byte, error) {
 			ID:                  w.ID,
 			Name:                w.DisplayName,
 			Status:              w.StatusText(),
+			LatestSessionID:     latestSessionID,
 			HasUnseenTurns:      w.Summary.HasUnseenTurns,
 			HasPendingApproval:  w.Summary.HasPendingApproval,
 			HasRunningDevServer: w.Summary.HasRunningDevServer,
