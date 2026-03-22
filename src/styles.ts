@@ -208,16 +208,14 @@ export const cardStyles = css`
   .workspace-dialog {
     position: relative;
     z-index: 1;
-    width: min(640px, calc(100vw - 36px));
-    max-height: min(760px, calc(100vh - 36px));
-    overflow: auto;
+    width: min(900px, calc(100vw - 24px));
+    height: min(88vh, 900px);
     display: grid;
-    gap: 16px;
-    padding: 20px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 16px;
     border-radius: 22px;
-    background:
-      radial-gradient(circle at top right, color-mix(in srgb, var(--primary-color, #f59e0b) 14%, transparent), transparent 32%),
-      var(--ha-card-background, var(--card-background-color, #ffffff));
+    background: var(--ha-card-background, var(--card-background-color, #ffffff));
     border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 72%, transparent);
     box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
   }
@@ -230,175 +228,107 @@ export const cardStyles = css`
   }
 
   .dialog-heading {
-    display: grid;
-    gap: 6px;
     min-width: 0;
-  }
-
-  .dialog-eyebrow {
-    font-size: 0.75rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--secondary-text-color, #94a3b8);
   }
 
   .dialog-title {
     margin: 0;
-    font-size: 1.32rem;
+    font-size: 1.08rem;
     line-height: 1.2;
   }
 
   .dialog-close {
-    width: 36px;
-    height: 36px;
-    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 70%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 72%, transparent);
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
     color: inherit;
     cursor: pointer;
     font: inherit;
   }
 
-  .dialog-summary,
-  .dialog-panel {
-    border-radius: 18px;
-    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 70%, transparent);
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 60%, transparent);
-  }
-
-  .dialog-summary {
+  .dialog-messages {
+    min-height: 0;
     display: grid;
-    gap: 12px;
-    padding: 16px;
-  }
-
-  .dialog-summary.is-attention {
-    border-color: color-mix(in srgb, #f59e0b 45%, var(--divider-color, #e5e7eb));
-  }
-
-  .dialog-summary.is-running {
-    border-color: color-mix(in srgb, #10b981 45%, var(--divider-color, #e5e7eb));
-  }
-
-  .dialog-summary-top,
-  .dialog-summary-bottom {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  .dialog-summary-time {
-    color: var(--secondary-text-color, #94a3b8);
-    font-size: 0.9rem;
-  }
-
-  .dialog-summary-bottom {
-    color: var(--secondary-text-color, #94a3b8);
-    font-size: 0.88rem;
-  }
-
-  .dialog-panel {
-    overflow: hidden;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
   }
 
   .dialog-panel-title {
-    padding: 14px 16px 0;
-    font-size: 0.96rem;
+    font-size: 0.9rem;
     font-weight: 700;
+    color: var(--secondary-text-color, #64748b);
   }
 
-  .dialog-panel-body {
+  .message-list {
+    min-height: 0;
     display: grid;
     gap: 14px;
-    padding: 14px 16px 16px;
+    overflow-y: auto;
+    padding: 6px 2px 6px 0;
   }
 
-  .dialog-content-card {
-    display: grid;
-    gap: 10px;
-    padding: 16px;
-    border-radius: 16px;
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--ha-card-background, #ffffff) 94%, #f8fafc),
-      color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 86%, #fff7ed)
-    );
-    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 65%, transparent);
+  .message-row {
+    display: flex;
   }
 
-  .dialog-content-kicker {
-    font-size: 0.78rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--primary-color, #f59e0b);
-    font-weight: 700;
+  .message-row.is-user {
+    justify-content: flex-start;
   }
 
-  .dialog-content-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    line-height: 1.3;
+  .message-row.is-ai {
+    justify-content: flex-end;
   }
 
-  .dialog-content-text {
-    margin: 0;
-    color: var(--secondary-text-color, #94a3b8);
+  .message-bubble {
+    max-width: min(72%, 560px);
+    padding: 8px 10px;
+    border-radius: 10px;
     line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 70%, transparent);
+    color: inherit;
   }
 
-  .dialog-content-grid {
+  .message-row.is-ai .message-bubble {
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 12%, transparent);
+  }
+
+  .dialog-composer {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .dialog-content-item {
-    display: grid;
-    gap: 6px;
-    padding: 12px;
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--ha-card-background, #ffffff) 84%, transparent);
-    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 62%, transparent);
-  }
-
-  .dialog-content-label {
-    color: var(--secondary-text-color, #94a3b8);
-    font-size: 0.8rem;
-  }
-
-  .dialog-content-value {
-    font-size: 0.92rem;
-    font-weight: 600;
-    line-height: 1.4;
+    gap: 8px;
   }
 
   .message-input {
     width: 100%;
-    min-height: 108px;
-    resize: vertical;
-    padding: 12px 14px;
-    border-radius: 14px;
+    min-height: 44px;
+    max-height: 88px;
+    resize: none;
+    padding: 10px 12px;
+    border-radius: 10px;
     border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 72%, transparent);
     background: color-mix(in srgb, var(--ha-card-background, #ffffff) 92%, transparent);
     color: inherit;
     font: inherit;
+    line-height: 1.4;
     box-sizing: border-box;
   }
 
   .dialog-actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
   }
 
   .dialog-action {
-    flex: 1 1 180px;
-    min-height: 42px;
-    border-radius: 999px;
+    flex: 1 1 160px;
+    min-height: 36px;
+    border-radius: 8px;
     font: inherit;
     cursor: pointer;
-    padding: 0 16px;
+    padding: 0 12px;
   }
 
   .dialog-action-primary {
@@ -418,19 +348,16 @@ export const cardStyles = css`
   .dialog-feedback {
     min-height: 1.25rem;
     color: var(--secondary-text-color, #94a3b8);
-    font-size: 0.84rem;
+    font-size: 0.8rem;
     line-height: 1.4;
   }
 
   @media (max-width: 640px) {
     .workspace-dialog {
-      width: min(100vw - 20px, 640px);
-      padding: 16px;
+      width: min(100vw - 12px, 900px);
+      height: min(92vh, 900px);
+      padding: 12px;
       border-radius: 18px;
-    }
-
-    .dialog-content-grid {
-      grid-template-columns: minmax(0, 1fr);
     }
 
     .task-meta {
@@ -440,6 +367,10 @@ export const cardStyles = css`
 
     .meta-files {
       justify-self: start;
+    }
+
+    .message-bubble {
+      max-width: 86%;
     }
   }
 `;

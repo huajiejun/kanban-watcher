@@ -579,7 +579,7 @@ describe("kanban-watcher-card", () => {
     expect(text).toContain("📄 999 +12345 -6789");
   });
 
-  it("opens a centered workspace dialog with summary, preset content, and actions", async () => {
+  it("opens a large workspace chat dialog with scrolling messages and compact actions", async () => {
     const card = await renderCard();
     const shadowRoot = card.shadowRoot;
     const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
@@ -592,7 +592,12 @@ describe("kanban-watcher-card", () => {
 
     expect(dialog).not.toBeNull();
     expect(text).toContain("Needs Attention");
-    expect(text).toContain("查看兑换内容");
+    expect(text).toContain("对话消息");
+    expect(text).toContain("请先确认这个工作区的下一步安排。");
+    expect(text).toContain("我先整理最新状态，稍后给你结论。");
+    expect(text).not.toContain("查看兑换内容");
+    expect(shadowRoot?.querySelector(".dialog-summary")).toBeNull();
+    expect(shadowRoot?.querySelector(".message-list")).not.toBeNull();
     expect(text).toContain("发送消息");
     expect(text).toContain("队列消息");
     expect(
@@ -649,10 +654,14 @@ describe("kanban-watcher-card", () => {
 
     expect(
       normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent),
-    ).toContain("发送消息功能将在第二期接入");
+    ).toContain("发送消息功能暂未接入");
 
     taskCards[1]?.click();
     await card.updateComplete;
+
+    expect(
+      normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
+    ).toContain("运行中的任务目前有新的输出吗？");
 
     expect(
       (shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null)?.value,
@@ -666,6 +675,18 @@ describe("kanban-watcher-card", () => {
 
     expect(
       normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent),
-    ).toContain("队列消息功能将在第二期接入");
+    ).toContain("队列消息功能暂未接入");
+  });
+
+  it("declares a large dialog with its own scrollable message area and lightweight left-right message alignment", () => {
+    const cssText = cardStyles.cssText;
+
+    expect(cssText).toContain(".message-list");
+    expect(cssText).toContain("overflow-y: auto");
+    expect(cssText).toContain(".message-row.is-user");
+    expect(cssText).toContain("justify-content: flex-start");
+    expect(cssText).toContain(".message-row.is-ai");
+    expect(cssText).toContain("justify-content: flex-end");
+    expect(cssText).toContain("width: min(900px, calc(100vw - 24px))");
   });
 });

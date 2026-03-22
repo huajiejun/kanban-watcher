@@ -20,6 +20,10 @@ type CardConfig = {
 };
 
 type DialogAction = "send" | "queue";
+type DialogMessage = {
+  sender: "user" | "ai";
+  text: string;
+};
 
 const SECTION_ORDER: Array<{ key: SectionKey; label: string }> = [
   { key: "attention", label: "需要注意" },
@@ -156,10 +160,7 @@ export class KanbanWatcherCard extends LitElement {
     if (!workspace) {
       return nothing;
     }
-
-    const statusMeta = getStatusMeta(workspace);
-    const { relativeTime, filesChanged, linesAdded, linesRemoved } =
-      this.getWorkspaceDisplayMeta(workspace);
+    const messages = this.getDialogMessages(workspace);
 
     return html`
       <div class="dialog-shell" role="presentation">
@@ -177,7 +178,6 @@ export class KanbanWatcherCard extends LitElement {
         >
           <div class="dialog-header">
             <div class="dialog-heading">
-              <div class="dialog-eyebrow">工作区详情</div>
               <h2 class="dialog-title">${workspace.name}</h2>
             </div>
             <button
@@ -190,87 +190,47 @@ export class KanbanWatcherCard extends LitElement {
             </button>
           </div>
 
-          <div class="dialog-summary ${statusMeta.accentClass}">
-            <div class="dialog-summary-top">
-              <span class="meta-status">
-                ${statusMeta.icons.map(
-                  (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
-                    >${icon.symbol}</span
-                  >`,
-                )}
-              </span>
-              <span class="dialog-summary-time">${relativeTime}</span>
+          <section class="dialog-messages">
+            <div class="dialog-panel-title">对话消息</div>
+            <div class="message-list">
+              ${messages.map(
+                (message) => html`
+                  <div class="message-row is-${message.sender}">
+                    <div class="message-bubble">${message.text}</div>
+                  </div>
+                `,
+              )}
             </div>
-            <div class="dialog-summary-bottom">
-              <span>状态：${this.getWorkspaceStatusLabel(workspace)}</span>
-              <span>📄 ${filesChanged}</span>
-              <span class="lines-added">+${linesAdded}</span>
-              <span class="lines-removed">-${linesRemoved}</span>
+          </section>
+
+          <div class="dialog-composer">
+            <textarea
+              class="message-input"
+              rows="2"
+              placeholder="输入消息"
+              .value=${this.messageDraft}
+              @input=${this.handleMessageInput}
+            ></textarea>
+            <div class="dialog-actions">
+              <button
+                class="dialog-action dialog-action-primary"
+                type="button"
+                @click=${() => this.handleActionClick("send")}
+              >
+                发送消息
+              </button>
+              <button
+                class="dialog-action dialog-action-secondary"
+                type="button"
+                @click=${() => this.handleActionClick("queue")}
+              >
+                队列消息
+              </button>
+            </div>
+            <div class="dialog-feedback" aria-live="polite">
+              ${this.actionFeedback || "消息操作暂未接入真实接口。"}
             </div>
           </div>
-
-          <section class="dialog-panel">
-            <div class="dialog-panel-title">查看兑换内容</div>
-            <div class="dialog-panel-body">
-              <div class="dialog-content-card">
-                <div class="dialog-content-kicker">兑换摘要</div>
-                <div class="dialog-content-title">${workspace.name} 当前兑换方案</div>
-                <p class="dialog-content-text">
-                  第一版先展示预设内容，用于承载后续真实兑换详情。当前可查看推荐方案、兑换说明与下一步动作入口。
-                </p>
-                <div class="dialog-content-grid">
-                  <div class="dialog-content-item">
-                    <span class="dialog-content-label">推荐档位</span>
-                    <span class="dialog-content-value">标准兑换包</span>
-                  </div>
-                  <div class="dialog-content-item">
-                    <span class="dialog-content-label">兑换状态</span>
-                    <span class="dialog-content-value">待确认</span>
-                  </div>
-                  <div class="dialog-content-item">
-                    <span class="dialog-content-label">处理建议</span>
-                    <span class="dialog-content-value">优先发送消息确认细节</span>
-                  </div>
-                  <div class="dialog-content-item">
-                    <span class="dialog-content-label">预留说明</span>
-                    <span class="dialog-content-value">第二期接入真实接口与动态字段</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="dialog-panel">
-            <div class="dialog-panel-title">消息操作</div>
-            <div class="dialog-panel-body">
-              <textarea
-                class="message-input"
-                rows="4"
-                placeholder="输入要发送给当前工作区的消息内容"
-                .value=${this.messageDraft}
-                @input=${this.handleMessageInput}
-              ></textarea>
-              <div class="dialog-actions">
-                <button
-                  class="dialog-action dialog-action-primary"
-                  type="button"
-                  @click=${() => this.handleActionClick("send")}
-                >
-                  发送消息
-                </button>
-                <button
-                  class="dialog-action dialog-action-secondary"
-                  type="button"
-                  @click=${() => this.handleActionClick("queue")}
-                >
-                  队列消息
-                </button>
-              </div>
-              <div class="dialog-feedback" aria-live="polite">
-                ${this.actionFeedback || "动作已预留，第二期接入真实能力。"}
-              </div>
-            </div>
-          </section>
         </section>
       </div>
     `;
@@ -305,8 +265,8 @@ export class KanbanWatcherCard extends LitElement {
   private handleActionClick(action: DialogAction) {
     this.actionFeedback =
       action === "send"
-        ? "发送消息功能将在第二期接入，当前为界面占位。"
-        : "队列消息功能将在第二期接入，当前为界面占位。";
+        ? "发送消息功能暂未接入，当前仅展示界面。"
+        : "队列消息功能暂未接入，当前仅展示界面。";
   }
 
   private handleKeyDown = (event: Event) => {
@@ -316,22 +276,6 @@ export class KanbanWatcherCard extends LitElement {
       this.closeWorkspaceDialog();
     }
   };
-
-  private getWorkspaceStatusLabel(workspace: KanbanWorkspace) {
-    if (workspace.has_pending_approval) {
-      return "待审批";
-    }
-
-    if (workspace.status === "running") {
-      return "运行中";
-    }
-
-    if (workspace.has_unseen_turns) {
-      return "需关注";
-    }
-
-    return "空闲";
-  }
 
   private getWorkspaceDisplayMeta(workspace: KanbanWorkspace) {
     const timeSource =
@@ -403,6 +347,36 @@ export class KanbanWatcherCard extends LitElement {
         "name" in value &&
         typeof (value as { id?: unknown }).id === "string" &&
         typeof (value as { name?: unknown }).name === "string",
+    );
+  }
+
+  private getDialogMessages(workspace: KanbanWorkspace): DialogMessage[] {
+    const messageMap: Record<string, DialogMessage[]> = {
+      "attention-1": [
+        { sender: "user", text: "请先确认这个工作区的下一步安排。" },
+        { sender: "ai", text: "我先整理最新状态，稍后给你结论。" },
+        { sender: "user", text: "如果需要审批，直接告诉我卡在哪一步。" },
+        { sender: "ai", text: "目前还差最后一条确认消息，我会继续跟进。" },
+      ],
+      "running-1": [
+        { sender: "user", text: "运行中的任务目前有新的输出吗？" },
+        { sender: "ai", text: "有，刚刚补充了一段新的处理结果，还在继续执行。" },
+        { sender: "user", text: "先盯住结果，如果异常就立刻提醒我。" },
+        { sender: "ai", text: "收到，我会在异常出现时第一时间同步。" },
+      ],
+      "idle-1": [
+        { sender: "user", text: "这个任务已经结束了吗？" },
+        { sender: "ai", text: "已经结束，当前没有新的待处理动作。" },
+        { sender: "user", text: "那先保留记录，后续有变更再通知。" },
+        { sender: "ai", text: "好的，我会保留上下文并等待下一步指令。" },
+      ],
+    };
+
+    return (
+      messageMap[workspace.id] ?? [
+        { sender: "user", text: `请同步 ${workspace.name} 的最新情况。` },
+        { sender: "ai", text: "我正在整理消息记录，稍后继续反馈。" },
+      ]
     );
   }
 }

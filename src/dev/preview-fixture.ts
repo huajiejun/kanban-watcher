@@ -10,7 +10,7 @@ function createPreviewWorkspaces(): KanbanWorkspace[] {
   return [
     {
       id: "approval-needed",
-      name: "兑换确认待审批",
+      name: "消息确认待审批",
       status: "completed",
       has_pending_approval: true,
       has_unseen_turns: true,
@@ -21,7 +21,7 @@ function createPreviewWorkspaces(): KanbanWorkspace[] {
     },
     {
       id: "running-active",
-      name: "批量同步运行中",
+      name: "批量对话运行中",
       status: "running",
       has_running_dev_server: true,
       files_changed: 9,
@@ -31,7 +31,7 @@ function createPreviewWorkspaces(): KanbanWorkspace[] {
     },
     {
       id: "idle-completed",
-      name: "常规兑换已完成",
+      name: "常规对话已完成",
       status: "completed",
       completed_at: "2026-03-22T11:25:00Z",
       files_changed: 2,
