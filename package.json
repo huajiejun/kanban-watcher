@@ -9,6 +9,7 @@
     "preview": "vite"
   },
   "dependencies": {
+    "highlight.js": "^11.11.1",
     "lit": "^3.2.0",
     "marked": "^17.0.5"
   },

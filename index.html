@@ -6,16 +6,22 @@
     <title>Kanban Watcher Card Preview</title>
     <style>
       :root {
-        color-scheme: light;
+        color-scheme: dark;
         font-family:
           "SF Pro Display",
           "PingFang SC",
           "Microsoft YaHei",
           sans-serif;
+        --dark-bg: #0f172a;
+        --dark-surface: #1e293b;
+        --dark-border: #334155;
+        --dark-text: #e2e8f0;
+        --dark-muted: #94a3b8;
+        --dark-accent: #f59e0b;
         background:
-          radial-gradient(circle at top, rgba(245, 158, 11, 0.18), transparent 35%),
-          linear-gradient(180deg, #fffaf0 0%, #f8fafc 48%, #eef2ff 100%);
-        color: #0f172a;
+          radial-gradient(circle at top, rgba(245, 158, 11, 0.12), transparent 35%),
+          linear-gradient(180deg, #0f172a 0%, #1e293b 48%, #0f172a 100%);
+        color: var(--dark-text);
       }
 
       * {
@@ -44,7 +50,7 @@
         font-size: 0.78rem;
         text-transform: uppercase;
         letter-spacing: 0.14em;
-        color: #b45309;
+        color: var(--dark-accent);
         font-weight: 700;
       }
 
@@ -57,7 +63,7 @@
       p {
         margin: 0;
         max-width: 56rem;
-        color: #475569;
+        color: var(--dark-muted);
         line-height: 1.6;
       }
 
@@ -70,18 +76,18 @@
       .tip {
         padding: 10px 14px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.7);
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        color: #334155;
+        background: rgba(30, 41, 59, 0.8);
+        border: 1px solid rgba(51, 65, 85, 0.6);
+        color: var(--dark-text);
         font-size: 0.9rem;
       }
 
       .preview-shell {
         padding: 18px;
         border-radius: 28px;
-        background: rgba(255, 255, 255, 0.7);
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+        background: rgba(30, 41, 59, 0.6);
+        border: 1px solid rgba(51, 65, 85, 0.5);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
       }
 
       [data-preview-root] {
