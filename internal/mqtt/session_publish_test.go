@@ -1,6 +1,7 @@
 package mqtt
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -101,6 +102,28 @@ func TestPublishSessionSnapshotsRestoresCacheOnFailure(t *testing.T) {
 	}
 	if len(publishes) != 1 || len(stale) != 0 {
 		t.Fatalf("after rollback publishes=%d stale=%d, want 1/0", len(publishes), len(stale))
+	}
+}
+
+func TestFormatSessionSyncLogIncludesPublishedAndCleanedIDs(t *testing.T) {
+	publishes := []sessionPublish{
+		{snapshot: sessionlog.SessionConversationSnapshot{SessionID: "session-a"}},
+		{snapshot: sessionlog.SessionConversationSnapshot{SessionID: "session-b"}},
+	}
+	logLine := formatSessionSyncLog(publishes, []string{"session-stale"}, 1)
+
+	wantParts := []string{
+		"mqtt: session sync",
+		"published=2",
+		"cleaned=1",
+		"extract_errors=1",
+		"published_ids=[session-a,session-b]",
+		"cleaned_ids=[session-stale]",
+	}
+	for _, want := range wantParts {
+		if !strings.Contains(logLine, want) {
+			t.Fatalf("formatSessionSyncLog() = %q, missing %q", logLine, want)
+		}
 	}
 }
 
