@@ -578,4 +578,94 @@ describe("kanban-watcher-card", () => {
 
     expect(text).toContain("📄 999 +12345 -6789");
   });
+
+  it("opens a centered workspace dialog with summary, preset content, and actions", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+
+    taskCard?.click();
+    await card.updateComplete;
+
+    const dialog = shadowRoot?.querySelector(".workspace-dialog");
+    const text = normalizeText(dialog?.textContent);
+
+    expect(dialog).not.toBeNull();
+    expect(text).toContain("Needs Attention");
+    expect(text).toContain("查看兑换内容");
+    expect(text).toContain("发送消息");
+    expect(text).toContain("队列消息");
+    expect(
+      (shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null)?.value,
+    ).toBe("");
+  });
+
+  it("closes the workspace dialog from overlay, close button, and escape key", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+
+    taskCard?.click();
+    await card.updateComplete;
+    (shadowRoot?.querySelector(".dialog-overlay") as HTMLButtonElement | null)?.click();
+    await card.updateComplete;
+    expect(shadowRoot?.querySelector(".workspace-dialog")).toBeNull();
+
+    taskCard?.click();
+    await card.updateComplete;
+    (shadowRoot?.querySelector(".dialog-close") as HTMLButtonElement | null)?.click();
+    await card.updateComplete;
+    expect(shadowRoot?.querySelector(".workspace-dialog")).toBeNull();
+
+    taskCard?.click();
+    await card.updateComplete;
+    card.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await card.updateComplete;
+    expect(shadowRoot?.querySelector(".workspace-dialog")).toBeNull();
+  });
+
+  it("keeps message input local to the active workspace and shows placeholder action feedback", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const taskCards = Array.from(
+      shadowRoot?.querySelectorAll(".task-card") ?? [],
+    ) as HTMLButtonElement[];
+
+    taskCards[0]?.click();
+    await card.updateComplete;
+
+    const messageInput = shadowRoot?.querySelector(
+      ".message-input",
+    ) as HTMLTextAreaElement | null;
+    messageInput!.value = "请同步兑换进度";
+    messageInput?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await card.updateComplete;
+
+    const sendButton = shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    sendButton?.click();
+    await card.updateComplete;
+
+    expect(
+      normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent),
+    ).toContain("发送消息功能将在第二期接入");
+
+    taskCards[1]?.click();
+    await card.updateComplete;
+
+    expect(
+      (shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null)?.value,
+    ).toBe("");
+
+    const queueButton = shadowRoot?.querySelector(
+      ".dialog-action-secondary",
+    ) as HTMLButtonElement | null;
+    queueButton?.click();
+    await card.updateComplete;
+
+    expect(
+      normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent),
+    ).toContain("队列消息功能将在第二期接入");
+  });
 });
