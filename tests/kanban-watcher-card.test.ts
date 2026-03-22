@@ -132,6 +132,19 @@ function createHass(
   };
 }
 
+function createHassWithoutSessionState(workspaces: KanbanWorkspace[] = createWorkspaces()): HassLike {
+  return {
+    states: {
+      [entityId]: {
+        attributes: {
+          updated_at: "2026-03-21T11:55:00Z",
+          workspaces,
+        },
+      },
+    },
+  };
+}
+
 async function renderCard(hass = createHass()) {
   const card = document.createElement(
     "kanban-watcher-card",
@@ -838,6 +851,30 @@ describe("kanban-watcher-card", () => {
     expect(dialogText).toContain("真实 attention 用户消息");
     expect(dialogText).toContain("真实 attention 助手消息");
     expect(dialogText).not.toContain("请先确认这个工作区的下一步安排。");
+  });
+
+  it("shows a real empty-state message instead of fake dialog content when the session is missing", async () => {
+    const card = await renderCard(
+      createHassWithoutSessionState([
+        {
+          id: "real-workspace-1",
+          name: "真实工作区",
+          status: "completed",
+          latest_session_id: "missing-session-1",
+        },
+      ]),
+    );
+    const shadowRoot = card.shadowRoot;
+    const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+
+    taskCard?.click();
+    await card.updateComplete;
+
+    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+
+    expect(dialogText).toContain("暂无同步的对话消息");
+    expect(dialogText).not.toContain("请先确认这个工作区的下一步安排。");
+    expect(dialogText).not.toContain("我正在整理消息记录，稍后继续反馈。");
   });
 
   it("opens each workspace at the latest message and lets older messages stay above", async () => {
