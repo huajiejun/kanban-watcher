@@ -71,7 +71,7 @@ func TestBuildSessionMessagesProducesDiscoveryStateAndAttributes(t *testing.T) {
 	}
 }
 
-func TestBuildSessionAttributesJSONTruncatesLargePayloadsForHomeAssistant(t *testing.T) {
+func TestBuildSessionAttributesJSONKeepsLargePayloadsUntrimmed(t *testing.T) {
 	recentMessages := make([]sessionlog.ConversationMessage, 0, 20)
 	for i := 0; i < 20; i++ {
 		recentMessages = append(recentMessages, sessionlog.ConversationMessage{
@@ -98,22 +98,25 @@ func TestBuildSessionAttributesJSONTruncatesLargePayloadsForHomeAssistant(t *tes
 	if err != nil {
 		t.Fatalf("BuildSessionAttributesJSON: %v", err)
 	}
-	if len(attrs) > maxSessionAttributesLength {
-		t.Fatalf("attrs len = %d, want <= %d", len(attrs), maxSessionAttributesLength)
+	if len(attrs) <= maxSessionAttributesLength {
+		t.Fatalf("attrs len = %d, want > %d for untrimmed payload", len(attrs), maxSessionAttributesLength)
 	}
 
 	var attrsPayload map[string]interface{}
 	if err := json.Unmarshal(attrs, &attrsPayload); err != nil {
 		t.Fatalf("unmarshal attrs: %v", err)
 	}
-	if got := attrsPayload["truncated"]; got != true {
-		t.Fatalf("truncated = %v, want true", got)
+	if _, ok := attrsPayload["truncated"]; ok {
+		t.Fatalf("truncated should be omitted for untrimmed payload: %v", attrsPayload["truncated"])
 	}
 	recentMessagesPayload, ok := attrsPayload["recent_messages"].([]interface{})
 	if !ok {
 		t.Fatalf("recent_messages malformed: %#v", attrsPayload["recent_messages"])
 	}
-	if len(recentMessagesPayload) >= len(recentMessages) {
-		t.Fatalf("recent_messages len = %d, want less than %d", len(recentMessagesPayload), len(recentMessages))
+	if len(recentMessagesPayload) != len(recentMessages) {
+		t.Fatalf("recent_messages len = %d, want %d", len(recentMessagesPayload), len(recentMessages))
+	}
+	if got := attrsPayload["last_message"]; got != snapshot.LastMessage {
+		t.Fatalf("last_message was altered")
 	}
 }

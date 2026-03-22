@@ -232,8 +232,6 @@ func BuildSessionAttributesJSON(snapshot sessionlog.SessionConversationSnapshot)
 		RecentMessages:  snapshot.RecentMessages,
 		RecentToolCalls: snapshot.RecentToolCalls,
 	}
-
-	payload = limitSessionAttributesPayload(payload)
 	return json.Marshal(payload)
 }
 
