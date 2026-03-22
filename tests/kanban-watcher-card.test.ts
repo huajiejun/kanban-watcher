@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPreviewHass } from "../src/dev/preview-fixture";
 import { getStatusMeta } from "../src/lib/status-meta";
 import "../src/index";
 import { cardStyles } from "../src/styles";
@@ -695,5 +696,21 @@ describe("kanban-watcher-card", () => {
     expect(cssText).toContain("width: 100%");
     expect(cssText).toContain("width: min(900px, calc(100vw - 24px))");
     expect(cssText).not.toContain("max-width: min(72%, 560px)");
+  });
+
+  it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {
+    const card = await renderCard(createPreviewHass());
+    const shadowRoot = card.shadowRoot;
+    const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+
+    taskCard?.click();
+    await card.updateComplete;
+
+    const messageRows = shadowRoot?.querySelectorAll(".message-row") ?? [];
+    const text = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+
+    expect(text).toContain("请先确认这个工作区的下一步安排。");
+    expect(text).toContain("如果下午还没有结果，就先给我一个阻塞说明。");
+    expect(messageRows.length).toBeGreaterThanOrEqual(15);
   });
 });
