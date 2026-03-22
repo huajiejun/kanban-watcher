@@ -281,7 +281,7 @@ func parseLogFile(path string, timestamp time.Time) ([]ConversationMessage, []To
 				nextDeltaOrder++
 				existing.order = nextDeltaOrder
 			}
-			existing.text += deltaText
+			existing.text = mergeDeltaText(existing.text, deltaText)
 			deltaMessages[itemID] = existing
 		}
 		if codexMessage.Content != "" {
@@ -403,6 +403,22 @@ func appendPendingDeltas(messages *[]ConversationMessage, deltaMessages map[stri
 			Timestamp: timestamp,
 		})
 	}
+}
+
+func mergeDeltaText(existing, delta string) string {
+	if existing == "" {
+		return delta
+	}
+	if delta == "" {
+		return existing
+	}
+	if strings.HasPrefix(delta, existing) {
+		return delta
+	}
+	if strings.HasPrefix(existing, delta) {
+		return existing
+	}
+	return existing + delta
 }
 
 func firstNonEmpty(values ...string) string {

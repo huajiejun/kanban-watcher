@@ -100,7 +100,7 @@ func TestExtractSessionSnapshotSupportsCodexCompletedItemsAndDeltaFallback(t *te
 {"Stdout":"{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"reasoning\",\"id\":\"rs-1\",\"summary\":[],\"content\":[]}}}"}
 {"Stdout":"{\"method\":\"codex/event/item_completed\",\"params\":{\"msg\":{\"item\":{\"type\":\"AgentMessage\",\"id\":\"msg-2\",\"content\":[{\"type\":\"Text\",\"text\":\"最终答复\"}],\"phase\":\"final_answer\"}}}}"}
 {"Stdout":"{\"method\":\"codex/event/agent_message_content_delta\",\"params\":{\"msg\":{\"item_id\":\"msg-3\",\"delta\":\"仅\"}}}"}
-{"Stdout":"{\"method\":\"codex/event/agent_message_content_delta\",\"params\":{\"msg\":{\"item_id\":\"msg-3\",\"delta\":\"增量\"}}}"}
+{"Stdout":"{\"method\":\"codex/event/agent_message_content_delta\",\"params\":{\"msg\":{\"item_id\":\"msg-3\",\"delta\":\"仅增量\"}}}"}
 `
 	if err := os.WriteFile(logPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("write log: %v", err)
