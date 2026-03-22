@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
+	"github.com/huajiejun/kanban-watcher/internal/markdown"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 )
 
@@ -211,6 +212,16 @@ func BuildSessionStateValue(snapshot sessionlog.SessionConversationSnapshot) str
 }
 
 func BuildSessionAttributesJSON(snapshot sessionlog.SessionConversationSnapshot) ([]byte, error) {
+	// 格式化消息内容
+	formattedMessages := make([]sessionlog.ConversationMessage, len(snapshot.RecentMessages))
+	for i, msg := range snapshot.RecentMessages {
+		formattedMessages[i] = sessionlog.ConversationMessage{
+			Role:      msg.Role,
+			Content:   markdown.FormatContent(msg.Content),
+			Timestamp: msg.Timestamp,
+		}
+	}
+
 	payload := sessionAttributesPayload{
 		SessionID:       snapshot.SessionID,
 		WorkspaceID:     snapshot.WorkspaceID,
@@ -219,8 +230,8 @@ func BuildSessionAttributesJSON(snapshot sessionlog.SessionConversationSnapshot)
 		ToolCallCount:   snapshot.ToolCallCount,
 		UpdatedAt:       snapshot.UpdatedAt.UTC().Format(time.RFC3339),
 		LastRole:        snapshot.LastRole,
-		LastMessage:     snapshot.LastMessage,
-		RecentMessages:  snapshot.RecentMessages,
+		LastMessage:     markdown.FormatContent(snapshot.LastMessage),
+		RecentMessages:  formattedMessages,
 		RecentToolCalls: snapshot.RecentToolCalls,
 	}
 	return json.Marshal(payload)
