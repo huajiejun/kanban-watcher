@@ -13,6 +13,17 @@ mqtt:
   password: "wolale1990"           # MQTT 密码
   client_id: "kanban-watcher"      # 唯一标识，同一网络内不能重复
 
+# 对话日志同步到 Home Assistant
+conversation_sync:
+  enabled: true
+  # 不填则自动按平台使用默认目录：
+  # macOS: ~/Library/Application Support/ai.bloop.vibe-kanban
+  # Linux: ~/.local/share/vibe-kanban
+  # Windows: %APPDATA%/ai.bloop.vibe-kanban
+  base_dir: ""
+  recent_message_limit: 20
+  recent_tool_call_limit: 5
+
 # 企业微信应用通知配置（支持应用API + Webhook降级）
 wechat:
   corp_id: "ww1234567890abcdef"      # 企业 ID

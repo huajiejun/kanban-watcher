@@ -12,6 +12,7 @@ import (
 	mqttclient "github.com/huajiejun/kanban-watcher/internal/mqtt"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
 	"github.com/huajiejun/kanban-watcher/internal/server"
+	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 	"github.com/huajiejun/kanban-watcher/internal/singleton"
 	"github.com/huajiejun/kanban-watcher/internal/state"
 	"github.com/huajiejun/kanban-watcher/internal/tray"
@@ -38,6 +39,11 @@ func main() {
 	// 初始化各组件
 	apiClient := api.NewClient(cfg.KanbanAPIURL)
 	mqttPub := mqttclient.NewPublisher(cfg.MQTT)
+	sessionExtractor := sessionlog.NewExtractor(
+		cfg.ConversationSync.BaseDir,
+		cfg.ConversationSync.RecentMessageLimit,
+		cfg.ConversationSync.RecentToolCallLimit,
+	)
 	wechatNotifier := wechat.NewNotifier(cfg.WeChat)
 	tracker := wechat.NewTracker(persistedState, cfg.WeChat.NotifyThresholdMinutes)
 	trayApp := tray.New()
@@ -66,7 +72,7 @@ func main() {
 	go poller.Run(ctx, cfg, apiClient, pollResults)
 
 	// 启动事件循环（后台 goroutine）
-	go runEventLoop(ctx, pollResults, mqttPub, wechatNotifier, tracker, trayApp)
+	go runEventLoop(ctx, pollResults, mqttPub, sessionExtractor, cfg, wechatNotifier, tracker, trayApp)
 
 	// systray.Run 必须在主 goroutine 调用（macOS Cocoa 要求）
 	// 它会阻塞直到调用 Quit()
@@ -91,6 +97,8 @@ func runEventLoop(
 	ctx context.Context,
 	results <-chan poller.PollResult,
 	mqttPub *mqttclient.Publisher,
+	sessionExtractor *sessionlog.Extractor,
+	cfg *config.Config,
 	wechatNotifier *wechat.Notifier,
 	tracker *wechat.Tracker,
 	trayApp *tray.App,
@@ -104,7 +112,7 @@ func runEventLoop(
 				fmt.Fprintf(os.Stderr, "轮询错误: %v\n", result.Err)
 				continue
 			}
-			handlePollResult(ctx, result, mqttPub, wechatNotifier, tracker, trayApp)
+			handlePollResult(ctx, result, mqttPub, sessionExtractor, cfg, wechatNotifier, tracker, trayApp)
 		}
 	}
 }
@@ -115,6 +123,8 @@ func handlePollResult(
 	ctx context.Context,
 	result poller.PollResult,
 	mqttPub *mqttclient.Publisher,
+	sessionExtractor *sessionlog.Extractor,
+	cfg *config.Config,
 	wechatNotifier *wechat.Notifier,
 	tracker *wechat.Tracker,
 	trayApp *tray.App,
@@ -127,6 +137,13 @@ func handlePollResult(
 	// 2. 推送至 MQTT（失败仅记录，不中断流程）
 	if _, err := mqttPub.PublishIfChanged(ctx, workspaces); err != nil {
 		fmt.Fprintf(os.Stderr, "mqtt 发布错误: %v\n", err)
+	}
+
+	if cfg.ConversationSync.IsEnabled() {
+		snapshots := sessionlog.CollectSnapshots(sessionExtractor, workspaces)
+		if _, _, err := mqttPub.PublishSessionSnapshots(ctx, snapshots); err != nil {
+			fmt.Fprintf(os.Stderr, "mqtt 会话发布错误: %v\n", err)
+		}
 	}
 
 	// 3. 评估通知阈值，获取需要告警的工作区列表

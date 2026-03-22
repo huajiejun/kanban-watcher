@@ -10,11 +10,12 @@ import (
 
 // Config kanban-watcher 的根配置结构
 type Config struct {
-	KanbanAPIURL     string       `yaml:"kanban_api_url"`        // vibe-kanban API 地址
-	MQTT             MQTTConfig   `yaml:"mqtt"`                  // MQTT 连接配置
-	WeChat           WeChatConfig `yaml:"wechat"`                // 企业微信通知配置
-	WorkingHours     WorkingHours `yaml:"working_hours"`         // 工作时间窗口
-	PollIntervalSecs int          `yaml:"poll_interval_seconds"` // 轮询间隔（秒）
+	KanbanAPIURL     string                 `yaml:"kanban_api_url"`        // vibe-kanban API 地址
+	MQTT             MQTTConfig             `yaml:"mqtt"`                  // MQTT 连接配置
+	ConversationSync ConversationSyncConfig `yaml:"conversation_sync"`     // 会话日志同步配置
+	WeChat           WeChatConfig           `yaml:"wechat"`                // 企业微信通知配置
+	WorkingHours     WorkingHours           `yaml:"working_hours"`         // 工作时间窗口
+	PollIntervalSecs int                    `yaml:"poll_interval_seconds"` // 轮询间隔（秒）
 }
 
 // MQTTConfig MQTT Broker 连接参数
@@ -25,10 +26,18 @@ type MQTTConfig struct {
 	ClientID string `yaml:"client_id"` // 客户端标识符，需全局唯一
 }
 
+// ConversationSyncConfig 对话日志提取与 Home Assistant 同步配置
+type ConversationSyncConfig struct {
+	Enabled             *bool  `yaml:"enabled"`                // 是否启用会话同步
+	BaseDir             string `yaml:"base_dir"`               // Vibe Kanban 日志根目录
+	RecentMessageLimit  int    `yaml:"recent_message_limit"`   // 最近主消息条数
+	RecentToolCallLimit int    `yaml:"recent_tool_call_limit"` // 最近工具调用条数
+}
+
 // WeChatConfig 企业微信配置（支持应用API + Webhook降级）
 type WeChatConfig struct {
 	// 应用方式配置
-	CorpID   string `yaml:"corp_id"`    // 企业 ID
+	CorpID   string `yaml:"corp_id"`   // 企业 ID
 	AgentID  string `yaml:"agent_id"`  // 应用 AgentID
 	Secret   string `yaml:"secret"`    // 应用 Secret
 	ToUser   string `yaml:"to_user"`   // 接收消息的成员账号（@all 表示全部成员）
@@ -112,6 +121,11 @@ func defaultConfig() *Config {
 			Broker:   "tcp://homeassistant.local:1883",
 			ClientID: "kanban-watcher",
 		},
+		ConversationSync: ConversationSyncConfig{
+			Enabled:             boolPtr(true),
+			RecentMessageLimit:  20,
+			RecentToolCallLimit: 5,
+		},
 		WeChat: WeChatConfig{
 			ToUser:                 "@all",
 			NotifyThresholdMinutes: 10, // 默认 10 分钟阈值
@@ -138,6 +152,15 @@ func applyDefaults(cfg *Config) {
 	if cfg.WeChat.NotifyThresholdMinutes <= 0 {
 		cfg.WeChat.NotifyThresholdMinutes = 10
 	}
+	if cfg.ConversationSync.RecentMessageLimit <= 0 {
+		cfg.ConversationSync.RecentMessageLimit = 20
+	}
+	if cfg.ConversationSync.RecentToolCallLimit <= 0 {
+		cfg.ConversationSync.RecentToolCallLimit = 5
+	}
+	if cfg.ConversationSync.Enabled == nil {
+		cfg.ConversationSync.Enabled = boolPtr(true)
+	}
 	if cfg.WeChat.ToUser == "" {
 		cfg.WeChat.ToUser = "@all"
 	}
@@ -150,6 +173,14 @@ func applyDefaults(cfg *Config) {
 	if cfg.PollIntervalSecs <= 0 {
 		cfg.PollIntervalSecs = 15
 	}
+}
+
+func (c ConversationSyncConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }
 
 // writeExampleConfig 将默认配置写入指定路径作为示例
