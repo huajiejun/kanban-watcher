@@ -139,6 +139,48 @@ func TestExtractSessionSnapshotSupportsCodexCompletedItemsAndDeltaFallback(t *te
 	}
 }
 
+func TestExtractSessionSnapshotDeduplicatesCodexCompletedEventsByItemID(t *testing.T) {
+	baseDir := t.TempDir()
+	sessionID := "4f495318-07a4-4882-b4c1-4453ea9e2818"
+	processDir := filepath.Join(baseDir, "sessions", "4f", sessionID, "processes")
+	if err := os.MkdirAll(processDir, 0o755); err != nil {
+		t.Fatalf("mkdir process dir: %v", err)
+	}
+
+	logPath := filepath.Join(processDir, "latest.jsonl")
+	content := `{"Stdout":"{\"method\":\"codex/event/item_completed\",\"params\":{\"msg\":{\"item\":{\"type\":\"UserMessage\",\"id\":\"user-1\",\"content\":[{\"type\":\"text\",\"text\":\"重复用户消息\"}]}}}}"}
+{"Stdout":"{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"userMessage\",\"id\":\"user-1\",\"content\":[{\"type\":\"text\",\"text\":\"重复用户消息\"}]}}}"}
+{"Stdout":"{\"method\":\"codex/event/item_completed\",\"params\":{\"msg\":{\"item\":{\"type\":\"AgentMessage\",\"id\":\"assistant-1\",\"text\":\"重复助手消息\"}}}}"}
+{"Stdout":"{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"agentMessage\",\"id\":\"assistant-1\",\"text\":\"重复助手消息\"}}}"}
+`
+	if err := os.WriteFile(logPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+
+	extractor := NewExtractor(baseDir, 20, 5)
+	snapshot, err := extractor.ExtractSnapshot(SessionTarget{
+		SessionID:     sessionID,
+		WorkspaceID:   "ws-dup",
+		WorkspaceName: "Workspace Dup",
+	})
+	if err != nil {
+		t.Fatalf("extract snapshot: %v", err)
+	}
+
+	if got, want := snapshot.MessageCount, 2; got != want {
+		t.Fatalf("message count = %d, want %d", got, want)
+	}
+	if got, want := len(snapshot.RecentMessages), 2; got != want {
+		t.Fatalf("recent message len = %d, want %d", got, want)
+	}
+	if snapshot.RecentMessages[0].Content != "重复用户消息" {
+		t.Fatalf("first content = %q, want 重复用户消息", snapshot.RecentMessages[0].Content)
+	}
+	if snapshot.RecentMessages[1].Content != "重复助手消息" {
+		t.Fatalf("second content = %q, want 重复助手消息", snapshot.RecentMessages[1].Content)
+	}
+}
+
 func TestExtractSessionSnapshotAggregatesMessagesAcrossProcessLogs(t *testing.T) {
 	baseDir := t.TempDir()
 	sessionID := "4f495318-07a4-4882-b4c1-4453ea9e2818"

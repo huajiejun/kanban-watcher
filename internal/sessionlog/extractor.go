@@ -220,6 +220,7 @@ func parseLogFile(path string, timestamp time.Time) ([]ConversationMessage, []To
 	var toolCalls []ToolCallSummary
 	toolIndex := make(map[string]int)
 	deltaMessages := make(map[string]deltaMessage)
+	completedItems := make(map[string]struct{})
 	nextDeltaOrder := 0
 
 	scanner := bufio.NewScanner(file)
@@ -284,10 +285,15 @@ func parseLogFile(path string, timestamp time.Time) ([]ConversationMessage, []To
 			deltaMessages[itemID] = existing
 		}
 		if codexMessage.Content != "" {
-			messages = append(messages, codexMessage)
 			if itemID != "" {
+				if _, exists := completedItems[itemID]; exists {
+					delete(deltaMessages, itemID)
+					continue
+				}
+				completedItems[itemID] = struct{}{}
 				delete(deltaMessages, itemID)
 			}
+			messages = append(messages, codexMessage)
 		}
 	}
 	if err := scanner.Err(); err != nil {
