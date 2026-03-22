@@ -328,7 +328,7 @@ export const cardStyles = css`
     margin: 8px 0;
     padding: 10px 12px;
     border-radius: 8px;
-    background: color-mix(in srgb, var(--divider-color, #1e293b) 90%, transparent);
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 28%, transparent);
     overflow-x: auto;
   }
 
@@ -339,13 +339,13 @@ export const cardStyles = css`
     line-height: 1.5;
   }
 
-  /* Highlight.js dark theme styles */
+  /* Highlight.js syntax highlighting colors */
   .message-bubble pre .hljs-keyword,
   .message-bubble pre .hljs-selector-tag,
   .message-bubble pre .hljs-built_in,
   .message-bubble pre .hljs-name,
   .message-bubble pre .hljs-tag {
-    color: #c678dd;
+    color: #a626a4;
   }
 
   .message-bubble pre .hljs-string,
@@ -356,12 +356,12 @@ export const cardStyles = css`
   .message-bubble pre .hljs-template-tag,
   .message-bubble pre .hljs-template-variable,
   .message-bubble pre .hljs-type {
-    color: #98c379;
+    color: #50a14f;
   }
 
   .message-bubble pre .hljs-comment,
   .message-bubble pre .hljs-deletion {
-    color: #5c6370;
+    color: #a0a1a7;
     font-style: italic;
   }
 
@@ -369,22 +369,22 @@ export const cardStyles = css`
   .message-bubble pre .hljs-regexp,
   .message-bubble pre .hljs-addition,
   .message-bubble pre .hljs-meta {
-    color: #d19a66;
+    color: #986801;
   }
 
   .message-bubble pre .hljs-function {
-    color: #61afef;
+    color: #4078f2;
   }
 
   .message-bubble pre .hljs-variable,
   .message-bubble pre .hljs-params {
-    color: #e06c75;
+    color: #e45649;
   }
 
   .message-bubble pre .hljs-symbol,
   .message-bubble pre .hljs-bullet,
   .message-bubble pre .hljs-link {
-    color: #56b6c2;
+    color: #0184bc;
   }
 
   .message-bubble code {
@@ -394,7 +394,7 @@ export const cardStyles = css`
     font-size: 0.92em;
     padding: 0.08em 0.35em;
     border-radius: 6px;
-    background: color-mix(in srgb, var(--divider-color, #334155) 50%, transparent);
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
   }
 
   .message-bubble.is-user {
