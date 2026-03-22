@@ -31,6 +31,7 @@ type WeChatConfig struct {
 	AgentID                string `yaml:"agent_id"`                // 应用 AgentID
 	Secret                 string `yaml:"secret"`                  // 应用 Secret
 	ToUser                 string `yaml:"to_user"`                 // 接收消息的成员账号（默认为 @all 表示全部成员）
+	ProxyURL               string `yaml:"proxy_url"`               // API 代理地址（如 http://wx.huajiejun.cn，不填则直连）
 	NotifyThresholdMinutes int    `yaml:"notify_threshold_minutes"` // 通知阈值（分钟）
 }
 

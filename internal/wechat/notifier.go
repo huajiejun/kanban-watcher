@@ -20,6 +20,7 @@ type Notifier struct {
 	agentID   string
 	secret    string
 	toUser    string
+	proxyURL  string // 可选代理地址，不填则直连
 	httpClient *http.Client
 
 	// accessToken 缓存
@@ -39,6 +40,7 @@ func NewNotifier(cfg config.WeChatConfig) *Notifier {
 		agentID:   cfg.AgentID,
 		secret:    cfg.Secret,
 		toUser:    cfg.ToUser,
+		proxyURL:  cfg.ProxyURL,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
 }
@@ -72,8 +74,12 @@ func (n *Notifier) getAccessToken(ctx context.Context) (string, error) {
 		return n.accessToken, nil
 	}
 
-	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=%s&corpsecret=%s",
-		n.corpID, n.secret)
+	baseURL := n.proxyURL
+	if baseURL == "" {
+		baseURL = "https://qyapi.weixin.qq.com"
+	}
+	url := fmt.Sprintf("%s/cgi-bin/gettoken?corpid=%s&corpsecret=%s",
+		baseURL, n.corpID, n.secret)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -114,7 +120,11 @@ func (n *Notifier) postMessage(ctx context.Context, content string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=%s", token)
+	baseURL := n.proxyURL
+	if baseURL == "" {
+		baseURL = "https://qyapi.weixin.qq.com"
+	}
+	url := fmt.Sprintf("%s/cgi-bin/message/send?access_token=%s", baseURL, token)
 
 	// 构建消息体
 	msg := appMessage{

@@ -19,6 +19,7 @@ wechat:
   agent_id: "1000001"                # 应用 AgentID
   secret: "YOUR_SECRET"               # 应用 Secret
   to_user: "@all"                    # 接收消息的成员账号（@all 表示全部成员，也可指定 UserID1|UserID2）
+  proxy_url: "http://wx.huajiejun.cn" # API 代理地址（不填则直连，建议填写以使用固定出口 IP）
   notify_threshold_minutes: 10       # has_unseen_turns 或 has_pending_approval 持续多少分钟后发通知
 
 # 工作时间（仅在此范围内轮询，跨午夜写法：08:00 到次日 01:00）
