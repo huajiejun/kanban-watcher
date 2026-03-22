@@ -162,6 +162,12 @@ export class KanbanWatcherCard extends LitElement {
     `;
   }
 
+  protected updated(changedProperties: Map<string, unknown>) {
+    if (changedProperties.has("selectedWorkspaceId") && this.selectedWorkspaceId) {
+      this.scrollMessagesToBottom();
+    }
+  }
+
   private renderSection(
     key: SectionKey,
     label: string,
@@ -439,5 +445,15 @@ export class KanbanWatcherCard extends LitElement {
         { sender: "ai", text: "我正在整理消息记录，稍后继续反馈。" },
       ]
     );
+  }
+
+  private scrollMessagesToBottom() {
+    const messageList = this.renderRoot.querySelector(".message-list") as
+      | HTMLDivElement
+      | null;
+
+    if (messageList) {
+      messageList.scrollTop = messageList.scrollHeight;
+    }
   }
 }

@@ -713,4 +713,51 @@ describe("kanban-watcher-card", () => {
     expect(text).toContain("如果下午还没有结果，就先给我一个阻塞说明。");
     expect(messageRows.length).toBeGreaterThanOrEqual(15);
   });
+
+  it("opens each workspace at the latest message and lets older messages stay above", async () => {
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollHeight",
+    );
+
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get() {
+        return this.classList?.contains("message-list") ? 480 : 0;
+      },
+    });
+
+    try {
+      const card = await renderCard(createPreviewHass());
+      const shadowRoot = card.shadowRoot;
+      const taskCards = Array.from(
+        shadowRoot?.querySelectorAll(".task-card") ?? [],
+      ) as HTMLButtonElement[];
+      const approvalCard = taskCards.find((element) =>
+        normalizeText(element.textContent).includes("消息确认待审批"),
+      );
+      const runningCard = taskCards.find((element) =>
+        normalizeText(element.textContent).includes("批量对话运行中"),
+      );
+
+      approvalCard?.click();
+      await card.updateComplete;
+
+      const firstMessageList = shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+      expect(firstMessageList?.scrollTop).toBe(480);
+
+      runningCard?.click();
+      await card.updateComplete;
+
+      const secondMessageList = shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+      expect(secondMessageList?.scrollTop).toBe(480);
+      expect(normalizeText(secondMessageList?.textContent)).toContain("继续跑，先不要中断。");
+    } finally {
+      if (originalScrollHeight) {
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", originalScrollHeight);
+      } else {
+        delete (HTMLElement.prototype as Partial<HTMLElement>).scrollHeight;
+      }
+    }
+  });
 });
