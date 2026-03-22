@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/config"
@@ -72,10 +73,13 @@ func handlePollResult(
 	trayApp.UpdateWorkspaces(workspaces)
 
 	// 2. 推送真实数据到 MQTT（汇总实体 + session 实体）
-	if _, err := publishCurrentData(ctx, cfg, workspaces, mqttPub, func(workspaces []api.EnrichedWorkspace) ([]sessionlog.SessionConversationSnapshot, int) {
+	publishResult, err := publishCurrentData(ctx, cfg, workspaces, mqttPub, func(workspaces []api.EnrichedWorkspace) ([]sessionlog.SessionConversationSnapshot, int) {
 		return collectSnapshots(sessionExtractor, workspaces)
-	}); err != nil {
+	})
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "mqtt 发布错误: %v\n", err)
+	} else {
+		fmt.Fprintln(os.Stderr, formatPollLog(publishResult))
 	}
 
 	// 3. 评估通知阈值，获取需要告警的工作区列表
@@ -94,4 +98,17 @@ func handlePollResult(
 			fmt.Fprintf(os.Stderr, "警告: 保存状态: %v\n", err)
 		}
 	}
+}
+
+func formatPollLog(result syncResult) string {
+	return fmt.Sprintf(
+		"poll: at=%s workspaces=%d summary_changed=%t session_snapshots=%d session_published=%d session_cleaned=%d extract_errors=%d",
+		time.Now().UTC().Format(time.RFC3339),
+		result.WorkspaceCount,
+		result.SummaryPublished,
+		result.SessionSnapshotCount,
+		result.SessionPublishCount,
+		result.SessionCleanupCount,
+		result.SessionExtractErrorCount,
+	)
 }

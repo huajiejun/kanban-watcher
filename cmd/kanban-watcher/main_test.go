@@ -158,6 +158,50 @@ func TestRunSyncNowReturnsErrorWhenSessionPublishFails(t *testing.T) {
 	}
 }
 
+func TestFormatPollLogReportsPublishCounts(t *testing.T) {
+	logLine := formatPollLog(syncResult{
+		WorkspaceCount:           3,
+		SummaryPublished:         true,
+		SessionSnapshotCount:     2,
+		SessionPublishCount:      2,
+		SessionCleanupCount:      1,
+		SessionExtractErrorCount: 0,
+	})
+
+	wantParts := []string{
+		"poll:",
+		"workspaces=3",
+		"summary_changed=true",
+		"session_snapshots=2",
+		"session_published=2",
+		"session_cleaned=1",
+		"extract_errors=0",
+	}
+	for _, want := range wantParts {
+		if !strings.Contains(logLine, want) {
+			t.Fatalf("formatPollLog() = %q, missing %q", logLine, want)
+		}
+	}
+}
+
+func TestFormatPollLogReportsNoChanges(t *testing.T) {
+	logLine := formatPollLog(syncResult{
+		WorkspaceCount:           3,
+		SummaryPublished:         false,
+		SessionSnapshotCount:     3,
+		SessionPublishCount:      0,
+		SessionCleanupCount:      0,
+		SessionExtractErrorCount: 0,
+	})
+
+	if !strings.Contains(logLine, "summary_changed=false") {
+		t.Fatalf("formatPollLog() = %q, want summary_changed=false", logLine)
+	}
+	if !strings.Contains(logLine, "session_published=0") {
+		t.Fatalf("formatPollLog() = %q, want session_published=0", logLine)
+	}
+}
+
 type fakeFetcher struct {
 	workspaces []api.EnrichedWorkspace
 	err        error

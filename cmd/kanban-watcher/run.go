@@ -75,6 +75,7 @@ type syncNowPublisher interface {
 
 type syncResult struct {
 	WorkspaceCount           int
+	SummaryPublished         bool
 	SessionSnapshotCount     int
 	SessionPublishCount      int
 	SessionCleanupCount      int
@@ -285,9 +286,11 @@ func publishCurrentData(
 ) (syncResult, error) {
 	result := syncResult{WorkspaceCount: len(workspaces)}
 
-	if _, err := publisher.PublishIfChanged(ctx, workspaces); err != nil {
+	summaryPublished, err := publisher.PublishIfChanged(ctx, workspaces)
+	if err != nil {
 		return result, fmt.Errorf("发布工作区汇总失败: %w", err)
 	}
+	result.SummaryPublished = summaryPublished
 
 	if cfg != nil && cfg.ConversationSync.IsEnabled() && collectSessions != nil {
 		snapshots, extractErrCount := collectSessions(workspaces)
