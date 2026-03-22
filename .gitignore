@@ -8,3 +8,4 @@ kanban-watcher
 node_modules/
 dist/
 coverage/
+.idea/
