@@ -271,6 +271,7 @@ export const cardStyles = css`
 
   .message-row {
     display: flex;
+    width: 100%;
   }
 
   .message-row.is-user {
@@ -282,7 +283,7 @@ export const cardStyles = css`
   }
 
   .message-bubble {
-    max-width: min(72%, 560px);
+    width: 100%;
     padding: 8px 10px;
     border-radius: 10px;
     line-height: 1.5;
@@ -290,10 +291,12 @@ export const cardStyles = css`
     word-break: break-word;
     background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 70%, transparent);
     color: inherit;
+    text-align: left;
   }
 
   .message-row.is-ai .message-bubble {
     background: color-mix(in srgb, var(--primary-color, #f59e0b) 12%, transparent);
+    text-align: right;
   }
 
   .dialog-composer {
@@ -367,10 +370,6 @@ export const cardStyles = css`
 
     .meta-files {
       justify-self: start;
-    }
-
-    .message-bubble {
-      max-width: 86%;
     }
   }
 `;

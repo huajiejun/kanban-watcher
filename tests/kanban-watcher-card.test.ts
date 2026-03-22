@@ -678,7 +678,7 @@ describe("kanban-watcher-card", () => {
     ).toContain("队列消息功能暂未接入");
   });
 
-  it("declares a large dialog with its own scrollable message area and lightweight left-right message alignment", () => {
+  it("declares a large dialog with its own scrollable full-width message flow", () => {
     const cssText = cardStyles.cssText;
 
     expect(cssText).toContain(".message-list");
@@ -687,6 +687,8 @@ describe("kanban-watcher-card", () => {
     expect(cssText).toContain("justify-content: flex-start");
     expect(cssText).toContain(".message-row.is-ai");
     expect(cssText).toContain("justify-content: flex-end");
+    expect(cssText).toContain("width: 100%");
     expect(cssText).toContain("width: min(900px, calc(100vw - 24px))");
+    expect(cssText).not.toContain("max-width: min(72%, 560px)");
   });
 });
