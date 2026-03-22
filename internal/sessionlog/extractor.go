@@ -171,6 +171,36 @@ type contentItem struct {
 	Content   interface{}     `json:"content"`
 }
 
+type codexEvent struct {
+	Method string          `json:"method"`
+	Params json.RawMessage `json:"params"`
+}
+
+type codexParams struct {
+	Item   json.RawMessage `json:"item"`
+	ItemID string          `json:"itemId"`
+	Delta  string          `json:"delta"`
+	Msg    *codexMsg       `json:"msg"`
+}
+
+type codexMsg struct {
+	Item   json.RawMessage `json:"item"`
+	ItemID string          `json:"item_id"`
+	Delta  string          `json:"delta"`
+}
+
+type codexCompletedItem struct {
+	Type    string      `json:"type"`
+	ID      string      `json:"id"`
+	Text    string      `json:"text"`
+	Content interface{} `json:"content"`
+}
+
+type deltaMessage struct {
+	order int
+	text  string
+}
+
 func parseLogFile(path string, timestamp time.Time) ([]ConversationMessage, []ToolCallSummary, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -181,6 +211,8 @@ func parseLogFile(path string, timestamp time.Time) ([]ConversationMessage, []To
 	var messages []ConversationMessage
 	var toolCalls []ToolCallSummary
 	toolIndex := make(map[string]int)
+	deltaMessages := make(map[string]deltaMessage)
+	nextDeltaOrder := 0
 
 	scanner := bufio.NewScanner(file)
 	const maxCapacity = 1024 * 1024
@@ -202,42 +234,170 @@ func parseLogFile(path string, timestamp time.Time) ([]ConversationMessage, []To
 		}
 
 		var record logRecord
-		if err := json.Unmarshal([]byte(envelope.Stdout), &record); err != nil {
+		if err := json.Unmarshal([]byte(envelope.Stdout), &record); err == nil && record.Type != "" {
+			switch record.Type {
+			case "assistant":
+				text, calls := parseAssistantMessage(record.Message, timestamp)
+				if text != "" {
+					messages = append(messages, ConversationMessage{Role: "assistant", Content: text, Timestamp: timestamp})
+				}
+				for _, call := range calls {
+					toolIndex[call.ToolUseID] = len(toolCalls)
+					toolCalls = append(toolCalls, call)
+				}
+			case "user":
+				msg, result := parseUserMessage(record.Message, timestamp)
+				if msg.Content != "" {
+					messages = append(messages, msg)
+				}
+				if result.ToolUseID != "" {
+					if idx, ok := toolIndex[result.ToolUseID]; ok {
+						toolCalls[idx].ResultSummary = result.ResultSummary
+					}
+				}
+			case "system", "control_request", "control_response":
+				text := parseGenericMessage(record.Message)
+				if text == "" {
+					continue
+				}
+				messages = append(messages, ConversationMessage{Role: record.Type, Content: text, Timestamp: timestamp})
+			}
 			continue
 		}
 
-		switch record.Type {
-		case "assistant":
-			text, calls := parseAssistantMessage(record.Message, timestamp)
-			if text != "" {
-				messages = append(messages, ConversationMessage{Role: "assistant", Content: text, Timestamp: timestamp})
+		codexMessage, itemID, deltaText := parseCodexEvent([]byte(envelope.Stdout), timestamp)
+		if deltaText != "" && itemID != "" {
+			existing := deltaMessages[itemID]
+			if existing.order == 0 && existing.text == "" {
+				nextDeltaOrder++
+				existing.order = nextDeltaOrder
 			}
-			for _, call := range calls {
-				toolIndex[call.ToolUseID] = len(toolCalls)
-				toolCalls = append(toolCalls, call)
+			existing.text += deltaText
+			deltaMessages[itemID] = existing
+		}
+		if codexMessage.Content != "" {
+			messages = append(messages, codexMessage)
+			if itemID != "" {
+				delete(deltaMessages, itemID)
 			}
-		case "user":
-			msg, result := parseUserMessage(record.Message, timestamp)
-			if msg.Content != "" {
-				messages = append(messages, msg)
-			}
-			if result.ToolUseID != "" {
-				if idx, ok := toolIndex[result.ToolUseID]; ok {
-					toolCalls[idx].ResultSummary = result.ResultSummary
-				}
-			}
-		case "system", "control_request", "control_response":
-			text := parseGenericMessage(record.Message)
-			if text == "" {
-				continue
-			}
-			messages = append(messages, ConversationMessage{Role: record.Type, Content: text, Timestamp: timestamp})
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, nil, fmt.Errorf("scan log file: %w", err)
 	}
+
+	appendPendingDeltas(&messages, deltaMessages, timestamp)
 	return messages, toolCalls, nil
+}
+
+func parseCodexEvent(raw []byte, timestamp time.Time) (ConversationMessage, string, string) {
+	var event codexEvent
+	if err := json.Unmarshal(raw, &event); err != nil || event.Method == "" {
+		return ConversationMessage{}, "", ""
+	}
+
+	var params codexParams
+	if err := json.Unmarshal(event.Params, &params); err != nil {
+		return ConversationMessage{}, "", ""
+	}
+
+	switch event.Method {
+	case "item/completed", "codex/event/item_completed":
+		itemRaw := params.Item
+		if len(itemRaw) == 0 && params.Msg != nil {
+			itemRaw = params.Msg.Item
+		}
+		if len(itemRaw) == 0 {
+			return ConversationMessage{}, "", ""
+		}
+		var item codexCompletedItem
+		if err := json.Unmarshal(itemRaw, &item); err != nil {
+			return ConversationMessage{}, "", ""
+		}
+		role, text := parseCodexCompletedItem(item)
+		if text == "" {
+			return ConversationMessage{}, item.ID, ""
+		}
+		return ConversationMessage{
+			Role:      role,
+			Content:   text,
+			Timestamp: timestamp,
+		}, item.ID, ""
+	case "codex/event/agent_message_delta", "codex/event/agent_message_content_delta", "item/agentMessage/delta":
+		itemID := params.ItemID
+		delta := params.Delta
+		if params.Msg != nil {
+			if itemID == "" {
+				itemID = params.Msg.ItemID
+			}
+			if delta == "" {
+				delta = params.Msg.Delta
+			}
+		}
+		return ConversationMessage{}, itemID, delta
+	default:
+		return ConversationMessage{}, "", ""
+	}
+}
+
+func parseCodexCompletedItem(item codexCompletedItem) (string, string) {
+	itemType := strings.ToLower(item.Type)
+	switch itemType {
+	case "usermessage":
+		return "user", firstNonEmpty(item.Text, extractCodexText(item.Content))
+	case "agentmessage":
+		return "assistant", firstNonEmpty(item.Text, extractCodexText(item.Content))
+	default:
+		return "", ""
+	}
+}
+
+func extractCodexText(content interface{}) string {
+	items := decodeContentItems(content)
+	var texts []string
+	for _, item := range items {
+		if strings.EqualFold(item.Type, "text") && item.Text != "" {
+			texts = append(texts, item.Text)
+		}
+	}
+	return strings.Join(texts, "\n\n")
+}
+
+func appendPendingDeltas(messages *[]ConversationMessage, deltaMessages map[string]deltaMessage, timestamp time.Time) {
+	if len(deltaMessages) == 0 {
+		return
+	}
+
+	type orderedDelta struct {
+		order int
+		text  string
+	}
+	ordered := make([]orderedDelta, 0, len(deltaMessages))
+	for _, msg := range deltaMessages {
+		if msg.text == "" {
+			continue
+		}
+		ordered = append(ordered, orderedDelta{order: msg.order, text: msg.text})
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		return ordered[i].order < ordered[j].order
+	})
+	for _, msg := range ordered {
+		*messages = append(*messages, ConversationMessage{
+			Role:      "assistant",
+			Content:   msg.text,
+			Timestamp: timestamp,
+		})
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func parseAssistantMessage(raw json.RawMessage, timestamp time.Time) (string, []ToolCallSummary) {

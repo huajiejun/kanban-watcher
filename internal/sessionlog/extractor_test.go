@@ -82,3 +82,58 @@ func TestExtractSessionSnapshotIncludesSystemControlAndRecentToolCalls(t *testin
 		t.Fatalf("last message = %q, want 最后总结", snapshot.LastMessage)
 	}
 }
+
+func TestExtractSessionSnapshotSupportsCodexCompletedItemsAndDeltaFallback(t *testing.T) {
+	baseDir := t.TempDir()
+	sessionID := "4f495318-07a4-4882-b4c1-4453ea9e2818"
+	processDir := filepath.Join(baseDir, "sessions", "4f", sessionID, "processes")
+	if err := os.MkdirAll(processDir, 0o755); err != nil {
+		t.Fatalf("mkdir process dir: %v", err)
+	}
+
+	logPath := filepath.Join(processDir, "latest.jsonl")
+	content := `{"Stdout":"{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"userMessage\",\"id\":\"user-1\",\"content\":[{\"type\":\"text\",\"text\":\"用户提问\"}]}}}"}
+{"Stdout":"{\"method\":\"codex/event/agent_message_content_delta\",\"params\":{\"msg\":{\"item_id\":\"msg-1\",\"delta\":\"你\"}}}"}
+{"Stdout":"{\"method\":\"item/agentMessage/delta\",\"params\":{\"itemId\":\"msg-1\",\"delta\":\"好\"}}"}
+{"Stdout":"{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"agentMessage\",\"id\":\"msg-1\",\"text\":\"你好\"}}}"}
+{"Stdout":"{\"method\":\"item/completed\",\"params\":{\"item\":{\"type\":\"reasoning\",\"id\":\"rs-1\",\"summary\":[],\"content\":[]}}}"}
+{"Stdout":"{\"method\":\"codex/event/item_completed\",\"params\":{\"msg\":{\"item\":{\"type\":\"AgentMessage\",\"id\":\"msg-2\",\"content\":[{\"type\":\"Text\",\"text\":\"最终答复\"}],\"phase\":\"final_answer\"}}}}"}
+{"Stdout":"{\"method\":\"codex/event/agent_message_content_delta\",\"params\":{\"msg\":{\"item_id\":\"msg-3\",\"delta\":\"仅\"}}}"}
+{"Stdout":"{\"method\":\"codex/event/agent_message_content_delta\",\"params\":{\"msg\":{\"item_id\":\"msg-3\",\"delta\":\"增量\"}}}"}
+`
+	if err := os.WriteFile(logPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+
+	extractor := NewExtractor(baseDir, 20, 5)
+	snapshot, err := extractor.ExtractSnapshot(SessionTarget{
+		SessionID:     sessionID,
+		WorkspaceID:   "ws-2",
+		WorkspaceName: "Workspace 2",
+	})
+	if err != nil {
+		t.Fatalf("extract snapshot: %v", err)
+	}
+
+	if got, want := snapshot.MessageCount, 4; got != want {
+		t.Fatalf("message count = %d, want %d", got, want)
+	}
+	if got, want := len(snapshot.RecentMessages), 4; got != want {
+		t.Fatalf("recent message len = %d, want %d", got, want)
+	}
+	if snapshot.RecentMessages[0].Role != "user" || snapshot.RecentMessages[0].Content != "用户提问" {
+		t.Fatalf("first message = %#v, want user/用户提问", snapshot.RecentMessages[0])
+	}
+	if snapshot.RecentMessages[1].Role != "assistant" || snapshot.RecentMessages[1].Content != "你好" {
+		t.Fatalf("second message = %#v, want assistant/你好", snapshot.RecentMessages[1])
+	}
+	if snapshot.RecentMessages[2].Content != "最终答复" {
+		t.Fatalf("third content = %q, want 最终答复", snapshot.RecentMessages[2].Content)
+	}
+	if snapshot.RecentMessages[3].Content != "仅增量" {
+		t.Fatalf("fourth content = %q, want 仅增量", snapshot.RecentMessages[3].Content)
+	}
+	if snapshot.LastRole != "assistant" || snapshot.LastMessage != "仅增量" {
+		t.Fatalf("last = %s/%q, want assistant/仅增量", snapshot.LastRole, snapshot.LastMessage)
+	}
+}
