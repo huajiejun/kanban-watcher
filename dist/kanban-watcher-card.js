@@ -1,200 +1,200 @@
-const U = globalThis, D = U.ShadowRoot && (U.ShadyCSS === void 0 || U.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, j = /* @__PURE__ */ Symbol(), q = /* @__PURE__ */ new WeakMap();
-let st = class {
-  constructor(t, e, s) {
-    if (this._$cssResult$ = !0, s !== j) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
-    this.cssText = t, this.t = e;
+const T = globalThis, z = T.ShadowRoot && (T.ShadyCSS === void 0 || T.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, L = /* @__PURE__ */ Symbol(), F = /* @__PURE__ */ new WeakMap();
+let ie = class {
+  constructor(e, t, s) {
+    if (this._$cssResult$ = !0, s !== L) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
+    this.cssText = e, this.t = t;
   }
   get styleSheet() {
-    let t = this.o;
-    const e = this.t;
-    if (D && t === void 0) {
-      const s = e !== void 0 && e.length === 1;
-      s && (t = q.get(e)), t === void 0 && ((this.o = t = new CSSStyleSheet()).replaceSync(this.cssText), s && q.set(e, t));
+    let e = this.o;
+    const t = this.t;
+    if (z && e === void 0) {
+      const s = t !== void 0 && t.length === 1;
+      s && (e = F.get(t)), e === void 0 && ((this.o = e = new CSSStyleSheet()).replaceSync(this.cssText), s && F.set(t, e));
     }
-    return t;
+    return e;
   }
   toString() {
     return this.cssText;
   }
 };
-const ct = (r) => new st(typeof r == "string" ? r : r + "", void 0, j), lt = (r, ...t) => {
-  const e = r.length === 1 ? r[0] : t.reduce((s, i, n) => s + ((o) => {
+const ce = (r) => new ie(typeof r == "string" ? r : r + "", void 0, L), de = (r, ...e) => {
+  const t = r.length === 1 ? r[0] : e.reduce((s, i, n) => s + ((o) => {
     if (o._$cssResult$ === !0) return o.cssText;
     if (typeof o == "number") return o;
     throw Error("Value passed to 'css' function must be a 'css' function result: " + o + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
   })(i) + r[n + 1], r[0]);
-  return new st(e, r, j);
-}, dt = (r, t) => {
-  if (D) r.adoptedStyleSheets = t.map((e) => e instanceof CSSStyleSheet ? e : e.styleSheet);
-  else for (const e of t) {
-    const s = document.createElement("style"), i = U.litNonce;
-    i !== void 0 && s.setAttribute("nonce", i), s.textContent = e.cssText, r.appendChild(s);
+  return new ie(t, r, L);
+}, he = (r, e) => {
+  if (z) r.adoptedStyleSheets = e.map((t) => t instanceof CSSStyleSheet ? t : t.styleSheet);
+  else for (const t of e) {
+    const s = document.createElement("style"), i = T.litNonce;
+    i !== void 0 && s.setAttribute("nonce", i), s.textContent = t.cssText, r.appendChild(s);
   }
-}, F = D ? (r) => r : (r) => r instanceof CSSStyleSheet ? ((t) => {
-  let e = "";
-  for (const s of t.cssRules) e += s.cssText;
-  return ct(e);
+}, V = z ? (r) => r : (r) => r instanceof CSSStyleSheet ? ((e) => {
+  let t = "";
+  for (const s of e.cssRules) t += s.cssText;
+  return ce(t);
 })(r) : r;
-const { is: ht, defineProperty: pt, getOwnPropertyDescriptor: ut, getOwnPropertyNames: ft, getOwnPropertySymbols: gt, getPrototypeOf: mt } = Object, R = globalThis, J = R.trustedTypes, $t = J ? J.emptyScript : "", bt = R.reactiveElementPolyfillSupport, S = (r, t) => r, I = { toAttribute(r, t) {
-  switch (t) {
+const { is: pe, defineProperty: ue, getOwnPropertyDescriptor: ge, getOwnPropertyNames: fe, getOwnPropertySymbols: me, getPrototypeOf: be } = Object, U = globalThis, J = U.trustedTypes, $e = J ? J.emptyScript : "", ve = U.reactiveElementPolyfillSupport, w = (r, e) => r, I = { toAttribute(r, e) {
+  switch (e) {
     case Boolean:
-      r = r ? $t : null;
+      r = r ? $e : null;
       break;
     case Object:
     case Array:
       r = r == null ? r : JSON.stringify(r);
   }
   return r;
-}, fromAttribute(r, t) {
-  let e = r;
-  switch (t) {
+}, fromAttribute(r, e) {
+  let t = r;
+  switch (e) {
     case Boolean:
-      e = r !== null;
+      t = r !== null;
       break;
     case Number:
-      e = r === null ? null : Number(r);
+      t = r === null ? null : Number(r);
       break;
     case Object:
     case Array:
       try {
-        e = JSON.parse(r);
+        t = JSON.parse(r);
       } catch {
-        e = null;
+        t = null;
       }
   }
-  return e;
-} }, it = (r, t) => !ht(r, t), Z = { attribute: !0, type: String, converter: I, reflect: !1, useDefault: !1, hasChanged: it };
-Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), R.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
-let y = class extends HTMLElement {
-  static addInitializer(t) {
-    this._$Ei(), (this.l ??= []).push(t);
+  return t;
+} }, re = (r, e) => !pe(r, e), K = { attribute: !0, type: String, converter: I, reflect: !1, useDefault: !1, hasChanged: re };
+Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), U.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
+let _ = class extends HTMLElement {
+  static addInitializer(e) {
+    this._$Ei(), (this.l ??= []).push(e);
   }
   static get observedAttributes() {
     return this.finalize(), this._$Eh && [...this._$Eh.keys()];
   }
-  static createProperty(t, e = Z) {
-    if (e.state && (e.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(t) && ((e = Object.create(e)).wrapped = !0), this.elementProperties.set(t, e), !e.noAccessor) {
-      const s = /* @__PURE__ */ Symbol(), i = this.getPropertyDescriptor(t, s, e);
-      i !== void 0 && pt(this.prototype, t, i);
+  static createProperty(e, t = K) {
+    if (t.state && (t.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(e) && ((t = Object.create(t)).wrapped = !0), this.elementProperties.set(e, t), !t.noAccessor) {
+      const s = /* @__PURE__ */ Symbol(), i = this.getPropertyDescriptor(e, s, t);
+      i !== void 0 && ue(this.prototype, e, i);
     }
   }
-  static getPropertyDescriptor(t, e, s) {
-    const { get: i, set: n } = ut(this.prototype, t) ?? { get() {
-      return this[e];
+  static getPropertyDescriptor(e, t, s) {
+    const { get: i, set: n } = ge(this.prototype, e) ?? { get() {
+      return this[t];
     }, set(o) {
-      this[e] = o;
+      this[t] = o;
     } };
     return { get: i, set(o) {
-      const c = i?.call(this);
-      n?.call(this, o), this.requestUpdate(t, c, s);
+      const l = i?.call(this);
+      n?.call(this, o), this.requestUpdate(e, l, s);
     }, configurable: !0, enumerable: !0 };
   }
-  static getPropertyOptions(t) {
-    return this.elementProperties.get(t) ?? Z;
+  static getPropertyOptions(e) {
+    return this.elementProperties.get(e) ?? K;
   }
   static _$Ei() {
-    if (this.hasOwnProperty(S("elementProperties"))) return;
-    const t = mt(this);
-    t.finalize(), t.l !== void 0 && (this.l = [...t.l]), this.elementProperties = new Map(t.elementProperties);
+    if (this.hasOwnProperty(w("elementProperties"))) return;
+    const e = be(this);
+    e.finalize(), e.l !== void 0 && (this.l = [...e.l]), this.elementProperties = new Map(e.elementProperties);
   }
   static finalize() {
-    if (this.hasOwnProperty(S("finalized"))) return;
-    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(S("properties"))) {
-      const e = this.properties, s = [...ft(e), ...gt(e)];
-      for (const i of s) this.createProperty(i, e[i]);
+    if (this.hasOwnProperty(w("finalized"))) return;
+    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(w("properties"))) {
+      const t = this.properties, s = [...fe(t), ...me(t)];
+      for (const i of s) this.createProperty(i, t[i]);
     }
-    const t = this[Symbol.metadata];
-    if (t !== null) {
-      const e = litPropertyMetadata.get(t);
-      if (e !== void 0) for (const [s, i] of e) this.elementProperties.set(s, i);
+    const e = this[Symbol.metadata];
+    if (e !== null) {
+      const t = litPropertyMetadata.get(e);
+      if (t !== void 0) for (const [s, i] of t) this.elementProperties.set(s, i);
     }
     this._$Eh = /* @__PURE__ */ new Map();
-    for (const [e, s] of this.elementProperties) {
-      const i = this._$Eu(e, s);
-      i !== void 0 && this._$Eh.set(i, e);
+    for (const [t, s] of this.elementProperties) {
+      const i = this._$Eu(t, s);
+      i !== void 0 && this._$Eh.set(i, t);
     }
     this.elementStyles = this.finalizeStyles(this.styles);
   }
-  static finalizeStyles(t) {
-    const e = [];
-    if (Array.isArray(t)) {
-      const s = new Set(t.flat(1 / 0).reverse());
-      for (const i of s) e.unshift(F(i));
-    } else t !== void 0 && e.push(F(t));
-    return e;
+  static finalizeStyles(e) {
+    const t = [];
+    if (Array.isArray(e)) {
+      const s = new Set(e.flat(1 / 0).reverse());
+      for (const i of s) t.unshift(V(i));
+    } else e !== void 0 && t.push(V(e));
+    return t;
   }
-  static _$Eu(t, e) {
-    const s = e.attribute;
-    return s === !1 ? void 0 : typeof s == "string" ? s : typeof t == "string" ? t.toLowerCase() : void 0;
+  static _$Eu(e, t) {
+    const s = t.attribute;
+    return s === !1 ? void 0 : typeof s == "string" ? s : typeof e == "string" ? e.toLowerCase() : void 0;
   }
   constructor() {
     super(), this._$Ep = void 0, this.isUpdatePending = !1, this.hasUpdated = !1, this._$Em = null, this._$Ev();
   }
   _$Ev() {
-    this._$ES = new Promise((t) => this.enableUpdating = t), this._$AL = /* @__PURE__ */ new Map(), this._$E_(), this.requestUpdate(), this.constructor.l?.forEach((t) => t(this));
+    this._$ES = new Promise((e) => this.enableUpdating = e), this._$AL = /* @__PURE__ */ new Map(), this._$E_(), this.requestUpdate(), this.constructor.l?.forEach((e) => e(this));
   }
-  addController(t) {
-    (this._$EO ??= /* @__PURE__ */ new Set()).add(t), this.renderRoot !== void 0 && this.isConnected && t.hostConnected?.();
+  addController(e) {
+    (this._$EO ??= /* @__PURE__ */ new Set()).add(e), this.renderRoot !== void 0 && this.isConnected && e.hostConnected?.();
   }
-  removeController(t) {
-    this._$EO?.delete(t);
+  removeController(e) {
+    this._$EO?.delete(e);
   }
   _$E_() {
-    const t = /* @__PURE__ */ new Map(), e = this.constructor.elementProperties;
-    for (const s of e.keys()) this.hasOwnProperty(s) && (t.set(s, this[s]), delete this[s]);
-    t.size > 0 && (this._$Ep = t);
+    const e = /* @__PURE__ */ new Map(), t = this.constructor.elementProperties;
+    for (const s of t.keys()) this.hasOwnProperty(s) && (e.set(s, this[s]), delete this[s]);
+    e.size > 0 && (this._$Ep = e);
   }
   createRenderRoot() {
-    const t = this.shadowRoot ?? this.attachShadow(this.constructor.shadowRootOptions);
-    return dt(t, this.constructor.elementStyles), t;
+    const e = this.shadowRoot ?? this.attachShadow(this.constructor.shadowRootOptions);
+    return he(e, this.constructor.elementStyles), e;
   }
   connectedCallback() {
-    this.renderRoot ??= this.createRenderRoot(), this.enableUpdating(!0), this._$EO?.forEach((t) => t.hostConnected?.());
+    this.renderRoot ??= this.createRenderRoot(), this.enableUpdating(!0), this._$EO?.forEach((e) => e.hostConnected?.());
   }
-  enableUpdating(t) {
+  enableUpdating(e) {
   }
   disconnectedCallback() {
-    this._$EO?.forEach((t) => t.hostDisconnected?.());
+    this._$EO?.forEach((e) => e.hostDisconnected?.());
   }
-  attributeChangedCallback(t, e, s) {
-    this._$AK(t, s);
+  attributeChangedCallback(e, t, s) {
+    this._$AK(e, s);
   }
-  _$ET(t, e) {
-    const s = this.constructor.elementProperties.get(t), i = this.constructor._$Eu(t, s);
+  _$ET(e, t) {
+    const s = this.constructor.elementProperties.get(e), i = this.constructor._$Eu(e, s);
     if (i !== void 0 && s.reflect === !0) {
-      const n = (s.converter?.toAttribute !== void 0 ? s.converter : I).toAttribute(e, s.type);
-      this._$Em = t, n == null ? this.removeAttribute(i) : this.setAttribute(i, n), this._$Em = null;
+      const n = (s.converter?.toAttribute !== void 0 ? s.converter : I).toAttribute(t, s.type);
+      this._$Em = e, n == null ? this.removeAttribute(i) : this.setAttribute(i, n), this._$Em = null;
     }
   }
-  _$AK(t, e) {
-    const s = this.constructor, i = s._$Eh.get(t);
+  _$AK(e, t) {
+    const s = this.constructor, i = s._$Eh.get(e);
     if (i !== void 0 && this._$Em !== i) {
       const n = s.getPropertyOptions(i), o = typeof n.converter == "function" ? { fromAttribute: n.converter } : n.converter?.fromAttribute !== void 0 ? n.converter : I;
       this._$Em = i;
-      const c = o.fromAttribute(e, n.type);
-      this[i] = c ?? this._$Ej?.get(i) ?? c, this._$Em = null;
+      const l = o.fromAttribute(t, n.type);
+      this[i] = l ?? this._$Ej?.get(i) ?? l, this._$Em = null;
     }
   }
-  requestUpdate(t, e, s, i = !1, n) {
-    if (t !== void 0) {
+  requestUpdate(e, t, s, i = !1, n) {
+    if (e !== void 0) {
       const o = this.constructor;
-      if (i === !1 && (n = this[t]), s ??= o.getPropertyOptions(t), !((s.hasChanged ?? it)(n, e) || s.useDefault && s.reflect && n === this._$Ej?.get(t) && !this.hasAttribute(o._$Eu(t, s)))) return;
-      this.C(t, e, s);
+      if (i === !1 && (n = this[e]), s ??= o.getPropertyOptions(e), !((s.hasChanged ?? re)(n, t) || s.useDefault && s.reflect && n === this._$Ej?.get(e) && !this.hasAttribute(o._$Eu(e, s)))) return;
+      this.C(e, t, s);
     }
     this.isUpdatePending === !1 && (this._$ES = this._$EP());
   }
-  C(t, e, { useDefault: s, reflect: i, wrapped: n }, o) {
-    s && !(this._$Ej ??= /* @__PURE__ */ new Map()).has(t) && (this._$Ej.set(t, o ?? e ?? this[t]), n !== !0 || o !== void 0) || (this._$AL.has(t) || (this.hasUpdated || s || (e = void 0), this._$AL.set(t, e)), i === !0 && this._$Em !== t && (this._$Eq ??= /* @__PURE__ */ new Set()).add(t));
+  C(e, t, { useDefault: s, reflect: i, wrapped: n }, o) {
+    s && !(this._$Ej ??= /* @__PURE__ */ new Map()).has(e) && (this._$Ej.set(e, o ?? t ?? this[e]), n !== !0 || o !== void 0) || (this._$AL.has(e) || (this.hasUpdated || s || (t = void 0), this._$AL.set(e, t)), i === !0 && this._$Em !== e && (this._$Eq ??= /* @__PURE__ */ new Set()).add(e));
   }
   async _$EP() {
     this.isUpdatePending = !0;
     try {
       await this._$ES;
-    } catch (e) {
-      Promise.reject(e);
+    } catch (t) {
+      Promise.reject(t);
     }
-    const t = this.scheduleUpdate();
-    return t != null && await t, !this.isUpdatePending;
+    const e = this.scheduleUpdate();
+    return e != null && await e, !this.isUpdatePending;
   }
   scheduleUpdate() {
     return this.performUpdate();
@@ -208,23 +208,23 @@ let y = class extends HTMLElement {
       }
       const s = this.constructor.elementProperties;
       if (s.size > 0) for (const [i, n] of s) {
-        const { wrapped: o } = n, c = this[i];
-        o !== !0 || this._$AL.has(i) || c === void 0 || this.C(i, void 0, n, c);
+        const { wrapped: o } = n, l = this[i];
+        o !== !0 || this._$AL.has(i) || l === void 0 || this.C(i, void 0, n, l);
       }
     }
-    let t = !1;
-    const e = this._$AL;
+    let e = !1;
+    const t = this._$AL;
     try {
-      t = this.shouldUpdate(e), t ? (this.willUpdate(e), this._$EO?.forEach((s) => s.hostUpdate?.()), this.update(e)) : this._$EM();
+      e = this.shouldUpdate(t), e ? (this.willUpdate(t), this._$EO?.forEach((s) => s.hostUpdate?.()), this.update(t)) : this._$EM();
     } catch (s) {
-      throw t = !1, this._$EM(), s;
+      throw e = !1, this._$EM(), s;
     }
-    t && this._$AE(e);
+    e && this._$AE(t);
   }
-  willUpdate(t) {
+  willUpdate(e) {
   }
-  _$AE(t) {
-    this._$EO?.forEach((e) => e.hostUpdated?.()), this.hasUpdated || (this.hasUpdated = !0, this.firstUpdated(t)), this.updated(t);
+  _$AE(e) {
+    this._$EO?.forEach((t) => t.hostUpdated?.()), this.hasUpdated || (this.hasUpdated = !0, this.firstUpdated(e)), this.updated(e);
   }
   _$EM() {
     this._$AL = /* @__PURE__ */ new Map(), this.isUpdatePending = !1;
@@ -235,83 +235,83 @@ let y = class extends HTMLElement {
   getUpdateComplete() {
     return this._$ES;
   }
-  shouldUpdate(t) {
+  shouldUpdate(e) {
     return !0;
   }
-  update(t) {
-    this._$Eq &&= this._$Eq.forEach((e) => this._$ET(e, this[e])), this._$EM();
+  update(e) {
+    this._$Eq &&= this._$Eq.forEach((t) => this._$ET(t, this[t])), this._$EM();
   }
-  updated(t) {
+  updated(e) {
   }
-  firstUpdated(t) {
+  firstUpdated(e) {
   }
 };
-y.elementStyles = [], y.shadowRootOptions = { mode: "open" }, y[S("elementProperties")] = /* @__PURE__ */ new Map(), y[S("finalized")] = /* @__PURE__ */ new Map(), bt?.({ ReactiveElement: y }), (R.reactiveElementVersions ??= []).push("2.1.2");
-const L = globalThis, K = (r) => r, O = L.trustedTypes, G = O ? O.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, rt = "$lit$", m = `lit$${Math.random().toFixed(9).slice(2)}$`, nt = "?" + m, vt = `<${nt}>`, v = document, E = () => v.createComment(""), k = (r) => r === null || typeof r != "object" && typeof r != "function", B = Array.isArray, yt = (r) => B(r) || typeof r?.[Symbol.iterator] == "function", T = `[ 	
-\f\r]`, x = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Q = /-->/g, X = />/g, $ = RegExp(`>|${T}(?:([^\\s"'>=/]+)(${T}*=${T}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Y = /'/g, tt = /"/g, ot = /^(?:script|style|textarea|title)$/i, _t = (r) => (t, ...e) => ({ _$litType$: r, strings: t, values: e }), u = _t(1), _ = /* @__PURE__ */ Symbol.for("lit-noChange"), d = /* @__PURE__ */ Symbol.for("lit-nothing"), et = /* @__PURE__ */ new WeakMap(), b = v.createTreeWalker(v, 129);
-function at(r, t) {
-  if (!B(r) || !r.hasOwnProperty("raw")) throw Error("invalid template strings array");
-  return G !== void 0 ? G.createHTML(t) : t;
+_.elementStyles = [], _.shadowRootOptions = { mode: "open" }, _[w("elementProperties")] = /* @__PURE__ */ new Map(), _[w("finalized")] = /* @__PURE__ */ new Map(), ve?.({ ReactiveElement: _ }), (U.reactiveElementVersions ??= []).push("2.1.2");
+const j = globalThis, Z = (r) => r, R = j.trustedTypes, Q = R ? R.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, ne = "$lit$", m = `lit$${Math.random().toFixed(9).slice(2)}$`, oe = "?" + m, ye = `<${oe}>`, v = document, S = () => v.createComment(""), E = (r) => r === null || typeof r != "object" && typeof r != "function", q = Array.isArray, _e = (r) => q(r) || typeof r?.[Symbol.iterator] == "function", H = `[ 	
+\f\r]`, A = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, G = /-->/g, X = />/g, b = RegExp(`>|${H}(?:([^\\s"'>=/]+)(${H}*=${H}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Y = /'/g, ee = /"/g, ae = /^(?:script|style|textarea|title)$/i, xe = (r) => (e, ...t) => ({ _$litType$: r, strings: e, values: t }), u = xe(1), y = /* @__PURE__ */ Symbol.for("lit-noChange"), d = /* @__PURE__ */ Symbol.for("lit-nothing"), te = /* @__PURE__ */ new WeakMap(), $ = v.createTreeWalker(v, 129);
+function le(r, e) {
+  if (!q(r) || !r.hasOwnProperty("raw")) throw Error("invalid template strings array");
+  return Q !== void 0 ? Q.createHTML(e) : e;
 }
-const At = (r, t) => {
-  const e = r.length - 1, s = [];
-  let i, n = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", o = x;
-  for (let c = 0; c < e; c++) {
-    const a = r[c];
-    let h, p, l = -1, f = 0;
-    for (; f < a.length && (o.lastIndex = f, p = o.exec(a), p !== null); ) f = o.lastIndex, o === x ? p[1] === "!--" ? o = Q : p[1] !== void 0 ? o = X : p[2] !== void 0 ? (ot.test(p[2]) && (i = RegExp("</" + p[2], "g")), o = $) : p[3] !== void 0 && (o = $) : o === $ ? p[0] === ">" ? (o = i ?? x, l = -1) : p[1] === void 0 ? l = -2 : (l = o.lastIndex - p[2].length, h = p[1], o = p[3] === void 0 ? $ : p[3] === '"' ? tt : Y) : o === tt || o === Y ? o = $ : o === Q || o === X ? o = x : (o = $, i = void 0);
-    const g = o === $ && r[c + 1].startsWith("/>") ? " " : "";
-    n += o === x ? a + vt : l >= 0 ? (s.push(h), a.slice(0, l) + rt + a.slice(l) + m + g) : a + m + (l === -2 ? c : g);
+const Ae = (r, e) => {
+  const t = r.length - 1, s = [];
+  let i, n = e === 2 ? "<svg>" : e === 3 ? "<math>" : "", o = A;
+  for (let l = 0; l < t; l++) {
+    const a = r[l];
+    let h, p, c = -1, g = 0;
+    for (; g < a.length && (o.lastIndex = g, p = o.exec(a), p !== null); ) g = o.lastIndex, o === A ? p[1] === "!--" ? o = G : p[1] !== void 0 ? o = X : p[2] !== void 0 ? (ae.test(p[2]) && (i = RegExp("</" + p[2], "g")), o = b) : p[3] !== void 0 && (o = b) : o === b ? p[0] === ">" ? (o = i ?? A, c = -1) : p[1] === void 0 ? c = -2 : (c = o.lastIndex - p[2].length, h = p[1], o = p[3] === void 0 ? b : p[3] === '"' ? ee : Y) : o === ee || o === Y ? o = b : o === G || o === X ? o = A : (o = b, i = void 0);
+    const f = o === b && r[l + 1].startsWith("/>") ? " " : "";
+    n += o === A ? a + ye : c >= 0 ? (s.push(h), a.slice(0, c) + ne + a.slice(c) + m + f) : a + m + (c === -2 ? l : f);
   }
-  return [at(r, n + (r[e] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), s];
+  return [le(r, n + (r[t] || "<?>") + (e === 2 ? "</svg>" : e === 3 ? "</math>" : "")), s];
 };
 class C {
-  constructor({ strings: t, _$litType$: e }, s) {
+  constructor({ strings: e, _$litType$: t }, s) {
     let i;
     this.parts = [];
     let n = 0, o = 0;
-    const c = t.length - 1, a = this.parts, [h, p] = At(t, e);
-    if (this.el = C.createElement(h, s), b.currentNode = this.el.content, e === 2 || e === 3) {
-      const l = this.el.content.firstChild;
-      l.replaceWith(...l.childNodes);
+    const l = e.length - 1, a = this.parts, [h, p] = Ae(e, t);
+    if (this.el = C.createElement(h, s), $.currentNode = this.el.content, t === 2 || t === 3) {
+      const c = this.el.content.firstChild;
+      c.replaceWith(...c.childNodes);
     }
-    for (; (i = b.nextNode()) !== null && a.length < c; ) {
+    for (; (i = $.nextNode()) !== null && a.length < l; ) {
       if (i.nodeType === 1) {
-        if (i.hasAttributes()) for (const l of i.getAttributeNames()) if (l.endsWith(rt)) {
-          const f = p[o++], g = i.getAttribute(l).split(m), M = /([.?@])?(.*)/.exec(f);
-          a.push({ type: 1, index: n, name: M[2], strings: g, ctor: M[1] === "." ? St : M[1] === "?" ? wt : M[1] === "@" ? Et : H }), i.removeAttribute(l);
-        } else l.startsWith(m) && (a.push({ type: 6, index: n }), i.removeAttribute(l));
-        if (ot.test(i.tagName)) {
-          const l = i.textContent.split(m), f = l.length - 1;
-          if (f > 0) {
-            i.textContent = O ? O.emptyScript : "";
-            for (let g = 0; g < f; g++) i.append(l[g], E()), b.nextNode(), a.push({ type: 2, index: ++n });
-            i.append(l[f], E());
+        if (i.hasAttributes()) for (const c of i.getAttributeNames()) if (c.endsWith(ne)) {
+          const g = p[o++], f = i.getAttribute(c).split(m), P = /([.?@])?(.*)/.exec(g);
+          a.push({ type: 1, index: n, name: P[2], strings: f, ctor: P[1] === "." ? ke : P[1] === "?" ? Se : P[1] === "@" ? Ee : N }), i.removeAttribute(c);
+        } else c.startsWith(m) && (a.push({ type: 6, index: n }), i.removeAttribute(c));
+        if (ae.test(i.tagName)) {
+          const c = i.textContent.split(m), g = c.length - 1;
+          if (g > 0) {
+            i.textContent = R ? R.emptyScript : "";
+            for (let f = 0; f < g; f++) i.append(c[f], S()), $.nextNode(), a.push({ type: 2, index: ++n });
+            i.append(c[g], S());
           }
         }
-      } else if (i.nodeType === 8) if (i.data === nt) a.push({ type: 2, index: n });
+      } else if (i.nodeType === 8) if (i.data === oe) a.push({ type: 2, index: n });
       else {
-        let l = -1;
-        for (; (l = i.data.indexOf(m, l + 1)) !== -1; ) a.push({ type: 7, index: n }), l += m.length - 1;
+        let c = -1;
+        for (; (c = i.data.indexOf(m, c + 1)) !== -1; ) a.push({ type: 7, index: n }), c += m.length - 1;
       }
       n++;
     }
   }
-  static createElement(t, e) {
+  static createElement(e, t) {
     const s = v.createElement("template");
-    return s.innerHTML = t, s;
+    return s.innerHTML = e, s;
   }
 }
-function A(r, t, e = r, s) {
-  if (t === _) return t;
-  let i = s !== void 0 ? e._$Co?.[s] : e._$Cl;
-  const n = k(t) ? void 0 : t._$litDirective$;
-  return i?.constructor !== n && (i?._$AO?.(!1), n === void 0 ? i = void 0 : (i = new n(r), i._$AT(r, e, s)), s !== void 0 ? (e._$Co ??= [])[s] = i : e._$Cl = i), i !== void 0 && (t = A(r, i._$AS(r, t.values), i, s)), t;
+function x(r, e, t = r, s) {
+  if (e === y) return e;
+  let i = s !== void 0 ? t._$Co?.[s] : t._$Cl;
+  const n = E(e) ? void 0 : e._$litDirective$;
+  return i?.constructor !== n && (i?._$AO?.(!1), n === void 0 ? i = void 0 : (i = new n(r), i._$AT(r, t, s)), s !== void 0 ? (t._$Co ??= [])[s] = i : t._$Cl = i), i !== void 0 && (e = x(r, i._$AS(r, e.values), i, s)), e;
 }
-class xt {
-  constructor(t, e) {
-    this._$AV = [], this._$AN = void 0, this._$AD = t, this._$AM = e;
+class we {
+  constructor(e, t) {
+    this._$AV = [], this._$AN = void 0, this._$AD = e, this._$AM = t;
   }
   get parentNode() {
     return this._$AM.parentNode;
@@ -319,35 +319,35 @@ class xt {
   get _$AU() {
     return this._$AM._$AU;
   }
-  u(t) {
-    const { el: { content: e }, parts: s } = this._$AD, i = (t?.creationScope ?? v).importNode(e, !0);
-    b.currentNode = i;
-    let n = b.nextNode(), o = 0, c = 0, a = s[0];
+  u(e) {
+    const { el: { content: t }, parts: s } = this._$AD, i = (e?.creationScope ?? v).importNode(t, !0);
+    $.currentNode = i;
+    let n = $.nextNode(), o = 0, l = 0, a = s[0];
     for (; a !== void 0; ) {
       if (o === a.index) {
         let h;
-        a.type === 2 ? h = new P(n, n.nextSibling, this, t) : a.type === 1 ? h = new a.ctor(n, a.name, a.strings, this, t) : a.type === 6 && (h = new kt(n, this, t)), this._$AV.push(h), a = s[++c];
+        a.type === 2 ? h = new M(n, n.nextSibling, this, e) : a.type === 1 ? h = new a.ctor(n, a.name, a.strings, this, e) : a.type === 6 && (h = new Ce(n, this, e)), this._$AV.push(h), a = s[++l];
       }
-      o !== a?.index && (n = b.nextNode(), o++);
+      o !== a?.index && (n = $.nextNode(), o++);
     }
-    return b.currentNode = v, i;
+    return $.currentNode = v, i;
   }
-  p(t) {
-    let e = 0;
-    for (const s of this._$AV) s !== void 0 && (s.strings !== void 0 ? (s._$AI(t, s, e), e += s.strings.length - 2) : s._$AI(t[e])), e++;
+  p(e) {
+    let t = 0;
+    for (const s of this._$AV) s !== void 0 && (s.strings !== void 0 ? (s._$AI(e, s, t), t += s.strings.length - 2) : s._$AI(e[t])), t++;
   }
 }
-class P {
+class M {
   get _$AU() {
     return this._$AM?._$AU ?? this._$Cv;
   }
-  constructor(t, e, s, i) {
-    this.type = 2, this._$AH = d, this._$AN = void 0, this._$AA = t, this._$AB = e, this._$AM = s, this.options = i, this._$Cv = i?.isConnected ?? !0;
+  constructor(e, t, s, i) {
+    this.type = 2, this._$AH = d, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = s, this.options = i, this._$Cv = i?.isConnected ?? !0;
   }
   get parentNode() {
-    let t = this._$AA.parentNode;
-    const e = this._$AM;
-    return e !== void 0 && t?.nodeType === 11 && (t = e.parentNode), t;
+    let e = this._$AA.parentNode;
+    const t = this._$AM;
+    return t !== void 0 && e?.nodeType === 11 && (e = t.parentNode), e;
   }
   get startNode() {
     return this._$AA;
@@ -355,135 +355,135 @@ class P {
   get endNode() {
     return this._$AB;
   }
-  _$AI(t, e = this) {
-    t = A(this, t, e), k(t) ? t === d || t == null || t === "" ? (this._$AH !== d && this._$AR(), this._$AH = d) : t !== this._$AH && t !== _ && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : yt(t) ? this.k(t) : this._(t);
+  _$AI(e, t = this) {
+    e = x(this, e, t), E(e) ? e === d || e == null || e === "" ? (this._$AH !== d && this._$AR(), this._$AH = d) : e !== this._$AH && e !== y && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : _e(e) ? this.k(e) : this._(e);
   }
-  O(t) {
-    return this._$AA.parentNode.insertBefore(t, this._$AB);
+  O(e) {
+    return this._$AA.parentNode.insertBefore(e, this._$AB);
   }
-  T(t) {
-    this._$AH !== t && (this._$AR(), this._$AH = this.O(t));
+  T(e) {
+    this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
   }
-  _(t) {
-    this._$AH !== d && k(this._$AH) ? this._$AA.nextSibling.data = t : this.T(v.createTextNode(t)), this._$AH = t;
+  _(e) {
+    this._$AH !== d && E(this._$AH) ? this._$AA.nextSibling.data = e : this.T(v.createTextNode(e)), this._$AH = e;
   }
-  $(t) {
-    const { values: e, _$litType$: s } = t, i = typeof s == "number" ? this._$AC(t) : (s.el === void 0 && (s.el = C.createElement(at(s.h, s.h[0]), this.options)), s);
-    if (this._$AH?._$AD === i) this._$AH.p(e);
+  $(e) {
+    const { values: t, _$litType$: s } = e, i = typeof s == "number" ? this._$AC(e) : (s.el === void 0 && (s.el = C.createElement(le(s.h, s.h[0]), this.options)), s);
+    if (this._$AH?._$AD === i) this._$AH.p(t);
     else {
-      const n = new xt(i, this), o = n.u(this.options);
-      n.p(e), this.T(o), this._$AH = n;
+      const n = new we(i, this), o = n.u(this.options);
+      n.p(t), this.T(o), this._$AH = n;
     }
   }
-  _$AC(t) {
-    let e = et.get(t.strings);
-    return e === void 0 && et.set(t.strings, e = new C(t)), e;
+  _$AC(e) {
+    let t = te.get(e.strings);
+    return t === void 0 && te.set(e.strings, t = new C(e)), t;
   }
-  k(t) {
-    B(this._$AH) || (this._$AH = [], this._$AR());
-    const e = this._$AH;
+  k(e) {
+    q(this._$AH) || (this._$AH = [], this._$AR());
+    const t = this._$AH;
     let s, i = 0;
-    for (const n of t) i === e.length ? e.push(s = new P(this.O(E()), this.O(E()), this, this.options)) : s = e[i], s._$AI(n), i++;
-    i < e.length && (this._$AR(s && s._$AB.nextSibling, i), e.length = i);
+    for (const n of e) i === t.length ? t.push(s = new M(this.O(S()), this.O(S()), this, this.options)) : s = t[i], s._$AI(n), i++;
+    i < t.length && (this._$AR(s && s._$AB.nextSibling, i), t.length = i);
   }
-  _$AR(t = this._$AA.nextSibling, e) {
-    for (this._$AP?.(!1, !0, e); t !== this._$AB; ) {
-      const s = K(t).nextSibling;
-      K(t).remove(), t = s;
+  _$AR(e = this._$AA.nextSibling, t) {
+    for (this._$AP?.(!1, !0, t); e !== this._$AB; ) {
+      const s = Z(e).nextSibling;
+      Z(e).remove(), e = s;
     }
   }
-  setConnected(t) {
-    this._$AM === void 0 && (this._$Cv = t, this._$AP?.(t));
+  setConnected(e) {
+    this._$AM === void 0 && (this._$Cv = e, this._$AP?.(e));
   }
 }
-class H {
+class N {
   get tagName() {
     return this.element.tagName;
   }
   get _$AU() {
     return this._$AM._$AU;
   }
-  constructor(t, e, s, i, n) {
-    this.type = 1, this._$AH = d, this._$AN = void 0, this.element = t, this.name = e, this._$AM = i, this.options = n, s.length > 2 || s[0] !== "" || s[1] !== "" ? (this._$AH = Array(s.length - 1).fill(new String()), this.strings = s) : this._$AH = d;
+  constructor(e, t, s, i, n) {
+    this.type = 1, this._$AH = d, this._$AN = void 0, this.element = e, this.name = t, this._$AM = i, this.options = n, s.length > 2 || s[0] !== "" || s[1] !== "" ? (this._$AH = Array(s.length - 1).fill(new String()), this.strings = s) : this._$AH = d;
   }
-  _$AI(t, e = this, s, i) {
+  _$AI(e, t = this, s, i) {
     const n = this.strings;
     let o = !1;
-    if (n === void 0) t = A(this, t, e, 0), o = !k(t) || t !== this._$AH && t !== _, o && (this._$AH = t);
+    if (n === void 0) e = x(this, e, t, 0), o = !E(e) || e !== this._$AH && e !== y, o && (this._$AH = e);
     else {
-      const c = t;
+      const l = e;
       let a, h;
-      for (t = n[0], a = 0; a < n.length - 1; a++) h = A(this, c[s + a], e, a), h === _ && (h = this._$AH[a]), o ||= !k(h) || h !== this._$AH[a], h === d ? t = d : t !== d && (t += (h ?? "") + n[a + 1]), this._$AH[a] = h;
+      for (e = n[0], a = 0; a < n.length - 1; a++) h = x(this, l[s + a], t, a), h === y && (h = this._$AH[a]), o ||= !E(h) || h !== this._$AH[a], h === d ? e = d : e !== d && (e += (h ?? "") + n[a + 1]), this._$AH[a] = h;
     }
-    o && !i && this.j(t);
+    o && !i && this.j(e);
   }
-  j(t) {
-    t === d ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t ?? "");
+  j(e) {
+    e === d ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
   }
 }
-class St extends H {
+class ke extends N {
   constructor() {
     super(...arguments), this.type = 3;
   }
-  j(t) {
-    this.element[this.name] = t === d ? void 0 : t;
+  j(e) {
+    this.element[this.name] = e === d ? void 0 : e;
   }
 }
-class wt extends H {
+class Se extends N {
   constructor() {
     super(...arguments), this.type = 4;
   }
-  j(t) {
-    this.element.toggleAttribute(this.name, !!t && t !== d);
+  j(e) {
+    this.element.toggleAttribute(this.name, !!e && e !== d);
   }
 }
-class Et extends H {
-  constructor(t, e, s, i, n) {
-    super(t, e, s, i, n), this.type = 5;
+class Ee extends N {
+  constructor(e, t, s, i, n) {
+    super(e, t, s, i, n), this.type = 5;
   }
-  _$AI(t, e = this) {
-    if ((t = A(this, t, e, 0) ?? d) === _) return;
-    const s = this._$AH, i = t === d && s !== d || t.capture !== s.capture || t.once !== s.once || t.passive !== s.passive, n = t !== d && (s === d || i);
-    i && this.element.removeEventListener(this.name, this, s), n && this.element.addEventListener(this.name, this, t), this._$AH = t;
+  _$AI(e, t = this) {
+    if ((e = x(this, e, t, 0) ?? d) === y) return;
+    const s = this._$AH, i = e === d && s !== d || e.capture !== s.capture || e.once !== s.once || e.passive !== s.passive, n = e !== d && (s === d || i);
+    i && this.element.removeEventListener(this.name, this, s), n && this.element.addEventListener(this.name, this, e), this._$AH = e;
   }
-  handleEvent(t) {
-    typeof this._$AH == "function" ? this._$AH.call(this.options?.host ?? this.element, t) : this._$AH.handleEvent(t);
+  handleEvent(e) {
+    typeof this._$AH == "function" ? this._$AH.call(this.options?.host ?? this.element, e) : this._$AH.handleEvent(e);
   }
 }
-class kt {
-  constructor(t, e, s) {
-    this.element = t, this.type = 6, this._$AN = void 0, this._$AM = e, this.options = s;
+class Ce {
+  constructor(e, t, s) {
+    this.element = e, this.type = 6, this._$AN = void 0, this._$AM = t, this.options = s;
   }
   get _$AU() {
     return this._$AM._$AU;
   }
-  _$AI(t) {
-    A(this, t);
+  _$AI(e) {
+    x(this, e);
   }
 }
-const Ct = L.litHtmlPolyfillSupport;
-Ct?.(C, P), (L.litHtmlVersions ??= []).push("3.3.2");
-const Pt = (r, t, e) => {
-  const s = e?.renderBefore ?? t;
+const Me = j.litHtmlPolyfillSupport;
+Me?.(C, M), (j.litHtmlVersions ??= []).push("3.3.2");
+const Pe = (r, e, t) => {
+  const s = t?.renderBefore ?? e;
   let i = s._$litPart$;
   if (i === void 0) {
-    const n = e?.renderBefore ?? null;
-    s._$litPart$ = i = new P(t.insertBefore(E(), n), n, void 0, e ?? {});
+    const n = t?.renderBefore ?? null;
+    s._$litPart$ = i = new M(e.insertBefore(S(), n), n, void 0, t ?? {});
   }
   return i._$AI(r), i;
 };
-const V = globalThis;
-class w extends y {
+const B = globalThis;
+let k = class extends _ {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
   }
   createRenderRoot() {
-    const t = super.createRenderRoot();
-    return this.renderOptions.renderBefore ??= t.firstChild, t;
+    const e = super.createRenderRoot();
+    return this.renderOptions.renderBefore ??= e.firstChild, e;
   }
-  update(t) {
-    const e = this.render();
-    this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t), this._$Do = Pt(e, this.renderRoot, this.renderOptions);
+  update(e) {
+    const t = this.render();
+    this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(e), this._$Do = Pe(t, this.renderRoot, this.renderOptions);
   }
   connectedCallback() {
     super.connectedCallback(), this._$Do?.setConnected(!0);
@@ -492,26 +492,59 @@ class w extends y {
     super.disconnectedCallback(), this._$Do?.setConnected(!1);
   }
   render() {
-    return _;
+    return y;
+  }
+};
+k._$litElement$ = !0, k.finalized = !0, B.litElementHydrateSupport?.({ LitElement: k });
+const Te = B.litElementPolyfillSupport;
+Te?.({ LitElement: k });
+(B.litElementVersions ??= []).push("4.2.2");
+const Re = { CHILD: 2 }, De = (r) => (...e) => ({ _$litDirective$: r, values: e });
+class Ue {
+  constructor(e) {
+  }
+  get _$AU() {
+    return this._$AM._$AU;
+  }
+  _$AT(e, t, s) {
+    this._$Ct = e, this._$AM = t, this._$Ci = s;
+  }
+  _$AS(e, t) {
+    return this.update(e, t);
+  }
+  update(e, t) {
+    return this.render(...t);
   }
 }
-w._$litElement$ = !0, w.finalized = !0, V.litElementHydrateSupport?.({ LitElement: w });
-const Mt = V.litElementPolyfillSupport;
-Mt?.({ LitElement: w });
-(V.litElementVersions ??= []).push("4.2.2");
-function Ut(r = []) {
+class O extends Ue {
+  constructor(e) {
+    if (super(e), this.it = d, e.type !== Re.CHILD) throw Error(this.constructor.directiveName + "() can only be used in child bindings");
+  }
+  render(e) {
+    if (e === d || e == null) return this._t = void 0, this.it = e;
+    if (e === y) return e;
+    if (typeof e != "string") throw Error(this.constructor.directiveName + "() called with a non-string value");
+    if (e === this.it) return this._t;
+    this.it = e;
+    const t = [e];
+    return t.raw = t, this._t = { _$litType$: this.constructor.resultType, strings: t, values: [] };
+  }
+}
+O.directiveName = "unsafeHTML", O.resultType = 1;
+const Ne = De(O);
+function He(r = []) {
   return r.reduce(
-    (t, e) => (e.has_pending_approval ? t.attention.push(e) : e.status === "running" ? t.running.push(e) : e.status === "completed" && e.has_unseen_turns ? t.attention.push(e) : t.idle.push(e), t),
+    (e, t) => (t.has_pending_approval ? e.attention.push(t) : t.status === "running" ? e.running.push(t) : t.status === "completed" && t.has_unseen_turns ? e.attention.push(t) : e.idle.push(t), e),
     { attention: [], running: [], idle: [] }
   );
 }
-function z(r, t = /* @__PURE__ */ new Date()) {
+function Ie(r, e = /* @__PURE__ */ new Date()) {
   if (!r)
     return "recently";
-  const e = Date.parse(r);
-  if (Number.isNaN(e))
+  const t = Date.parse(r);
+  if (Number.isNaN(t))
     return "recently";
-  const s = t.getTime() - e;
+  const s = e.getTime() - t;
   if (s < 0)
     return "recently";
   const i = Math.floor(s / 6e4);
@@ -522,31 +555,69 @@ function z(r, t = /* @__PURE__ */ new Date()) {
   const n = Math.floor(i / 60);
   return n < 24 ? `${n}h ago` : `${Math.floor(n / 24)}d ago`;
 }
-function Ot(r) {
+function Oe(r) {
+  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function se(r) {
+  return Oe(r).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\*([^*]+)\*/g, "<em>$1</em>");
+}
+function We(r) {
+  const e = r.replace(/\r\n/g, `
+`).trim().split(`
+`), t = [];
+  for (let s = 0; s < e.length; ) {
+    const i = e[s]?.trim() ?? "";
+    if (!i) {
+      s += 1;
+      continue;
+    }
+    if (i.startsWith("- ")) {
+      const o = [];
+      for (; s < e.length; ) {
+        const l = e[s]?.trim() ?? "";
+        if (!l.startsWith("- "))
+          break;
+        o.push(`<li>${se(l.slice(2).trim())}</li>`), s += 1;
+      }
+      t.push(`<ul>${o.join("")}</ul>`);
+      continue;
+    }
+    const n = [];
+    for (; s < e.length; ) {
+      const o = e[s]?.trim() ?? "";
+      if (!o || o.startsWith("- "))
+        break;
+      n.push(se(o)), s += 1;
+    }
+    t.push(`<p>${n.join("<br />")}</p>`);
+  }
+  return t.join("");
+}
+function ze(r) {
   return !!(r.has_unseen_turns || r.hasUnseenActivity);
 }
-function Nt(r) {
+function Le(r) {
   return !!(r.has_running_dev_server || r.hasRunningDevServer);
 }
-function Rt(r) {
+function je(r) {
   return r.latest_process_status || r.latestProcessStatus;
 }
-function Ht(r) {
+function qe(r) {
   return r.pr_status || r.prStatus;
 }
-function Tt(r) {
+function Be(r) {
   return !!(r.is_pinned || r.isPinned);
 }
-function zt(r) {
-  const t = [], e = r.status === "running", s = !e && ["failed", "killed"].includes(Rt(r) ?? ""), i = Ot(r), n = !!r.has_pending_approval, o = Nt(r), c = Ht(r);
-  o && t.push({ symbol: "🖥️", kind: "dev-server", tone: "brand" }), s && t.push({ symbol: "▲", kind: "process-error", tone: "error" }), n ? t.push({ symbol: "✋", kind: "approval", tone: "brand" }) : e && t.push({ symbol: "⋯", kind: "running", tone: "brand" }), i && !e && !s && t.push({ symbol: "●", kind: "unseen", tone: "brand" }), c === "open" ? t.push({ symbol: "⎇", kind: "pr-open", tone: "success" }) : c === "merged" && t.push({ symbol: "⎇", kind: "pr-merged", tone: "merged" }), Tt(r) && t.push({ symbol: "📌", kind: "pin", tone: "brand" }), t.length === 0 && t.push({ symbol: "•", kind: "idle", tone: "muted" });
-  const a = e && !n ? "is-running" : n || r.status === "completed" && i ? "is-attention" : "is-idle";
+function Fe(r) {
+  const e = [], t = r.status === "running", s = !t && ["failed", "killed"].includes(je(r) ?? ""), i = ze(r), n = !!r.has_pending_approval, o = Le(r), l = qe(r);
+  o && e.push({ symbol: "🖥️", kind: "dev-server", tone: "brand" }), s && e.push({ symbol: "▲", kind: "process-error", tone: "error" }), n ? e.push({ symbol: "✋", kind: "approval", tone: "brand" }) : t && e.push({ symbol: "⋯", kind: "running", tone: "brand" }), i && !t && !s && e.push({ symbol: "●", kind: "unseen", tone: "brand" }), l === "open" ? e.push({ symbol: "⎇", kind: "pr-open", tone: "success" }) : l === "merged" && e.push({ symbol: "⎇", kind: "pr-merged", tone: "merged" }), Be(r) && e.push({ symbol: "📌", kind: "pin", tone: "brand" }), e.length === 0 && e.push({ symbol: "•", kind: "idle", tone: "muted" });
+  const a = t && !n ? "is-running" : n || r.status === "completed" && i ? "is-attention" : "is-idle";
   return {
-    icons: t,
+    icons: e,
     accentClass: a
   };
 }
-const It = lt`
+const Ve = de`
   :host {
     display: block;
   }
@@ -624,9 +695,9 @@ const It = lt`
   .task-card {
     display: grid;
     gap: 6px;
+    width: 100%;
     padding: 10px 12px;
     border-radius: 12px;
-    width: 100%;
     background: color-mix(in srgb, var(--ha-card-background, var(--card-background-color, #ffffff)) 82%, var(--secondary-background-color, #f3f4f6));
     border-left: 3px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 85%, transparent);
     border-top: 0;
@@ -734,156 +805,320 @@ const It = lt`
     border: 1px dashed color-mix(in srgb, var(--divider-color, #cbd5e1) 70%, transparent);
   }
 
-  .dialog-backdrop {
+  .dialog-shell {
     position: fixed;
     inset: 0;
     z-index: 10;
     display: grid;
     place-items: center;
-    padding: 20px;
-    background: rgba(15, 23, 42, 0.48);
+    padding: 18px;
   }
 
-  .conversation-dialog {
-    width: min(720px, 100%);
-    max-height: min(80vh, 720px);
+  .dialog-overlay {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 0.52);
+    cursor: pointer;
+  }
+
+  .workspace-dialog {
+    position: relative;
+    z-index: 1;
+    width: min(900px, calc(100vw - 24px));
+    height: min(88vh, 900px);
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 14px;
-    overflow: hidden;
-    border-radius: 20px;
-    padding: 18px;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--primary-color, #f59e0b) 8%, var(--ha-card-background, var(--card-background-color, #ffffff))) 0%, var(--ha-card-background, var(--card-background-color, #ffffff)) 100%);
-    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 65%, transparent);
-    box-shadow: 0 20px 48px rgba(15, 23, 42, 0.28);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 22px;
+    background: var(--ha-card-background, var(--card-background-color, #ffffff));
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 72%, transparent);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
   }
 
   .dialog-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
+    gap: 16px;
+  }
+
+  .dialog-heading {
+    min-width: 0;
   }
 
   .dialog-title {
-    font-size: 1.05rem;
-    font-weight: 700;
+    margin: 0;
+    font-size: 1.08rem;
     line-height: 1.2;
-  }
-
-  .dialog-subtitle {
-    margin-top: 4px;
-    color: var(--secondary-text-color, #94a3b8);
-    font-size: 0.8rem;
-    word-break: break-all;
   }
 
   .dialog-close {
     width: 32px;
     height: 32px;
     border: 0;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 85%, transparent);
-    color: var(--secondary-text-color, #64748b);
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
     cursor: pointer;
-    font-size: 1.2rem;
-    line-height: 1;
+    font: inherit;
   }
 
-  .dialog-empty,
-  .conversation-list {
+  .dialog-messages {
     min-height: 0;
-    overflow: auto;
-  }
-
-  .dialog-empty {
     display: grid;
-    place-items: center;
-    padding: 28px 16px;
-    border-radius: 14px;
-    color: var(--secondary-text-color, #94a3b8);
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 70%, transparent);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
   }
 
-  .conversation-list {
+  .dialog-panel-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--secondary-text-color, #64748b);
+  }
+
+  .message-list {
+    min-height: 0;
     display: grid;
-    gap: 10px;
+    gap: 8px;
+    overflow-y: auto;
+    padding: 6px 2px 6px 0;
   }
 
-  .conversation-item {
+  .message-row {
+    width: 100%;
+  }
+
+  .message-bubble {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px 10px;
+    border-radius: 10px;
+    line-height: 1.35;
+    white-space: normal;
+    word-break: break-word;
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
+    color: inherit;
+    text-align: left;
+  }
+
+  .message-bubble p,
+  .message-bubble ul {
+    margin: 0;
+  }
+
+  .message-bubble p + p,
+  .message-bubble p + ul,
+  .message-bubble ul + p,
+  .message-bubble ul + ul {
+    margin-top: 6px;
+  }
+
+  .message-bubble ul {
+    padding-left: 18px;
+  }
+
+  .message-bubble li + li {
+    margin-top: 4px;
+  }
+
+  .message-bubble code {
+    font-family:
+      ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    font-size: 0.92em;
+    padding: 0.08em 0.35em;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
+  }
+
+  .message-bubble.is-user {
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 24%, transparent);
+  }
+
+  .message-bubble.is-ai {
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
+  }
+
+  .dialog-composer {
+    display: grid;
+    gap: 8px;
+  }
+
+  .queue-list {
     display: grid;
     gap: 6px;
-    padding: 12px 14px;
-    border-radius: 16px;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 55%, transparent);
-    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 55%, transparent);
   }
 
-  .conversation-item.role-user {
-    background: color-mix(in srgb, var(--primary-color, #f59e0b) 10%, var(--ha-card-background, var(--card-background-color, #ffffff)));
+  .queue-item {
+    display: grid;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 72%, transparent);
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 60%, transparent);
   }
 
-  .conversation-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+  .queue-index {
     color: var(--secondary-text-color, #94a3b8);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: 0.76rem;
+    line-height: 1.2;
   }
 
-  .conversation-role {
+  .queue-content {
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .message-input {
+    width: 100%;
+    min-height: 44px;
+    max-height: 88px;
+    resize: none;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 72%, transparent);
+    background: color-mix(in srgb, var(--ha-card-background, #ffffff) 92%, transparent);
+    color: inherit;
+    font: inherit;
+    line-height: 1.4;
+    box-sizing: border-box;
+  }
+
+  .dialog-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .dialog-action {
+    flex: 1 1 160px;
+    min-height: 36px;
+    border-radius: 8px;
+    font: inherit;
+    cursor: pointer;
+    padding: 0 12px;
+  }
+
+  .dialog-action-primary {
+    border: 0;
+    background: var(--primary-color, #f59e0b);
+    color: #ffffff;
     font-weight: 700;
   }
 
-  .conversation-content {
-    white-space: pre-wrap;
-    word-break: break-word;
-    line-height: 1.5;
+  .dialog-action-primary,
+  .dialog-action-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
-`, Wt = [
+
+  .dialog-action-secondary {
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 72%, transparent);
+    background: transparent;
+    color: inherit;
+    font-weight: 600;
+  }
+
+  .action-spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #ffffff;
+    animation: spinner-rotate 900ms linear infinite;
+    flex: none;
+  }
+
+  .dialog-feedback {
+    min-height: 1.25rem;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  @keyframes spinner-rotate {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .workspace-dialog {
+      width: min(100vw - 12px, 900px);
+      height: min(92vh, 900px);
+      padding: 12px;
+      border-radius: 18px;
+    }
+
+    .task-meta {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .meta-files {
+      justify-self: start;
+    }
+  }
+`, Je = [
   { key: "attention", label: "需要注意" },
   { key: "running", label: "运行中" },
   { key: "idle", label: "空闲" }
-], N = class N extends w {
+], D = class D extends k {
   constructor() {
-    super(...arguments), this.collapsedSections = /* @__PURE__ */ new Set();
+    super(...arguments), this.collapsedSections = /* @__PURE__ */ new Set(), this.messageDraft = "", this.actionFeedback = "", this.queuedItems = [], this.closeWorkspaceDialog = () => {
+      this.selectedWorkspaceId = void 0, this.messageDraft = "", this.actionFeedback = "";
+    }, this.handleMessageInput = (e) => {
+      this.messageDraft = e.target.value;
+    }, this.handleKeyDown = (e) => {
+      e.key === "Escape" && this.selectedWorkspace && this.closeWorkspaceDialog();
+    };
   }
-  setConfig(t) {
-    if (!t?.entity)
+  connectedCallback() {
+    super.connectedCallback(), this.addEventListener("keydown", this.handleKeyDown);
+  }
+  disconnectedCallback() {
+    this.removeEventListener("keydown", this.handleKeyDown), super.disconnectedCallback();
+  }
+  setConfig(e) {
+    if (!e?.entity)
       throw new Error("`entity` is required");
-    this.config = t;
+    this.config = e;
   }
   getCardSize() {
     return Math.max(1, this.visibleSections.length * 2);
   }
   render() {
-    const t = this.visibleSections;
+    const e = this.visibleSections;
     return u`
       <ha-card>
         <div class="board">
-          ${t.length === 0 ? u`<div class="empty-state">当前没有任务</div>` : t.map(
-      ({ key: e, label: s, workspaces: i }) => this.renderSection(e, s, i)
+          ${e.length === 0 ? u`<div class="empty-state">当前没有任务</div>` : e.map(
+      ({ key: t, label: s, workspaces: i }) => this.renderSection(t, s, i)
     )}
         </div>
-        ${this.renderConversationDialog()}
+        ${this.renderDialog()}
       </ha-card>
     `;
   }
-  renderSection(t, e, s) {
-    const i = this.collapsedSections.has(t);
+  updated(e) {
+    e.has("selectedWorkspaceId") && this.selectedWorkspaceId && this.scrollMessagesToBottom();
+  }
+  renderSection(e, t, s) {
+    const i = this.collapsedSections.has(e);
     return u`
       <section class="section" ?collapsed=${i}>
         <button
           class="section-toggle"
           type="button"
-          @click=${() => this.toggleSection(t)}
+          @click=${() => this.toggleSection(e)}
         >
           <span class="section-title-row">
-            <span class="section-title">${e}</span>
+            <span class="section-title">${t}</span>
             <span class="section-count">${s.length}</span>
           </span>
           <span class="chevron" aria-hidden="true">▾</span>
@@ -896,168 +1131,255 @@ const It = lt`
       </section>
     `;
   }
-  renderWorkspace(t) {
-    const e = zt(t), s = t.relative_time || (t.status === "completed" ? t.completed_at ?? this.entityAttributes?.updated_at : this.entityAttributes?.updated_at), i = t.relative_time || z(s), n = t.files_changed ?? 0, o = t.lines_added ?? 0, c = t.lines_removed ?? 0;
+  renderWorkspace(e) {
+    const t = Fe(e), { relativeTime: s, filesChanged: i, linesAdded: n, linesRemoved: o } = this.getWorkspaceDisplayMeta(e);
     return u`
       <button
-        class="task-card ${e.accentClass}"
+        class="task-card ${t.accentClass}"
         type="button"
-        @click=${() => this.openConversation(t.id)}
+        @click=${() => this.openWorkspaceDialog(e)}
       >
-        <div class="workspace-name">${t.name}</div>
+        <div class="workspace-name">${e.name}</div>
         <div class="task-meta">
           <span class="meta-status">
-            ${e.icons.map(
-      (a) => u`<span class="status-icon tone-${a.tone} kind-${a.kind}"
-                >${a.symbol}</span
+            ${t.icons.map(
+      (l) => u`<span class="status-icon tone-${l.tone} kind-${l.kind}"
+                >${l.symbol}</span
               >`
     )}
           </span>
-          <span class="relative-time">${i}</span>
+          <span class="relative-time">${s}</span>
           <span class="meta-files"
-            ><span class="file-count">📄 ${n}</span> <span
+            ><span class="file-count">📄 ${i}</span> <span
               class="lines-added"
-              >+${o}</span
+              >+${n}</span
             >
-            <span class="lines-removed">-${c}</span></span
+            <span class="lines-removed">-${o}</span></span
           >
         </div>
       </button>
     `;
   }
-  toggleSection(t) {
-    const e = new Set(this.collapsedSections);
-    e.has(t) ? e.delete(t) : e.add(t), this.collapsedSections = e;
+  renderDialog() {
+    const e = this.selectedWorkspace;
+    if (!e)
+      return d;
+    const t = this.getDialogMessages(e), s = e.status === "running", i = this.getQueueItems(e.id);
+    return u`
+      <div class="dialog-shell" role="presentation">
+        <button
+          class="dialog-overlay"
+          type="button"
+          aria-label="关闭工作区详情"
+          @click=${this.closeWorkspaceDialog}
+        ></button>
+        <section
+          class="workspace-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="${e.name} 工作区详情"
+        >
+          <div class="dialog-header">
+            <div class="dialog-heading">
+              <h2 class="dialog-title">${e.name}</h2>
+            </div>
+            <button
+              class="dialog-close"
+              type="button"
+              aria-label="关闭"
+              @click=${this.closeWorkspaceDialog}
+            >
+              ✕
+            </button>
+          </div>
+
+          <section class="dialog-messages">
+            <div class="dialog-panel-title">对话消息</div>
+            <div class="message-list">
+              ${t.map(
+      (n) => u`
+                  <div class="message-row">
+                    <div class="message-bubble ${n.sender === "user" ? "is-user" : "is-ai"}">${Ne(We(this.compactMessageText(n.text)))}</div>
+                  </div>
+                `
+    )}
+            </div>
+          </section>
+
+          <div class="dialog-composer">
+            ${i.length > 0 ? u`
+                  <div class="queue-list">
+                    ${i.map(
+      (n, o) => u`
+                        <div class="queue-item">
+                          <span class="queue-index">队列 ${o + 1}</span>
+                          <span class="queue-content">${n.content}</span>
+                        </div>
+                      `
+    )}
+                  </div>
+                ` : d}
+            <textarea
+              class="message-input"
+              rows="2"
+              placeholder="输入消息"
+              .value=${this.messageDraft}
+              @input=${this.handleMessageInput}
+            ></textarea>
+            <div class="dialog-actions">
+              <button
+                class="dialog-action dialog-action-primary"
+                type="button"
+                @click=${() => this.handleActionClick(s ? "stop" : "send")}
+              >
+                ${s ? u`
+                      <span class="action-spinner" aria-hidden="true"></span>
+                      <span>停止</span>
+                    ` : "发送消息"}
+              </button>
+              ${s ? u`
+                    <button
+                      class="dialog-action dialog-action-secondary"
+                      type="button"
+                      @click=${() => this.handleActionClick("queue")}
+                    >
+                      加入队列
+                    </button>
+                  ` : d}
+            </div>
+            <div class="dialog-feedback" aria-live="polite">
+              ${this.actionFeedback || "消息操作暂未接入真实接口。"}
+            </div>
+          </div>
+        </section>
+      </div>
+    `;
   }
-  openConversation(t) {
-    this.selectedWorkspaceId = t;
+  toggleSection(e) {
+    const t = new Set(this.collapsedSections);
+    t.has(e) ? t.delete(e) : t.add(e), this.collapsedSections = t;
   }
-  closeConversation() {
-    this.selectedWorkspaceId = void 0;
+  openWorkspaceDialog(e) {
+    this.selectedWorkspaceId = e.id, this.messageDraft = "", this.actionFeedback = "";
+  }
+  handleActionClick(e) {
+    if (e === "queue" && this.selectedWorkspaceId) {
+      const t = this.messageDraft.trim() || "未填写内容的排队消息";
+      this.queuedItems = [
+        ...this.queuedItems.filter((s) => s.workspaceId !== this.selectedWorkspaceId),
+        { workspaceId: this.selectedWorkspaceId, content: t }
+      ], this.actionFeedback = "加入队列功能暂未接入，当前仅展示界面。";
+      return;
+    }
+    this.actionFeedback = e === "send" ? "发送消息功能暂未接入，当前仅展示界面。" : "停止功能暂未接入，当前仅展示界面。";
+  }
+  getWorkspaceDisplayMeta(e) {
+    const t = e.relative_time || (e.status === "completed" ? e.completed_at ?? this.entityAttributes?.updated_at : this.entityAttributes?.updated_at);
+    return {
+      relativeTime: e.relative_time || Ie(t),
+      filesChanged: e.files_changed ?? 0,
+      linesAdded: e.lines_added ?? 0,
+      linesRemoved: e.lines_removed ?? 0
+    };
   }
   get entityAttributes() {
     if (!(!this.hass || !this.config?.entity))
       return this.hass.states[this.config.entity]?.attributes;
   }
-  get visibleSections() {
-    const t = Ut(this.normalizedWorkspaces);
-    return Wt.map(({ key: e, label: s }) => ({
-      key: e,
-      label: s,
-      workspaces: t[e]
-    })).filter((e) => e.workspaces.length > 0);
-  }
-  get normalizedWorkspaces() {
-    const t = this.entityAttributes?.workspaces;
-    if (Array.isArray(t))
-      return t.filter(this.isWorkspaceLike);
-    if (typeof t == "string")
-      try {
-        const e = JSON.parse(t);
-        return Array.isArray(e) ? e.filter(this.isWorkspaceLike) : [];
-      } catch {
-        return [];
-      }
-    return [];
-  }
-  isWorkspaceLike(t) {
-    return !!(t && typeof t == "object" && "id" in t && "name" in t && typeof t.id == "string" && typeof t.name == "string");
-  }
-  renderConversationDialog() {
-    const t = this.selectedWorkspace;
-    if (!t)
-      return d;
-    const e = this.sessionAttributesForWorkspace(t), s = this.sessionMessages(e), i = e?.updated_at ? z(e.updated_at) : "";
-    return u`
-      <div class="dialog-backdrop" @click=${this.closeConversation}>
-        <section
-          class="conversation-dialog"
-          @click=${(n) => n.stopPropagation()}
-        >
-          <div class="dialog-header">
-            <div>
-              <div class="dialog-title">${t.name}</div>
-              <div class="dialog-subtitle">
-                ${t.latest_session_id ?? t.latestSessionId ?? "无 session"}
-                ${i ? u`<span>· ${i}</span>` : d}
-              </div>
-            </div>
-            <button
-              class="dialog-close"
-              type="button"
-              @click=${this.closeConversation}
-              aria-label="关闭对话弹窗"
-            >
-              ×
-            </button>
-          </div>
-          ${s.length === 0 ? u`<div class="dialog-empty">暂无对话记录</div>` : u`
-                <div class="conversation-list">
-                  ${s.map((n) => this.renderConversationMessage(n))}
-                </div>
-              `}
-        </section>
-      </div>
-    `;
-  }
-  renderConversationMessage(t) {
-    const e = (t.role ?? "assistant").toLowerCase(), s = t.timestamp ? z(t.timestamp) : "";
-    return u`
-      <article class="conversation-item role-${e}">
-        <div class="conversation-meta">
-          <span class="conversation-role">${e}</span>
-          ${s ? u`<span class="conversation-time">${s}</span>` : d}
-        </div>
-        <div class="conversation-content">${t.content ?? ""}</div>
-      </article>
-    `;
-  }
   get selectedWorkspace() {
     if (this.selectedWorkspaceId)
-      return this.normalizedWorkspaces.find((t) => t.id === this.selectedWorkspaceId);
+      return this.normalizedWorkspaces.find(
+        (e) => e.id === this.selectedWorkspaceId
+      );
   }
-  sessionAttributesForWorkspace(t) {
-    const e = t.latest_session_id ?? t.latestSessionId;
-    if (!e || !this.hass?.states)
-      return;
-    for (const i of Object.values(this.hass.states)) {
-      const n = this.asSessionAttributes(i.attributes);
-      if ((n?.session_id ?? n?.sessionId) === e)
-        return n;
-    }
-    const s = `sensor.kanban_watcher_kanban_session_${e.slice(0, 8)}`;
-    return this.asSessionAttributes(this.hass.states[s]?.attributes);
+  get visibleSections() {
+    const e = He(this.normalizedWorkspaces);
+    return Je.map(({ key: t, label: s }) => ({
+      key: t,
+      label: s,
+      workspaces: e[t]
+    })).filter((t) => t.workspaces.length > 0);
   }
-  sessionMessages(t) {
-    const e = t?.recent_messages;
+  get normalizedWorkspaces() {
+    const e = this.entityAttributes?.workspaces;
     if (Array.isArray(e))
-      return e.filter((s) => this.isConversationMessage(s));
+      return e.filter(this.isWorkspaceLike);
     if (typeof e == "string")
       try {
-        const s = JSON.parse(e);
-        return Array.isArray(s) ? s.filter((i) => this.isConversationMessage(i)) : [];
+        const t = JSON.parse(e);
+        return Array.isArray(t) ? t.filter(this.isWorkspaceLike) : [];
       } catch {
         return [];
       }
     return [];
   }
-  asSessionAttributes(t) {
-    if (!t || typeof t != "object")
-      return;
-    const e = t;
-    if (typeof (e.session_id ?? e.sessionId) == "string")
-      return e;
+  isWorkspaceLike(e) {
+    return !!(e && typeof e == "object" && "id" in e && "name" in e && typeof e.id == "string" && typeof e.name == "string");
   }
-  isConversationMessage(t) {
-    return !!(t && typeof t == "object" && typeof t.content == "string");
+  getDialogMessages(e) {
+    const t = this.getRecentSessionMessages(e);
+    return t.length > 0 ? t : [
+      {
+        sender: "ai",
+        text: e.latest_session_id ?? e.last_session_id ? "暂无同步的对话消息。" : "当前工作区还没有可展示的对话消息。"
+      }
+    ];
+  }
+  getRecentSessionMessages(e) {
+    const t = e.latest_session_id ?? e.last_session_id;
+    if (!t || !this.hass)
+      return [];
+    const s = Object.values(this.hass.states).find((l) => l.attributes?.session_id === t);
+    if (!s)
+      return [];
+    const i = s.attributes, n = i?.recent_messages, o = this.parseRecentMessages(n);
+    return o.length > 0 ? o : typeof i?.last_message == "string" && i.last_message.trim() ? [{ sender: "ai", text: i.last_message.trim() }] : [];
+  }
+  parseRecentMessages(e) {
+    const t = typeof e == "string" ? this.parseRecentMessagesString(e) : e;
+    return Array.isArray(t) ? t.map((s) => this.normalizeSessionMessage(s)).filter((s) => !!s) : [];
+  }
+  parseRecentMessagesString(e) {
+    try {
+      return JSON.parse(e);
+    } catch {
+      return [];
+    }
+  }
+  normalizeSessionMessage(e) {
+    if (!e || typeof e.content != "string")
+      return;
+    const t = e.content.trim();
+    if (t)
+      return {
+        sender: e.role === "user" ? "user" : "ai",
+        text: this.compactMessageText(t)
+      };
+  }
+  compactMessageText(e) {
+    return e.replace(/\r\n/g, `
+`).split(`
+`).map((t) => t.trim().replace(/[ \t]{2,}/g, " ")).join(`
+`).replace(/\n{3,}/g, `
+
+`).trim();
+  }
+  scrollMessagesToBottom() {
+    const e = this.renderRoot.querySelector(".message-list");
+    e && (e.scrollTop = e.scrollHeight);
+  }
+  getQueueItems(e) {
+    return this.queuedItems.filter((t) => t.workspaceId === e);
   }
 };
-N.styles = It, N.properties = {
+D.styles = Ve, D.properties = {
   hass: { attribute: !1 },
   collapsedSections: { state: !0 },
-  selectedWorkspaceId: { state: !0 }
+  selectedWorkspaceId: { state: !0 },
+  messageDraft: { state: !0 },
+  actionFeedback: { state: !0 }
 };
-let W = N;
+let W = D;
 customElements.get("kanban-watcher-card") || customElements.define("kanban-watcher-card", W);
 window.customCards = window.customCards ?? [];
 window.customCards.some((r) => r.type === "kanban-watcher-card") || window.customCards.push({

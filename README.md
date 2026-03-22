@@ -13,6 +13,19 @@ npm run build
 
 The production bundle is written to `dist/kanban-watcher-card.js`.
 
+## Local Preview
+
+To preview the card UI locally without Home Assistant:
+
+```bash
+npm install
+npm run preview
+```
+
+Then open the local Vite URL in your browser. The preview page injects a mock
+`hass` payload so you can inspect the three workspace sections and click into
+the workspace dialog.
+
 ## Install In Home Assistant
 
 1. Build the card.
