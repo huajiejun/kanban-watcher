@@ -12,8 +12,8 @@ import (
 func TestNewCleaner(t *testing.T) {
 	t.Run("default preserved days", func(t *testing.T) {
 		c := NewCleaner("/tmp", 0)
-		if c.preservedDays != 7 {
-			t.Errorf("expected preservedDays=7, got %d", c.preservedDays)
+		if c.preservedDays != 3 {
+			t.Errorf("expected preservedDays=3, got %d", c.preservedDays)
 		}
 	})
 

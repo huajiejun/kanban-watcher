@@ -21,7 +21,7 @@ type Cleaner struct {
 // NewCleaner 创建清理器实例
 func NewCleaner(baseDir string, preservedDays int) *Cleaner {
 	if preservedDays <= 0 {
-		preservedDays = 7 // 默认保留 7 天
+		preservedDays = 3 // 默认保留 3 天
 	}
 	return &Cleaner{
 		baseDir:       baseDir,

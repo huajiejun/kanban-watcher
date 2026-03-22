@@ -161,7 +161,7 @@ func applyDefaults(cfg *Config) {
 		cfg.ConversationSync.RecentToolCallLimit = 5
 	}
 	if cfg.ConversationSync.SessionPreservedDays <= 0 {
-		cfg.ConversationSync.SessionPreservedDays = 7 // 默认保留 7 天
+		cfg.ConversationSync.SessionPreservedDays = 3 // 默认保留 3 天
 	}
 	if cfg.ConversationSync.SessionCleanupHours <= 0 {
 		cfg.ConversationSync.SessionCleanupHours = 1 // 默认每小时清理一次
