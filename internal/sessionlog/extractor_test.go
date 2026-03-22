@@ -84,7 +84,7 @@ func TestExtractSessionSnapshotIncludesSystemControlAndRecentToolCalls(t *testin
 	}
 }
 
-func TestExtractSessionSnapshotSupportsCodexCompletedItemsAndDeltaFallback(t *testing.T) {
+func TestExtractSessionSnapshotPrefersCodexCompletedItemsOverDeltaFallback(t *testing.T) {
 	baseDir := t.TempDir()
 	sessionID := "4f495318-07a4-4882-b4c1-4453ea9e2818"
 	processDir := filepath.Join(baseDir, "sessions", "4f", sessionID, "processes")
@@ -116,10 +116,10 @@ func TestExtractSessionSnapshotSupportsCodexCompletedItemsAndDeltaFallback(t *te
 		t.Fatalf("extract snapshot: %v", err)
 	}
 
-	if got, want := snapshot.MessageCount, 4; got != want {
+	if got, want := snapshot.MessageCount, 3; got != want {
 		t.Fatalf("message count = %d, want %d", got, want)
 	}
-	if got, want := len(snapshot.RecentMessages), 4; got != want {
+	if got, want := len(snapshot.RecentMessages), 3; got != want {
 		t.Fatalf("recent message len = %d, want %d", got, want)
 	}
 	if snapshot.RecentMessages[0].Role != "user" || snapshot.RecentMessages[0].Content != "用户提问" {
@@ -131,11 +131,8 @@ func TestExtractSessionSnapshotSupportsCodexCompletedItemsAndDeltaFallback(t *te
 	if snapshot.RecentMessages[2].Content != "最终答复" {
 		t.Fatalf("third content = %q, want 最终答复", snapshot.RecentMessages[2].Content)
 	}
-	if snapshot.RecentMessages[3].Content != "仅增量" {
-		t.Fatalf("fourth content = %q, want 仅增量", snapshot.RecentMessages[3].Content)
-	}
-	if snapshot.LastRole != "assistant" || snapshot.LastMessage != "仅增量" {
-		t.Fatalf("last = %s/%q, want assistant/仅增量", snapshot.LastRole, snapshot.LastMessage)
+	if snapshot.LastRole != "assistant" || snapshot.LastMessage != "最终答复" {
+		t.Fatalf("last = %s/%q, want assistant/最终答复", snapshot.LastRole, snapshot.LastMessage)
 	}
 }
 

@@ -300,7 +300,6 @@ func parseLogFile(path string, timestamp time.Time) ([]ConversationMessage, []To
 		return nil, nil, fmt.Errorf("scan log file: %w", err)
 	}
 
-	appendPendingDeltas(&messages, deltaMessages, timestamp)
 	return messages, toolCalls, nil
 }
 
