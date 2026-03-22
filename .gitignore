@@ -1,2 +1,7 @@
 kanban-watcher
 *.tmp
+.worktrees/
+.superpowers/
+node_modules/
+dist/
+coverage/
