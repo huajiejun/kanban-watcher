@@ -285,8 +285,10 @@ export class KanbanWatcherCard extends LitElement {
             <div class="message-list">
               ${messages.map(
                 (message) => html`
-                  <div class="message-row is-${message.sender}">
-                    <div class="message-bubble">${message.text}</div>
+                  <div class="message-row">
+                    <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">
+                      ${this.compactMessageText(message.text)}
+                    </div>
                   </div>
                 `,
               )}
@@ -565,8 +567,18 @@ export class KanbanWatcherCard extends LitElement {
 
     return {
       sender: message.role === "user" ? "user" : "ai",
-      text,
+      text: this.compactMessageText(text),
     };
+  }
+
+  private compactMessageText(text: string) {
+    return text
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trim().replace(/[ \t]{2,}/g, " "))
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
   }
 
   private scrollMessagesToBottom() {

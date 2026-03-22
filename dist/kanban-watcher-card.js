@@ -35,7 +35,7 @@ const ce = (r) => new re(typeof r == "string" ? r : r + "", void 0, z), he = (r,
   for (const s of e.cssRules) t += s.cssText;
   return ce(t);
 })(r) : r;
-const { is: ue, defineProperty: ge, getOwnPropertyDescriptor: fe, getOwnPropertyNames: me, getOwnPropertySymbols: be, getPrototypeOf: $e } = Object, I = globalThis, G = I.trustedTypes, xe = G ? G.emptyScript : "", ve = I.reactiveElementPolyfillSupport, S = (r, e) => r, T = { toAttribute(r, e) {
+const { is: ue, defineProperty: ge, getOwnPropertyDescriptor: fe, getOwnPropertyNames: me, getOwnPropertySymbols: be, getPrototypeOf: $e } = Object, T = globalThis, G = T.trustedTypes, xe = G ? G.emptyScript : "", ve = T.reactiveElementPolyfillSupport, S = (r, e) => r, N = { toAttribute(r, e) {
   switch (e) {
     case Boolean:
       r = r ? xe : null;
@@ -63,8 +63,8 @@ const { is: ue, defineProperty: ge, getOwnPropertyDescriptor: fe, getOwnProperty
       }
   }
   return t;
-} }, ne = (r, e) => !ue(r, e), V = { attribute: !0, type: String, converter: T, reflect: !1, useDefault: !1, hasChanged: ne };
-Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), I.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
+} }, ne = (r, e) => !ue(r, e), V = { attribute: !0, type: String, converter: N, reflect: !1, useDefault: !1, hasChanged: ne };
+Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), T.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
 let v = class extends HTMLElement {
   static addInitializer(e) {
     this._$Ei(), (this.l ??= []).push(e);
@@ -162,14 +162,14 @@ let v = class extends HTMLElement {
   _$ET(e, t) {
     const s = this.constructor.elementProperties.get(e), i = this.constructor._$Eu(e, s);
     if (i !== void 0 && s.reflect === !0) {
-      const n = (s.converter?.toAttribute !== void 0 ? s.converter : T).toAttribute(t, s.type);
+      const n = (s.converter?.toAttribute !== void 0 ? s.converter : N).toAttribute(t, s.type);
       this._$Em = e, n == null ? this.removeAttribute(i) : this.setAttribute(i, n), this._$Em = null;
     }
   }
   _$AK(e, t) {
     const s = this.constructor, i = s._$Eh.get(e);
     if (i !== void 0 && this._$Em !== i) {
-      const n = s.getPropertyOptions(i), o = typeof n.converter == "function" ? { fromAttribute: n.converter } : n.converter?.fromAttribute !== void 0 ? n.converter : T;
+      const n = s.getPropertyOptions(i), o = typeof n.converter == "function" ? { fromAttribute: n.converter } : n.converter?.fromAttribute !== void 0 ? n.converter : N;
       this._$Em = i;
       const d = o.fromAttribute(t, n.type);
       this[i] = d ?? this._$Ej?.get(i) ?? d, this._$Em = null;
@@ -246,9 +246,9 @@ let v = class extends HTMLElement {
   firstUpdated(e) {
   }
 };
-v.elementStyles = [], v.shadowRootOptions = { mode: "open" }, v[S("elementProperties")] = /* @__PURE__ */ new Map(), v[S("finalized")] = /* @__PURE__ */ new Map(), ve?.({ ReactiveElement: v }), (I.reactiveElementVersions ??= []).push("2.1.2");
-const L = globalThis, J = (r) => r, O = L.trustedTypes, K = O ? O.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, oe = "$lit$", m = `lit$${Math.random().toFixed(9).slice(2)}$`, ae = "?" + m, ye = `<${ae}>`, x = document, k = () => x.createComment(""), E = (r) => r === null || typeof r != "object" && typeof r != "function", j = Array.isArray, _e = (r) => j(r) || typeof r?.[Symbol.iterator] == "function", N = `[ 	
-\f\r]`, A = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Z = /-->/g, Q = />/g, b = RegExp(`>|${N}(?:([^\\s"'>=/]+)(${N}*=${N}*(?:[^ 	
+v.elementStyles = [], v.shadowRootOptions = { mode: "open" }, v[S("elementProperties")] = /* @__PURE__ */ new Map(), v[S("finalized")] = /* @__PURE__ */ new Map(), ve?.({ ReactiveElement: v }), (T.reactiveElementVersions ??= []).push("2.1.2");
+const L = globalThis, J = (r) => r, O = L.trustedTypes, K = O ? O.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, oe = "$lit$", m = `lit$${Math.random().toFixed(9).slice(2)}$`, ae = "?" + m, ye = `<${ae}>`, x = document, w = () => x.createComment(""), E = (r) => r === null || typeof r != "object" && typeof r != "function", j = Array.isArray, _e = (r) => j(r) || typeof r?.[Symbol.iterator] == "function", U = `[ 	
+\f\r]`, A = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Z = /-->/g, Q = />/g, b = RegExp(`>|${U}(?:([^\\s"'>=/]+)(${U}*=${U}*(?:[^ 	
 \f\r"'\`<>=]|("|')|))|$)`, "g"), X = /'/g, Y = /"/g, de = /^(?:script|style|textarea|title)$/i, Ae = (r) => (e, ...t) => ({ _$litType$: r, strings: e, values: t }), u = Ae(1), y = /* @__PURE__ */ Symbol.for("lit-noChange"), c = /* @__PURE__ */ Symbol.for("lit-nothing"), ee = /* @__PURE__ */ new WeakMap(), $ = x.createTreeWalker(x, 129);
 function le(r, e) {
   if (!j(r) || !r.hasOwnProperty("raw")) throw Error("invalid template strings array");
@@ -280,14 +280,14 @@ class C {
       if (i.nodeType === 1) {
         if (i.hasAttributes()) for (const l of i.getAttributeNames()) if (l.endsWith(oe)) {
           const g = p[o++], f = i.getAttribute(l).split(m), P = /([.?@])?(.*)/.exec(g);
-          a.push({ type: 1, index: n, name: P[2], strings: f, ctor: P[1] === "." ? ke : P[1] === "?" ? Ee : P[1] === "@" ? Ce : U }), i.removeAttribute(l);
+          a.push({ type: 1, index: n, name: P[2], strings: f, ctor: P[1] === "." ? we : P[1] === "?" ? Ee : P[1] === "@" ? Ce : I }), i.removeAttribute(l);
         } else l.startsWith(m) && (a.push({ type: 6, index: n }), i.removeAttribute(l));
         if (de.test(i.tagName)) {
           const l = i.textContent.split(m), g = l.length - 1;
           if (g > 0) {
             i.textContent = O ? O.emptyScript : "";
-            for (let f = 0; f < g; f++) i.append(l[f], k()), $.nextNode(), a.push({ type: 2, index: ++n });
-            i.append(l[g], k());
+            for (let f = 0; f < g; f++) i.append(l[f], w()), $.nextNode(), a.push({ type: 2, index: ++n });
+            i.append(l[g], w());
           }
         }
       } else if (i.nodeType === 8) if (i.data === ae) a.push({ type: 2, index: n });
@@ -309,7 +309,7 @@ function _(r, e, t = r, s) {
   const n = E(e) ? void 0 : e._$litDirective$;
   return i?.constructor !== n && (i?._$AO?.(!1), n === void 0 ? i = void 0 : (i = new n(r), i._$AT(r, t, s)), s !== void 0 ? (t._$Co ??= [])[s] = i : t._$Cl = i), i !== void 0 && (e = _(r, i._$AS(r, e.values), i, s)), e;
 }
-class we {
+class ke {
   constructor(e, t) {
     this._$AV = [], this._$AN = void 0, this._$AD = e, this._$AM = t;
   }
@@ -371,7 +371,7 @@ class M {
     const { values: t, _$litType$: s } = e, i = typeof s == "number" ? this._$AC(e) : (s.el === void 0 && (s.el = C.createElement(le(s.h, s.h[0]), this.options)), s);
     if (this._$AH?._$AD === i) this._$AH.p(t);
     else {
-      const n = new we(i, this), o = n.u(this.options);
+      const n = new ke(i, this), o = n.u(this.options);
       n.p(t), this.T(o), this._$AH = n;
     }
   }
@@ -383,7 +383,7 @@ class M {
     j(this._$AH) || (this._$AH = [], this._$AR());
     const t = this._$AH;
     let s, i = 0;
-    for (const n of e) i === t.length ? t.push(s = new M(this.O(k()), this.O(k()), this, this.options)) : s = t[i], s._$AI(n), i++;
+    for (const n of e) i === t.length ? t.push(s = new M(this.O(w()), this.O(w()), this, this.options)) : s = t[i], s._$AI(n), i++;
     i < t.length && (this._$AR(s && s._$AB.nextSibling, i), t.length = i);
   }
   _$AR(e = this._$AA.nextSibling, t) {
@@ -396,7 +396,7 @@ class M {
     this._$AM === void 0 && (this._$Cv = e, this._$AP?.(e));
   }
 }
-class U {
+class I {
   get tagName() {
     return this.element.tagName;
   }
@@ -421,7 +421,7 @@ class U {
     e === c ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
   }
 }
-class ke extends U {
+class we extends I {
   constructor() {
     super(...arguments), this.type = 3;
   }
@@ -429,7 +429,7 @@ class ke extends U {
     this.element[this.name] = e === c ? void 0 : e;
   }
 }
-class Ee extends U {
+class Ee extends I {
   constructor() {
     super(...arguments), this.type = 4;
   }
@@ -437,7 +437,7 @@ class Ee extends U {
     this.element.toggleAttribute(this.name, !!e && e !== c);
   }
 }
-class Ce extends U {
+class Ce extends I {
   constructor(e, t, s, i, n) {
     super(e, t, s, i, n), this.type = 5;
   }
@@ -468,12 +468,12 @@ const De = (r, e, t) => {
   let i = s._$litPart$;
   if (i === void 0) {
     const n = t?.renderBefore ?? null;
-    s._$litPart$ = i = new M(e.insertBefore(k(), n), n, void 0, t ?? {});
+    s._$litPart$ = i = new M(e.insertBefore(w(), n), n, void 0, t ?? {});
   }
   return i._$AI(r), i;
 };
 const q = globalThis;
-class w extends v {
+class k extends v {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
   }
@@ -495,9 +495,9 @@ class w extends v {
     return y;
   }
 }
-w._$litElement$ = !0, w.finalized = !0, q.litElementHydrateSupport?.({ LitElement: w });
+k._$litElement$ = !0, k.finalized = !0, q.litElementHydrateSupport?.({ LitElement: k });
 const Oe = q.litElementPolyfillSupport;
-Oe?.({ LitElement: w });
+Oe?.({ LitElement: k });
 (q.litElementVersions ??= []).push("4.2.2");
 function Re(r = []) {
   return r.reduce(
@@ -505,7 +505,7 @@ function Re(r = []) {
     { attention: [], running: [], idle: [] }
   );
 }
-function Ie(r, e = /* @__PURE__ */ new Date()) {
+function Te(r, e = /* @__PURE__ */ new Date()) {
   if (!r)
     return "recently";
   const t = Date.parse(r);
@@ -522,13 +522,13 @@ function Ie(r, e = /* @__PURE__ */ new Date()) {
   const n = Math.floor(i / 60);
   return n < 24 ? `${n}h ago` : `${Math.floor(n / 24)}d ago`;
 }
-function Ue(r) {
+function Ie(r) {
   return !!(r.has_unseen_turns || r.hasUnseenActivity);
 }
-function Ne(r) {
+function Ue(r) {
   return !!(r.has_running_dev_server || r.hasRunningDevServer);
 }
-function Te(r) {
+function Ne(r) {
   return r.latest_process_status || r.latestProcessStatus;
 }
 function He(r) {
@@ -538,7 +538,7 @@ function We(r) {
   return !!(r.is_pinned || r.isPinned);
 }
 function ze(r) {
-  const e = [], t = r.status === "running", s = !t && ["failed", "killed"].includes(Te(r) ?? ""), i = Ue(r), n = !!r.has_pending_approval, o = Ne(r), d = He(r);
+  const e = [], t = r.status === "running", s = !t && ["failed", "killed"].includes(Ne(r) ?? ""), i = Ie(r), n = !!r.has_pending_approval, o = Ue(r), d = He(r);
   o && e.push({ symbol: "🖥️", kind: "dev-server", tone: "brand" }), s && e.push({ symbol: "▲", kind: "process-error", tone: "error" }), n ? e.push({ symbol: "✋", kind: "approval", tone: "brand" }) : t && e.push({ symbol: "⋯", kind: "running", tone: "brand" }), i && !t && !s && e.push({ symbol: "●", kind: "unseen", tone: "brand" }), d === "open" ? e.push({ symbol: "⎇", kind: "pr-open", tone: "success" }) : d === "merged" && e.push({ symbol: "⎇", kind: "pr-merged", tone: "merged" }), We(r) && e.push({ symbol: "📌", kind: "pin", tone: "brand" }), e.length === 0 && e.push({ symbol: "•", kind: "idle", tone: "muted" });
   const a = t && !n ? "is-running" : n || r.status === "completed" && i ? "is-attention" : "is-idle";
   return {
@@ -810,39 +810,35 @@ const Le = he`
   .message-list {
     min-height: 0;
     display: grid;
-    gap: 14px;
+    gap: 8px;
     overflow-y: auto;
     padding: 6px 2px 6px 0;
   }
 
   .message-row {
-    display: flex;
     width: 100%;
-  }
-
-  .message-row.is-user {
-    justify-content: flex-start;
-  }
-
-  .message-row.is-ai {
-    justify-content: flex-end;
   }
 
   .message-bubble {
     width: 100%;
-    padding: 8px 10px;
+    box-sizing: border-box;
+    padding: 7px 10px;
     border-radius: 10px;
-    line-height: 1.5;
+    line-height: 1.35;
     white-space: pre-wrap;
     word-break: break-word;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 70%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
     color: inherit;
     text-align: left;
   }
 
-  .message-row.is-ai .message-bubble {
-    background: color-mix(in srgb, var(--primary-color, #f59e0b) 12%, transparent);
-    text-align: right;
+  .message-bubble.is-user {
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 24%, transparent);
+  }
+
+  .message-bubble.is-ai {
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
   }
 
   .dialog-composer {
@@ -1035,7 +1031,7 @@ const Le = he`
   { key: "attention", label: "需要注意" },
   { key: "running", label: "运行中" },
   { key: "idle", label: "空闲" }
-], R = class R extends w {
+], R = class R extends k {
   constructor() {
     super(...arguments), this.collapsedSections = /* @__PURE__ */ new Set(), this.messageDraft = "", this.actionFeedback = "", this.queuedItems = [], this.closeWorkspaceDialog = () => {
       this.selectedWorkspaceId = void 0, this.messageDraft = "", this.actionFeedback = "";
@@ -1165,8 +1161,10 @@ const Le = he`
             <div class="message-list">
               ${t.map(
       (n) => u`
-                  <div class="message-row is-${n.sender}">
-                    <div class="message-bubble">${n.text}</div>
+                  <div class="message-row">
+                    <div class="message-bubble ${n.sender === "user" ? "is-user" : "is-ai"}">
+                      ${this.compactMessageText(n.text)}
+                    </div>
                   </div>
                 `
     )}
@@ -1243,7 +1241,7 @@ const Le = he`
   getWorkspaceDisplayMeta(e) {
     const t = e.relative_time || (e.status === "completed" ? e.completed_at ?? this.entityAttributes?.updated_at : this.entityAttributes?.updated_at);
     return {
-      relativeTime: e.relative_time || Ie(t),
+      relativeTime: e.relative_time || Te(t),
       filesChanged: e.files_changed ?? 0,
       linesAdded: e.lines_added ?? 0,
       linesRemoved: e.lines_removed ?? 0
@@ -1326,8 +1324,16 @@ const Le = he`
     if (t)
       return {
         sender: e.role === "user" ? "user" : "ai",
-        text: t
+        text: this.compactMessageText(t)
       };
+  }
+  compactMessageText(e) {
+    return e.replace(/\r\n/g, `
+`).split(`
+`).map((t) => t.trim().replace(/[ \t]{2,}/g, " ")).join(`
+`).replace(/\n{3,}/g, `
+
+`).trim();
   }
   scrollMessagesToBottom() {
     const e = this.renderRoot.querySelector(".message-list");

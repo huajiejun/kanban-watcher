@@ -767,13 +767,12 @@ describe("kanban-watcher-card", () => {
 
     expect(cssText).toContain(".message-list");
     expect(cssText).toContain("overflow-y: auto");
-    expect(cssText).toContain(".message-row.is-user");
-    expect(cssText).toContain("justify-content: flex-start");
-    expect(cssText).toContain(".message-row.is-ai");
-    expect(cssText).toContain("justify-content: flex-end");
+    expect(cssText).toContain(".message-row");
     expect(cssText).toContain("width: 100%");
     expect(cssText).toContain("width: min(900px, calc(100vw - 24px))");
-    expect(cssText).not.toContain("max-width: min(72%, 560px)");
+    expect(cssText).toContain(".message-bubble.is-user");
+    expect(cssText).toContain(".message-bubble.is-ai");
+    expect(cssText).not.toContain("justify-content: flex-end");
   });
 
   it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {
@@ -810,6 +809,7 @@ describe("kanban-watcher-card", () => {
     expect(dialogText).toContain("我们用的id不是`workspace_id 而是上层接口里的last_session_id");
     expect(dialogText).toContain("明白，这个约束现在很关键：");
     expect(dialogText).toContain("弹窗真实对话不能按 `workspace_id` 关联");
+    expect(dialogText).toContain("这意味着现阶段我不建议直接把弹窗改成读取真实 `recent_messages`");
   });
 
   it("prefers real recent_messages matched by latest_session_id for dialog history", async () => {

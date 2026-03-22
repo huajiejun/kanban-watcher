@@ -264,39 +264,35 @@ export const cardStyles = css`
   .message-list {
     min-height: 0;
     display: grid;
-    gap: 14px;
+    gap: 8px;
     overflow-y: auto;
     padding: 6px 2px 6px 0;
   }
 
   .message-row {
-    display: flex;
     width: 100%;
-  }
-
-  .message-row.is-user {
-    justify-content: flex-start;
-  }
-
-  .message-row.is-ai {
-    justify-content: flex-end;
   }
 
   .message-bubble {
     width: 100%;
-    padding: 8px 10px;
+    box-sizing: border-box;
+    padding: 7px 10px;
     border-radius: 10px;
-    line-height: 1.5;
+    line-height: 1.35;
     white-space: pre-wrap;
     word-break: break-word;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 70%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
     color: inherit;
     text-align: left;
   }
 
-  .message-row.is-ai .message-bubble {
-    background: color-mix(in srgb, var(--primary-color, #f59e0b) 12%, transparent);
-    text-align: right;
+  .message-bubble.is-user {
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 24%, transparent);
+  }
+
+  .message-bubble.is-ai {
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
   }
 
   .dialog-composer {
