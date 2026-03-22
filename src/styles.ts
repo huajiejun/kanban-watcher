@@ -304,6 +304,31 @@ export const cardStyles = css`
     gap: 8px;
   }
 
+  .queue-list {
+    display: grid;
+    gap: 6px;
+  }
+
+  .queue-item {
+    display: grid;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 72%, transparent);
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 60%, transparent);
+  }
+
+  .queue-index {
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.76rem;
+    line-height: 1.2;
+  }
+
+  .queue-content {
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
   .message-input {
     width: 100%;
     min-height: 44px;
@@ -341,6 +366,14 @@ export const cardStyles = css`
     font-weight: 700;
   }
 
+  .dialog-action-primary,
+  .dialog-action-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
   .dialog-action-secondary {
     border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 72%, transparent);
     background: transparent;
@@ -348,11 +381,27 @@ export const cardStyles = css`
     font-weight: 600;
   }
 
+  .action-spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #ffffff;
+    animation: spinner-rotate 900ms linear infinite;
+    flex: none;
+  }
+
   .dialog-feedback {
     min-height: 1.25rem;
     color: var(--secondary-text-color, #94a3b8);
     font-size: 0.8rem;
     line-height: 1.4;
+  }
+
+  @keyframes spinner-rotate {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   @media (max-width: 640px) {

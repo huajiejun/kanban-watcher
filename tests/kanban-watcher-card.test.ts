@@ -580,7 +580,7 @@ describe("kanban-watcher-card", () => {
     expect(text).toContain("📄 999 +12345 -6789");
   });
 
-  it("opens a large workspace chat dialog with scrolling messages and compact actions", async () => {
+  it("opens a large workspace chat dialog with status-aware actions", async () => {
     const card = await renderCard();
     const shadowRoot = card.shadowRoot;
     const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
@@ -602,7 +602,7 @@ describe("kanban-watcher-card", () => {
     expect(shadowRoot?.querySelector(".dialog-summary")).toBeNull();
     expect(shadowRoot?.querySelector(".message-list")).not.toBeNull();
     expect(text).toContain("发送消息");
-    expect(text).toContain("队列消息");
+    expect(text).not.toContain("加入队列");
     expect(
       (shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null)?.value,
     ).toBe("");
@@ -632,7 +632,7 @@ describe("kanban-watcher-card", () => {
     expect(shadowRoot?.querySelector(".workspace-dialog")).toBeNull();
   });
 
-  it("keeps message input local to the active workspace and shows placeholder action feedback", async () => {
+  it("switches actions by running state and shows queue items above the input", async () => {
     const card = await renderCard();
     const shadowRoot = card.shadowRoot;
     const taskCards = Array.from(
@@ -652,6 +652,8 @@ describe("kanban-watcher-card", () => {
     const sendButton = shadowRoot?.querySelector(
       ".dialog-action-primary",
     ) as HTMLButtonElement | null;
+    expect(normalizeText(sendButton?.textContent)).toBe("发送消息");
+    expect(shadowRoot?.querySelector(".dialog-action-secondary")).toBeNull();
     sendButton?.click();
     await card.updateComplete;
 
@@ -662,6 +664,16 @@ describe("kanban-watcher-card", () => {
     taskCards[1]?.click();
     await card.updateComplete;
 
+    const stopButton = shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    const queueButton = shadowRoot?.querySelector(
+      ".dialog-action-secondary",
+    ) as HTMLButtonElement | null;
+
+    expect(normalizeText(stopButton?.textContent)).toContain("停止");
+    expect(stopButton?.querySelector(".action-spinner")).not.toBeNull();
+    expect(normalizeText(queueButton?.textContent)).toBe("加入队列");
     expect(
       normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
     ).toContain("运行中的任务目前有新的输出吗？");
@@ -673,15 +685,22 @@ describe("kanban-watcher-card", () => {
       (shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null)?.value,
     ).toBe("");
 
-    const queueButton = shadowRoot?.querySelector(
-      ".dialog-action-secondary",
-    ) as HTMLButtonElement | null;
+    const runningMessageInput = shadowRoot?.querySelector(
+      ".message-input",
+    ) as HTMLTextAreaElement | null;
+    runningMessageInput!.value = "运行中先加入这一条队列";
+    runningMessageInput?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await card.updateComplete;
+
     queueButton?.click();
     await card.updateComplete;
 
+    expect(normalizeText(shadowRoot?.querySelector(".queue-list")?.textContent)).toContain(
+      "运行中先加入这一条队列",
+    );
     expect(
       normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent),
-    ).toContain("队列消息功能暂未接入");
+    ).toContain("加入队列功能暂未接入");
   });
 
   it("declares a large dialog with its own scrollable full-width message flow", () => {
@@ -759,5 +778,26 @@ describe("kanban-watcher-card", () => {
         delete (HTMLElement.prototype as Partial<HTMLElement>).scrollHeight;
       }
     }
+  });
+
+  it("shows the stop feedback for running workspaces", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const taskCards = Array.from(
+      shadowRoot?.querySelectorAll(".task-card") ?? [],
+    ) as HTMLButtonElement[];
+
+    taskCards[1]?.click();
+    await card.updateComplete;
+
+    const stopButton = shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    stopButton?.click();
+    await card.updateComplete;
+
+    expect(normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "停止功能暂未接入",
+    );
   });
 });

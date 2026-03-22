@@ -19,10 +19,14 @@ type CardConfig = {
   entity: string;
 };
 
-type DialogAction = "send" | "queue";
+type DialogAction = "send" | "queue" | "stop";
 type DialogMessage = {
   sender: "user" | "ai";
   text: string;
+};
+type QueueItem = {
+  workspaceId: string;
+  content: string;
 };
 
 const ATTENTION_DIALOG_MESSAGES: DialogMessage[] = [
@@ -122,6 +126,7 @@ export class KanbanWatcherCard extends LitElement {
   private selectedWorkspaceId?: string;
   private messageDraft = "";
   private actionFeedback = "";
+  private queuedItems: QueueItem[] = [];
 
   connectedCallback() {
     super.connectedCallback();
@@ -239,6 +244,8 @@ export class KanbanWatcherCard extends LitElement {
       return nothing;
     }
     const messages = this.getDialogMessages(workspace);
+    const isRunning = workspace.status === "running";
+    const queuedItems = this.getQueueItems(workspace.id);
 
     return html`
       <div class="dialog-shell" role="presentation">
@@ -282,6 +289,20 @@ export class KanbanWatcherCard extends LitElement {
           </section>
 
           <div class="dialog-composer">
+            ${queuedItems.length > 0
+              ? html`
+                  <div class="queue-list">
+                    ${queuedItems.map(
+                      (item, index) => html`
+                        <div class="queue-item">
+                          <span class="queue-index">队列 ${index + 1}</span>
+                          <span class="queue-content">${item.content}</span>
+                        </div>
+                      `,
+                    )}
+                  </div>
+                `
+              : nothing}
             <textarea
               class="message-input"
               rows="2"
@@ -293,17 +314,26 @@ export class KanbanWatcherCard extends LitElement {
               <button
                 class="dialog-action dialog-action-primary"
                 type="button"
-                @click=${() => this.handleActionClick("send")}
+                @click=${() => this.handleActionClick(isRunning ? "stop" : "send")}
               >
-                发送消息
+                ${isRunning
+                  ? html`
+                      <span class="action-spinner" aria-hidden="true"></span>
+                      <span>停止</span>
+                    `
+                  : "发送消息"}
               </button>
-              <button
-                class="dialog-action dialog-action-secondary"
-                type="button"
-                @click=${() => this.handleActionClick("queue")}
-              >
-                队列消息
-              </button>
+              ${isRunning
+                ? html`
+                    <button
+                      class="dialog-action dialog-action-secondary"
+                      type="button"
+                      @click=${() => this.handleActionClick("queue")}
+                    >
+                      加入队列
+                    </button>
+                  `
+                : nothing}
             </div>
             <div class="dialog-feedback" aria-live="polite">
               ${this.actionFeedback || "消息操作暂未接入真实接口。"}
@@ -341,10 +371,20 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private handleActionClick(action: DialogAction) {
+    if (action === "queue" && this.selectedWorkspaceId) {
+      const content = this.messageDraft.trim() || "未填写内容的排队消息";
+      this.queuedItems = [
+        ...this.queuedItems.filter((item) => item.workspaceId !== this.selectedWorkspaceId),
+        { workspaceId: this.selectedWorkspaceId, content },
+      ];
+      this.actionFeedback = "加入队列功能暂未接入，当前仅展示界面。";
+      return;
+    }
+
     this.actionFeedback =
       action === "send"
         ? "发送消息功能暂未接入，当前仅展示界面。"
-        : "队列消息功能暂未接入，当前仅展示界面。";
+        : "停止功能暂未接入，当前仅展示界面。";
   }
 
   private handleKeyDown = (event: Event) => {
@@ -455,5 +495,9 @@ export class KanbanWatcherCard extends LitElement {
     if (messageList) {
       messageList.scrollTop = messageList.scrollHeight;
     }
+  }
+
+  private getQueueItems(workspaceId: string) {
+    return this.queuedItems.filter((item) => item.workspaceId === workspaceId);
   }
 }
