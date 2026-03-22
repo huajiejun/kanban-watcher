@@ -1,0 +1,142 @@
+# HomeAssistant 垂直可折叠 Kanban 看板（修复版）
+# 三栏垂直排列：需要注意 | 运行中 | 已完成
+# 使用 auto-entities + fold-entity-row 实现动态折叠
+# 需要安装：auto-entities, fold-entity-row (通过 HACS)
+
+type: vertical-stack
+cards:
+  # ========== 标题栏 ==========
+  - type: markdown
+    content: |
+      ## 📊 Kanban 工作区监控
+
+      点击各栏目展开/折叠
+
+  # ========== 第一栏：需要注意（红色） ==========
+  - type: custom:auto-entities
+    card:
+      type: entities
+      title: 🔴 需要注意
+      card_mod:
+        style: |
+          ha-card {
+            background: linear-gradient(135deg, #ffebee, #ffcdd2);
+            border-radius: 12px;
+          }
+          .card-header {
+            color: #d32f2f;
+            font-weight: bold;
+            font-size: 18px;
+          }
+    filter:
+      template: |
+        {% set workspaces = state_attr('sensor.kanban_watcher_kanban_watcher', 'workspaces') or [] %}
+        {% for ws in workspaces if ws.needs_attention %}
+        - type: custom:template-entity-row
+          entity: sensor.kanban_watcher_kanban_watcher
+          name: "{{ ws.name }}"
+          icon: mdi:alert-circle
+          state: "{{ ws.relative_time }}"
+          secondary: "{% if ws.has_pending_approval %}✋ 待审批 {% endif %}{% if ws.has_unseen_turns %}👁️ 未读 {% endif %}📝{{ ws.files_changed or 0 }} 📈{{ ws.lines_added or 0 }} 📉{{ ws.lines_removed or 0 }}"
+          card_mod:
+            style: |
+              :host {
+                --card-background-color: #ffebee;
+                border-left: 4px solid #f44336;
+                border-radius: 8px;
+                margin: 4px 0;
+                padding: 8px;
+              }
+              .name {
+                font-weight: bold;
+                color: #d32f2f;
+              }
+        {% endfor %}
+    sort:
+      method: none
+
+  # ========== 第二栏：运行中（黄色） ==========
+  - type: custom:auto-entities
+    card:
+      type: entities
+      title: 🟡 运行中
+      card_mod:
+        style: |
+          ha-card {
+            background: linear-gradient(135deg, #fff8e1, #ffecb3);
+            border-radius: 12px;
+          }
+          .card-header {
+            color: #f57c00;
+            font-weight: bold;
+            font-size: 18px;
+          }
+    filter:
+      template: |
+        {% set workspaces = state_attr('sensor.kanban_watcher_kanban_watcher', 'workspaces') or [] %}
+        {% for ws in workspaces if ws.status == 'running' and not ws.needs_attention %}
+        - type: custom:template-entity-row
+          entity: sensor.kanban_watcher_kanban_watcher
+          name: "{{ ws.name }}"
+          icon: mdi:play-circle
+          state: "{{ ws.relative_time }}"
+          secondary: "▶️ 进行中 📝{{ ws.files_changed or 0 }} 📈{{ ws.lines_added or 0 }} 📉{{ ws.lines_removed or 0 }}"
+          card_mod:
+            style: |
+              :host {
+                --card-background-color: #fff8e1;
+                border-left: 4px solid #ffc107;
+                border-radius: 8px;
+                margin: 4px 0;
+                padding: 8px;
+              }
+              .name {
+                font-weight: bold;
+                color: #ef6c00;
+              }
+        {% endfor %}
+    sort:
+      method: none
+
+  # ========== 第三栏：已完成（绿色） ==========
+  - type: custom:auto-entities
+    card:
+      type: entities
+      title: 🟢 已完成
+      card_mod:
+        style: |
+          ha-card {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            border-radius: 12px;
+          }
+          .card-header {
+            color: #388e3c;
+            font-weight: bold;
+            font-size: 18px;
+          }
+    filter:
+      template: |
+        {% set workspaces = state_attr('sensor.kanban_watcher_kanban_watcher', 'workspaces') or [] %}
+        {% for ws in workspaces if ws.status == 'completed' and not ws.needs_attention %}
+        - type: custom:template-entity-row
+          entity: sensor.kanban_watcher_kanban_watcher
+          name: "{{ ws.name }}"
+          icon: mdi:check-circle
+          state: "{{ ws.relative_time }}"
+          secondary: "✅ 完成 {% if ws.pr_url %}🔗 PR {% endif %}📝{{ ws.files_changed or 0 }} 📈{{ ws.lines_added or 0 }} 📉{{ ws.lines_removed or 0 }}"
+          card_mod:
+            style: |
+              :host {
+                --card-background-color: #e8f5e9;
+                border-left: 4px solid #4caf50;
+                border-radius: 8px;
+                margin: 4px 0;
+                padding: 8px;
+              }
+              .name {
+                font-weight: bold;
+                color: #2e7d32;
+              }
+        {% endfor %}
+    sort:
+      method: none

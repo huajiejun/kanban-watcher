@@ -1,0 +1,29 @@
+# kanban-watcher 配置文件
+# 复制到 ~/.config/kanban-watcher/config.yaml 后修改
+
+# vibe-kanban 本地 API 地址（通常无需修改）
+kanban_api_url: "http://127.0.0.1:7777"
+
+# MQTT 配置 ─ 连接到外部部署的 broker（域名方式，无 TLS）
+mqtt:
+  # 格式：tcp://<域名>:1883
+  # 示例：tcp://aliyun.huajiejun.cn:1883
+  broker: "tcp://aliyun.huajiejun.cn:1883"
+  username: "mqtt"                 # MQTT 用户名
+  password: "wolale1990"           # MQTT 密码
+  client_id: "kanban-watcher"      # 唯一标识，同一网络内不能重复
+
+# 企业微信机器人 Webhook
+wechat:
+  # 在企业微信群里添加机器人，复制 webhook 地址填这里
+  webhook_url: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY"
+  # has_unseen_turns 或 has_pending_approval 持续多少分钟后发通知
+  notify_threshold_minutes: 10
+
+# 工作时间（仅在此范围内轮询，跨午夜写法：08:00 到次日 01:00）
+working_hours:
+  start: "08:00"
+  end: "01:00"
+
+# 轮询间隔（秒）
+poll_interval_seconds: 15
