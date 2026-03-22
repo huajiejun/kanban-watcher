@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kanban Watcher Card Preview</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          "SF Pro Display",
+          "PingFang SC",
+          "Microsoft YaHei",
+          sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(245, 158, 11, 0.18), transparent 35%),
+          linear-gradient(180deg, #fffaf0 0%, #f8fafc 48%, #eef2ff 100%);
+        color: #0f172a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 40px 20px 56px;
+      }
+
+      main {
+        width: min(960px, 100%);
+        margin: 0 auto;
+        display: grid;
+        gap: 18px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 10px;
+      }
+
+      .eyebrow {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #b45309;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 4vw, 2.6rem);
+        line-height: 1.1;
+      }
+
+      p {
+        margin: 0;
+        max-width: 56rem;
+        color: #475569;
+        line-height: 1.6;
+      }
+
+      .tips {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .tip {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        color: #334155;
+        font-size: 0.9rem;
+      }
+
+      .preview-shell {
+        padding: 18px;
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+      }
+
+      [data-preview-root] {
+        display: block;
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 24px 14px 40px;
+        }
+
+        .preview-shell {
+          padding: 12px;
+          border-radius: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Local Preview</div>
+        <h1>Kanban Watcher Card 本地预览</h1>
+        <p>
+          这个页面会注入一份本地 mock 的 Home Assistant `hass` 数据，用来快速查看卡片列表、点击弹框、输入框与按钮反馈，不需要先部署到 Home Assistant。
+        </p>
+        <div class="tips">
+          <div class="tip">点击任一工作区卡片打开弹框</div>
+          <div class="tip">缩窄浏览器宽度检查移动端布局</div>
+          <div class="tip">当前数据覆盖关注 / 运行中 / 空闲三种状态</div>
+        </div>
+      </section>
+
+      <section class="preview-shell">
+        <div data-preview-root></div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/playground.ts"></script>
+  </body>
+</html>
