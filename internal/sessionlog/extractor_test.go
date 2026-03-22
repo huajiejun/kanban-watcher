@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestExtractSessionSnapshotIncludesSystemControlAndRecentToolCalls(t *testing.T) {
@@ -135,5 +136,66 @@ func TestExtractSessionSnapshotSupportsCodexCompletedItemsAndDeltaFallback(t *te
 	}
 	if snapshot.LastRole != "assistant" || snapshot.LastMessage != "仅增量" {
 		t.Fatalf("last = %s/%q, want assistant/仅增量", snapshot.LastRole, snapshot.LastMessage)
+	}
+}
+
+func TestExtractSessionSnapshotAggregatesMessagesAcrossProcessLogs(t *testing.T) {
+	baseDir := t.TempDir()
+	sessionID := "4f495318-07a4-4882-b4c1-4453ea9e2818"
+	processDir := filepath.Join(baseDir, "sessions", "4f", sessionID, "processes")
+	if err := os.MkdirAll(processDir, 0o755); err != nil {
+		t.Fatalf("mkdir process dir: %v", err)
+	}
+
+	olderPath := filepath.Join(processDir, "older.jsonl")
+	olderContent := `{"Stdout":"{\"type\":\"user\",\"message\":{\"content\":\"第一条\"},\"session_id\":\"` + sessionID + `\"}"}
+{"Stdout":"{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"第二条\"}]},\"session_id\":\"` + sessionID + `\"}"}
+`
+	if err := os.WriteFile(olderPath, []byte(olderContent), 0o644); err != nil {
+		t.Fatalf("write older log: %v", err)
+	}
+	olderTime := time.Date(2026, 3, 22, 13, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(olderPath, olderTime, olderTime); err != nil {
+		t.Fatalf("chtimes older log: %v", err)
+	}
+
+	latestPath := filepath.Join(processDir, "latest.jsonl")
+	latestContent := `{"Stdout":"{\"type\":\"user\",\"message\":{\"content\":\"第三条\"},\"session_id\":\"` + sessionID + `\"}"}
+`
+	if err := os.WriteFile(latestPath, []byte(latestContent), 0o644); err != nil {
+		t.Fatalf("write latest log: %v", err)
+	}
+	latestTime := time.Date(2026, 3, 22, 14, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(latestPath, latestTime, latestTime); err != nil {
+		t.Fatalf("chtimes latest log: %v", err)
+	}
+
+	extractor := NewExtractor(baseDir, 20, 5)
+	snapshot, err := extractor.ExtractSnapshot(SessionTarget{
+		SessionID:     sessionID,
+		WorkspaceID:   "ws-3",
+		WorkspaceName: "Workspace 3",
+	})
+	if err != nil {
+		t.Fatalf("extract snapshot: %v", err)
+	}
+
+	if got, want := snapshot.MessageCount, 3; got != want {
+		t.Fatalf("message count = %d, want %d", got, want)
+	}
+	if got, want := len(snapshot.RecentMessages), 3; got != want {
+		t.Fatalf("recent message len = %d, want %d", got, want)
+	}
+	if snapshot.RecentMessages[0].Content != "第一条" {
+		t.Fatalf("first content = %q, want 第一条", snapshot.RecentMessages[0].Content)
+	}
+	if snapshot.RecentMessages[1].Content != "第二条" {
+		t.Fatalf("second content = %q, want 第二条", snapshot.RecentMessages[1].Content)
+	}
+	if snapshot.RecentMessages[2].Content != "第三条" {
+		t.Fatalf("third content = %q, want 第三条", snapshot.RecentMessages[2].Content)
+	}
+	if !snapshot.UpdatedAt.Equal(latestTime) {
+		t.Fatalf("updated_at = %s, want %s", snapshot.UpdatedAt, latestTime)
 	}
 }

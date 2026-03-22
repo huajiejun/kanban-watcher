@@ -77,14 +77,22 @@ func NewExtractor(baseDir string, recentMessageLimit, recentToolCallLimit int) *
 }
 
 func (e *Extractor) ExtractSnapshot(target SessionTarget) (SessionConversationSnapshot, error) {
-	logPath, updatedAt, err := e.latestLogFile(target.SessionID)
+	logFiles, err := e.logFiles(target.SessionID)
 	if err != nil {
 		return SessionConversationSnapshot{}, err
 	}
 
-	messages, toolCalls, err := parseLogFile(logPath, updatedAt)
-	if err != nil {
-		return SessionConversationSnapshot{}, err
+	messages := make([]ConversationMessage, 0)
+	toolCalls := make([]ToolCallSummary, 0)
+	updatedAt := time.Time{}
+	for _, logFile := range logFiles {
+		fileMessages, fileToolCalls, err := parseLogFile(logFile.path, logFile.mod.UTC())
+		if err != nil {
+			return SessionConversationSnapshot{}, err
+		}
+		messages = append(messages, fileMessages...)
+		toolCalls = append(toolCalls, fileToolCalls...)
+		updatedAt = logFile.mod.UTC()
 	}
 
 	snapshot := SessionConversationSnapshot{
@@ -105,36 +113,37 @@ func (e *Extractor) ExtractSnapshot(target SessionTarget) (SessionConversationSn
 	return snapshot, nil
 }
 
-func (e *Extractor) latestLogFile(sessionID string) (string, time.Time, error) {
+type logFile struct {
+	path string
+	mod  time.Time
+}
+
+func (e *Extractor) logFiles(sessionID string) ([]logFile, error) {
 	if len(sessionID) < 2 {
-		return "", time.Time{}, fmt.Errorf("invalid session_id: %q", sessionID)
+		return nil, fmt.Errorf("invalid session_id: %q", sessionID)
 	}
 	processDir := filepath.Join(e.baseDir, "sessions", strings.ToLower(sessionID[:2]), sessionID, "processes")
 	entries, err := os.ReadDir(processDir)
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("read process dir: %w", err)
+		return nil, fmt.Errorf("read process dir: %w", err)
 	}
 
-	type candidate struct {
-		path string
-		mod  time.Time
-	}
-	var candidates []candidate
+	var candidates []logFile
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".jsonl" {
 			continue
 		}
 		info, err := entry.Info()
 		if err != nil {
-			return "", time.Time{}, fmt.Errorf("stat log file %s: %w", entry.Name(), err)
+			return nil, fmt.Errorf("stat log file %s: %w", entry.Name(), err)
 		}
-		candidates = append(candidates, candidate{
+		candidates = append(candidates, logFile{
 			path: filepath.Join(processDir, entry.Name()),
 			mod:  info.ModTime(),
 		})
 	}
 	if len(candidates) == 0 {
-		return "", time.Time{}, fmt.Errorf("no process log found for session %s", sessionID)
+		return nil, fmt.Errorf("no process log found for session %s", sessionID)
 	}
 	sort.Slice(candidates, func(i, j int) bool {
 		if candidates[i].mod.Equal(candidates[j].mod) {
@@ -142,8 +151,7 @@ func (e *Extractor) latestLogFile(sessionID string) (string, time.Time, error) {
 		}
 		return candidates[i].mod.Before(candidates[j].mod)
 	})
-	latest := candidates[len(candidates)-1]
-	return latest.path, latest.mod.UTC(), nil
+	return candidates, nil
 }
 
 type logEnvelope struct {
