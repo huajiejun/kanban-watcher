@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
-	"github.com/huajiejun/kanban-watcher/internal/markdown"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 )
 
@@ -24,6 +24,13 @@ const (
 
 const maxSessionStateLength = 255
 
+const (
+	maxSessionAttributesLength   = 4096
+	maxSessionLastMessageLength  = 500
+	maxSessionMessageTextLength  = 240
+	maxSessionToolSummaryLength  = 160
+)
+
 // haDiscoveryPayload HA MQTT Discovery 配置消息结构
 // 用于向 Home Assistant 注册传感器实体
 type haDiscoveryPayload struct {
@@ -31,7 +38,7 @@ type haDiscoveryPayload struct {
 	UniqueID            string   `json:"unique_id"`             // 全局唯一标识
 	StateTopic          string   `json:"state_topic"`           // 状态值 Topic
 	JSONAttributesTopic string   `json:"json_attributes_topic"` // 属性 JSON Topic
-	UnitOfMeasurement   string   `json:"unit_of_measurement"`   // 单位（显示用）
+	UnitOfMeasurement   string   `json:"unit_of_measurement,omitempty"` // 单位（显示用）
 	Icon                string   `json:"icon"`                  // MDI 图标
 	Device              haDevice `json:"device"`                // 设备信息
 }
@@ -53,6 +60,7 @@ type sessionAttributesPayload struct {
 	LastMessage     string                           `json:"last_message,omitempty"`
 	RecentMessages  []sessionlog.ConversationMessage `json:"recent_messages"`
 	RecentToolCalls []sessionlog.ToolCallSummary     `json:"recent_tool_calls"`
+	Truncated       bool                             `json:"truncated,omitempty"`
 }
 
 // WorkspaceItem 单个工作区的属性字段
@@ -212,16 +220,6 @@ func BuildSessionStateValue(snapshot sessionlog.SessionConversationSnapshot) str
 }
 
 func BuildSessionAttributesJSON(snapshot sessionlog.SessionConversationSnapshot) ([]byte, error) {
-	// 格式化消息内容
-	formattedMessages := make([]sessionlog.ConversationMessage, len(snapshot.RecentMessages))
-	for i, msg := range snapshot.RecentMessages {
-		formattedMessages[i] = sessionlog.ConversationMessage{
-			Role:      msg.Role,
-			Content:   markdown.FormatContent(msg.Content),
-			Timestamp: msg.Timestamp,
-		}
-	}
-
 	payload := sessionAttributesPayload{
 		SessionID:       snapshot.SessionID,
 		WorkspaceID:     snapshot.WorkspaceID,
@@ -230,11 +228,91 @@ func BuildSessionAttributesJSON(snapshot sessionlog.SessionConversationSnapshot)
 		ToolCallCount:   snapshot.ToolCallCount,
 		UpdatedAt:       snapshot.UpdatedAt.UTC().Format(time.RFC3339),
 		LastRole:        snapshot.LastRole,
-		LastMessage:     markdown.FormatContent(snapshot.LastMessage),
-		RecentMessages:  formattedMessages,
+		LastMessage:     snapshot.LastMessage,
+		RecentMessages:  snapshot.RecentMessages,
 		RecentToolCalls: snapshot.RecentToolCalls,
 	}
 	return json.Marshal(payload)
+}
+
+func limitSessionAttributesPayload(payload sessionAttributesPayload) sessionAttributesPayload {
+	limited := payload
+	truncated := false
+
+	lastMessage := truncateUTF8(payload.LastMessage, maxSessionLastMessageLength)
+	if lastMessage != payload.LastMessage {
+		truncated = true
+	}
+	limited.LastMessage = lastMessage
+
+	limited.RecentMessages = make([]sessionlog.ConversationMessage, 0, len(payload.RecentMessages))
+	for _, message := range payload.RecentMessages {
+		trimmed := message
+		trimmed.Content = truncateUTF8(trimmed.Content, maxSessionMessageTextLength)
+		if trimmed.Content != message.Content {
+			truncated = true
+		}
+		limited.RecentMessages = append(limited.RecentMessages, trimmed)
+	}
+
+	limited.RecentToolCalls = make([]sessionlog.ToolCallSummary, 0, len(payload.RecentToolCalls))
+	for _, toolCall := range payload.RecentToolCalls {
+		trimmed := toolCall
+		trimmed.InputSummary = truncateUTF8(trimmed.InputSummary, maxSessionToolSummaryLength)
+		trimmed.ResultSummary = truncateUTF8(trimmed.ResultSummary, maxSessionToolSummaryLength)
+		if trimmed.InputSummary != toolCall.InputSummary || trimmed.ResultSummary != toolCall.ResultSummary {
+			truncated = true
+		}
+		limited.RecentToolCalls = append(limited.RecentToolCalls, trimmed)
+	}
+
+	for len(mustMarshalSessionPayload(limited)) > maxSessionAttributesLength && len(limited.RecentMessages) > 0 {
+		limited.RecentMessages = limited.RecentMessages[1:]
+		truncated = true
+	}
+
+	for len(mustMarshalSessionPayload(limited)) > maxSessionAttributesLength && len(limited.RecentToolCalls) > 0 {
+		limited.RecentToolCalls = limited.RecentToolCalls[1:]
+		truncated = true
+	}
+
+	for _, maxLen := range []int{240, 160, 96} {
+		if len(mustMarshalSessionPayload(limited)) <= maxSessionAttributesLength {
+			break
+		}
+		next := truncateUTF8(limited.LastMessage, maxLen)
+		if next != limited.LastMessage {
+			limited.LastMessage = next
+			truncated = true
+		}
+	}
+
+	if truncated {
+		limited.Truncated = true
+	}
+	return limited
+}
+
+func mustMarshalSessionPayload(payload sessionAttributesPayload) []byte {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+func truncateUTF8(value string, maxLen int) string {
+	if maxLen <= 0 || value == "" {
+		return ""
+	}
+	if utf8.RuneCountInString(value) <= maxLen {
+		return value
+	}
+	runes := []rune(value)
+	if maxLen <= 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
 }
 
 // calculateRelativeTime 计算相对时间（如：5分钟前，进行中）
