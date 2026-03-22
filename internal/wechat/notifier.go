@@ -126,12 +126,12 @@ func (n *Notifier) postMessage(ctx context.Context, content string) error {
 	}
 	url := fmt.Sprintf("%s/cgi-bin/message/send?access_token=%s", baseURL, token)
 
-	// 构建消息体
+	// 构建消息体（使用 text 类型以确保兼容性）
 	msg := appMessage{
 		ToUser:  n.toUser,
-		MsgType: "markdown",
+		MsgType: "text",
 		AgentID: n.agentID,
-		Markdown: appMarkdown{
+		Text: appText{
 			Content: content,
 		},
 	}
@@ -179,58 +179,37 @@ func (n *Notifier) postMessage(ctx context.Context, content string) error {
 
 // appMessage 企业微信应用消息请求体
 type appMessage struct {
-	ToUser  string      `json:"touser"`  // 成员账号，多个用 | 分隔
-	Toparty string      `json:"toparty"` // 部门 ID
-	ToTag   string      `json:"totag"`   // 标签 ID
-	MsgType string      `json:"msgtype"` // 消息类型
-	AgentID string      `json:"agentid"` // 应用 AgentID
-	Markdown appMarkdown `json:"markdown"` // markdown 内容
+	ToUser  string   `json:"touser"`  // 成员账号，多个用 | 分隔
+	Toparty string   `json:"toparty"` // 部门 ID
+	ToTag   string   `json:"totag"`   // 标签 ID
+	MsgType string   `json:"msgtype"` // 消息类型
+	AgentID string   `json:"agentid"` // 应用 AgentID
+	Text    appText  `json:"text"`    // 文本内容
 }
 
-type appMarkdown struct {
-	Content string `json:"content"` // markdown 文本
+type appText struct {
+	Content string `json:"content"` // 文本内容
 }
 
-// buildMarkdown 构建企业微信 Markdown 通知正文
+// buildMarkdown 构建企业微信纯文本通知正文
 //
 // 格式说明：
-//   - 标题：## Kanban 任务需要关注
-//   - 工作区名称、状态（带颜色）、等待时间
+//   - 标题：Kanban 任务需要关注
+//   - 工作区名称、状态、等待时间
 //   - 详情区块：是否有未读消息、是否等待审批、文件变更统计
 //   - PR 链接（若存在）
-//
-// 颜色规则（企业微信支持）：
-//   - info（绿色）：running
-//   - comment（灰色）：completed、未知状态
-//   - warning（橙色）：failed、killed
 func buildMarkdown(w api.EnrichedWorkspace, elapsedMinutes int) string {
 	status := w.StatusText()
-	statusColor := colorForStatus(status)
 	attentionLines := buildAttentionLines(w)
 
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "## Kanban 任务需要关注\n\n")
-	fmt.Fprintf(&sb, "**工作区**: %s\n", w.DisplayName)
-	fmt.Fprintf(&sb, "**状态**: <font color=%q>%s</font>\n", statusColor, status)
-	fmt.Fprintf(&sb, "**等待时间**: %d 分钟\n\n", elapsedMinutes)
-	fmt.Fprintf(&sb, "---\n")
+	fmt.Fprintf(&sb, "Kanban 任务需要关注\n\n")
+	fmt.Fprintf(&sb, "工作区: %s\n", w.DisplayName)
+	fmt.Fprintf(&sb, "状态: %s\n", status)
+	fmt.Fprintf(&sb, "等待时间: %d 分钟\n\n", elapsedMinutes)
 	sb.WriteString(attentionLines)
 
 	return sb.String()
-}
-
-// colorForStatus 将进程状态映射到企业微信 Markdown 颜色标签
-func colorForStatus(status string) string {
-	switch status {
-	case "running":
-		return "info" // 绿色
-	case "completed":
-		return "comment" // 灰色
-	case "failed", "killed":
-		return "warning" // 橙色
-	default:
-		return "comment" // 未知状态默认灰色
-	}
 }
 
 // buildAttentionLines 构建详情区块，展示告警原因的具体信息
@@ -246,8 +225,8 @@ func buildAttentionLines(w api.EnrichedWorkspace) string {
 	if w.Summary.HasPendingApproval {
 		pendingMark = "✅"
 	}
-	fmt.Fprintf(&sb, "> 有未读消息: %s\n", unseenMark)
-	fmt.Fprintf(&sb, "> 等待审批: %s\n", pendingMark)
+	fmt.Fprintf(&sb, "有未读消息: %s\n", unseenMark)
+	fmt.Fprintf(&sb, "等待审批: %s\n", pendingMark)
 
 	// 若存在文件变更，显示统计
 	if w.Summary.FilesChanged != nil {
@@ -259,12 +238,12 @@ func buildAttentionLines(w api.EnrichedWorkspace) string {
 		if w.Summary.LinesRemoved != nil {
 			removed = *w.Summary.LinesRemoved
 		}
-		fmt.Fprintf(&sb, "> 文件变更: %d (+%d/-%d)\n", *w.Summary.FilesChanged, added, removed)
+		fmt.Fprintf(&sb, "文件变更: %d (+%d/-%d)\n", *w.Summary.FilesChanged, added, removed)
 	}
 
 	// 若存在 PR，添加链接
 	if w.Summary.PrURL != nil {
-		fmt.Fprintf(&sb, "\n[查看 PR](%s)\n", *w.Summary.PrURL)
+		fmt.Fprintf(&sb, "\n查看 PR: %s\n", *w.Summary.PrURL)
 	}
 
 	return sb.String()
