@@ -288,9 +288,7 @@ export class KanbanWatcherCard extends LitElement {
               ${messages.map(
                 (message) => html`
                   <div class="message-row">
-                    <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">
-                      ${unsafeHTML(renderMessageMarkdown(this.compactMessageText(message.text)))}
-                    </div>
+                    <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">${unsafeHTML(renderMessageMarkdown(this.compactMessageText(message.text)))}</div>
                   </div>
                 `,
               )}

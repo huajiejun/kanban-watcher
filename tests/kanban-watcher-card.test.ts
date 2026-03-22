@@ -774,6 +774,8 @@ describe("kanban-watcher-card", () => {
     expect(cssText).toContain(".message-bubble.is-ai");
     expect(cssText).not.toContain("justify-content: flex-end");
     expect(cssText).not.toContain("text-align: right");
+    expect(cssText).toContain("white-space: normal");
+    expect(cssText).not.toContain("white-space: pre-wrap");
   });
 
   it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {

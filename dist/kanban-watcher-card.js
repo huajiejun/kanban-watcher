@@ -896,7 +896,7 @@ const Ke = ue`
     padding: 7px 10px;
     border-radius: 10px;
     line-height: 1.35;
-    white-space: pre-wrap;
+    white-space: normal;
     word-break: break-word;
     background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
     color: inherit;
@@ -1263,9 +1263,7 @@ const Ke = ue`
               ${t.map(
       (n) => u`
                   <div class="message-row">
-                    <div class="message-bubble ${n.sender === "user" ? "is-user" : "is-ai"}">
-                      ${He(je(this.compactMessageText(n.text)))}
-                    </div>
+                    <div class="message-bubble ${n.sender === "user" ? "is-user" : "is-ai"}">${He(je(this.compactMessageText(n.text)))}</div>
                   </div>
                 `
     )}
