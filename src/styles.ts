@@ -306,6 +306,39 @@ export const cardStyles = css`
     margin-top: 4px;
   }
 
+  .message-bubble h1,
+  .message-bubble h2,
+  .message-bubble h3,
+  .message-bubble h4,
+  .message-bubble h5,
+  .message-bubble h6 {
+    margin: 0 0 8px 0;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .message-bubble h1 { font-size: 1.25em; }
+  .message-bubble h2 { font-size: 1.18em; }
+  .message-bubble h3 { font-size: 1.1em; }
+  .message-bubble h4 { font-size: 1.05em; }
+  .message-bubble h5 { font-size: 1em; }
+  .message-bubble h6 { font-size: 0.95em; }
+
+  .message-bubble pre {
+    margin: 8px 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 28%, transparent);
+    overflow-x: auto;
+  }
+
+  .message-bubble pre code {
+    padding: 0;
+    background: transparent;
+    font-size: 0.88em;
+    line-height: 1.5;
+  }
+
   .message-bubble code {
     font-family:
       ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
