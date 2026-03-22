@@ -4,10 +4,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { getStatusMeta } from "../src/lib/status-meta";
 import "../src/index";
 import { cardStyles } from "../src/styles";
-import type { KanbanEntityAttributes, KanbanWorkspace } from "../src/types";
+import type {
+  KanbanConversationMessage,
+  KanbanEntityAttributes,
+  KanbanSessionAttributes,
+  KanbanWorkspace,
+} from "../src/types";
 
 type HassEntity = {
-  attributes?: KanbanEntityAttributes;
+  attributes?: KanbanEntityAttributes | KanbanSessionAttributes;
 };
 
 type HassLike = {
@@ -58,6 +63,7 @@ function createWorkspaces(): KanbanWorkspace[] {
 function createHass(
   workspaces: KanbanWorkspace[] | string | undefined = createWorkspaces(),
   updatedAt = "2026-03-21T11:55:00Z",
+  extraStates: Record<string, HassEntity> = {},
 ): HassLike {
   return {
     states: {
@@ -67,6 +73,27 @@ function createHass(
           workspaces,
         },
       },
+      ...extraStates,
+    },
+  };
+}
+
+function createSessionState(
+  sessionId: string,
+  workspaceId: string,
+  workspaceName: string,
+  recentMessages: KanbanConversationMessage[],
+): HassEntity {
+  return {
+    attributes: {
+      session_id: sessionId,
+      workspace_id: workspaceId,
+      workspace_name: workspaceName,
+      message_count: recentMessages.length,
+      tool_call_count: 0,
+      updated_at: "2026-03-21T12:00:00Z",
+      recent_messages: recentMessages,
+      recent_tool_calls: [],
     },
   };
 }
@@ -577,5 +604,58 @@ describe("kanban-watcher-card", () => {
     const text = normalizeText(card.shadowRoot?.textContent);
 
     expect(text).toContain("📄 999 +12345 -6789");
+  });
+
+  it("opens a conversation dialog from latest_session_id and renders recent messages", async () => {
+    const sessionId = "4f495318-07a4-4882-b4c1-4453ea9e2818";
+    const workspaceId = "ea34b79d-f77e-4302-a1df-937c01067d34";
+    const workspaceName = "设计点击弹框界面";
+    const card = await renderCard(
+      createHass(
+        [
+          {
+            id: workspaceId,
+            name: workspaceName,
+            status: "completed",
+            latest_session_id: sessionId,
+            files_changed: 2,
+            lines_added: 8,
+            lines_removed: 1,
+          },
+        ],
+        "2026-03-21T12:00:00Z",
+        {
+          sensor_kanban_watcher_kanban_session_ignored: createSessionState(
+            sessionId,
+            workspaceId,
+            workspaceName,
+            [
+              {
+                role: "user",
+                content: "把点击交互补上",
+                timestamp: "2026-03-21T11:58:00Z",
+              },
+              {
+                role: "assistant",
+                content: "已经接好弹窗和对话列表",
+                timestamp: "2026-03-21T11:59:00Z",
+              },
+            ],
+          ),
+        },
+      ),
+    );
+
+    const taskCard = card.shadowRoot?.querySelector(".task-card");
+    taskCard?.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+    await card.updateComplete;
+
+    const dialog = card.shadowRoot?.querySelector(".conversation-dialog");
+    const dialogText = normalizeText(dialog?.textContent);
+
+    expect(dialog).toBeTruthy();
+    expect(dialogText).toContain(workspaceName);
+    expect(dialogText).toContain("把点击交互补上");
+    expect(dialogText).toContain("已经接好弹窗和对话列表");
   });
 });

@@ -80,8 +80,16 @@ export const cardStyles = css`
     gap: 6px;
     padding: 10px 12px;
     border-radius: 12px;
+    width: 100%;
     background: color-mix(in srgb, var(--ha-card-background, var(--card-background-color, #ffffff)) 82%, var(--secondary-background-color, #f3f4f6));
     border-left: 3px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 85%, transparent);
+    border-top: 0;
+    border-right: 0;
+    border-bottom: 0;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
   }
 
   .task-card.is-attention {
@@ -178,5 +186,116 @@ export const cardStyles = css`
     color: var(--secondary-text-color, #94a3b8);
     background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 65%, transparent);
     border: 1px dashed color-mix(in srgb, var(--divider-color, #cbd5e1) 70%, transparent);
+  }
+
+  .dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.48);
+  }
+
+  .conversation-dialog {
+    width: min(720px, 100%);
+    max-height: min(80vh, 720px);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 14px;
+    overflow: hidden;
+    border-radius: 20px;
+    padding: 18px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--primary-color, #f59e0b) 8%, var(--ha-card-background, var(--card-background-color, #ffffff))) 0%, var(--ha-card-background, var(--card-background-color, #ffffff)) 100%);
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 65%, transparent);
+    box-shadow: 0 20px 48px rgba(15, 23, 42, 0.28);
+  }
+
+  .dialog-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .dialog-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .dialog-subtitle {
+    margin-top: 4px;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.8rem;
+    word-break: break-all;
+  }
+
+  .dialog-close {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 85%, transparent);
+    color: var(--secondary-text-color, #64748b);
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+
+  .dialog-empty,
+  .conversation-list {
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .dialog-empty {
+    display: grid;
+    place-items: center;
+    padding: 28px 16px;
+    border-radius: 14px;
+    color: var(--secondary-text-color, #94a3b8);
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 70%, transparent);
+  }
+
+  .conversation-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .conversation-item {
+    display: grid;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 55%, transparent);
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 55%, transparent);
+  }
+
+  .conversation-item.role-user {
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 10%, var(--ha-card-background, var(--card-background-color, #ffffff)));
+  }
+
+  .conversation-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .conversation-role {
+    font-weight: 700;
+  }
+
+  .conversation-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.5;
   }
 `;

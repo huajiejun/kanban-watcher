@@ -3,12 +3,17 @@ import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
 import { getStatusMeta } from "./lib/status-meta";
 import { cardStyles } from "./styles";
-import type { KanbanEntityAttributes, KanbanWorkspace } from "./types";
+import type {
+  KanbanConversationMessage,
+  KanbanEntityAttributes,
+  KanbanSessionAttributes,
+  KanbanWorkspace,
+} from "./types";
 
 type SectionKey = "attention" | "running" | "idle";
 
 type HomeAssistantState = {
-  attributes?: KanbanEntityAttributes;
+  attributes?: KanbanEntityAttributes | KanbanSessionAttributes;
 };
 
 type HomeAssistantLike = {
@@ -31,6 +36,7 @@ export class KanbanWatcherCard extends LitElement {
   static properties = {
     hass: { attribute: false },
     collapsedSections: { state: true },
+    selectedWorkspaceId: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -38,6 +44,8 @@ export class KanbanWatcherCard extends LitElement {
   private config?: CardConfig;
 
   private collapsedSections = new Set<SectionKey>();
+
+  private selectedWorkspaceId?: string;
 
   setConfig(config: CardConfig) {
     if (!config?.entity) {
@@ -63,6 +71,7 @@ export class KanbanWatcherCard extends LitElement {
                 this.renderSection(key, label, workspaces),
               )}
         </div>
+        ${this.renderConversationDialog()}
       </ha-card>
     `;
   }
@@ -111,7 +120,11 @@ export class KanbanWatcherCard extends LitElement {
     const linesRemoved = workspace.lines_removed ?? 0;
 
     return html`
-        <div class="task-card ${statusMeta.accentClass}">
+      <button
+        class="task-card ${statusMeta.accentClass}"
+        type="button"
+        @click=${() => this.openConversation(workspace.id)}
+      >
         <div class="workspace-name">${workspace.name}</div>
         <div class="task-meta">
           <span class="meta-status">
@@ -130,7 +143,7 @@ export class KanbanWatcherCard extends LitElement {
             <span class="lines-removed">-${linesRemoved}</span></span
           >
         </div>
-      </div>
+      </button>
     `;
   }
 
@@ -142,6 +155,14 @@ export class KanbanWatcherCard extends LitElement {
       next.add(key);
     }
     this.collapsedSections = next;
+  }
+
+  private openConversation(workspaceId: string) {
+    this.selectedWorkspaceId = workspaceId;
+  }
+
+  private closeConversation() {
+    this.selectedWorkspaceId = undefined;
   }
 
   private get entityAttributes(): KanbanEntityAttributes | undefined {
@@ -189,6 +210,130 @@ export class KanbanWatcherCard extends LitElement {
         "name" in value &&
         typeof (value as { id?: unknown }).id === "string" &&
         typeof (value as { name?: unknown }).name === "string",
+    );
+  }
+
+  private renderConversationDialog() {
+    const workspace = this.selectedWorkspace;
+    if (!workspace) {
+      return nothing;
+    }
+
+    const session = this.sessionAttributesForWorkspace(workspace);
+    const messages = this.sessionMessages(session);
+    const updatedAt = session?.updated_at ? formatRelativeTime(session.updated_at) : "";
+
+    return html`
+      <div class="dialog-backdrop" @click=${this.closeConversation}>
+        <section
+          class="conversation-dialog"
+          @click=${(event: Event) => event.stopPropagation()}
+        >
+          <div class="dialog-header">
+            <div>
+              <div class="dialog-title">${workspace.name}</div>
+              <div class="dialog-subtitle">
+                ${workspace.latest_session_id ?? workspace.latestSessionId ?? "无 session"}
+                ${updatedAt ? html`<span>· ${updatedAt}</span>` : nothing}
+              </div>
+            </div>
+            <button
+              class="dialog-close"
+              type="button"
+              @click=${this.closeConversation}
+              aria-label="关闭对话弹窗"
+            >
+              ×
+            </button>
+          </div>
+          ${messages.length === 0
+            ? html`<div class="dialog-empty">暂无对话记录</div>`
+            : html`
+                <div class="conversation-list">
+                  ${messages.map((message) => this.renderConversationMessage(message))}
+                </div>
+              `}
+        </section>
+      </div>
+    `;
+  }
+
+  private renderConversationMessage(message: KanbanConversationMessage) {
+    const role = (message.role ?? "assistant").toLowerCase();
+    const timestamp = message.timestamp ? formatRelativeTime(message.timestamp) : "";
+
+    return html`
+      <article class="conversation-item role-${role}">
+        <div class="conversation-meta">
+          <span class="conversation-role">${role}</span>
+          ${timestamp ? html`<span class="conversation-time">${timestamp}</span>` : nothing}
+        </div>
+        <div class="conversation-content">${message.content ?? ""}</div>
+      </article>
+    `;
+  }
+
+  private get selectedWorkspace(): KanbanWorkspace | undefined {
+    if (!this.selectedWorkspaceId) {
+      return undefined;
+    }
+    return this.normalizedWorkspaces.find((workspace) => workspace.id === this.selectedWorkspaceId);
+  }
+
+  private sessionAttributesForWorkspace(
+    workspace: KanbanWorkspace,
+  ): KanbanSessionAttributes | undefined {
+    const sessionId = workspace.latest_session_id ?? workspace.latestSessionId;
+    if (!sessionId || !this.hass?.states) {
+      return undefined;
+    }
+
+    for (const state of Object.values(this.hass.states)) {
+      const attrs = this.asSessionAttributes(state.attributes);
+      const candidateId = attrs?.session_id ?? attrs?.sessionId;
+      if (candidateId === sessionId) {
+        return attrs;
+      }
+    }
+
+    const fallbackEntityId = `sensor.kanban_watcher_kanban_session_${sessionId.slice(0, 8)}`;
+    return this.asSessionAttributes(this.hass.states[fallbackEntityId]?.attributes);
+  }
+
+  private sessionMessages(session?: KanbanSessionAttributes): KanbanConversationMessage[] {
+    const messages = session?.recent_messages;
+    if (Array.isArray(messages)) {
+      return messages.filter((message) => this.isConversationMessage(message));
+    }
+    if (typeof messages === "string") {
+      try {
+        const parsed = JSON.parse(messages);
+        return Array.isArray(parsed)
+          ? parsed.filter((message) => this.isConversationMessage(message))
+          : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  private asSessionAttributes(value: unknown): KanbanSessionAttributes | undefined {
+    if (!value || typeof value !== "object") {
+      return undefined;
+    }
+    const attrs = value as KanbanSessionAttributes;
+    if (typeof (attrs.session_id ?? attrs.sessionId) !== "string") {
+      return undefined;
+    }
+    return attrs;
+  }
+
+  private isConversationMessage(value: unknown): value is KanbanConversationMessage {
+    return Boolean(
+      value &&
+        typeof value === "object" &&
+        typeof (value as { content?: unknown }).content === "string",
     );
   }
 }

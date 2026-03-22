@@ -24,6 +24,27 @@ export interface KanbanWorkspace {
   isPinned?: boolean;
 }
 
+export interface KanbanConversationMessage {
+  role?: string;
+  content?: string;
+  timestamp?: string;
+}
+
+export interface KanbanSessionAttributes {
+  session_id?: string;
+  sessionId?: string;
+  workspace_id?: string;
+  workspaceId?: string;
+  workspace_name?: string;
+  workspaceName?: string;
+  message_count?: number;
+  tool_call_count?: number;
+  updated_at?: string;
+  last_message?: string;
+  recent_messages?: KanbanConversationMessage[];
+  recent_tool_calls?: unknown[];
+}
+
 export interface KanbanEntityAttributes {
   count?: number;
   attention_count?: number;
