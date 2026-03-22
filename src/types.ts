@@ -3,6 +3,7 @@ export interface KanbanWorkspace {
   name: string;
   status?: string;
   latest_session_id?: string;
+  latestSessionId?: string;
   last_session_id?: string;
   relative_time?: string;
   has_unseen_turns?: boolean;
@@ -39,8 +40,11 @@ export interface KanbanSessionMessage {
 
 export interface KanbanSessionAttributes {
   session_id?: string;
+  sessionId?: string;
   workspace_id?: string;
+  workspaceId?: string;
   workspace_name?: string;
+  workspaceName?: string;
   last_message?: string;
   recent_messages?: KanbanSessionMessage[] | string;
 }

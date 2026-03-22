@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -12,19 +13,27 @@ import (
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/config"
+	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 )
 
 // Publisher 管理 MQTT 连接，向 Home Assistant 推送工作区数据
 type Publisher struct {
-	cfg      config.MQTTConfig // MQTT 配置
-	mu       sync.Mutex        // 保护 client 和 lastJSON
-	client   paho.Client       // Paho MQTT 客户端
-	lastJSON []byte            // 上次发布的 attributes JSON（用于变更检测）
+	cfg          config.MQTTConfig // MQTT 配置
+	mu           sync.Mutex        // 保护 client 和缓存
+	client       paho.Client       // Paho MQTT 客户端
+	lastJSON     []byte            // 上次发布的 attributes JSON（用于变更检测）
+	sessionAttrs map[string][]byte // session_id -> attributes JSON
+	sessionState map[string]string // session_id -> state
+	publishFn    func(string, byte, bool, []byte) error
 }
 
 // NewPublisher 创建发布器（尚未连接，需调用 Connect）
 func NewPublisher(cfg config.MQTTConfig) *Publisher {
-	return &Publisher{cfg: cfg}
+	return &Publisher{
+		cfg:          cfg,
+		sessionAttrs: make(map[string][]byte),
+		sessionState: make(map[string]string),
+	}
 }
 
 // Connect 建立 MQTT 连接
@@ -75,6 +84,9 @@ func (p *Publisher) Connect(ctx context.Context) error {
 
 	p.mu.Lock()
 	p.client = client
+	p.publishFn = func(topic string, qos byte, retained bool, payload []byte) error {
+		return publish(client, topic, qos, retained, payload)
+	}
 	p.mu.Unlock()
 	return nil
 }
@@ -138,6 +150,152 @@ func (p *Publisher) PublishIfChanged(_ context.Context, workspaces []api.Enriche
 	p.mu.Unlock()
 
 	return true, nil
+}
+
+// PublishSessionSnapshots 发布每个 session 的 Home Assistant 实体，并清理已失活的 session。
+func (p *Publisher) PublishSessionSnapshots(_ context.Context, snapshots []sessionlog.SessionConversationSnapshot) (int, int, error) {
+	p.mu.Lock()
+	publishFn := p.publishFn
+	if publishFn == nil && p.client != nil {
+		publishFn = func(topic string, qos byte, retained bool, payload []byte) error {
+			return publish(p.client, topic, qos, retained, payload)
+		}
+	}
+	p.mu.Unlock()
+
+	if publishFn == nil {
+		return 0, 0, nil
+	}
+
+	p.mu.Lock()
+	prevAttrs := cloneSessionAttrs(p.sessionAttrs)
+	prevStates := cloneSessionStates(p.sessionState)
+	p.mu.Unlock()
+
+	publishes, staleIDs, err := p.planSessionPublishes(snapshots)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	for _, item := range publishes {
+		if err := publishFn(BuildSessionDiscoveryTopic(item.snapshot.SessionID), 1, true, item.discovery); err != nil {
+			p.restoreSessionCaches(prevAttrs, prevStates)
+			return 0, 0, fmt.Errorf("publish session discovery %s: %w", item.snapshot.SessionID, err)
+		}
+		if err := publishFn(BuildSessionStateTopic(item.snapshot.SessionID), 0, true, []byte(item.state)); err != nil {
+			p.restoreSessionCaches(prevAttrs, prevStates)
+			return 0, 0, fmt.Errorf("publish session state %s: %w", item.snapshot.SessionID, err)
+		}
+		if err := publishFn(BuildSessionAttributesTopic(item.snapshot.SessionID), 0, true, item.attributes); err != nil {
+			p.restoreSessionCaches(prevAttrs, prevStates)
+			return 0, 0, fmt.Errorf("publish session attributes %s: %w", item.snapshot.SessionID, err)
+		}
+	}
+
+	for _, sessionID := range staleIDs {
+		if err := publishFn(BuildSessionDiscoveryTopic(sessionID), 1, true, []byte("")); err != nil {
+			p.restoreSessionCaches(prevAttrs, prevStates)
+			return 0, 0, fmt.Errorf("cleanup session discovery %s: %w", sessionID, err)
+		}
+		if err := publishFn(BuildSessionStateTopic(sessionID), 0, true, []byte("")); err != nil {
+			p.restoreSessionCaches(prevAttrs, prevStates)
+			return 0, 0, fmt.Errorf("cleanup session state %s: %w", sessionID, err)
+		}
+		if err := publishFn(BuildSessionAttributesTopic(sessionID), 0, true, []byte("")); err != nil {
+			p.restoreSessionCaches(prevAttrs, prevStates)
+			return 0, 0, fmt.Errorf("cleanup session attributes %s: %w", sessionID, err)
+		}
+	}
+
+	return len(publishes), len(staleIDs), nil
+}
+
+type sessionPublish struct {
+	snapshot   sessionlog.SessionConversationSnapshot
+	discovery  []byte
+	state      string
+	attributes []byte
+}
+
+func (p *Publisher) planSessionPublishes(snapshots []sessionlog.SessionConversationSnapshot) ([]sessionPublish, []string, error) {
+	nextAttrs := make(map[string][]byte, len(snapshots))
+	nextStates := make(map[string]string, len(snapshots))
+	activeIDs := make(map[string]struct{}, len(snapshots))
+	publishes := make([]sessionPublish, 0, len(snapshots))
+
+	for _, snapshot := range snapshots {
+		activeIDs[snapshot.SessionID] = struct{}{}
+		discovery, err := BuildSessionDiscoveryJSON(snapshot)
+		if err != nil {
+			return nil, nil, fmt.Errorf("build discovery for %s: %w", snapshot.SessionID, err)
+		}
+		attrs, err := BuildSessionAttributesJSON(snapshot)
+		if err != nil {
+			return nil, nil, fmt.Errorf("build attributes for %s: %w", snapshot.SessionID, err)
+		}
+		state := BuildSessionStateValue(snapshot)
+
+		nextAttrs[snapshot.SessionID] = attrs
+		nextStates[snapshot.SessionID] = state
+
+		p.mu.Lock()
+		prevAttrs := p.sessionAttrs[snapshot.SessionID]
+		prevState, prevStateOK := p.sessionState[snapshot.SessionID]
+		p.mu.Unlock()
+
+		if bytes.Equal(prevAttrs, attrs) && prevStateOK && prevState == state {
+			continue
+		}
+		publishes = append(publishes, sessionPublish{
+			snapshot:   snapshot,
+			discovery:  discovery,
+			state:      state,
+			attributes: attrs,
+		})
+	}
+
+	p.mu.Lock()
+	staleIDs := make([]string, 0, len(p.sessionAttrs))
+	for sessionID := range p.sessionAttrs {
+		if _, ok := activeIDs[sessionID]; !ok {
+			staleIDs = append(staleIDs, sessionID)
+		}
+	}
+	p.sessionAttrs = nextAttrs
+	p.sessionState = nextStates
+	p.mu.Unlock()
+
+	sort.Strings(staleIDs)
+	return publishes, staleIDs, nil
+}
+
+func (p *Publisher) restoreSessionCaches(attrs map[string][]byte, states map[string]string) {
+	p.mu.Lock()
+	p.sessionAttrs = attrs
+	p.sessionState = states
+	p.mu.Unlock()
+}
+
+func cloneSessionAttrs(src map[string][]byte) map[string][]byte {
+	if src == nil {
+		return map[string][]byte{}
+	}
+	dst := make(map[string][]byte, len(src))
+	for key, value := range src {
+		dst[key] = append([]byte(nil), value...)
+	}
+	return dst
+}
+
+func cloneSessionStates(src map[string]string) map[string]string {
+	if src == nil {
+		return map[string]string{}
+	}
+	dst := make(map[string]string, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
 }
 
 // Disconnect 优雅关闭 MQTT 连接

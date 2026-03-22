@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
+	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 )
 
 // MQTT Topic 常量（Home Assistant MQTT Discovery 协议）
@@ -20,6 +21,8 @@ const (
 	TopicAttributes = "homeassistant/sensor/kanban_watcher/summary/attributes"
 )
 
+const maxSessionStateLength = 255
+
 // haDiscoveryPayload HA MQTT Discovery 配置消息结构
 // 用于向 Home Assistant 注册传感器实体
 type haDiscoveryPayload struct {
@@ -33,28 +36,42 @@ type haDiscoveryPayload struct {
 }
 
 type haDevice struct {
-	Identifiers  []string `json:"identifiers"` // 设备标识符
-	Name         string   `json:"name"`        // 设备名称
+	Identifiers  []string `json:"identifiers"`  // 设备标识符
+	Name         string   `json:"name"`         // 设备名称
 	Manufacturer string   `json:"manufacturer"` // 制造商
+}
+
+type sessionAttributesPayload struct {
+	SessionID       string                           `json:"session_id"`
+	WorkspaceID     string                           `json:"workspace_id"`
+	WorkspaceName   string                           `json:"workspace_name"`
+	MessageCount    int                              `json:"message_count"`
+	ToolCallCount   int                              `json:"tool_call_count"`
+	UpdatedAt       string                           `json:"updated_at"`
+	LastRole        string                           `json:"last_role,omitempty"`
+	LastMessage     string                           `json:"last_message,omitempty"`
+	RecentMessages  []sessionlog.ConversationMessage `json:"recent_messages"`
+	RecentToolCalls []sessionlog.ToolCallSummary     `json:"recent_tool_calls"`
 }
 
 // WorkspaceItem 单个工作区的属性字段
 // 作为 attributes payload 中 workspaces 数组的元素
 type WorkspaceItem struct {
-	ID                  string `json:"id"`                       // 工作区 ID
-	Name                string `json:"name"`                     // 显示名称
-	Status              string `json:"status"`                   // 状态：running/completed/failed
-	HasUnseenTurns      bool   `json:"has_unseen_turns"`         // 是否有未读消息
-	HasPendingApproval  bool   `json:"has_pending_approval"`     // 是否有待审批
-	HasRunningDevServer bool   `json:"has_running_dev_server"`   // 是否有正在运行的 dev server
-	FilesChanged        *int   `json:"files_changed,omitempty"`  // 变更文件数（可选）
-	LinesAdded          *int   `json:"lines_added,omitempty"`    // 新增行数（可选）
-	LinesRemoved        *int   `json:"lines_removed,omitempty"`  // 删除行数（可选）
-	CompletedAt         string `json:"completed_at,omitempty"`   // 完成时间（可选）
-	RelativeTime        string `json:"relative_time"`            // 相对时间（如：5分钟前，进行中）
-	PrStatus            string `json:"pr_status,omitempty"`      // PR 状态（可选）
-	PrURL               string `json:"pr_url,omitempty"`         // PR 链接（可选）
-	NeedsAttention      bool   `json:"needs_attention"`          // 是否需要关注
+	ID                  string `json:"id"`                      // 工作区 ID
+	Name                string `json:"name"`                    // 显示名称
+	Status              string `json:"status"`                  // 状态：running/completed/failed
+	LatestSessionID     string `json:"latest_session_id,omitempty"` // 最新会话 ID（可选）
+	HasUnseenTurns      bool   `json:"has_unseen_turns"`        // 是否有未读消息
+	HasPendingApproval  bool   `json:"has_pending_approval"`    // 是否有待审批
+	HasRunningDevServer bool   `json:"has_running_dev_server"`  // 是否有正在运行的 dev server
+	FilesChanged        *int   `json:"files_changed,omitempty"` // 变更文件数（可选）
+	LinesAdded          *int   `json:"lines_added,omitempty"`   // 新增行数（可选）
+	LinesRemoved        *int   `json:"lines_removed,omitempty"` // 删除行数（可选）
+	CompletedAt         string `json:"completed_at,omitempty"`  // 完成时间（可选）
+	RelativeTime        string `json:"relative_time"`           // 相对时间（如：5分钟前，进行中）
+	PrStatus            string `json:"pr_status,omitempty"`     // PR 状态（可选）
+	PrURL               string `json:"pr_url,omitempty"`        // PR 链接（可选）
+	NeedsAttention      bool   `json:"needs_attention"`         // 是否需要关注
 }
 
 // AttributesPayload 发送到 attributes Topic 的完整 JSON 结构
@@ -115,6 +132,10 @@ func BuildAttributesJSON(workspaces []api.EnrichedWorkspace) ([]byte, error) {
 		if w.Summary.PrURL != nil {
 			prURL = *w.Summary.PrURL
 		}
+		latestSessionID := ""
+		if w.Summary.LatestSessionID != nil {
+			latestSessionID = *w.Summary.LatestSessionID
+		}
 
 		// 计算相对时间
 		relativeTime := calculateRelativeTime(now, w.Summary.LatestProcessCompletedAt, w.StatusText())
@@ -123,6 +144,7 @@ func BuildAttributesJSON(workspaces []api.EnrichedWorkspace) ([]byte, error) {
 			ID:                  w.ID,
 			Name:                w.DisplayName,
 			Status:              w.StatusText(),
+			LatestSessionID:     latestSessionID,
 			HasUnseenTurns:      w.Summary.HasUnseenTurns,
 			HasPendingApproval:  w.Summary.HasPendingApproval,
 			HasRunningDevServer: w.Summary.HasRunningDevServer,
@@ -144,6 +166,64 @@ func BuildAttributesJSON(workspaces []api.EnrichedWorkspace) ([]byte, error) {
 		Workspaces:     items,
 	}
 	return json.Marshal(attrs)
+}
+
+func BuildSessionDiscoveryTopic(sessionID string) string {
+	return fmt.Sprintf("homeassistant/sensor/kanban_watcher/session_%s/config", sessionID)
+}
+
+func BuildSessionStateTopic(sessionID string) string {
+	return fmt.Sprintf("homeassistant/sensor/kanban_watcher/session_%s/state", sessionID)
+}
+
+func BuildSessionAttributesTopic(sessionID string) string {
+	return fmt.Sprintf("homeassistant/sensor/kanban_watcher/session_%s/attributes", sessionID)
+}
+
+func BuildSessionDiscoveryJSON(snapshot sessionlog.SessionConversationSnapshot) ([]byte, error) {
+	payload := haDiscoveryPayload{
+		Name:                fmt.Sprintf("Kanban Session %s", snapshot.SessionID[:8]),
+		UniqueID:            "kanban_watcher_session_" + snapshot.SessionID,
+		StateTopic:          BuildSessionStateTopic(snapshot.SessionID),
+		JSONAttributesTopic: BuildSessionAttributesTopic(snapshot.SessionID),
+		Icon:                "mdi:message-text-outline",
+		Device: haDevice{
+			Identifiers:  []string{"kanban_watcher"},
+			Name:         "Kanban Watcher",
+			Manufacturer: "vibe-kanban",
+		},
+	}
+	return json.Marshal(payload)
+}
+
+func BuildSessionStateValue(snapshot sessionlog.SessionConversationSnapshot) string {
+	state := snapshot.LastMessage
+	if state == "" {
+		state = snapshot.LastRole
+	}
+	if state == "" {
+		state = snapshot.SessionID
+	}
+	if len(state) <= maxSessionStateLength {
+		return state
+	}
+	return state[:maxSessionStateLength-3] + "..."
+}
+
+func BuildSessionAttributesJSON(snapshot sessionlog.SessionConversationSnapshot) ([]byte, error) {
+	payload := sessionAttributesPayload{
+		SessionID:       snapshot.SessionID,
+		WorkspaceID:     snapshot.WorkspaceID,
+		WorkspaceName:   snapshot.WorkspaceName,
+		MessageCount:    snapshot.MessageCount,
+		ToolCallCount:   snapshot.ToolCallCount,
+		UpdatedAt:       snapshot.UpdatedAt.UTC().Format(time.RFC3339),
+		LastRole:        snapshot.LastRole,
+		LastMessage:     snapshot.LastMessage,
+		RecentMessages:  snapshot.RecentMessages,
+		RecentToolCalls: snapshot.RecentToolCalls,
+	}
+	return json.Marshal(payload)
 }
 
 // calculateRelativeTime 计算相对时间（如：5分钟前，进行中）

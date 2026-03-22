@@ -1,4 +1,7 @@
 kanban-watcher
+!cmd/
+!cmd/kanban-watcher/
+!cmd/kanban-watcher/*.go
 *.tmp
 .worktrees/
 .superpowers/
