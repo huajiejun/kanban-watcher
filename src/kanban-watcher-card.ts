@@ -3,12 +3,17 @@ import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
 import { getStatusMeta } from "./lib/status-meta";
 import { cardStyles } from "./styles";
-import type { KanbanEntityAttributes, KanbanWorkspace } from "./types";
+import type {
+  KanbanEntityAttributes,
+  KanbanSessionAttributes,
+  KanbanSessionMessage,
+  KanbanWorkspace,
+} from "./types";
 
 type SectionKey = "attention" | "running" | "idle";
 
 type HomeAssistantState = {
-  attributes?: KanbanEntityAttributes;
+  attributes?: KanbanEntityAttributes | KanbanSessionAttributes;
 };
 
 type HomeAssistantLike = {
@@ -469,6 +474,12 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private getDialogMessages(workspace: KanbanWorkspace): DialogMessage[] {
+    const recentSessionMessages = this.getRecentSessionMessages(workspace);
+
+    if (recentSessionMessages.length > 0) {
+      return recentSessionMessages;
+    }
+
     const messageMap: Record<string, DialogMessage[]> = {
       "attention-1": ATTENTION_DIALOG_MESSAGES,
       "approval-needed": ATTENTION_DIALOG_MESSAGES,
@@ -485,6 +496,77 @@ export class KanbanWatcherCard extends LitElement {
         { sender: "ai", text: "我正在整理消息记录，稍后继续反馈。" },
       ]
     );
+  }
+
+  private getRecentSessionMessages(workspace: KanbanWorkspace): DialogMessage[] {
+    const sessionId = workspace.latest_session_id ?? workspace.last_session_id;
+
+    if (!sessionId || !this.hass) {
+      return [];
+    }
+
+    const sessionState = Object.values(this.hass.states).find((state) => {
+      const attributes = state.attributes as KanbanSessionAttributes | undefined;
+      return attributes?.session_id === sessionId;
+    });
+
+    if (!sessionState) {
+      return [];
+    }
+
+    const attributes = sessionState.attributes as KanbanSessionAttributes | undefined;
+    const rawRecentMessages = attributes?.recent_messages;
+    const parsedMessages = this.parseRecentMessages(rawRecentMessages);
+
+    if (parsedMessages.length > 0) {
+      return parsedMessages;
+    }
+
+    return typeof attributes?.last_message === "string" && attributes.last_message.trim()
+      ? [{ sender: "ai", text: attributes.last_message.trim() }]
+      : [];
+  }
+
+  private parseRecentMessages(
+    rawRecentMessages: KanbanSessionAttributes["recent_messages"],
+  ): DialogMessage[] {
+    const parsed =
+      typeof rawRecentMessages === "string"
+        ? this.parseRecentMessagesString(rawRecentMessages)
+        : rawRecentMessages;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((message) => this.normalizeSessionMessage(message))
+      .filter((message): message is DialogMessage => Boolean(message));
+  }
+
+  private parseRecentMessagesString(rawRecentMessages: string) {
+    try {
+      return JSON.parse(rawRecentMessages) as KanbanSessionMessage[];
+    } catch {
+      return [];
+    }
+  }
+
+  private normalizeSessionMessage(message: KanbanSessionMessage): DialogMessage | undefined {
+    if (!message || typeof message.content !== "string") {
+      return undefined;
+    }
+
+    const text = message.content.trim();
+
+    if (!text) {
+      return undefined;
+    }
+
+    return {
+      sender: message.role === "user" ? "user" : "ai",
+      text,
+    };
   }
 
   private scrollMessagesToBottom() {

@@ -29,6 +29,7 @@ function createWorkspaces(): KanbanWorkspace[] {
       id: "attention-1",
       name: "Needs Attention",
       status: "completed",
+      latest_session_id: "session-attention-1",
       has_unseen_turns: true,
       has_running_dev_server: true,
       files_changed: 3,
@@ -39,6 +40,7 @@ function createWorkspaces(): KanbanWorkspace[] {
       id: "running-1",
       name: "Running Workspace",
       status: "running",
+      latest_session_id: "session-running-1",
       has_unseen_turns: true,
       files_changed: 5,
       lines_added: 20,
@@ -48,6 +50,7 @@ function createWorkspaces(): KanbanWorkspace[] {
       id: "idle-1",
       name: "Idle Workspace",
       status: "completed",
+      latest_session_id: "session-idle-1",
       completed_at: "2026-03-21T11:45:00Z",
       files_changed: 2,
       lines_added: 6,
@@ -66,6 +69,63 @@ function createHass(
         attributes: {
           updated_at: updatedAt,
           workspaces,
+        },
+      },
+      "sensor.kanban_watcher_kanban_session_attention_1": {
+        attributes: {
+          session_id: "session-attention-1",
+          workspace_id: "attention-1",
+          workspace_name: "Needs Attention",
+          recent_messages: [
+            {
+              role: "user",
+              content: "真实 attention 用户消息",
+              timestamp: "2026-03-21T11:53:00Z",
+            },
+            {
+              role: "assistant",
+              content: "真实 attention 助手消息",
+              timestamp: "2026-03-21T11:54:00Z",
+            },
+          ],
+        },
+      },
+      "sensor.kanban_watcher_kanban_session_running_1": {
+        attributes: {
+          session_id: "session-running-1",
+          workspace_id: "running-1",
+          workspace_name: "Running Workspace",
+          recent_messages: [
+            {
+              role: "user",
+              content: "真实运行中用户消息",
+              timestamp: "2026-03-21T11:54:30Z",
+            },
+            {
+              role: "assistant",
+              content: "真实运行中助手消息",
+              timestamp: "2026-03-21T11:55:00Z",
+            },
+          ],
+        },
+      },
+      "sensor.kanban_watcher_kanban_session_idle_1": {
+        attributes: {
+          session_id: "session-idle-1",
+          workspace_id: "idle-1",
+          workspace_name: "Idle Workspace",
+          recent_messages: [
+            {
+              role: "user",
+              content: "真实已完成用户消息",
+              timestamp: "2026-03-21T11:44:00Z",
+            },
+            {
+              role: "assistant",
+              content: "真实已完成助手消息",
+              timestamp: "2026-03-21T11:45:00Z",
+            },
+          ],
         },
       },
     },
@@ -594,10 +654,9 @@ describe("kanban-watcher-card", () => {
     expect(dialog).not.toBeNull();
     expect(text).toContain("Needs Attention");
     expect(text).toContain("对话消息");
-    expect(text).toContain("请先确认这个工作区的下一步安排。");
-    expect(text).toContain("我先整理最新状态，稍后给你结论。");
-    expect(text).toContain("如果下午还没有结果，就先给我一个阻塞说明。");
-    expect(shadowRoot?.querySelectorAll(".message-row").length).toBeGreaterThan(6);
+    expect(text).toContain("真实 attention 用户消息");
+    expect(text).toContain("真实 attention 助手消息");
+    expect(shadowRoot?.querySelectorAll(".message-row").length).toBe(2);
     expect(text).not.toContain("查看兑换内容");
     expect(shadowRoot?.querySelector(".dialog-summary")).toBeNull();
     expect(shadowRoot?.querySelector(".message-list")).not.toBeNull();
@@ -676,10 +735,10 @@ describe("kanban-watcher-card", () => {
     expect(normalizeText(queueButton?.textContent)).toBe("加入队列");
     expect(
       normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
-    ).toContain("运行中的任务目前有新的输出吗？");
+    ).toContain("真实运行中用户消息");
     expect(
       normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
-    ).toContain("我会继续观察日志，并在下一轮输出后同步你。");
+    ).toContain("真实运行中助手消息");
 
     expect(
       (shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null)?.value,
@@ -731,6 +790,23 @@ describe("kanban-watcher-card", () => {
     expect(text).toContain("请先确认这个工作区的下一步安排。");
     expect(text).toContain("如果下午还没有结果，就先给我一个阻塞说明。");
     expect(messageRows.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it("prefers real recent_messages matched by latest_session_id for dialog history", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const taskCards = Array.from(
+      shadowRoot?.querySelectorAll(".task-card") ?? [],
+    ) as HTMLButtonElement[];
+
+    taskCards[0]?.click();
+    await card.updateComplete;
+
+    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+
+    expect(dialogText).toContain("真实 attention 用户消息");
+    expect(dialogText).toContain("真实 attention 助手消息");
+    expect(dialogText).not.toContain("请先确认这个工作区的下一步安排。");
   });
 
   it("opens each workspace at the latest message and lets older messages stay above", async () => {
