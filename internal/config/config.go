@@ -1,0 +1,154 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"gopkg.in/yaml.v3"
+)
+
+// Config kanban-watcher 的根配置结构
+type Config struct {
+	KanbanAPIURL     string       `yaml:"kanban_api_url"`        // vibe-kanban API 地址
+	MQTT             MQTTConfig   `yaml:"mqtt"`                  // MQTT 连接配置
+	WeChat           WeChatConfig `yaml:"wechat"`                // 企业微信通知配置
+	WorkingHours     WorkingHours `yaml:"working_hours"`         // 工作时间窗口
+	PollIntervalSecs int          `yaml:"poll_interval_seconds"` // 轮询间隔（秒）
+}
+
+// MQTTConfig MQTT Broker 连接参数
+type MQTTConfig struct {
+	Broker   string `yaml:"broker"`    // 服务器地址，如 tcp://192.168.1.100:1883
+	Username string `yaml:"username"`  // 用户名（留空表示无认证）
+	Password string `yaml:"password"`  // 密码
+	ClientID string `yaml:"client_id"` // 客户端标识符，需全局唯一
+}
+
+// WeChatConfig 企业微信机器人配置
+type WeChatConfig struct {
+	WebhookURL             string `yaml:"webhook_url"`              // Webhook 完整地址
+	NotifyThresholdMinutes int    `yaml:"notify_threshold_minutes"` // 通知阈值（分钟）
+}
+
+// WorkingHours 工作时间窗口配置（24小时制）
+type WorkingHours struct {
+	Start string `yaml:"start"` // 开始时间，格式 "HH:MM"（如 "08:00"）
+	End   string `yaml:"end"`   // 结束时间，格式 "HH:MM"（如 "01:00"，支持跨午夜）
+}
+
+// ConfigDir 返回配置目录路径（~/.config/kanban-watcher）
+func ConfigDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("获取用户主目录: %w", err)
+	}
+	return filepath.Join(home, ".config", "kanban-watcher"), nil
+}
+
+// ConfigPath 返回完整配置文件路径
+func ConfigPath() (string, error) {
+	dir, err := ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "config.yaml"), nil
+}
+
+// LoadConfig 读取 YAML 配置文件并填充默认值
+// 若配置文件不存在，则自动创建示例文件并使用默认配置
+func LoadConfig() (*Config, error) {
+	path, err := ConfigPath()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := defaultConfig()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// 首次运行：使用默认配置，并写入示例文件供用户参考
+			if writeErr := writeExampleConfig(path); writeErr != nil {
+				fmt.Fprintf(os.Stderr, "警告: 无法写入示例配置: %v\n", writeErr)
+			}
+			return cfg, nil
+		}
+		return nil, fmt.Errorf("读取配置 %s: %w", path, err)
+	}
+
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("解析配置 %s: %w", path, err)
+	}
+
+	applyDefaults(cfg)
+	return cfg, nil
+}
+
+// MustLoad 加载配置，出错时直接退出程序（用于启动时）
+func MustLoad() *Config {
+	cfg, err := LoadConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "致命错误: 加载配置失败: %v\n", err)
+		os.Exit(1)
+	}
+	return cfg
+}
+
+// defaultConfig 返回默认配置实例
+func defaultConfig() *Config {
+	return &Config{
+		KanbanAPIURL: "http://127.0.0.1:7777",
+		MQTT: MQTTConfig{
+			Broker:   "tcp://homeassistant.local:1883",
+			ClientID: "kanban-watcher",
+		},
+		WeChat: WeChatConfig{
+			NotifyThresholdMinutes: 10, // 默认 10 分钟阈值
+		},
+		WorkingHours: WorkingHours{
+			Start: "08:00",
+			End:   "01:00", // 跨午夜：08:00 到次日 01:00
+		},
+		PollIntervalSecs: 15, // 默认 15 秒轮询一次
+	}
+}
+
+// applyDefaults 为未设置的字段填充默认值
+func applyDefaults(cfg *Config) {
+	if cfg.KanbanAPIURL == "" {
+		cfg.KanbanAPIURL = "http://127.0.0.1:7777"
+	}
+	if cfg.MQTT.ClientID == "" {
+		cfg.MQTT.ClientID = "kanban-watcher"
+	}
+	if cfg.MQTT.Broker == "" {
+		cfg.MQTT.Broker = "tcp://homeassistant.local:1883"
+	}
+	if cfg.WeChat.NotifyThresholdMinutes <= 0 {
+		cfg.WeChat.NotifyThresholdMinutes = 10
+	}
+	if cfg.WorkingHours.Start == "" {
+		cfg.WorkingHours.Start = "08:00"
+	}
+	if cfg.WorkingHours.End == "" {
+		cfg.WorkingHours.End = "01:00"
+	}
+	if cfg.PollIntervalSecs <= 0 {
+		cfg.PollIntervalSecs = 15
+	}
+}
+
+// writeExampleConfig 将默认配置写入指定路径作为示例
+func writeExampleConfig(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	example := defaultConfig()
+	example.WeChat.WebhookURL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY"
+	data, err := yaml.Marshal(example)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}

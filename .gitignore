@@ -1,3 +1,5 @@
+kanban-watcher
+*.tmp
 .worktrees/
 .superpowers/
 node_modules/
