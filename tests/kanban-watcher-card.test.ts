@@ -773,6 +773,7 @@ describe("kanban-watcher-card", () => {
     expect(cssText).toContain(".message-bubble.is-user");
     expect(cssText).toContain(".message-bubble.is-ai");
     expect(cssText).not.toContain("justify-content: flex-end");
+    expect(cssText).not.toContain("text-align: right");
   });
 
   it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {
@@ -806,10 +807,18 @@ describe("kanban-watcher-card", () => {
 
     const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
 
-    expect(dialogText).toContain("我们用的id不是`workspace_id 而是上层接口里的last_session_id");
+    expect(dialogText).toContain("我们用的id不是workspace_id 而是上层接口里的last_session_id");
     expect(dialogText).toContain("明白，这个约束现在很关键：");
-    expect(dialogText).toContain("弹窗真实对话不能按 `workspace_id` 关联");
-    expect(dialogText).toContain("这意味着现阶段我不建议直接把弹窗改成读取真实 `recent_messages`");
+    expect(dialogText).toContain("弹窗真实对话不能按 workspace_id 关联");
+    expect(dialogText).toContain("这意味着现阶段我不建议直接把弹窗改成读取真实 recent_messages");
+
+    const renderedList = shadowRoot?.querySelector(".message-bubble ul");
+    const renderedCode = Array.from(shadowRoot?.querySelectorAll(".message-bubble code") ?? []).find(
+      (element) => normalizeText(element.textContent) === "workspace_id",
+    );
+
+    expect(renderedList).not.toBeNull();
+    expect(renderedCode).not.toBeNull();
   });
 
   it("prefers real recent_messages matched by latest_session_id for dialog history", async () => {

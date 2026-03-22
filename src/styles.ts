@@ -286,6 +286,36 @@ export const cardStyles = css`
     text-align: left;
   }
 
+  .message-bubble p,
+  .message-bubble ul {
+    margin: 0;
+  }
+
+  .message-bubble p + p,
+  .message-bubble p + ul,
+  .message-bubble ul + p,
+  .message-bubble ul + ul {
+    margin-top: 6px;
+  }
+
+  .message-bubble ul {
+    padding-left: 18px;
+  }
+
+  .message-bubble li + li {
+    margin-top: 4px;
+  }
+
+  .message-bubble code {
+    font-family:
+      ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    font-size: 0.92em;
+    padding: 0.08em 0.35em;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
+  }
+
   .message-bubble.is-user {
     background: color-mix(in srgb, var(--primary-color, #f59e0b) 16%, transparent);
     border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 24%, transparent);

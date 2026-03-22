@@ -1,6 +1,8 @@
 import { LitElement, html, nothing } from "lit";
+import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
+import { renderMessageMarkdown } from "./lib/render-message-markdown";
 import { getStatusMeta } from "./lib/status-meta";
 import { cardStyles } from "./styles";
 import type {
@@ -287,7 +289,7 @@ export class KanbanWatcherCard extends LitElement {
                 (message) => html`
                   <div class="message-row">
                     <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">
-                      ${this.compactMessageText(message.text)}
+                      ${unsafeHTML(renderMessageMarkdown(this.compactMessageText(message.text)))}
                     </div>
                   </div>
                 `,
