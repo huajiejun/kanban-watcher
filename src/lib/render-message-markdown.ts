@@ -24,6 +24,40 @@ export function renderMessageMarkdown(value: string) {
       continue;
     }
 
+    // 处理代码块 ```lang ... ```
+    if (line.startsWith("```")) {
+      const langMatch = line.match(/^```(\w*)$/);
+      const lang = langMatch?.[1] ?? "";
+      const codeLines: string[] = [];
+      index += 1;
+
+      while (index < lines.length) {
+        const codeLine = lines[index];
+        if (codeLine?.trim() === "```") {
+          index += 1;
+          break;
+        }
+        codeLines.push(escapeHtml(codeLine ?? ""));
+        index += 1;
+      }
+
+      const langLabel = lang ? `<div class="code-lang">${lang}</div>` : "";
+      blocks.push(
+        `<div class="code-block">${langLabel}<pre><code>${codeLines.join("\n")}</code></pre></div>`,
+      );
+      continue;
+    }
+
+    // 处理标题 ### ## #
+    const headerMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    if (headerMatch) {
+      const level = headerMatch[1]?.length ?? 1;
+      const text = headerMatch[2] ?? "";
+      blocks.push(`<h${level}>${renderInlineMarkdown(text)}</h${level}>`);
+      index += 1;
+      continue;
+    }
+
     if (line.startsWith("- ")) {
       const items: string[] = [];
 
@@ -44,7 +78,7 @@ export function renderMessageMarkdown(value: string) {
 
     while (index < lines.length) {
       const paragraphLine = lines[index]?.trim() ?? "";
-      if (!paragraphLine || paragraphLine.startsWith("- ")) {
+      if (!paragraphLine || paragraphLine.startsWith("- ") || paragraphLine.startsWith("#") || paragraphLine.startsWith("```")) {
         break;
       }
       paragraphLines.push(renderInlineMarkdown(paragraphLine));
