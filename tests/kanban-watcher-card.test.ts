@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPreviewHass } from "../src/dev/preview-fixture";
 import { getStatusMeta } from "../src/lib/status-meta";
 import "../src/index";
 import { cardStyles } from "../src/styles";
@@ -28,6 +29,7 @@ function createWorkspaces(): KanbanWorkspace[] {
       id: "attention-1",
       name: "Needs Attention",
       status: "completed",
+      latest_session_id: "session-attention-1",
       has_unseen_turns: true,
       has_running_dev_server: true,
       files_changed: 3,
@@ -38,6 +40,7 @@ function createWorkspaces(): KanbanWorkspace[] {
       id: "running-1",
       name: "Running Workspace",
       status: "running",
+      latest_session_id: "session-running-1",
       has_unseen_turns: true,
       files_changed: 5,
       lines_added: 20,
@@ -47,6 +50,7 @@ function createWorkspaces(): KanbanWorkspace[] {
       id: "idle-1",
       name: "Idle Workspace",
       status: "completed",
+      latest_session_id: "session-idle-1",
       completed_at: "2026-03-21T11:45:00Z",
       files_changed: 2,
       lines_added: 6,
@@ -64,6 +68,76 @@ function createHass(
       [entityId]: {
         attributes: {
           updated_at: updatedAt,
+          workspaces,
+        },
+      },
+      "sensor.kanban_watcher_kanban_session_attention_1": {
+        attributes: {
+          session_id: "session-attention-1",
+          workspace_id: "attention-1",
+          workspace_name: "Needs Attention",
+          recent_messages: [
+            {
+              role: "user",
+              content: "真实 attention 用户消息",
+              timestamp: "2026-03-21T11:53:00Z",
+            },
+            {
+              role: "assistant",
+              content: "真实 attention 助手消息",
+              timestamp: "2026-03-21T11:54:00Z",
+            },
+          ],
+        },
+      },
+      "sensor.kanban_watcher_kanban_session_running_1": {
+        attributes: {
+          session_id: "session-running-1",
+          workspace_id: "running-1",
+          workspace_name: "Running Workspace",
+          recent_messages: [
+            {
+              role: "user",
+              content: "真实运行中用户消息",
+              timestamp: "2026-03-21T11:54:30Z",
+            },
+            {
+              role: "assistant",
+              content: "真实运行中助手消息",
+              timestamp: "2026-03-21T11:55:00Z",
+            },
+          ],
+        },
+      },
+      "sensor.kanban_watcher_kanban_session_idle_1": {
+        attributes: {
+          session_id: "session-idle-1",
+          workspace_id: "idle-1",
+          workspace_name: "Idle Workspace",
+          recent_messages: [
+            {
+              role: "user",
+              content: "真实已完成用户消息",
+              timestamp: "2026-03-21T11:44:00Z",
+            },
+            {
+              role: "assistant",
+              content: "真实已完成助手消息",
+              timestamp: "2026-03-21T11:45:00Z",
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+function createHassWithoutSessionState(workspaces: KanbanWorkspace[] = createWorkspaces()): HassLike {
+  return {
+    states: {
+      [entityId]: {
+        attributes: {
+          updated_at: "2026-03-21T11:55:00Z",
           workspaces,
         },
       },
@@ -577,5 +651,297 @@ describe("kanban-watcher-card", () => {
     const text = normalizeText(card.shadowRoot?.textContent);
 
     expect(text).toContain("📄 999 +12345 -6789");
+  });
+
+  it("opens a large workspace chat dialog with status-aware actions", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+
+    taskCard?.click();
+    await card.updateComplete;
+
+    const dialog = shadowRoot?.querySelector(".workspace-dialog");
+    const text = normalizeText(dialog?.textContent);
+
+    expect(dialog).not.toBeNull();
+    expect(text).toContain("Needs Attention");
+    expect(text).toContain("对话消息");
+    expect(text).toContain("真实 attention 用户消息");
+    expect(text).toContain("真实 attention 助手消息");
+    expect(shadowRoot?.querySelectorAll(".message-row").length).toBe(2);
+    expect(text).not.toContain("查看兑换内容");
+    expect(shadowRoot?.querySelector(".dialog-summary")).toBeNull();
+    expect(shadowRoot?.querySelector(".message-list")).not.toBeNull();
+    expect(text).toContain("发送消息");
+    expect(text).not.toContain("加入队列");
+    expect(
+      (shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null)?.value,
+    ).toBe("");
+  });
+
+  it("closes the workspace dialog from overlay, close button, and escape key", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+
+    taskCard?.click();
+    await card.updateComplete;
+    (shadowRoot?.querySelector(".dialog-overlay") as HTMLButtonElement | null)?.click();
+    await card.updateComplete;
+    expect(shadowRoot?.querySelector(".workspace-dialog")).toBeNull();
+
+    taskCard?.click();
+    await card.updateComplete;
+    (shadowRoot?.querySelector(".dialog-close") as HTMLButtonElement | null)?.click();
+    await card.updateComplete;
+    expect(shadowRoot?.querySelector(".workspace-dialog")).toBeNull();
+
+    taskCard?.click();
+    await card.updateComplete;
+    card.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await card.updateComplete;
+    expect(shadowRoot?.querySelector(".workspace-dialog")).toBeNull();
+  });
+
+  it("switches actions by running state and shows queue items above the input", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const taskCards = Array.from(
+      shadowRoot?.querySelectorAll(".task-card") ?? [],
+    ) as HTMLButtonElement[];
+
+    taskCards[0]?.click();
+    await card.updateComplete;
+
+    const messageInput = shadowRoot?.querySelector(
+      ".message-input",
+    ) as HTMLTextAreaElement | null;
+    messageInput!.value = "请同步兑换进度";
+    messageInput?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await card.updateComplete;
+
+    const sendButton = shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    expect(normalizeText(sendButton?.textContent)).toBe("发送消息");
+    expect(shadowRoot?.querySelector(".dialog-action-secondary")).toBeNull();
+    sendButton?.click();
+    await card.updateComplete;
+
+    expect(
+      normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent),
+    ).toContain("发送消息功能暂未接入");
+
+    taskCards[1]?.click();
+    await card.updateComplete;
+
+    const stopButton = shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    const queueButton = shadowRoot?.querySelector(
+      ".dialog-action-secondary",
+    ) as HTMLButtonElement | null;
+
+    expect(normalizeText(stopButton?.textContent)).toContain("停止");
+    expect(stopButton?.querySelector(".action-spinner")).not.toBeNull();
+    expect(normalizeText(queueButton?.textContent)).toBe("加入队列");
+    expect(
+      normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
+    ).toContain("真实运行中用户消息");
+    expect(
+      normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
+    ).toContain("真实运行中助手消息");
+
+    expect(
+      (shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null)?.value,
+    ).toBe("");
+
+    const runningMessageInput = shadowRoot?.querySelector(
+      ".message-input",
+    ) as HTMLTextAreaElement | null;
+    runningMessageInput!.value = "运行中先加入这一条队列";
+    runningMessageInput?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await card.updateComplete;
+
+    queueButton?.click();
+    await card.updateComplete;
+
+    expect(normalizeText(shadowRoot?.querySelector(".queue-list")?.textContent)).toContain(
+      "运行中先加入这一条队列",
+    );
+    expect(
+      normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent),
+    ).toContain("加入队列功能暂未接入");
+  });
+
+  it("declares a large dialog with its own scrollable full-width message flow", () => {
+    const cssText = cardStyles.cssText;
+
+    expect(cssText).toContain(".message-list");
+    expect(cssText).toContain("overflow-y: auto");
+    expect(cssText).toContain(".message-row");
+    expect(cssText).toContain("width: 100%");
+    expect(cssText).toContain("width: min(900px, calc(100vw - 24px))");
+    expect(cssText).toContain(".message-bubble.is-user");
+    expect(cssText).toContain(".message-bubble.is-ai");
+    expect(cssText).not.toContain("justify-content: flex-end");
+    expect(cssText).not.toContain("text-align: right");
+    expect(cssText).toContain("white-space: normal");
+    expect(cssText).not.toContain("white-space: pre-wrap");
+  });
+
+  it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {
+    const card = await renderCard(createPreviewHass());
+    const shadowRoot = card.shadowRoot;
+    const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+
+    taskCard?.click();
+    await card.updateComplete;
+
+    const messageRows = shadowRoot?.querySelectorAll(".message-row") ?? [];
+    const text = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+
+    expect(text).toContain("请先确认这个工作区的下一步安排。");
+    expect(text).toContain("如果下午还没有结果，就先给我一个阻塞说明。");
+    expect(messageRows.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it("renders the mocked real session history for the design dialog workspace in preview", async () => {
+    const card = await renderCard(createPreviewHass());
+    const shadowRoot = card.shadowRoot;
+    const taskCards = Array.from(
+      shadowRoot?.querySelectorAll(".task-card") ?? [],
+    ) as HTMLButtonElement[];
+    const designDialogCard = taskCards.find((element) =>
+      normalizeText(element.textContent).includes("设计点击弹框界面"),
+    );
+
+    designDialogCard?.click();
+    await card.updateComplete;
+
+    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+
+    expect(dialogText).toContain("我们用的id不是workspace_id 而是上层接口里的last_session_id");
+    expect(dialogText).toContain("明白，这个约束现在很关键：");
+    expect(dialogText).toContain("弹窗真实对话不能按 workspace_id 关联");
+    expect(dialogText).toContain("这意味着现阶段我不建议直接把弹窗改成读取真实 recent_messages");
+
+    const renderedList = shadowRoot?.querySelector(".message-bubble ul");
+    const renderedCode = Array.from(shadowRoot?.querySelectorAll(".message-bubble code") ?? []).find(
+      (element) => normalizeText(element.textContent) === "workspace_id",
+    );
+
+    expect(renderedList).not.toBeNull();
+    expect(renderedCode).not.toBeNull();
+  });
+
+  it("prefers real recent_messages matched by latest_session_id for dialog history", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const taskCards = Array.from(
+      shadowRoot?.querySelectorAll(".task-card") ?? [],
+    ) as HTMLButtonElement[];
+
+    taskCards[0]?.click();
+    await card.updateComplete;
+
+    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+
+    expect(dialogText).toContain("真实 attention 用户消息");
+    expect(dialogText).toContain("真实 attention 助手消息");
+    expect(dialogText).not.toContain("请先确认这个工作区的下一步安排。");
+  });
+
+  it("shows a real empty-state message instead of fake dialog content when the session is missing", async () => {
+    const card = await renderCard(
+      createHassWithoutSessionState([
+        {
+          id: "real-workspace-1",
+          name: "真实工作区",
+          status: "completed",
+          latest_session_id: "missing-session-1",
+        },
+      ]),
+    );
+    const shadowRoot = card.shadowRoot;
+    const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+
+    taskCard?.click();
+    await card.updateComplete;
+
+    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+
+    expect(dialogText).toContain("暂无同步的对话消息");
+    expect(dialogText).not.toContain("请先确认这个工作区的下一步安排。");
+    expect(dialogText).not.toContain("我正在整理消息记录，稍后继续反馈。");
+  });
+
+  it("opens each workspace at the latest message and lets older messages stay above", async () => {
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollHeight",
+    );
+
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get() {
+        return this.classList?.contains("message-list") ? 480 : 0;
+      },
+    });
+
+    try {
+      const card = await renderCard(createPreviewHass());
+      const shadowRoot = card.shadowRoot;
+      const taskCards = Array.from(
+        shadowRoot?.querySelectorAll(".task-card") ?? [],
+      ) as HTMLButtonElement[];
+      const approvalCard = taskCards.find((element) =>
+        normalizeText(element.textContent).includes("消息确认待审批"),
+      );
+      const runningCard = taskCards.find((element) =>
+        normalizeText(element.textContent).includes("批量对话运行中"),
+      );
+
+      approvalCard?.click();
+      await card.updateComplete;
+
+      const firstMessageList = shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+      expect(firstMessageList?.scrollTop).toBe(480);
+
+      runningCard?.click();
+      await card.updateComplete;
+
+      const secondMessageList = shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+      expect(secondMessageList?.scrollTop).toBe(480);
+      expect(normalizeText(secondMessageList?.textContent)).toContain("继续跑，先不要中断。");
+    } finally {
+      if (originalScrollHeight) {
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", originalScrollHeight);
+      } else {
+        delete (HTMLElement.prototype as Partial<HTMLElement>).scrollHeight;
+      }
+    }
+  });
+
+  it("shows the stop feedback for running workspaces", async () => {
+    const card = await renderCard();
+    const shadowRoot = card.shadowRoot;
+    const taskCards = Array.from(
+      shadowRoot?.querySelectorAll(".task-card") ?? [],
+    ) as HTMLButtonElement[];
+
+    taskCards[1]?.click();
+    await card.updateComplete;
+
+    const stopButton = shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    stopButton?.click();
+    await card.updateComplete;
+
+    expect(normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "停止功能暂未接入",
+    );
   });
 });
