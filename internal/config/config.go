@@ -25,14 +25,19 @@ type MQTTConfig struct {
 	ClientID string `yaml:"client_id"` // 客户端标识符，需全局唯一
 }
 
-// WeChatConfig 企业微信应用配置
+// WeChatConfig 企业微信配置（支持应用API + Webhook降级）
 type WeChatConfig struct {
-	CorpID                 string `yaml:"corp_id"`                  // 企业 ID
-	AgentID                string `yaml:"agent_id"`                // 应用 AgentID
-	Secret                 string `yaml:"secret"`                  // 应用 Secret
-	ToUser                 string `yaml:"to_user"`                 // 接收消息的成员账号（默认为 @all 表示全部成员）
-	ProxyURL               string `yaml:"proxy_url"`               // API 代理地址（如 http://wx.huajiejun.cn，不填则直连）
-	NotifyThresholdMinutes int    `yaml:"notify_threshold_minutes"` // 通知阈值（分钟）
+	// 应用方式配置
+	CorpID   string `yaml:"corp_id"`    // 企业 ID
+	AgentID  string `yaml:"agent_id"`  // 应用 AgentID
+	Secret   string `yaml:"secret"`    // 应用 Secret
+	ToUser   string `yaml:"to_user"`   // 接收消息的成员账号（@all 表示全部成员）
+	ProxyURL string `yaml:"proxy_url"` // API 代理地址（不填则直连）
+
+	// Webhook 降级配置（应用失败时使用）
+	WebhookURL string `yaml:"webhook_url"` // Webhook 地址（不填则不使用降级）
+
+	NotifyThresholdMinutes int `yaml:"notify_threshold_minutes"` // 通知阈值（分钟）
 }
 
 // WorkingHours 工作时间窗口配置（24小时制）
