@@ -79,12 +79,12 @@ function createHass(
           recent_messages: [
             {
               role: "user",
-              content: "真实 attention 用户消息",
+              content: "帮我写一个函数来处理用户输入",
               timestamp: "2026-03-21T11:53:00Z",
             },
             {
               role: "assistant",
-              content: "真实 attention 助手消息",
+              content: "### 解决方案\n\n我来帮你创建一个输入处理函数：\n\n```typescript\nfunction sanitizeInput(input: string): string {\n  return input.trim().toLowerCase();\n}\n```\n\n这个函数会：\n- 去除首尾空格\n- 转换为小写",
               timestamp: "2026-03-21T11:54:00Z",
             },
           ],

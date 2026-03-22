@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -207,6 +208,8 @@ func (p *Publisher) PublishSessionSnapshots(_ context.Context, snapshots []sessi
 		}
 	}
 
+	fmt.Fprintln(os.Stderr, formatSessionSyncLog(publishes, staleIDs, 0))
+
 	return len(publishes), len(staleIDs), nil
 }
 
@@ -296,6 +299,22 @@ func cloneSessionStates(src map[string]string) map[string]string {
 		dst[key] = value
 	}
 	return dst
+}
+
+func formatSessionSyncLog(publishes []sessionPublish, staleIDs []string, extractErrors int) string {
+	publishedIDs := make([]string, 0, len(publishes))
+	for _, item := range publishes {
+		publishedIDs = append(publishedIDs, item.snapshot.SessionID)
+	}
+
+	return fmt.Sprintf(
+		"mqtt: session sync published=%d cleaned=%d extract_errors=%d published_ids=[%s] cleaned_ids=[%s]",
+		len(publishes),
+		len(staleIDs),
+		extractErrors,
+		strings.Join(publishedIDs, ","),
+		strings.Join(staleIDs, ","),
+	)
 }
 
 // Disconnect 优雅关闭 MQTT 连接

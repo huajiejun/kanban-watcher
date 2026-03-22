@@ -306,6 +306,87 @@ export const cardStyles = css`
     margin-top: 4px;
   }
 
+  .message-bubble h1,
+  .message-bubble h2,
+  .message-bubble h3,
+  .message-bubble h4,
+  .message-bubble h5,
+  .message-bubble h6 {
+    margin: 0 0 8px 0;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .message-bubble h1 { font-size: 1.25em; }
+  .message-bubble h2 { font-size: 1.18em; }
+  .message-bubble h3 { font-size: 1.1em; }
+  .message-bubble h4 { font-size: 1.05em; }
+  .message-bubble h5 { font-size: 1em; }
+  .message-bubble h6 { font-size: 0.95em; }
+
+  .message-bubble pre {
+    margin: 8px 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 28%, transparent);
+    overflow-x: auto;
+  }
+
+  .message-bubble pre code {
+    padding: 0;
+    background: transparent;
+    font-size: 0.88em;
+    line-height: 1.5;
+  }
+
+  /* Highlight.js syntax highlighting colors */
+  .message-bubble pre .hljs-keyword,
+  .message-bubble pre .hljs-selector-tag,
+  .message-bubble pre .hljs-built_in,
+  .message-bubble pre .hljs-name,
+  .message-bubble pre .hljs-tag {
+    color: #a626a4;
+  }
+
+  .message-bubble pre .hljs-string,
+  .message-bubble pre .hljs-title,
+  .message-bubble pre .hljs-section,
+  .message-bubble pre .hljs-attribute,
+  .message-bubble pre .hljs-literal,
+  .message-bubble pre .hljs-template-tag,
+  .message-bubble pre .hljs-template-variable,
+  .message-bubble pre .hljs-type {
+    color: #50a14f;
+  }
+
+  .message-bubble pre .hljs-comment,
+  .message-bubble pre .hljs-deletion {
+    color: #a0a1a7;
+    font-style: italic;
+  }
+
+  .message-bubble pre .hljs-number,
+  .message-bubble pre .hljs-regexp,
+  .message-bubble pre .hljs-addition,
+  .message-bubble pre .hljs-meta {
+    color: #986801;
+  }
+
+  .message-bubble pre .hljs-function {
+    color: #4078f2;
+  }
+
+  .message-bubble pre .hljs-variable,
+  .message-bubble pre .hljs-params {
+    color: #e45649;
+  }
+
+  .message-bubble pre .hljs-symbol,
+  .message-bubble pre .hljs-bullet,
+  .message-bubble pre .hljs-link {
+    color: #0184bc;
+  }
+
   .message-bubble code {
     font-family:
       ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
