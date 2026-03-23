@@ -219,3 +219,57 @@ func TestShouldSkipEntryByIndex(t *testing.T) {
 func intPtr(v int) *int {
 	return &v
 }
+
+func TestResolveProcessSubscriptionStatus(t *testing.T) {
+	tests := []struct {
+		name            string
+		processStatus   string
+		receivedEntries bool
+		stopping        bool
+		err             error
+		wantStatus      string
+		wantErrEmpty    bool
+	}{
+		{
+			name:            "completed with entries",
+			processStatus:   "completed",
+			receivedEntries: true,
+			wantStatus:      "completed_with_entries",
+			wantErrEmpty:    true,
+		},
+		{
+			name:            "completed empty",
+			processStatus:   "completed",
+			receivedEntries: false,
+			wantStatus:      "completed_empty",
+			wantErrEmpty:    true,
+		},
+		{
+			name:          "stopping session",
+			processStatus: "running",
+			stopping:      true,
+			err:           errors.New("read tcp 1.1.1.1:123->2.2.2.2:443: use of closed network connection"),
+			wantStatus:    "stopped",
+			wantErrEmpty:  true,
+		},
+		{
+			name:          "connect error",
+			processStatus: "running",
+			err:           errors.New("websocket: bad handshake"),
+			wantStatus:    "error",
+			wantErrEmpty:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, errText := resolveProcessSubscriptionStatus(tt.processStatus, tt.receivedEntries, tt.stopping, tt.err)
+			if status != tt.wantStatus {
+				t.Fatalf("status = %q, want %q", status, tt.wantStatus)
+			}
+			if (errText == "") != tt.wantErrEmpty {
+				t.Fatalf("errText empty = %v, want %v", errText == "", tt.wantErrEmpty)
+			}
+		})
+	}
+}
