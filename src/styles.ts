@@ -512,11 +512,45 @@ export const cardStyles = css`
   }
 
   @media (max-width: 640px) {
+    .dialog-shell {
+      padding: 8px;
+      align-items: flex-end;
+    }
+
     .workspace-dialog {
-      width: min(100vw - 12px, 900px);
-      height: min(92vh, 900px);
+      width: 100%;
+      max-width: 100%;
+      height: min(85vh, 900px);
       padding: 12px;
-      border-radius: 18px;
+      border-radius: 18px 18px 0 0;
+      box-sizing: border-box;
+    }
+
+    .dialog-header {
+      gap: 10px;
+    }
+
+    .dialog-title {
+      font-size: 1rem;
+    }
+
+    .dialog-close {
+      width: 28px;
+      height: 28px;
+    }
+
+    .message-bubble {
+      padding: 6px 8px;
+      font-size: 0.92rem;
+    }
+
+    .dialog-actions {
+      flex-direction: column;
+    }
+
+    .dialog-action {
+      flex: none;
+      width: 100%;
     }
 
     .task-meta {
