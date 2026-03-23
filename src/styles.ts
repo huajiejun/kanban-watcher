@@ -512,6 +512,30 @@ export const cardStyles = css`
   }
 
   @media (max-width: 640px) {
+    /* 卡片列表样式 */
+    .section-title {
+      font-size: 0.9rem;
+    }
+
+    .section-count {
+      font-size: 0.78rem;
+    }
+
+    .workspace-name {
+      font-size: 0.88rem;
+    }
+
+    .task-meta {
+      grid-template-columns: 1fr;
+      gap: 6px;
+      font-size: 0.75rem;
+    }
+
+    .meta-files {
+      justify-self: start;
+    }
+
+    /* 弹窗样式 */
     .dialog-shell {
       padding: 8px;
       align-items: flex-end;
@@ -521,45 +545,71 @@ export const cardStyles = css`
       width: 100%;
       max-width: 100%;
       height: min(85vh, 900px);
-      padding: 12px;
+      padding: 10px;
       border-radius: 18px 18px 0 0;
       box-sizing: border-box;
     }
 
     .dialog-header {
-      gap: 10px;
+      gap: 8px;
     }
 
     .dialog-title {
-      font-size: 1rem;
+      font-size: 0.92rem;
     }
 
     .dialog-close {
-      width: 28px;
-      height: 28px;
+      width: 26px;
+      height: 26px;
+    }
+
+    .dialog-panel-title {
+      font-size: 0.8rem;
+    }
+
+    .message-list {
+      gap: 6px;
     }
 
     .message-bubble {
+      padding: 5px 7px;
+      font-size: 0.82rem;
+      line-height: 1.3;
+    }
+
+    .message-bubble pre {
       padding: 6px 8px;
-      font-size: 0.92rem;
+      font-size: 0.85em;
+    }
+
+    .message-bubble code {
+      font-size: 0.85em;
+    }
+
+    .queue-index {
+      font-size: 0.7rem;
     }
 
     .dialog-actions {
       flex-direction: column;
+      gap: 6px;
     }
 
     .dialog-action {
       flex: none;
       width: 100%;
+      min-height: 32px;
+      font-size: 0.85rem;
     }
 
-    .task-meta {
-      grid-template-columns: 1fr;
-      gap: 8px;
+    .dialog-feedback {
+      font-size: 0.72rem;
     }
 
-    .meta-files {
-      justify-self: start;
+    .message-input {
+      min-height: 38px;
+      padding: 8px 10px;
+      font-size: 0.88rem;
     }
   }
 `;
