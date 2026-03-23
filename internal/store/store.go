@@ -386,6 +386,68 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 	return summaries, nil
 }
 
+// GetSubscription 获取订阅状态
+func (s *Store) GetSubscription(ctx context.Context, key string) (*SyncSubscription, error) {
+	query := `
+		SELECT subscription_key, subscription_type, target_id, session_id, workspace_id,
+		       last_entry_index, status, last_error, last_seen_at, updated_at
+		FROM kw_sync_subscriptions
+		WHERE subscription_key = ?
+	`
+	var sub SyncSubscription
+	var sessionID, workspaceID, lastError sql.NullString
+	var lastEntryIndex sql.NullInt64
+	err := s.db.QueryRowContext(ctx, query, key).Scan(
+		&sub.SubscriptionKey, &sub.SubscriptionType, &sub.TargetID, &sessionID, &workspaceID,
+		&lastEntryIndex, &sub.Status, &lastError, &sub.LastSeenAt, &sub.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get subscription: %w", err)
+	}
+	if sessionID.Valid {
+		sub.SessionID = &sessionID.String
+	}
+	if workspaceID.Valid {
+		sub.WorkspaceID = &workspaceID.String
+	}
+	if lastEntryIndex.Valid {
+		v := int(lastEntryIndex.Int64)
+		sub.LastEntryIndex = &v
+	}
+	if lastError.Valid {
+		sub.LastError = &lastError.String
+	}
+	return &sub, nil
+}
+
+// UpsertSubscription 插入或更新订阅状态
+func (s *Store) UpsertSubscription(ctx context.Context, sub *SyncSubscription) error {
+	query := `
+		INSERT INTO kw_sync_subscriptions (
+			subscription_key, subscription_type, target_id, session_id, workspace_id,
+			last_entry_index, status, last_error, last_seen_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			session_id = VALUES(session_id),
+			workspace_id = VALUES(workspace_id),
+			last_entry_index = VALUES(last_entry_index),
+			status = VALUES(status),
+			last_error = VALUES(last_error),
+			last_seen_at = VALUES(last_seen_at)
+	`
+	_, err := s.execWithRetry(ctx, query,
+		sub.SubscriptionKey, sub.SubscriptionType, sub.TargetID, sub.SessionID, sub.WorkspaceID,
+		sub.LastEntryIndex, sub.Status, sub.LastError, sub.LastSeenAt,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert subscription: %w", err)
+	}
+	return nil
+}
+
 func scanWorkspace(scanner interface {
 	Scan(dest ...interface{}) error
 }) (*Workspace, error) {
@@ -462,4 +524,8 @@ func shouldRetryExec(err error) bool {
 	return strings.Contains(msg, "invalid connection") ||
 		strings.Contains(msg, "broken pipe") ||
 		strings.Contains(msg, "unexpected EOF")
+}
+
+func BuildProcessLogSubscriptionKey(processID string) string {
+	return "process_log:" + processID
 }

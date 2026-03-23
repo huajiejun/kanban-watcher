@@ -169,3 +169,53 @@ func TestShouldReconnectProcessLog(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldSkipCompletedProcessSubscription(t *testing.T) {
+	tests := []struct {
+		name   string
+		status string
+		sub    string
+		want   bool
+	}{
+		{name: "running never skip", status: "running", sub: "completed", want: false},
+		{name: "completed already synced", status: "completed", sub: "completed", want: true},
+		{name: "completed active sync", status: "completed", sub: "active", want: false},
+		{name: "failed already synced", status: "failed", sub: "completed", want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldSkipHistoricalProcess(tt.status, tt.sub)
+			if got != tt.want {
+				t.Fatalf("shouldSkipHistoricalProcess(%q, %q) = %v, want %v", tt.status, tt.sub, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestShouldSkipEntryByIndex(t *testing.T) {
+	tests := []struct {
+		name           string
+		lastEntryIndex *int
+		entryIndex     int
+		want           bool
+	}{
+		{name: "no checkpoint", lastEntryIndex: nil, entryIndex: 3, want: false},
+		{name: "older index", lastEntryIndex: intPtr(10), entryIndex: 3, want: true},
+		{name: "same index", lastEntryIndex: intPtr(10), entryIndex: 10, want: true},
+		{name: "newer index", lastEntryIndex: intPtr(10), entryIndex: 11, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldSkipEntryByIndex(tt.lastEntryIndex, tt.entryIndex)
+			if got != tt.want {
+				t.Fatalf("shouldSkipEntryByIndex(%v, %d) = %v, want %v", tt.lastEntryIndex, tt.entryIndex, got, tt.want)
+			}
+		})
+	}
+}
+
+func intPtr(v int) *int {
+	return &v
+}

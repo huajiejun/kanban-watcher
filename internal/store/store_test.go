@@ -148,6 +148,13 @@ func TestShouldRetryExec(t *testing.T) {
 	}
 }
 
+func TestBuildProcessLogSubscriptionKey(t *testing.T) {
+	got := BuildProcessLogSubscriptionKey("proc-1")
+	if got != "process_log:proc-1" {
+		t.Fatalf("subscription key = %q, want process_log:proc-1", got)
+	}
+}
+
 func wrapErr(msg string) error {
 	return &wrappedErr{msg: msg}
 }

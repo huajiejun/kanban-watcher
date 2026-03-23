@@ -73,6 +73,20 @@ type ActiveWorkspaceSummary struct {
 	LastMessageAt   *time.Time `db:"last_message_at"`
 }
 
+// SyncSubscription 同步订阅状态
+type SyncSubscription struct {
+	SubscriptionKey  string     `db:"subscription_key"`
+	SubscriptionType string     `db:"subscription_type"`
+	TargetID         string     `db:"target_id"`
+	SessionID        *string    `db:"session_id"`
+	WorkspaceID      *string    `db:"workspace_id"`
+	LastEntryIndex   *int       `db:"last_entry_index"`
+	Status           string     `db:"status"`
+	LastError        *string    `db:"last_error"`
+	LastSeenAt       time.Time  `db:"last_seen_at"`
+	UpdatedAt        time.Time  `db:"updated_at"`
+}
+
 // NormalizedEntry 从 vibe-kanban normalized logs 提取的消息
 type NormalizedEntry struct {
 	Timestamp string              `json:"timestamp"`
@@ -124,4 +138,3 @@ func ToRole(entryType string) string {
 func stringPtr(v string) *string {
 	return &v
 }
-

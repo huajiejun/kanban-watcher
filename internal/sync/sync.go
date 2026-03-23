@@ -29,6 +29,7 @@ type SyncService struct {
 	wsMutex          sync.Mutex
 	sessionStreams   map[string]*websocket.Conn
 	processLogStreams map[string]*websocket.Conn
+	historicalLogSem chan struct{}
 
 	stopCh chan struct{}
 	wg     sync.WaitGroup
@@ -45,6 +46,7 @@ func NewSyncService(cfg *config.Config, store *store.Store) *SyncService {
 		},
 		sessionStreams:    make(map[string]*websocket.Conn),
 		processLogStreams: make(map[string]*websocket.Conn),
+		historicalLogSem:  make(chan struct{}, 2),
 		stopCh:            make(chan struct{}),
 	}
 }
@@ -236,12 +238,32 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 }
 
 func (s *SyncService) subscribeProcessLogs(ctx context.Context, workspaceID, sessionID, processID, processStatus string) {
+	subKey := store.BuildProcessLogSubscriptionKey(processID)
+	sub, err := s.store.GetSubscription(ctx, subKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "读取订阅状态失败 [%s]: %v\n", processID, err)
+	} else if sub != nil && shouldSkipHistoricalProcess(processStatus, sub.Status) {
+		return
+	}
+	var lastEntryIndex *int
+	if sub != nil {
+		lastEntryIndex = sub.LastEntryIndex
+	}
+
 	s.wsMutex.Lock()
 	if _, exists := s.processLogStreams[processID]; exists {
 		s.wsMutex.Unlock()
 		return
 	}
 	s.wsMutex.Unlock()
+
+	historicalSlotAcquired := false
+	if processStatus != "running" {
+		if !s.acquireHistoricalLogSlot(ctx) {
+			return
+		}
+		historicalSlotAcquired = true
+	}
 
 	wsURL, err := buildWSURL(s.cfg.KanbanAPIURL, fmt.Sprintf("/api/execution-processes/%s/normalized-logs/ws", processID), nil)
 	if err != nil {
@@ -252,26 +274,49 @@ func (s *SyncService) subscribeProcessLogs(ctx context.Context, workspaceID, ses
 	conn, _, err := s.dialer.Dial(wsURL, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "连接 process log ws 失败 [%s]: %v\n", processID, err)
+		_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, nil, "connect_error", err.Error())
+		if historicalSlotAcquired {
+			s.releaseHistoricalLogSlot()
+		}
 		return
 	}
+
+	_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, nil, "active", "")
 
 	s.wsMutex.Lock()
 	s.processLogStreams[processID] = conn
 	s.wsMutex.Unlock()
 
 	s.wg.Add(1)
-	go s.consumeProcessLogs(ctx, workspaceID, sessionID, processID, processStatus, conn)
+	go s.consumeProcessLogs(ctx, workspaceID, sessionID, processID, processStatus, lastEntryIndex, historicalSlotAcquired, conn)
 }
 
-func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessionID, processID, processStatus string, conn *websocket.Conn) {
+func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessionID, processID, processStatus string, lastEntryIndex *int, historicalSlotAcquired bool, conn *websocket.Conn) {
 	defer s.wg.Done()
 	var lastErr error
 	receivedEntries := false
 	defer func() {
+		if historicalSlotAcquired {
+			s.releaseHistoricalLogSlot()
+		}
 		s.wsMutex.Lock()
 		delete(s.processLogStreams, processID)
 		s.wsMutex.Unlock()
 		_ = conn.Close()
+		finalStatus := "active"
+		if processStatus != "running" {
+			finalStatus = "completed"
+		}
+		lastErrText := ""
+		if lastErr != nil {
+			lastErrText = lastErr.Error()
+			finalStatus = "error"
+			if processStatus != "running" && strings.Contains(lastErrText, "close 1006") {
+				finalStatus = "completed"
+				lastErrText = ""
+			}
+		}
+		_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, nil, finalStatus, lastErrText)
 		if shouldReconnectProcessLog(processStatus, receivedEntries, lastErr) && !s.isStopping() {
 			s.scheduleProcessReconnect(ctx, workspaceID, sessionID, processID, processStatus)
 		}
@@ -301,6 +346,9 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 				receivedEntries = true
 			}
 			for _, patch := range patches {
+				if shouldSkipEntryByIndex(lastEntryIndex, patch.EntryIndex) {
+					continue
+				}
 				if !store.ShouldSync(patch.Entry.EntryType.Type) {
 					continue
 				}
@@ -312,7 +360,12 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 				}
 				if err := s.store.UpsertProcessEntry(ctx, entry); err != nil {
 					fmt.Fprintf(os.Stderr, "保存 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
+					_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &patch.EntryIndex, "error", err.Error())
+					continue
 				}
+				idx := patch.EntryIndex
+				_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &idx, "active", "")
+				lastEntryIndex = &idx
 			}
 		}
 	}
@@ -482,6 +535,53 @@ func shouldReconnectProcessLog(processStatus string, receivedEntries bool, err e
 		return false
 	}
 	return processStatus == "running"
+}
+
+func shouldSkipHistoricalProcess(processStatus, subscriptionStatus string) bool {
+	if processStatus == "running" {
+		return false
+	}
+	return subscriptionStatus == "completed"
+}
+
+func shouldSkipEntryByIndex(lastEntryIndex *int, entryIndex int) bool {
+	return lastEntryIndex != nil && entryIndex <= *lastEntryIndex
+}
+
+func (s *SyncService) upsertProcessSubscription(ctx context.Context, processID, sessionID, workspaceID, processStatus string, lastEntryIndex *int, status, lastErr string) error {
+	sub := &store.SyncSubscription{
+		SubscriptionKey:  store.BuildProcessLogSubscriptionKey(processID),
+		SubscriptionType: "process_log_stream",
+		TargetID:         processID,
+		SessionID:        stringPtr(sessionID),
+		WorkspaceID:      stringPtr(workspaceID),
+		LastEntryIndex:   lastEntryIndex,
+		Status:           status,
+		LastSeenAt:       time.Now(),
+	}
+	if lastErr != "" {
+		sub.LastError = stringPtr(lastErr)
+	}
+	_ = processStatus
+	return s.store.UpsertSubscription(ctx, sub)
+}
+
+func (s *SyncService) acquireHistoricalLogSlot(ctx context.Context) bool {
+	select {
+	case s.historicalLogSem <- struct{}{}:
+		return true
+	case <-ctx.Done():
+		return false
+	case <-s.stopCh:
+		return false
+	}
+}
+
+func (s *SyncService) releaseHistoricalLogSlot() {
+	select {
+	case <-s.historicalLogSem:
+	default:
+	}
 }
 
 func (s *SyncService) isStopping() bool {
