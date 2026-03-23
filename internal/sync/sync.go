@@ -689,7 +689,7 @@ func shouldSkipHistoricalProcess(processStatus, subscriptionStatus string) bool 
 }
 
 func shouldSkipEntryByIndex(lastEntryIndex *int, entryIndex int) bool {
-	return lastEntryIndex != nil && entryIndex <= *lastEntryIndex
+	return lastEntryIndex != nil && entryIndex < *lastEntryIndex
 }
 
 func resolveProcessSubscriptionStatus(processStatus string, receivedEntries bool, stopping bool, err error) (string, string) {

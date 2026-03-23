@@ -255,7 +255,7 @@ func TestShouldSkipEntryByIndex(t *testing.T) {
 	}{
 		{name: "no checkpoint", lastEntryIndex: nil, entryIndex: 3, want: false},
 		{name: "older index", lastEntryIndex: intPtr(10), entryIndex: 3, want: true},
-		{name: "same index", lastEntryIndex: intPtr(10), entryIndex: 10, want: true},
+		{name: "same index update", lastEntryIndex: intPtr(10), entryIndex: 10, want: false},
 		{name: "newer index", lastEntryIndex: intPtr(10), entryIndex: 11, want: false},
 	}
 
