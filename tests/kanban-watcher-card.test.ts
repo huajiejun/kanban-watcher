@@ -1414,6 +1414,88 @@ describe("kanban-watcher-card", () => {
     );
   });
 
+  it("updates streamed realtime messages when the same message key receives longer content", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-stream",
+              name: "API Stream Workspace",
+              status: "running",
+              latest_session_id: "session-api-stream",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-stream",
+          workspace_name: "API Stream Workspace",
+          messages: [
+            {
+              id: 1,
+              session_id: "session-api-stream",
+              process_id: "process-stream",
+              entry_index: 0,
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "开头消息",
+              timestamp: "2026-03-21T11:58:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const realtimeSocket = MockWebSocket.instances.at(-1);
+    realtimeSocket?.emitMessage({
+      type: "session_messages_appended",
+      session_id: "session-api-stream",
+      messages: [
+        {
+          id: 2,
+          session_id: "session-api-stream",
+          process_id: "process-stream",
+          entry_index: 1,
+          entry_type: "assistant_message",
+          role: "assistant",
+          content: "实",
+          timestamp: "2026-03-21T11:59:00Z",
+        },
+      ],
+    });
+    await settleCard(card);
+
+    realtimeSocket?.emitMessage({
+      type: "session_messages_appended",
+      session_id: "session-api-stream",
+      messages: [
+        {
+          id: 2,
+          session_id: "session-api-stream",
+          process_id: "process-stream",
+          entry_index: 1,
+          entry_type: "assistant_message",
+          role: "assistant",
+          content: "实现和验证都已经收口",
+          timestamp: "2026-03-21T11:59:01Z",
+        },
+      ],
+    });
+    await settleCard(card);
+
+    const dialogText = normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent);
+    expect(dialogText).toContain("实现和验证都已经收口");
+    expect(dialogText).not.toMatch(/开头消息 实(?!现和验证都已经收口)/);
+  });
+
   it("updates workspace status through the board realtime WebSocket", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       mockJSONResponse({

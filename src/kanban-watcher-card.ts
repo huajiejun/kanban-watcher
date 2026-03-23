@@ -965,14 +965,18 @@ export class KanbanWatcherCard extends LitElement {
 
     const existing = this.dialogMessagesByWorkspace[workspace.id] ?? [];
     const merged = [...existing];
-    const seenKeys = new Set(existing.map((item) => this.getDialogMessageIdentity(item)));
+    const indexByKey = new Map(
+      existing.map((item, index) => [this.getDialogMessageIdentity(item), index]),
+    );
 
     for (const message of this.normalizeApiMessages(messages)) {
       const key = this.getDialogMessageIdentity(message);
-      if (seenKeys.has(key)) {
+      const existingIndex = indexByKey.get(key);
+      if (typeof existingIndex === "number") {
+        merged[existingIndex] = message;
         continue;
       }
-      seenKeys.add(key);
+      indexByKey.set(key, merged.length);
       merged.push(message);
     }
 

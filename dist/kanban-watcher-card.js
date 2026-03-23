@@ -52269,10 +52269,16 @@ const pg = j_`
     );
     if (!r)
       return;
-    const a = this.dialogMessagesByWorkspace[r.id] ?? [], i = [...a], o = new Set(a.map((s) => this.getDialogMessageIdentity(s)));
+    const a = this.dialogMessagesByWorkspace[r.id] ?? [], i = [...a], o = new Map(
+      a.map((s, l) => [this.getDialogMessageIdentity(s), l])
+    );
     for (const s of this.normalizeApiMessages(t)) {
-      const l = this.getDialogMessageIdentity(s);
-      o.has(l) || (o.add(l), i.push(s));
+      const l = this.getDialogMessageIdentity(s), _ = o.get(l);
+      if (typeof _ == "number") {
+        i[_] = s;
+        continue;
+      }
+      o.set(l, i.length), i.push(s);
     }
     this.dialogMessagesByWorkspace = {
       ...this.dialogMessagesByWorkspace,
