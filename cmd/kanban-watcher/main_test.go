@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -87,7 +86,7 @@ func TestParseCommandOptionsSupportsHeadless(t *testing.T) {
 	}
 }
 
-func TestSyncCurrentDataPublishesSummaryAndSessions(t *testing.T) {
+func TestSyncCurrentDataCollectsWorkspaces(t *testing.T) {
 	fetcher := &fakeFetcher{
 		workspaces: []api.EnrichedWorkspace{
 			{
@@ -97,14 +96,13 @@ func TestSyncCurrentDataPublishesSummaryAndSessions(t *testing.T) {
 			},
 		},
 	}
-	publisher := &fakeSyncPublisher{}
 	cfg := &config.Config{
 		ConversationSync: config.ConversationSyncConfig{
 			Enabled: configBoolPtr(true),
 		},
 	}
 
-	result, err := syncCurrentData(context.Background(), cfg, fetcher, publisher, func(workspaces []api.EnrichedWorkspace) ([]sessionlog.SessionConversationSnapshot, int) {
+	result, err := syncCurrentData(context.Background(), cfg, fetcher, func(workspaces []api.EnrichedWorkspace) ([]sessionlog.SessionConversationSnapshot, int) {
 		if len(workspaces) != 1 {
 			t.Fatalf("collect got %d workspaces, want 1", len(workspaces))
 		}
@@ -113,7 +111,7 @@ func TestSyncCurrentDataPublishesSummaryAndSessions(t *testing.T) {
 				SessionID:     "session-1",
 				WorkspaceID:   "ws-1",
 				WorkspaceName: "Workspace 1",
-				LastMessage:   "真实内容",
+				LastMessage:   "测试内容",
 				LastRole:      "assistant",
 				UpdatedAt:     time.Now().UTC(),
 			},
@@ -121,12 +119,6 @@ func TestSyncCurrentDataPublishesSummaryAndSessions(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("syncCurrentData returned error: %v", err)
-	}
-	if !publisher.summaryCalled {
-		t.Fatalf("summary publish was not called")
-	}
-	if !publisher.sessionsCalled {
-		t.Fatalf("session publish was not called")
 	}
 	if result.WorkspaceCount != 1 {
 		t.Fatalf("WorkspaceCount = %d, want 1", result.WorkspaceCount)
@@ -139,7 +131,7 @@ func TestSyncCurrentDataPublishesSummaryAndSessions(t *testing.T) {
 	}
 }
 
-func TestRunSyncNowReturnsErrorWhenBrokerMissing(t *testing.T) {
+func TestRunSyncNowReturnsErrorWhenDatabaseNotConfigured(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
@@ -153,61 +145,12 @@ func TestRunSyncNowReturnsErrorWhenBrokerMissing(t *testing.T) {
 	if err == nil {
 		t.Fatalf("executeSyncNow error = nil, want error")
 	}
-	if !strings.Contains(err.Error(), "mqtt broker") {
+	if !strings.Contains(err.Error(), "数据库未配置") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestRunSyncNowReturnsErrorWhenSessionPublishFails(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	publisher := &fakeConnectablePublisher{
-		fakeSyncPublisher: fakeSyncPublisher{
-			publishSessionErr: errors.New("boom"),
-		},
-	}
-
-	err := executeSyncNow(syncNowDeps{
-		loadConfig: func() (*config.Config, error) {
-			return &config.Config{
-				MQTT: config.MQTTConfig{Broker: "tcp://broker:1883"},
-				ConversationSync: config.ConversationSyncConfig{
-					Enabled: configBoolPtr(true),
-				},
-			}, nil
-		},
-		newFetcher: func(string) workspaceFetcher {
-			return &fakeFetcher{
-				workspaces: []api.EnrichedWorkspace{
-					{
-						Workspace:   api.Workspace{ID: "ws-1", Branch: "main"},
-						Summary:     api.WorkspaceSummary{WorkspaceID: "ws-1"},
-						DisplayName: "Workspace 1",
-					},
-				},
-			}
-		},
-		newPublisher: func(config.MQTTConfig) syncNowPublisher {
-			return publisher
-		},
-		collectSessions: func([]api.EnrichedWorkspace) ([]sessionlog.SessionConversationSnapshot, int) {
-			return []sessionlog.SessionConversationSnapshot{{SessionID: "session-1"}}, 0
-		},
-		stdout: &stdout,
-		stderr: &stderr,
-	})
-	if err == nil {
-		t.Fatalf("executeSyncNow error = nil, want error")
-	}
-	if !publisher.connectCalled {
-		t.Fatalf("publisher.Connect was not called")
-	}
-	if !publisher.disconnectCalled {
-		t.Fatalf("publisher.Disconnect was not called")
-	}
-}
-
-func TestHandlePollResultSkipsMQTTTimerPublish(t *testing.T) {
+func TestHandlePollResultProcessesWorkspaces(t *testing.T) {
 	tracker := wechat.NewTracker(state.NewAppState(), 10)
 	notifier := wechat.NewNotifier(config.WeChatConfig{})
 
@@ -230,7 +173,7 @@ func TestHandlePollResultSkipsMQTTTimerPublish(t *testing.T) {
 		nil,
 	)
 
-	// 编译通过且函数不再接收 publisher，意味着后台轮询路径不会再触发 MQTT 推送。
+	// 测试通过表示函数正常处理工作区数据
 }
 
 type fakeFetcher struct {
@@ -240,39 +183,6 @@ type fakeFetcher struct {
 
 func (f *fakeFetcher) FetchAll(context.Context) ([]api.EnrichedWorkspace, error) {
 	return f.workspaces, f.err
-}
-
-type fakeSyncPublisher struct {
-	summaryCalled     bool
-	sessionsCalled    bool
-	publishSummaryErr error
-	publishSessionErr error
-}
-
-func (f *fakeSyncPublisher) PublishIfChanged(context.Context, []api.EnrichedWorkspace) (bool, error) {
-	f.summaryCalled = true
-	return true, f.publishSummaryErr
-}
-
-func (f *fakeSyncPublisher) PublishSessionSnapshots(context.Context, []sessionlog.SessionConversationSnapshot) (int, int, error) {
-	f.sessionsCalled = true
-	return 1, 0, f.publishSessionErr
-}
-
-type fakeConnectablePublisher struct {
-	fakeSyncPublisher
-	connectCalled    bool
-	disconnectCalled bool
-	connectErr       error
-}
-
-func (f *fakeConnectablePublisher) Connect(context.Context) error {
-	f.connectCalled = true
-	return f.connectErr
-}
-
-func (f *fakeConnectablePublisher) Disconnect() {
-	f.disconnectCalled = true
 }
 
 func configBoolPtr(v bool) *bool {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/config"
-	mqttclient "github.com/huajiejun/kanban-watcher/internal/mqtt"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
 	"github.com/huajiejun/kanban-watcher/internal/sessioncleaner"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
@@ -32,11 +31,10 @@ func main() {
 }
 
 // runEventLoop 事件处理主循环
-// 接收轮询结果，分发给菜单栏、MQTT、企业微信通知
+// 接收轮询结果，分发给菜单栏、企业微信通知
 func runEventLoop(
 	ctx context.Context,
 	results <-chan poller.PollResult,
-	mqttPub *mqttclient.Publisher,
 	sessionExtractor *sessionlog.Extractor,
 	cfg *config.Config,
 	wechatNotifier *wechat.Notifier,

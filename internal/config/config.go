@@ -11,7 +11,6 @@ import (
 // Config kanban-watcher 的根配置结构
 type Config struct {
 	KanbanAPIURL     string                 `yaml:"kanban_api_url"`        // vibe-kanban API 地址
-	MQTT             MQTTConfig             `yaml:"mqtt"`                  // MQTT 连接配置
 	ConversationSync ConversationSyncConfig `yaml:"conversation_sync"`     // 会话日志同步配置
 	WeChat           WeChatConfig           `yaml:"wechat"`                // 企业微信通知配置
 	WorkingHours     WorkingHours           `yaml:"working_hours"`         // 工作时间窗口
@@ -47,14 +46,6 @@ func (c DatabaseConfig) IsEnabled() bool {
 func (c DatabaseConfig) DSN() string {
 	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local",
 		c.User, c.Password, c.Host, c.Port, c.Database)
-}
-
-// MQTTConfig MQTT Broker 连接参数
-type MQTTConfig struct {
-	Broker   string `yaml:"broker"`    // 服务器地址，如 tcp://192.168.1.100:1883
-	Username string `yaml:"username"`  // 用户名（留空表示无认证）
-	Password string `yaml:"password"`  // 密码
-	ClientID string `yaml:"client_id"` // 客户端标识符，需全局唯一
 }
 
 // ConversationSyncConfig 对话日志提取与 Home Assistant 同步配置
@@ -150,10 +141,6 @@ func MustLoad() *Config {
 func defaultConfig() *Config {
 	return &Config{
 		KanbanAPIURL: "http://127.0.0.1:7777",
-		MQTT: MQTTConfig{
-			Broker:   "tcp://homeassistant.local:1883",
-			ClientID: "kanban-watcher",
-		},
 		ConversationSync: ConversationSyncConfig{
 			Enabled:             boolPtr(true),
 			RecentMessageLimit:  20,
@@ -179,12 +166,6 @@ func defaultConfig() *Config {
 func applyDefaults(cfg *Config) {
 	if cfg.KanbanAPIURL == "" {
 		cfg.KanbanAPIURL = "http://127.0.0.1:7777"
-	}
-	if cfg.MQTT.ClientID == "" {
-		cfg.MQTT.ClientID = "kanban-watcher"
-	}
-	if cfg.MQTT.Broker == "" {
-		cfg.MQTT.Broker = "tcp://homeassistant.local:1883"
 	}
 	if cfg.WeChat.NotifyThresholdMinutes <= 0 {
 		cfg.WeChat.NotifyThresholdMinutes = 10
