@@ -108,7 +108,7 @@ func TestGetWorkspaceBySessionIDReturnsNilOnNotFound(t *testing.T) {
 	store, mock, cleanup := newMockStore(t)
 	defer cleanup()
 
-	mock.ExpectQuery("SELECT w.id, w.name, w.branch, w.archived, w.pinned, w.latest_session_id, w.is_running, w.latest_process_status, w.last_seen_at, w.created_at, w.updated_at, w.synced_at FROM kw_workspaces w").
+	mock.ExpectQuery("SELECT w.id, w.name, w.branch, w.archived, w.pinned, w.latest_session_id, w.is_running, w.latest_process_status, w.has_pending_approval, w.has_unseen_turns, w.has_running_dev_server, w.files_changed, w.lines_added, w.lines_removed, w.last_seen_at, w.created_at, w.updated_at, w.synced_at FROM kw_workspaces w").
 		WithArgs("missing-session").
 		WillReturnError(sql.ErrNoRows)
 
@@ -152,6 +152,97 @@ func TestBuildProcessLogSubscriptionKey(t *testing.T) {
 	got := BuildProcessLogSubscriptionKey("proc-1")
 	if got != "process_log:proc-1" {
 		t.Fatalf("subscription key = %q, want process_log:proc-1", got)
+	}
+}
+
+func TestMarkMissingWorkspacesArchived(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	now := time.Now()
+	mock.ExpectExec(regexp.QuoteMeta(`
+		UPDATE kw_workspaces
+		SET archived = TRUE,
+		    is_running = FALSE,
+		    synced_at = CURRENT_TIMESTAMP(3),
+		    last_seen_at = ?
+		WHERE archived = FALSE
+		  AND id NOT IN (?,?)
+	`)).
+		WithArgs(now, "ws-1", "ws-2").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	if err := store.MarkMissingWorkspacesArchived(context.Background(), []string{"ws-1", "ws-2"}, now); err != nil {
+		t.Fatalf("MarkMissingWorkspacesArchived 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestMarkMissingWorkspacesArchivedMarksAllWhenEmpty(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	now := time.Now()
+	mock.ExpectExec(regexp.QuoteMeta(`
+		UPDATE kw_workspaces
+		SET archived = TRUE,
+		    is_running = FALSE,
+		    synced_at = CURRENT_TIMESTAMP(3),
+		    last_seen_at = ?
+		WHERE archived = FALSE
+	`)).
+		WithArgs(now).
+		WillReturnResult(sqlmock.NewResult(0, 3))
+
+	if err := store.MarkMissingWorkspacesArchived(context.Background(), nil, now); err != nil {
+		t.Fatalf("MarkMissingWorkspacesArchived 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestRefreshWorkspaceRuntimeStatePromotesRunningProcess(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	rows := sqlmock.NewRows([]string{"status"}).AddRow("running")
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT status
+		FROM kw_execution_processes
+		WHERE workspace_id = ?
+		  AND run_reason = 'codingagent'
+		  AND dropped = FALSE
+		ORDER BY
+		  CASE WHEN status = 'running' THEN 0 ELSE 1 END,
+		  synced_at DESC,
+		  created_at DESC,
+		  id DESC
+		LIMIT 1
+	`)).
+		WithArgs("ws-1").
+		WillReturnRows(rows)
+
+	mock.ExpectExec(regexp.QuoteMeta(`
+		UPDATE kw_workspaces
+		SET latest_process_status = ?,
+		    is_running = ?,
+		    synced_at = CURRENT_TIMESTAMP(3)
+		WHERE id = ?
+	`)).
+		WithArgs("running", true, "ws-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	if err := store.RefreshWorkspaceRuntimeState(context.Background(), "ws-1"); err != nil {
+		t.Fatalf("RefreshWorkspaceRuntimeState 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
 	}
 }
 

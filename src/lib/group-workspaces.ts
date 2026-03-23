@@ -15,10 +15,7 @@ export function groupWorkspaces(
         sections.attention.push(workspace);
       } else if (workspace.status === "running") {
         sections.running.push(workspace);
-      } else if (
-        workspace.status === "completed" &&
-        workspace.has_unseen_turns
-      ) {
+      } else if (workspace.has_unseen_turns) {
         sections.attention.push(workspace);
       } else {
         sections.idle.push(workspace);

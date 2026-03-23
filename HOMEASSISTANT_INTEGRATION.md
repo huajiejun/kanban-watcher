@@ -1,8 +1,12 @@
-# HomeAssistant 集成指南 - 发送消息到工作区
+# HomeAssistant 集成指南 - 卡片直连本地持久化数据
 
 ## 🎯 功能说明
 
-在 HomeAssistant 中点击卡片按钮，向 vibe-kanban 工作区发送 follow-up 消息。
+当前卡片已经支持直接请求 `kanban-watcher` 本地 HTTP API：
+
+- 卡片加载时读取 `/api/workspaces/active`
+- 点击工作区时读取 `/api/workspaces/{workspace_id}/latest-messages`
+- 发送 follow-up 时调用 `/api/workspace/{workspace_id}/follow-up`
 
 ## 🏗️ 架构流程
 
@@ -26,23 +30,24 @@ HomeAssistant  →  kanban-watcher:7778  →  vibe-kanban:7777
 
 启动后会监听端口 7778（HTTP API）。
 
-### 2. 配置 HomeAssistant REST Command
+### 2. 配置 Lovelace 卡片
 
-在 `configuration.yaml` 中添加：
+推荐直接使用自定义卡片配置，不再依赖 `sensor` 属性里携带完整历史消息：
 
 ```yaml
-rest_command:
-  # 向指定工作区发送消息
-  kanban_follow_up:
-    url: "http://127.0.0.1:7778/api/workspace/{{ workspace_id }}/follow-up"
-    method: POST
-    headers:
-      Content-Type: application/json
-      X-API-Key: "your-api-key-here"
-    payload: '{"message": "{{ message }}"}'
+type: custom:kanban-watcher-card
+entity: sensor.kanban_watcher_kanban_watcher
+base_url: http://127.0.0.1:7778
+api_key: your-api-key-here
+messages_limit: 50
 ```
 
-**注意**：将 `your-api-key-here` 替换为实际密钥（当前为硬编码，后续可配置）。
+说明：
+
+- `entity` 目前仍保留，方便兼容现有卡片配置和本地预览
+- `base_url` 指向运行 `kanban-watcher` HTTP API 的地址
+- `api_key` 需要和 `kanban-watcher` 当前配置一致
+- `messages_limit` 控制弹窗首次加载的消息数量
 
 ### 3. 重启 HomeAssistant
 
@@ -50,75 +55,9 @@ rest_command:
 # Developer Tools → YAML → Restart → Core Restart
 ```
 
-### 4. 创建 Lovelace 卡片
+### 4. 配置前确认
 
-在仪表板中添加 Markdown 卡片，使用模板生成按钮：
-
-```yaml
-type: markdown
-content: |
-  ## 💬 快速发送消息
-
-  {% set workspaces = state_attr('sensor.kanban_watcher_kanban_watcher', 'workspaces') or [] %}
-
-  ### 点击工作区发送消息：
-
-  {% for ws in workspaces %}
-  <a href="javascript:void(0)"
-     style="display: block; background: #03a9f4; color: white; padding: 10px; margin: 8px 0; border-radius: 8px; text-decoration: none; text-align: center;"
-     onclick="fetch('http://127.0.0.1:7778/api/workspace/{{ ws.id }}/follow-up', {
-       method: 'POST',
-       headers: {'Content-Type': 'application/json', 'X-API-Key': 'your-api-key-here'},
-       body: JSON.stringify({message: '继续推进这个任务'})
-     }).then(r => alert('已发送: ' + (r.ok ? '成功' : '失败')))
-       .catch(e => alert('错误: ' + e))">
-    📨 {{ ws.name }}
-  </a>
-  {% endfor %}
-```
-
-## 🔧 高级用法：使用脚本和按钮
-
-### 创建脚本（带输入）
-
-```yaml
-# configuration.yaml
-script:
-  kanban_send_message:
-    alias: 发送消息到 Kanban
-    description: 向指定工作区发送 follow-up 消息
-    fields:
-      workspace_id:
-        description: 工作区 ID
-        example: "e7743df1-a36b-45e1-bf63-bbf1fe049308"
-      message:
-        description: 消息内容
-        example: "这个功能需要调整"
-    sequence:
-      - service: rest_command.kanban_follow_up
-        data:
-          workspace_id: "{{ workspace_id }}"
-          message: "{{ message }}"
-      - service: persistent_notification.create
-        data:
-          title: "Kanban 消息已发送"
-          message: "已向工作区发送: {{ message }}"
-```
-
-### 创建按钮卡片
-
-```yaml
-type: button
-name: 发送提醒
-show_icon: true
-icon: mdi:send
-tap_action:
-  action: call-service
-  service: script.kanban_send_message
-  data:
-    workspace_id: "e7743df1-a36b-45e1-bf63-bbf1fe049308"
-    message: "继续推进这个任务"
-```
+请确保 Home Assistant 可以访问 `base_url` 对应地址；如果 HA 跑在别的机器或容器内，`127.0.0.1` 往往不可用，需要改成宿主机可访问地址。
 
 ## 🔍 测试 API
 
@@ -150,7 +89,7 @@ curl -X POST "http://127.0.0.1:7778/api/workspace/e7743df1-a36b-45e1-bf63-bbf1fe
 
 ### 404 Not Found
 - 检查工作区 ID 是否正确
-- 确保工作区有活跃的 session（通过 summaries API 确认）
+- 确保该工作区已同步到本地数据库，且有 `latest_session_id`
 
 ## 📝 后续改进计划
 

@@ -66,3 +66,50 @@ func TestMessageResponseJSONWithToolInfo(t *testing.T) {
 		t.Fatalf("tool_name = %#v, want Read", toolInfo["tool_name"])
 	}
 }
+
+func TestActiveWorkspaceResponseJSONIncludesAttentionFields(t *testing.T) {
+	resp := ActiveWorkspaceResponse{
+		Workspaces: []LocalWorkspaceSummary{
+			{
+				ID:                "ws-1",
+				Name:              "Attention Workspace",
+				Branch:            "main",
+				Status:            "completed",
+				HasUnseenTurns:    true,
+				HasPendingApproval: true,
+				FilesChanged:      5,
+				LinesAdded:        12,
+				LinesRemoved:      3,
+			},
+		},
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal 失败: %v", err)
+	}
+
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal 失败: %v", err)
+	}
+
+	workspaces, ok := decoded["workspaces"].([]interface{})
+	if !ok || len(workspaces) != 1 {
+		t.Fatalf("workspaces 类型错误: %#v", decoded["workspaces"])
+	}
+
+	item, ok := workspaces[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("workspace item 类型错误: %#v", workspaces[0])
+	}
+	if item["has_unseen_turns"] != true {
+		t.Fatalf("has_unseen_turns = %#v, want true", item["has_unseen_turns"])
+	}
+	if item["has_pending_approval"] != true {
+		t.Fatalf("has_pending_approval = %#v, want true", item["has_pending_approval"])
+	}
+	if item["files_changed"] != float64(5) {
+		t.Fatalf("files_changed = %#v, want 5", item["files_changed"])
+	}
+}

@@ -65,7 +65,7 @@ export function getStatusMeta(workspace: Partial<KanbanWorkspace>): StatusMeta {
     icons.push({ symbol: "⋯", kind: "running", tone: "brand" });
   }
 
-  if (unseen && !isRunning && !isFailed) {
+  if (unseen && !isRunning) {
     icons.push({ symbol: "●", kind: "unseen", tone: "brand" });
   }
 
@@ -86,7 +86,7 @@ export function getStatusMeta(workspace: Partial<KanbanWorkspace>): StatusMeta {
   const accentClass =
     isRunning && !pendingApproval
       ? "is-running"
-      : pendingApproval || (workspace.status === "completed" && unseen)
+      : pendingApproval || (!isRunning && unseen)
         ? "is-attention"
         : "is-idle";
 

@@ -12,6 +12,12 @@ type Workspace struct {
 	LatestSessionID     *string    `db:"latest_session_id"`
 	IsRunning           bool       `db:"is_running"`
 	LatestProcessStatus *string    `db:"latest_process_status"`
+	HasPendingApproval  bool       `db:"has_pending_approval"`
+	HasUnseenTurns      bool       `db:"has_unseen_turns"`
+	HasRunningDevServer bool       `db:"has_running_dev_server"`
+	FilesChanged        int        `db:"files_changed"`
+	LinesAdded          int        `db:"lines_added"`
+	LinesRemoved        int        `db:"lines_removed"`
 	LastSeenAt          time.Time  `db:"last_seen_at"`
 	CreatedAt           *time.Time `db:"created_at"`
 	UpdatedAt           *time.Time `db:"updated_at"`
@@ -68,6 +74,12 @@ type ActiveWorkspaceSummary struct {
 	Branch          string     `db:"branch"`
 	LatestSessionID *string    `db:"latest_session_id"`
 	Status          string     `db:"status"`
+	HasPendingApproval bool    `db:"has_pending_approval"`
+	HasUnseenTurns   bool      `db:"has_unseen_turns"`
+	HasRunningDevServer bool   `db:"has_running_dev_server"`
+	FilesChanged     int       `db:"files_changed"`
+	LinesAdded       int       `db:"lines_added"`
+	LinesRemoved     int       `db:"lines_removed"`
 	UpdatedAt       *time.Time `db:"updated_at"`
 	MessageCount    int        `db:"message_count"`
 	LastMessageAt   *time.Time `db:"last_message_at"`

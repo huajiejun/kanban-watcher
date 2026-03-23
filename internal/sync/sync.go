@@ -19,14 +19,21 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
 
+type realtimePublisher interface {
+	PublishWorkspaceSnapshot(context.Context) error
+	PublishSessionMessagesAppended(context.Context, string, []store.ProcessEntry) error
+}
+
 // SyncService 同步服务
 type SyncService struct {
 	cfg      *config.Config
 	store    *store.Store
 	apiClient *api.Client
 	dialer   *websocket.Dialer
+	realtime realtimePublisher
 
 	wsMutex          sync.Mutex
+	workspaceStream  *websocket.Conn
 	sessionStreams   map[string]*websocket.Conn
 	processLogStreams map[string]*websocket.Conn
 	historicalLogSem chan struct{}
@@ -34,6 +41,8 @@ type SyncService struct {
 	stopCh chan struct{}
 	wg     sync.WaitGroup
 }
+
+const workspaceSummaryRefreshInterval = 15 * time.Second
 
 // NewSyncService 创建同步服务实例
 func NewSyncService(cfg *config.Config, store *store.Store) *SyncService {
@@ -51,6 +60,10 @@ func NewSyncService(cfg *config.Config, store *store.Store) *SyncService {
 	}
 }
 
+func (s *SyncService) SetRealtimePublisher(publisher realtimePublisher) {
+	s.realtime = publisher
+}
+
 // Start 启动同步服务
 func (s *SyncService) Start(ctx context.Context) error {
 	if !s.cfg.Database.IsEnabled() {
@@ -65,6 +78,8 @@ func (s *SyncService) Start(ctx context.Context) error {
 		fmt.Fprintf(os.Stderr, "首轮同步失败: %v\n", err)
 	}
 
+	s.subscribeWorkspacesStream(ctx)
+
 	s.wg.Add(1)
 	go s.pollActiveWorkspaces(ctx)
 
@@ -77,6 +92,9 @@ func (s *SyncService) Stop() {
 	close(s.stopCh)
 
 	s.wsMutex.Lock()
+	if s.workspaceStream != nil {
+		_ = s.workspaceStream.Close()
+	}
 	for _, conn := range s.sessionStreams {
 		_ = conn.Close()
 	}
@@ -91,12 +109,7 @@ func (s *SyncService) Stop() {
 func (s *SyncService) pollActiveWorkspaces(ctx context.Context) {
 	defer s.wg.Done()
 
-	intervalSecs := s.cfg.Database.SyncIntervalSecs
-	if intervalSecs <= 0 {
-		intervalSecs = 30
-	}
-
-	ticker := time.NewTicker(time.Duration(intervalSecs) * time.Second)
+	ticker := time.NewTicker(s.workspaceRefreshInterval())
 	defer ticker.Stop()
 
 	for {
@@ -113,13 +126,29 @@ func (s *SyncService) pollActiveWorkspaces(ctx context.Context) {
 	}
 }
 
+func (s *SyncService) workspaceRefreshInterval() time.Duration {
+	intervalSecs := s.cfg.Database.SyncIntervalSecs
+	if intervalSecs <= 0 {
+		return workspaceSummaryRefreshInterval
+	}
+
+	interval := time.Duration(intervalSecs) * time.Second
+	if interval > workspaceSummaryRefreshInterval {
+		return workspaceSummaryRefreshInterval
+	}
+	return interval
+}
+
 func (s *SyncService) syncActiveWorkspaces(ctx context.Context) error {
 	workspaces, err := s.apiClient.FetchAll(ctx)
 	if err != nil {
 		return fmt.Errorf("获取工作区列表: %w", err)
 	}
+	seenAt := time.Now()
+	activeWorkspaceIDs := make([]string, 0, len(workspaces))
 
 	for _, ws := range workspaces {
+		activeWorkspaceIDs = append(activeWorkspaceIDs, ws.ID)
 		dbWS := &store.Workspace{
 			ID:              ws.ID,
 			Name:            ws.DisplayName,
@@ -128,7 +157,19 @@ func (s *SyncService) syncActiveWorkspaces(ctx context.Context) error {
 			Pinned:          ws.Pinned,
 			LatestSessionID: ws.Summary.LatestSessionID,
 			IsRunning:       ws.StatusText() == "running",
-			LastSeenAt:      time.Now(),
+			HasPendingApproval: ws.Summary.HasPendingApproval,
+			HasUnseenTurns:     ws.Summary.HasUnseenTurns,
+			HasRunningDevServer: ws.Summary.HasRunningDevServer,
+			LastSeenAt:      seenAt,
+		}
+		if ws.Summary.FilesChanged != nil {
+			dbWS.FilesChanged = *ws.Summary.FilesChanged
+		}
+		if ws.Summary.LinesAdded != nil {
+			dbWS.LinesAdded = *ws.Summary.LinesAdded
+		}
+		if ws.Summary.LinesRemoved != nil {
+			dbWS.LinesRemoved = *ws.Summary.LinesRemoved
 		}
 		if ws.Summary.LatestProcessStatus != nil {
 			dbWS.LatestProcessStatus = ws.Summary.LatestProcessStatus
@@ -159,7 +200,108 @@ func (s *SyncService) syncActiveWorkspaces(ctx context.Context) error {
 
 		s.subscribeSessionProcesses(ctx, ws.ID, session.ID)
 	}
+
+	if err := s.store.MarkMissingWorkspacesArchived(ctx, activeWorkspaceIDs, seenAt); err != nil {
+		return fmt.Errorf("归档缺失工作区失败: %w", err)
+	}
+	if s.realtime != nil {
+		if err := s.realtime.PublishWorkspaceSnapshot(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "推送工作区快照失败: %v\n", err)
+		}
+	}
 	return nil
+}
+
+func (s *SyncService) subscribeWorkspacesStream(ctx context.Context) {
+	s.wsMutex.Lock()
+	if s.workspaceStream != nil {
+		s.wsMutex.Unlock()
+		return
+	}
+	s.wsMutex.Unlock()
+
+	wsURL, err := buildWSURL(s.cfg.KanbanAPIURL, "/api/workspaces/streams/ws", map[string]string{
+		"archived": "false",
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "构造 workspace ws URL 失败: %v\n", err)
+		return
+	}
+
+	conn, _, err := s.dialer.Dial(wsURL, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "连接 workspace ws 失败: %v\n", err)
+		return
+	}
+
+	s.wsMutex.Lock()
+	s.workspaceStream = conn
+	s.wsMutex.Unlock()
+
+	s.wg.Add(1)
+	go s.consumeWorkspacesStream(ctx, conn)
+}
+
+func (s *SyncService) consumeWorkspacesStream(ctx context.Context, conn *websocket.Conn) {
+	defer s.wg.Done()
+	var lastErr error
+	defer func() {
+		s.wsMutex.Lock()
+		if s.workspaceStream == conn {
+			s.workspaceStream = nil
+		}
+		s.wsMutex.Unlock()
+		_ = conn.Close()
+		if shouldReconnectStream(lastErr) && !s.isStopping() {
+			s.scheduleWorkspacesReconnect(ctx)
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.stopCh:
+			return
+		default:
+			_, message, err := conn.ReadMessage()
+			if err != nil {
+				lastErr = err
+				if !isClosedConnectionOnStop(err, s.isStopping()) {
+					fmt.Fprintf(os.Stderr, "读取 workspace ws 失败: %v\n", err)
+				}
+				return
+			}
+
+			workspaces, err := extractWorkspacePatches(message)
+			if err != nil {
+				continue
+			}
+			if len(workspaces) == 0 {
+				continue
+			}
+			if err := s.syncActiveWorkspaces(ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "workspace ws 触发同步失败: %v\n", err)
+			}
+		}
+	}
+}
+
+func (s *SyncService) scheduleWorkspacesReconnect(ctx context.Context) {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		timer := time.NewTimer(2 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.stopCh:
+			return
+		case <-timer.C:
+			s.subscribeWorkspacesStream(ctx)
+		}
+	}()
 }
 
 func (s *SyncService) subscribeSessionProcesses(ctx context.Context, workspaceID, sessionID string) {
@@ -215,7 +357,9 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 			_, message, err := conn.ReadMessage()
 			if err != nil {
 				lastErr = err
-				fmt.Fprintf(os.Stderr, "读取 session ws 失败 [%s]: %v\n", sessionID, err)
+				if !isClosedConnectionOnStop(err, s.isStopping()) {
+					fmt.Fprintf(os.Stderr, "读取 session ws 失败 [%s]: %v\n", sessionID, err)
+				}
 				return
 			}
 
@@ -228,6 +372,13 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 				if err := s.store.UpsertExecutionProcess(ctx, ep); err != nil {
 					fmt.Fprintf(os.Stderr, "保存 execution process 失败 [%s]: %v\n", ep.ID, err)
 					continue
+				}
+				if err := s.store.RefreshWorkspaceRuntimeState(ctx, workspaceID); err != nil {
+					fmt.Fprintf(os.Stderr, "刷新 workspace 运行态失败 [%s]: %v\n", workspaceID, err)
+				} else if s.realtime != nil {
+					if err := s.realtime.PublishWorkspaceSnapshot(ctx); err != nil {
+						fmt.Fprintf(os.Stderr, "推送工作区快照失败 [%s]: %v\n", workspaceID, err)
+					}
 				}
 				if ep.RunReason == "codingagent" && !ep.Dropped {
 					s.subscribeProcessLogs(ctx, workspaceID, ep.SessionID, ep.ID, ep.Status)
@@ -303,19 +454,7 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 		delete(s.processLogStreams, processID)
 		s.wsMutex.Unlock()
 		_ = conn.Close()
-		finalStatus := "active"
-		if processStatus != "running" {
-			finalStatus = "completed"
-		}
-		lastErrText := ""
-		if lastErr != nil {
-			lastErrText = lastErr.Error()
-			finalStatus = "error"
-			if processStatus != "running" && strings.Contains(lastErrText, "close 1006") {
-				finalStatus = "completed"
-				lastErrText = ""
-			}
-		}
+		finalStatus, lastErrText := resolveProcessSubscriptionStatus(processStatus, receivedEntries, s.isStopping(), lastErr)
 		_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, nil, finalStatus, lastErrText)
 		if shouldReconnectProcessLog(processStatus, receivedEntries, lastErr) && !s.isStopping() {
 			s.scheduleProcessReconnect(ctx, workspaceID, sessionID, processID, processStatus)
@@ -332,7 +471,7 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 			_, message, err := conn.ReadMessage()
 			if err != nil {
 				lastErr = err
-				if processStatus == "running" || !strings.Contains(err.Error(), "close 1006") {
+				if !isClosedConnectionOnStop(err, s.isStopping()) && (processStatus == "running" || !strings.Contains(err.Error(), "close 1006")) {
 					fmt.Fprintf(os.Stderr, "读取 normalized logs ws 失败 [%s]: %v\n", processID, err)
 				}
 				return
@@ -366,6 +505,11 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 				idx := patch.EntryIndex
 				_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &idx, "active", "")
 				lastEntryIndex = &idx
+				if s.realtime != nil {
+					if err := s.realtime.PublishSessionMessagesAppended(ctx, sessionID, []store.ProcessEntry{*entry}); err != nil {
+						fmt.Fprintf(os.Stderr, "推送实时消息失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
+					}
+				}
 			}
 		}
 	}
@@ -546,6 +690,32 @@ func shouldSkipHistoricalProcess(processStatus, subscriptionStatus string) bool 
 
 func shouldSkipEntryByIndex(lastEntryIndex *int, entryIndex int) bool {
 	return lastEntryIndex != nil && entryIndex <= *lastEntryIndex
+}
+
+func resolveProcessSubscriptionStatus(processStatus string, receivedEntries bool, stopping bool, err error) (string, string) {
+	if isClosedConnectionOnStop(err, stopping) {
+		return "stopped", ""
+	}
+	if err != nil {
+		if processStatus != "running" && strings.Contains(err.Error(), "close 1006") {
+			if receivedEntries {
+				return "completed_with_entries", ""
+			}
+			return "completed_empty", ""
+		}
+		return "error", err.Error()
+	}
+	if processStatus != "running" {
+		if receivedEntries {
+			return "completed_with_entries", ""
+		}
+		return "completed_empty", ""
+	}
+	return "active", ""
+}
+
+func isClosedConnectionOnStop(err error, stopping bool) bool {
+	return stopping && err != nil && strings.Contains(err.Error(), "use of closed network connection")
 }
 
 func (s *SyncService) upsertProcessSubscription(ctx context.Context, processID, sessionID, workspaceID, processStatus string, lastEntryIndex *int, status, lastErr string) error {

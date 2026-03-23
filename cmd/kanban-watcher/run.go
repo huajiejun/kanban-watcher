@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/getlantern/systray"
@@ -15,6 +17,7 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/config"
 	mqttclient "github.com/huajiejun/kanban-watcher/internal/mqtt"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
+	"github.com/huajiejun/kanban-watcher/internal/realtime"
 	"github.com/huajiejun/kanban-watcher/internal/server"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 	"github.com/huajiejun/kanban-watcher/internal/singleton"
@@ -28,6 +31,7 @@ import (
 type commandDeps struct {
 	runSyncNow func() error
 	runDaemon  func() error
+	runHeadless func() error
 }
 
 func run(args []string, deps commandDeps) error {
@@ -38,11 +42,15 @@ func run(args []string, deps commandDeps) error {
 	if options.syncNow {
 		return deps.runSyncNow()
 	}
+	if options.headless {
+		return deps.runHeadless()
+	}
 	return deps.runDaemon()
 }
 
 type commandOptions struct {
-	syncNow bool
+	syncNow  bool
+	headless bool
 }
 
 func parseCommandOptions(args []string) (commandOptions, error) {
@@ -51,6 +59,7 @@ func parseCommandOptions(args []string) (commandOptions, error) {
 
 	var options commandOptions
 	fs.BoolVar(&options.syncNow, "sync-now", false, "同步当前真实数据到 Home Assistant 后退出")
+	fs.BoolVar(&options.headless, "headless", false, "无托盘常驻运行，仅启动同步、HTTP API 和 MQTT")
 	if err := fs.Parse(args); err != nil {
 		return commandOptions{}, err
 	}
@@ -225,6 +234,7 @@ func runDaemon() error {
 
 	// 初始化数据库 Store（如果配置了）
 	var dbStore *store.Store
+	var realtimePublisher *api.RealtimePublisher
 	if cfg.Database.IsEnabled() {
 		var err error
 		dbStore, err = store.NewStore(cfg.Database.DSN())
@@ -241,6 +251,9 @@ func runDaemon() error {
 
 				// 启动同步服务
 				syncService := sync.NewSyncService(cfg, dbStore)
+				realtimeHub := realtime.NewHub()
+				realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
+				syncService.SetRealtimePublisher(realtimePublisher)
 				go syncService.Start(context.Background())
 			}
 		}
@@ -255,6 +268,10 @@ func runDaemon() error {
 	if dbStore != nil {
 		routes := api.GetMessageRoutes(dbStore)
 		for pattern, handler := range routes {
+			httpServer.RegisterRoute(pattern, handler)
+		}
+		if realtimePublisher != nil {
+			pattern, handler := realtimePublisher.Route()
 			httpServer.RegisterRoute(pattern, handler)
 		}
 	}
@@ -276,6 +293,95 @@ func runDaemon() error {
 	go runEventLoop(ctx, pollResults, mqttPub, sessionExtractor, cfg, wechatNotifier, tracker, trayApp)
 
 	systray.Run(trayApp.OnReady, trayApp.OnExit(cancel))
+
+	if httpServer != nil {
+		httpServer.Stop(context.Background())
+	}
+	if dbStore != nil {
+		dbStore.Close()
+	}
+	mqttPub.Disconnect()
+	if err := state.SaveState(tracker.GetState()); err != nil {
+		fmt.Fprintf(os.Stderr, "警告: 退出时保存状态失败: %v\n", err)
+	}
+	return nil
+}
+
+func runHeadless() error {
+	lock, err := singleton.Acquire("kanban-watcher")
+	if err != nil {
+		return fmt.Errorf("错误: %v\n提示: 如果确定没有实例在运行，请手动删除 PID 文件", err)
+	}
+	defer lock.Release()
+
+	cfg := config.MustLoad()
+	persistedState := state.MustLoad()
+
+	apiClient := api.NewClient(cfg.KanbanAPIURL)
+	mqttPub := mqttclient.NewPublisher(cfg.MQTT)
+	sessionExtractor := sessionlog.NewExtractor(
+		cfg.ConversationSync.BaseDir,
+		cfg.ConversationSync.RecentMessageLimit,
+		cfg.ConversationSync.RecentToolCallLimit,
+	)
+	wechatNotifier := wechat.NewNotifier(cfg.WeChat)
+	tracker := wechat.NewTracker(persistedState, cfg.WeChat.NotifyThresholdMinutes)
+
+	var dbStore *store.Store
+	var realtimePublisher *api.RealtimePublisher
+	if cfg.Database.IsEnabled() {
+		dbStore, err = store.NewStore(cfg.Database.DSN())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "数据库连接失败: %v\n", err)
+		} else {
+			if err := dbStore.InitSchema(context.Background()); err != nil {
+				fmt.Fprintf(os.Stderr, "数据库表初始化失败: %v\n", err)
+				dbStore.Close()
+				dbStore = nil
+			} else {
+				fmt.Fprintf(os.Stdout, "数据库连接成功\n")
+				syncService := sync.NewSyncService(cfg, dbStore)
+				realtimeHub := realtime.NewHub()
+				realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
+				syncService.SetRealtimePublisher(realtimePublisher)
+				go syncService.Start(context.Background())
+			}
+		}
+	} else {
+		fmt.Fprintf(os.Stdout, "数据库未配置或配置不完整\n")
+	}
+
+	proxyClient := api.NewProxyClient(cfg.KanbanAPIURL)
+	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey)
+	if dbStore != nil {
+		routes := api.GetMessageRoutes(dbStore)
+		for pattern, handler := range routes {
+			httpServer.RegisterRoute(pattern, handler)
+		}
+		if realtimePublisher != nil {
+			pattern, handler := realtimePublisher.Route()
+			httpServer.RegisterRoute(pattern, handler)
+		}
+	}
+	if err := httpServer.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "HTTP 服务器启动失败: %v\n", err)
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if cfg.MQTT.Broker != "" {
+		if err := mqttPub.Connect(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "mqtt: 连接警告: %v\n", err)
+		}
+	}
+
+	pollResults := make(chan poller.PollResult, 2)
+	go poller.Run(ctx, cfg, apiClient, pollResults)
+	go runEventLoop(ctx, pollResults, mqttPub, sessionExtractor, cfg, wechatNotifier, tracker, nil)
+
+	fmt.Fprintln(os.Stdout, "headless 模式已启动")
+	<-ctx.Done()
 
 	if httpServer != nil {
 		httpServer.Stop(context.Background())

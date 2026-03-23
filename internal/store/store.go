@@ -48,6 +48,12 @@ func (s *Store) InitSchema(ctx context.Context) error {
 			latest_session_id VARCHAR(36) NULL,
 			is_running BOOLEAN NOT NULL DEFAULT FALSE,
 			latest_process_status VARCHAR(20) NULL,
+			has_pending_approval BOOLEAN NOT NULL DEFAULT FALSE,
+			has_unseen_turns BOOLEAN NOT NULL DEFAULT FALSE,
+			has_running_dev_server BOOLEAN NOT NULL DEFAULT FALSE,
+			files_changed INT NOT NULL DEFAULT 0,
+			lines_added INT NOT NULL DEFAULT 0,
+			lines_removed INT NOT NULL DEFAULT 0,
 			last_seen_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			created_at TIMESTAMP(3) NULL,
 			updated_at TIMESTAMP(3) NULL,
@@ -124,6 +130,12 @@ func (s *Store) InitSchema(ctx context.Context) error {
 				ON UPDATE CURRENT_TIMESTAMP(3),
 			KEY idx_kw_sync_type_target (subscription_type, target_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_pending_approval BOOLEAN NOT NULL DEFAULT FALSE`,
+		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_unseen_turns BOOLEAN NOT NULL DEFAULT FALSE`,
+		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_running_dev_server BOOLEAN NOT NULL DEFAULT FALSE`,
+		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS files_changed INT NOT NULL DEFAULT 0`,
+		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_added INT NOT NULL DEFAULT 0`,
+		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_removed INT NOT NULL DEFAULT 0`,
 	}
 
 	for _, stmt := range statements {
@@ -142,8 +154,9 @@ func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 	query := `
 		INSERT INTO kw_workspaces (
 			id, name, branch, archived, pinned, latest_session_id, is_running,
-			latest_process_status, last_seen_at, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			latest_process_status, has_pending_approval, has_unseen_turns, has_running_dev_server,
+			files_changed, lines_added, lines_removed, last_seen_at, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
 			name = VALUES(name),
 			branch = VALUES(branch),
@@ -152,6 +165,12 @@ func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 			latest_session_id = VALUES(latest_session_id),
 			is_running = VALUES(is_running),
 			latest_process_status = VALUES(latest_process_status),
+			has_pending_approval = VALUES(has_pending_approval),
+			has_unseen_turns = VALUES(has_unseen_turns),
+			has_running_dev_server = VALUES(has_running_dev_server),
+			files_changed = VALUES(files_changed),
+			lines_added = VALUES(lines_added),
+			lines_removed = VALUES(lines_removed),
 			last_seen_at = VALUES(last_seen_at),
 			created_at = COALESCE(kw_workspaces.created_at, VALUES(created_at)),
 			updated_at = VALUES(updated_at),
@@ -159,7 +178,8 @@ func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 	`
 	_, err := s.execWithRetry(ctx, query,
 		ws.ID, ws.Name, ws.Branch, ws.Archived, ws.Pinned, ws.LatestSessionID,
-		ws.IsRunning, ws.LatestProcessStatus, ws.LastSeenAt, ws.CreatedAt, ws.UpdatedAt,
+		ws.IsRunning, ws.LatestProcessStatus, ws.HasPendingApproval, ws.HasUnseenTurns, ws.HasRunningDevServer,
+		ws.FilesChanged, ws.LinesAdded, ws.LinesRemoved, ws.LastSeenAt, ws.CreatedAt, ws.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("upsert workspace: %w", err)
@@ -215,6 +235,57 @@ func (s *Store) UpsertExecutionProcess(ctx context.Context, ep *ExecutionProcess
 	return nil
 }
 
+// RefreshWorkspaceRuntimeState 根据最新 execution process 刷新工作区运行态
+func (s *Store) RefreshWorkspaceRuntimeState(ctx context.Context, workspaceID string) error {
+	query := `
+		SELECT status
+		FROM kw_execution_processes
+		WHERE workspace_id = ?
+		  AND run_reason = 'codingagent'
+		  AND dropped = FALSE
+		ORDER BY
+		  CASE WHEN status = 'running' THEN 0 ELSE 1 END,
+		  synced_at DESC,
+		  created_at DESC,
+		  id DESC
+		LIMIT 1
+	`
+
+	var status sql.NullString
+	if err := s.db.QueryRowContext(ctx, query, workspaceID).Scan(&status); err != nil {
+		if err == sql.ErrNoRows {
+			_, updateErr := s.execWithRetry(ctx, `
+				UPDATE kw_workspaces
+				SET latest_process_status = NULL,
+				    is_running = FALSE,
+				    synced_at = CURRENT_TIMESTAMP(3)
+				WHERE id = ?
+			`, workspaceID)
+			return updateErr
+		}
+		return fmt.Errorf("query workspace runtime state: %w", err)
+	}
+
+	var latestStatus interface{}
+	isRunning := false
+	if status.Valid {
+		latestStatus = status.String
+		isRunning = status.String == "running"
+	}
+
+	if _, err := s.execWithRetry(ctx, `
+		UPDATE kw_workspaces
+		SET latest_process_status = ?,
+		    is_running = ?,
+		    synced_at = CURRENT_TIMESTAMP(3)
+		WHERE id = ?
+	`, latestStatus, isRunning, workspaceID); err != nil {
+		return fmt.Errorf("update workspace runtime state: %w", err)
+	}
+
+	return nil
+}
+
 // UpsertProcessEntry 插入或更新消息
 func (s *Store) UpsertProcessEntry(ctx context.Context, entry *ProcessEntry) error {
 	query := `
@@ -240,6 +311,32 @@ func (s *Store) UpsertProcessEntry(ctx context.Context, entry *ProcessEntry) err
 	)
 	if err != nil {
 		return fmt.Errorf("upsert process entry: %w", err)
+	}
+	return nil
+}
+
+// MarkMissingWorkspacesArchived 将本轮未出现在上游非归档列表中的工作区标记为 archived
+func (s *Store) MarkMissingWorkspacesArchived(ctx context.Context, activeWorkspaceIDs []string, seenAt time.Time) error {
+	baseQuery := `
+		UPDATE kw_workspaces
+		SET archived = TRUE,
+		    is_running = FALSE,
+		    synced_at = CURRENT_TIMESTAMP(3),
+		    last_seen_at = ?
+		WHERE archived = FALSE
+	`
+
+	args := []interface{}{seenAt}
+	if len(activeWorkspaceIDs) > 0 {
+		placeholders := strings.TrimSuffix(strings.Repeat("?,", len(activeWorkspaceIDs)), ",")
+		baseQuery += "\n  AND id NOT IN (" + placeholders + ")\n"
+		for _, id := range activeWorkspaceIDs {
+			args = append(args, id)
+		}
+	}
+
+	if _, err := s.execWithRetry(ctx, baseQuery, args...); err != nil {
+		return fmt.Errorf("mark missing workspaces archived: %w", err)
 	}
 	return nil
 }
@@ -294,7 +391,8 @@ func (s *Store) GetSessionMessages(ctx context.Context, sessionID string, limit 
 func (s *Store) GetWorkspaceByID(ctx context.Context, workspaceID string) (*Workspace, error) {
 	query := `
 		SELECT id, name, branch, archived, pinned, latest_session_id, is_running,
-		       latest_process_status, last_seen_at, created_at, updated_at, synced_at
+		       latest_process_status, has_pending_approval, has_unseen_turns, has_running_dev_server,
+		       files_changed, lines_added, lines_removed, last_seen_at, created_at, updated_at, synced_at
 		FROM kw_workspaces
 		WHERE id = ?
 	`
@@ -313,7 +411,8 @@ func (s *Store) GetWorkspaceByID(ctx context.Context, workspaceID string) (*Work
 func (s *Store) GetWorkspaceBySessionID(ctx context.Context, sessionID string) (*Workspace, error) {
 	query := `
 		SELECT w.id, w.name, w.branch, w.archived, w.pinned, w.latest_session_id, w.is_running,
-		       w.latest_process_status, w.last_seen_at, w.created_at, w.updated_at, w.synced_at
+		       w.latest_process_status, w.has_pending_approval, w.has_unseen_turns, w.has_running_dev_server,
+		       w.files_changed, w.lines_added, w.lines_removed, w.last_seen_at, w.created_at, w.updated_at, w.synced_at
 		FROM kw_workspaces w
 		INNER JOIN kw_sessions s ON w.id = s.workspace_id
 		WHERE s.id = ?
@@ -338,6 +437,12 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 			w.branch,
 			w.latest_session_id,
 			COALESCE(w.latest_process_status, 'idle') AS status,
+			w.has_pending_approval,
+			w.has_unseen_turns,
+			w.has_running_dev_server,
+			w.files_changed,
+			w.lines_added,
+			w.lines_removed,
 			w.updated_at,
 			COALESCE(msg.message_count, 0) AS message_count,
 			msg.last_message_at
@@ -367,6 +472,8 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 		var updatedAt, lastMessageAt sql.NullTime
 		if err := rows.Scan(
 			&summary.ID, &summary.Name, &summary.Branch, &latestSessionID, &summary.Status,
+			&summary.HasPendingApproval, &summary.HasUnseenTurns, &summary.HasRunningDevServer,
+			&summary.FilesChanged, &summary.LinesAdded, &summary.LinesRemoved,
 			&updatedAt, &summary.MessageCount, &lastMessageAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan active workspace summary: %w", err)
@@ -456,7 +563,8 @@ func scanWorkspace(scanner interface {
 	var createdAt, updatedAt sql.NullTime
 	err := scanner.Scan(
 		&ws.ID, &ws.Name, &ws.Branch, &ws.Archived, &ws.Pinned, &latestSessionID,
-		&ws.IsRunning, &latestProcessStatus, &ws.LastSeenAt, &createdAt, &updatedAt, &ws.SyncedAt,
+		&ws.IsRunning, &latestProcessStatus, &ws.HasPendingApproval, &ws.HasUnseenTurns, &ws.HasRunningDevServer,
+		&ws.FilesChanged, &ws.LinesAdded, &ws.LinesRemoved, &ws.LastSeenAt, &createdAt, &updatedAt, &ws.SyncedAt,
 	)
 	if err != nil {
 		return nil, err

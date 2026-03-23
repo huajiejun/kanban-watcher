@@ -10,7 +10,10 @@ import (
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/config"
+	"github.com/huajiejun/kanban-watcher/internal/poller"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
+	"github.com/huajiejun/kanban-watcher/internal/state"
+	"github.com/huajiejun/kanban-watcher/internal/wechat"
 )
 
 func TestRunRoutesSyncNowWithoutDaemon(t *testing.T) {
@@ -35,6 +38,52 @@ func TestRunRoutesSyncNowWithoutDaemon(t *testing.T) {
 	}
 	if daemonCalled != 0 {
 		t.Fatalf("daemonCalled = %d, want 0", daemonCalled)
+	}
+}
+
+func TestRunRoutesHeadlessWithoutDaemon(t *testing.T) {
+	syncCalled := 0
+	daemonCalled := 0
+	headlessCalled := 0
+
+	err := run([]string{"--headless"}, commandDeps{
+		runSyncNow: func() error {
+			syncCalled++
+			return nil
+		},
+		runDaemon: func() error {
+			daemonCalled++
+			return nil
+		},
+		runHeadless: func() error {
+			headlessCalled++
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+	if syncCalled != 0 {
+		t.Fatalf("syncCalled = %d, want 0", syncCalled)
+	}
+	if daemonCalled != 0 {
+		t.Fatalf("daemonCalled = %d, want 0", daemonCalled)
+	}
+	if headlessCalled != 1 {
+		t.Fatalf("headlessCalled = %d, want 1", headlessCalled)
+	}
+}
+
+func TestParseCommandOptionsSupportsHeadless(t *testing.T) {
+	options, err := parseCommandOptions([]string{"--headless"})
+	if err != nil {
+		t.Fatalf("parseCommandOptions returned error: %v", err)
+	}
+	if !options.headless {
+		t.Fatalf("headless = false, want true")
+	}
+	if options.syncNow {
+		t.Fatalf("syncNow = true, want false")
 	}
 }
 
@@ -156,6 +205,32 @@ func TestRunSyncNowReturnsErrorWhenSessionPublishFails(t *testing.T) {
 	if !publisher.disconnectCalled {
 		t.Fatalf("publisher.Disconnect was not called")
 	}
+}
+
+func TestHandlePollResultSkipsMQTTTimerPublish(t *testing.T) {
+	tracker := wechat.NewTracker(state.NewAppState(), 10)
+	notifier := wechat.NewNotifier(config.WeChatConfig{})
+
+	handlePollResult(
+		context.Background(),
+		poller.PollResult{
+			Workspaces: []api.EnrichedWorkspace{
+				{
+					Workspace:   api.Workspace{ID: "ws-1", Branch: "main"},
+					Summary:     api.WorkspaceSummary{WorkspaceID: "ws-1"},
+					DisplayName: "Workspace 1",
+				},
+			},
+			FetchedAt: time.Now(),
+		},
+		nil,
+		&config.Config{},
+		notifier,
+		tracker,
+		nil,
+	)
+
+	// 编译通过且函数不再接收 publisher，意味着后台轮询路径不会再触发 MQTT 推送。
 }
 
 type fakeFetcher struct {

@@ -91,6 +91,59 @@ func TestExtractExecutionProcessesFromSnapshotAndIncrementalPatch(t *testing.T) 
 	}
 }
 
+func TestExtractWorkspacePatchesFromSnapshotAndIncrementalPatch(t *testing.T) {
+	message := []byte(`{
+		"JsonPatch": [
+			{
+				"op": "replace",
+				"path": "/workspaces",
+				"value": {
+					"ws-1": {
+						"id": "ws-1",
+						"name": "Workspace One",
+						"branch": "main",
+						"archived": false,
+						"pinned": false,
+						"created_at": "2026-03-23T10:00:00Z",
+						"updated_at": "2026-03-23T10:01:00Z",
+						"is_running": false,
+						"is_errored": false
+					}
+				}
+			},
+			{
+				"op": "replace",
+				"path": "/workspaces/ws-2",
+				"value": {
+					"id": "ws-2",
+					"name": "Workspace Two",
+					"branch": "feature/realtime",
+					"archived": false,
+					"pinned": true,
+					"created_at": "2026-03-23T10:02:00Z",
+					"updated_at": "2026-03-23T10:03:00Z",
+					"is_running": true,
+					"is_errored": false
+				}
+			}
+		]
+	}`)
+
+	workspaces, err := extractWorkspacePatches(message)
+	if err != nil {
+		t.Fatalf("extractWorkspacePatches 返回错误: %v", err)
+	}
+	if len(workspaces) != 2 {
+		t.Fatalf("workspace 数量 = %d, want 2", len(workspaces))
+	}
+	if workspaces[0].ID != "ws-1" || workspaces[1].ID != "ws-2" {
+		t.Fatalf("workspace 列表错误: %#v", workspaces)
+	}
+	if !workspaces[1].IsRunning {
+		t.Fatalf("ws-2 is_running = false, want true")
+	}
+}
+
 func TestShouldReconnectStream(t *testing.T) {
 	tests := []struct {
 		name string

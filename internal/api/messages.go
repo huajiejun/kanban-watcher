@@ -15,6 +15,7 @@ type MessageResponse struct {
 	ID        int64                  `json:"id"`
 	SessionID string                 `json:"session_id"`
 	ProcessID string                 `json:"process_id,omitempty"`
+	EntryIndex int                   `json:"entry_index"`
 	EntryType string                 `json:"entry_type"`
 	Role      string                 `json:"role"`
 	Content   string                 `json:"content"`
@@ -42,6 +43,12 @@ type LocalWorkspaceSummary struct {
 	Branch          string `json:"branch"`
 	LatestSessionID string `json:"latest_session_id,omitempty"`
 	Status          string `json:"status"`
+	HasPendingApproval bool `json:"has_pending_approval"`
+	HasUnseenTurns  bool `json:"has_unseen_turns"`
+	HasRunningDevServer bool `json:"has_running_dev_server"`
+	FilesChanged    int    `json:"files_changed"`
+	LinesAdded      int    `json:"lines_added"`
+	LinesRemoved    int    `json:"lines_removed"`
 	UpdatedAt       string `json:"updated_at,omitempty"`
 	MessageCount    int    `json:"message_count"`
 	LastMessageAt   string `json:"last_message_at,omitempty"`
@@ -84,11 +91,17 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 
 	for _, summary := range summaries {
 		item := LocalWorkspaceSummary{
-			ID:           summary.ID,
-			Name:         summary.Name,
-			Branch:       summary.Branch,
-			Status:       summary.Status,
-			MessageCount: summary.MessageCount,
+			ID:                  summary.ID,
+			Name:                summary.Name,
+			Branch:              summary.Branch,
+			Status:              summary.Status,
+			HasPendingApproval:  summary.HasPendingApproval,
+			HasUnseenTurns:      summary.HasUnseenTurns,
+			HasRunningDevServer: summary.HasRunningDevServer,
+			FilesChanged:        summary.FilesChanged,
+			LinesAdded:          summary.LinesAdded,
+			LinesRemoved:        summary.LinesRemoved,
+			MessageCount:        summary.MessageCount,
 		}
 		if summary.LatestSessionID != nil {
 			item.LatestSessionID = *summary.LatestSessionID
@@ -200,6 +213,7 @@ func getSessionMessagesInternal(w http.ResponseWriter, r *http.Request, dbStore 
 			ID:        entry.ID,
 			SessionID: entry.SessionID,
 			ProcessID: entry.ProcessID,
+			EntryIndex: entry.EntryIndex,
 			EntryType: entry.EntryType,
 			Role:      entry.Role,
 			Content:   entry.Content,
@@ -262,4 +276,3 @@ func writeJSON(w http.ResponseWriter, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(payload)
 }
-

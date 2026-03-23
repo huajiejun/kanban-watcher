@@ -26,6 +26,18 @@ type entryPatch struct {
 	Entry      store.NormalizedEntry
 }
 
+type remoteWorkspace struct {
+	ID        string  `json:"id"`
+	Name      *string `json:"name"`
+	Branch    string  `json:"branch"`
+	Archived  bool    `json:"archived"`
+	Pinned    bool    `json:"pinned"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt string  `json:"updated_at"`
+	IsRunning bool    `json:"is_running"`
+	IsErrored bool    `json:"is_errored"`
+}
+
 type remoteExecutionProcess struct {
 	ID           string  `json:"id"`
 	SessionID    string  `json:"session_id"`
@@ -123,3 +135,33 @@ func extractExecutionProcesses(message []byte) ([]remoteExecutionProcess, error)
 	return result, nil
 }
 
+func extractWorkspacePatches(message []byte) ([]remoteWorkspace, error) {
+	var envelope wsPatchEnvelope
+	if err := json.Unmarshal(message, &envelope); err != nil {
+		return nil, fmt.Errorf("解析 ws patch: %w", err)
+	}
+
+	var result []remoteWorkspace
+	for _, op := range envelope.JsonPatch {
+		switch {
+		case op.Path == "/workspaces":
+			var byID map[string]remoteWorkspace
+			if err := json.Unmarshal(op.Value, &byID); err != nil {
+				return nil, fmt.Errorf("解析 workspaces 快照: %w", err)
+			}
+			for _, workspace := range byID {
+				result = append(result, workspace)
+			}
+		case strings.HasPrefix(op.Path, "/workspaces/"):
+			if op.Op == "remove" {
+				continue
+			}
+			var workspace remoteWorkspace
+			if err := json.Unmarshal(op.Value, &workspace); err != nil {
+				return nil, fmt.Errorf("解析 workspace patch: %w", err)
+			}
+			result = append(result, workspace)
+		}
+	}
+	return result, nil
+}
