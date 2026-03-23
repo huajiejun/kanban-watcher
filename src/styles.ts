@@ -5,9 +5,34 @@ export const cardStyles = css`
     display: block;
   }
 
+  /* 响应式字体大小变量 */
+  :host {
+    --font-size-base: 1rem;
+    --font-size-sm: 0.85rem;
+    --font-size-xs: 0.75rem;
+  }
+
+  /* 平板端 (768px - 1024px) */
+  @media (max-width: 1024px) {
+    :host {
+      --font-size-base: 0.95rem;
+      --font-size-sm: 0.82rem;
+      --font-size-xs: 0.72rem;
+    }
+  }
+
+  /* 手机端 (640px) */
+  @media (max-width: 640px) {
+    :host {
+      --font-size-base: 0.88rem;
+      --font-size-sm: 0.78rem;
+      --font-size-xs: 0.7rem;
+    }
+  }
+
   ha-card {
     background:
-      radial-gradient(circle at top right, color-mix(in srgb, var(--warning-color, #f59e0b) 12%, transparent), transparent 28%),
+      radial-gradient(circle at top right, color-mix(in srgb, var(--warning-color, #f59e0b) 12%, transparent), transparent 25%),
       var(--ha-card-background, var(--card-background-color, #ffffff));
     border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 70%, transparent);
     border-radius: 20px;
