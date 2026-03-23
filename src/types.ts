@@ -17,6 +17,7 @@ export interface KanbanWorkspace {
   completed_at?: string;
   updated_at?: string;
   last_message_at?: string;
+  latest_process_completed_at?: string;  // AI 执行完成时间（与主项目保持一致）
   needs_attention?: boolean;
   latest_process_status?: string;
   latestProcessStatus?: string;

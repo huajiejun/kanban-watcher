@@ -439,13 +439,10 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private getWorkspaceDisplayMeta(workspace: KanbanWorkspace) {
+    // 与 vibe-kanban 主项目保持一致：优先使用 AI 执行完成时间
     const timeSource =
-      workspace.relative_time ||
-      workspace.updated_at ||
-      workspace.last_message_at ||
-      (workspace.status === "completed"
-        ? workspace.completed_at ?? this.entityAttributes?.updated_at
-        : this.entityAttributes?.updated_at);
+      workspace.latest_process_completed_at ||
+      workspace.updated_at;
 
     return {
       relativeTime: workspace.relative_time || formatRelativeTime(timeSource),
