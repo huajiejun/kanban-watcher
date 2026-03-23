@@ -37,7 +37,7 @@ HomeAssistant  →  kanban-watcher:7778  →  vibe-kanban:7777
 ```yaml
 type: custom:kanban-watcher-card
 entity: sensor.kanban_watcher_kanban_watcher
-base_url: http://127.0.0.1:7778
+base_url: https://watcher.huajiejun.cn
 api_key: your-api-key-here
 messages_limit: 50
 ```
