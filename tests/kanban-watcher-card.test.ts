@@ -1219,6 +1219,71 @@ describe("kanban-watcher-card", () => {
     );
   });
 
+  it("renders tool_use entries as dimmed summary cards in the dialog message list", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-tools",
+              name: "API Tool Workspace",
+              status: "running",
+              latest_session_id: "session-api-tools",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-tools",
+          workspace_name: "API Tool Workspace",
+          messages: [
+            {
+              id: 1,
+              session_id: "session-api-tools",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "先执行一次检查",
+              timestamp: "2026-03-21T11:57:00Z",
+            },
+            {
+              id: 2,
+              session_id: "session-api-tools",
+              process_id: "process-tools",
+              entry_index: 1,
+              entry_type: "tool_use",
+              role: "assistant",
+              content: "stdout: all checks passed",
+              tool_info: {
+                tool_name: "Bash",
+                action_type: {
+                  action: "command_run",
+                  command: "npm test",
+                },
+                status: {
+                  status: "running",
+                },
+              },
+              timestamp: "2026-03-21T11:58:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard({ messagesLimit: 20 });
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const toolButton = card.shadowRoot?.querySelector(".message-tool-button") as HTMLButtonElement | null;
+    expect(toolButton).not.toBeNull();
+    expect(normalizeText(toolButton?.textContent)).toContain("Bash");
+    expect(normalizeText(toolButton?.textContent)).toContain("npm test");
+    expect(toolButton?.classList.contains("is-running")).toBe(true);
+  });
+
   it("sends follow-up messages through the local API in API mode", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(

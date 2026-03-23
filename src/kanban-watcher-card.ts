@@ -6,6 +6,7 @@ import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
 import { renderMessageMarkdown } from "./lib/render-message-markdown";
 import { getStatusMeta } from "./lib/status-meta";
+import { summarizeToolCall, type DialogToolStatus } from "./lib/tool-call";
 import { cardStyles } from "./styles";
 import type {
   ActiveWorkspacesResponse,
@@ -36,11 +37,24 @@ type CardConfig = {
 };
 
 type DialogAction = "send" | "queue" | "stop";
-type DialogMessage = {
+type DialogTextMessage = {
   key?: string;
+  kind: "message";
   sender: "user" | "ai";
   text: string;
 };
+type DialogToolMessage = {
+  key?: string;
+  kind: "tool";
+  toolName: string;
+  summary: string;
+  detail: string;
+  status: DialogToolStatus;
+  statusLabel: string;
+  icon: string;
+  command?: string;
+};
+type DialogMessage = DialogTextMessage | DialogToolMessage;
 type QueueItem = {
   workspaceId: string;
   content: string;
@@ -97,6 +111,7 @@ export class KanbanWatcherCard extends LitElement {
   private dialogLoading = false;
   private dialogError = "";
   private dialogMessagesByWorkspace: Record<string, DialogMessage[]> = {};
+  private expandedToolMessageKeys = new Set<string>();
 
   connectedCallback() {
     super.connectedCallback();
@@ -272,13 +287,7 @@ export class KanbanWatcherCard extends LitElement {
           <section class="dialog-messages">
             <div class="dialog-panel-title">对话消息</div>
             <div class="message-list">
-              ${messages.map(
-                (message) => html`
-                  <div class="message-row">
-                    <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">${unsafeHTML(renderMessageMarkdown(this.compactMessageText(message.text)))}</div>
-                  </div>
-                `,
-              )}
+              ${messages.map((message) => this.renderDialogEntry(message))}
             </div>
           </section>
 
@@ -377,7 +386,67 @@ export class KanbanWatcherCard extends LitElement {
     this.actionFeedback = "";
     this.dialogError = "";
     this.dialogLoading = false;
+    this.expandedToolMessageKeys = new Set();
   };
+
+  private renderDialogEntry(message: DialogMessage) {
+    if (message.kind === "tool") {
+      return this.renderToolMessage(message);
+    }
+
+    return html`
+      <div class="message-row">
+        <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">
+          ${unsafeHTML(renderMessageMarkdown(this.compactMessageText(message.text)))}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderToolMessage(message: DialogToolMessage) {
+    const toolKey = this.getDialogMessageIdentity(message);
+    const expanded = this.expandedToolMessageKeys.has(toolKey);
+
+    return html`
+      <div class="message-tool">
+        <button
+          class="message-tool-button is-${message.status}"
+          type="button"
+          @click=${() => this.toggleToolMessage(toolKey)}
+        >
+          <span class="message-tool-icon" aria-hidden="true">${message.icon}</span>
+          <span class="message-tool-summary">
+            <span class="message-tool-name">${message.toolName}</span>
+            <span class="message-tool-text">${message.summary}</span>
+          </span>
+          <span class="message-tool-status">${message.statusLabel}</span>
+        </button>
+        ${expanded
+          ? html`
+              <div class="message-tool-detail">
+                ${message.command
+                  ? html`<div class="message-tool-command">${message.command}</div>`
+                  : nothing}
+                ${message.detail
+                  ? html`${unsafeHTML(renderMessageMarkdown(message.detail))}`
+                  : nothing}
+              </div>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
+  private toggleToolMessage(toolKey: string) {
+    const next = new Set(this.expandedToolMessageKeys);
+    if (next.has(toolKey)) {
+      next.delete(toolKey);
+    } else {
+      next.add(toolKey);
+    }
+    this.expandedToolMessageKeys = next;
+    this.requestUpdate();
+  }
 
   private handleMessageInput = (event: Event) => {
     this.messageDraft = (event.target as HTMLTextAreaElement).value;
@@ -526,10 +595,10 @@ export class KanbanWatcherCard extends LitElement {
         return apiMessages;
       }
       if (this.dialogLoading) {
-        return [{ sender: "ai", text: "正在加载消息..." }];
+        return [{ kind: "message", sender: "ai", text: "正在加载消息..." }];
       }
       if (this.dialogError) {
-        return [{ sender: "ai", text: this.dialogError }];
+        return [{ kind: "message", sender: "ai", text: this.dialogError }];
       }
     }
 
@@ -543,6 +612,7 @@ export class KanbanWatcherCard extends LitElement {
 
     return [
       {
+        kind: "message",
         sender: "ai",
         text: sessionId
           ? "暂无同步的对话消息。"
@@ -576,7 +646,7 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     return typeof attributes?.last_message === "string" && attributes.last_message.trim()
-      ? [{ sender: "ai", text: attributes.last_message.trim() }]
+      ? [{ kind: "message", sender: "ai", text: attributes.last_message.trim() }]
       : [];
   }
 
@@ -617,6 +687,7 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     return {
+      kind: "message",
       sender: message.role === "user" ? "user" : "ai",
       text: this.compactMessageText(text),
     };
@@ -894,10 +965,10 @@ export class KanbanWatcherCard extends LitElement {
 
     const existing = this.dialogMessagesByWorkspace[workspace.id] ?? [];
     const merged = [...existing];
-    const seenKeys = new Set(existing.map((item) => item.key ?? `${item.sender}:${item.text}`));
+    const seenKeys = new Set(existing.map((item) => this.getDialogMessageIdentity(item)));
 
     for (const message of this.normalizeApiMessages(messages)) {
-      const key = message.key ?? `${message.sender}:${message.text}`;
+      const key = this.getDialogMessageIdentity(message);
       if (seenKeys.has(key)) {
         continue;
       }
@@ -1017,16 +1088,49 @@ export class KanbanWatcherCard extends LitElement {
   private normalizeApiMessages(messages: SessionMessageResponse[] | undefined) {
     return (Array.isArray(messages) ? messages : [])
       .map((message) => {
+        if (message.entry_type === "tool_use") {
+          return this.normalizeApiToolMessage(message);
+        }
         if (typeof message.content !== "string" || !message.content.trim()) {
           return undefined;
         }
         return {
           key: this.buildMessageKey(message),
+          kind: "message",
           sender: message.role === "user" ? "user" : "ai",
           text: this.compactMessageText(message.content),
         } satisfies DialogMessage;
       })
       .filter((message): message is DialogMessage => Boolean(message));
+  }
+
+  private normalizeApiToolMessage(message: SessionMessageResponse) {
+    const summary = summarizeToolCall(message);
+    if (!summary) {
+      return undefined;
+    }
+
+    return {
+      key: this.buildMessageKey(message),
+      kind: "tool",
+      toolName: summary.toolName,
+      summary: summary.summary,
+      detail: summary.detail,
+      status: summary.status,
+      statusLabel: summary.statusLabel,
+      icon: summary.icon,
+      command: summary.command,
+    } satisfies DialogMessage;
+  }
+
+  private getDialogMessageIdentity(message: DialogMessage) {
+    if (message.key) {
+      return message.key;
+    }
+    if (message.kind === "tool") {
+      return `tool:${message.toolName}:${message.summary}:${message.status}`;
+    }
+    return `${message.sender}:${message.text}`;
   }
 
   private buildMessageKey(message: SessionMessageResponse) {

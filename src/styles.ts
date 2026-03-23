@@ -273,6 +273,130 @@ export const cardStyles = css`
     width: 100%;
   }
 
+  .message-tool {
+    display: grid;
+    gap: 6px;
+  }
+
+  .message-tool-button {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 46%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 32%, transparent);
+    color: color-mix(in srgb, var(--primary-text-color) 72%, var(--secondary-text-color, #64748b));
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .message-tool-button.is-running,
+  .message-tool-button.is-success,
+  .message-tool-button.is-idle {
+    opacity: 0.88;
+  }
+
+  .message-tool-button.is-pending {
+    border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 65%, transparent);
+    background: color-mix(in srgb, var(--warning-color, #f59e0b) 14%, transparent);
+    color: inherit;
+  }
+
+  .message-tool-button.is-error {
+    border-color: color-mix(in srgb, var(--error-color, #ef4444) 62%, transparent);
+    background: color-mix(in srgb, var(--error-color, #ef4444) 12%, transparent);
+    color: inherit;
+  }
+
+  .message-tool-button.is-denied {
+    border-color: color-mix(in srgb, var(--error-color, #ef4444) 34%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 42%, transparent);
+  }
+
+  .message-tool-icon {
+    width: 1.8rem;
+    color: var(--secondary-text-color, #64748b);
+    font-size: 0.88rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .message-tool-summary {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .message-tool-name {
+    color: inherit;
+    font-size: 0.83rem;
+    font-weight: 700;
+    flex: none;
+  }
+
+  .message-tool-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--secondary-text-color, #64748b);
+    font-size: 0.8rem;
+  }
+
+  .message-tool-status {
+    justify-self: end;
+    color: var(--secondary-text-color, #64748b);
+    font-size: 0.74rem;
+    white-space: nowrap;
+  }
+
+  .message-tool-detail {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 54%, transparent);
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 42%, transparent);
+    color: inherit;
+    word-break: break-word;
+  }
+
+  .message-tool-detail p,
+  .message-tool-detail ul {
+    margin: 0;
+  }
+
+  .message-tool-detail p + p,
+  .message-tool-detail p + ul,
+  .message-tool-detail ul + p,
+  .message-tool-detail ul + ul {
+    margin-top: 6px;
+  }
+
+  .message-tool-detail pre {
+    margin: 8px 0 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 28%, transparent);
+    overflow-x: auto;
+  }
+
+  .message-tool-command {
+    margin-bottom: 8px;
+    color: var(--secondary-text-color, #64748b);
+    font-family:
+      ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow-x: auto;
+  }
+
   .message-bubble {
     width: 100%;
     box-sizing: border-box;
@@ -517,6 +641,33 @@ export const cardStyles = css`
       height: min(92vh, 900px);
       padding: 12px;
       border-radius: 18px;
+    }
+
+    .message-tool-button {
+      padding: 6px 8px;
+      gap: 6px;
+    }
+
+    .message-tool-icon {
+      width: 1.4rem;
+      font-size: 0.8rem;
+    }
+
+    .message-tool-summary {
+      gap: 4px;
+    }
+
+    .message-tool-name {
+      font-size: 0.8rem;
+    }
+
+    .message-tool-text,
+    .message-tool-status {
+      font-size: 0.72rem;
+    }
+
+    .message-tool-detail {
+      padding: 8px;
     }
 
     .task-meta {
