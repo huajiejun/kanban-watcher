@@ -16,6 +16,22 @@ type Config struct {
 	WeChat           WeChatConfig           `yaml:"wechat"`                // 企业微信通知配置
 	WorkingHours     WorkingHours           `yaml:"working_hours"`         // 工作时间窗口
 	PollIntervalSecs int                    `yaml:"poll_interval_seconds"` // 轮询间隔（秒）
+	Database         DatabaseConfig         `yaml:"database"`              // 数据库配置
+}
+
+// DatabaseConfig 数据库连接参数
+type DatabaseConfig struct {
+	Host     string `yaml:"host"`     // 数据库主机地址
+	Port     int    `yaml:"port"`     // 数据库端口
+	User     string `yaml:"user"`     // 用户名
+	Password string `yaml:"password"` // 密码
+	Database string `yaml:"database"` // 数据库名
+}
+
+// DSN 生成数据库连接字符串
+func (c DatabaseConfig) DSN() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local",
+		c.User, c.Password, c.Host, c.Port, c.Database)
 }
 
 // MQTTConfig MQTT Broker 连接参数

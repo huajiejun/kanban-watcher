@@ -6,7 +6,7 @@ mqtt:
 
 conversation_sync:
   enabled: true
-  base_dir: ""  # 如果为空则使用默认目录
+  base_dir: ""
   recent_message_limit: 20
   recent_tool_call_limit: 5
   session_preserved_days: 3
@@ -16,13 +16,12 @@ database:
   host: "home.huajiejun.cn"
   port: 3306
   user: "root"
-  password: "Ywldtc@1991"  # 请修改为实际密码
+  password: "Ywldtc@1991"
   database: "kanban_watcher"
   sync_interval_seconds: 30
-    batch_size: 100
-    message_types:
-      - user_message
-      - assistant_message
-      - tool_use
-      - error_message
-
+  batch_size: 100
+  message_types:
+    - user_message
+    - assistant_message
+    - tool_use
+    - error_message
