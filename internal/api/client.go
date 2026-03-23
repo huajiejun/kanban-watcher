@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,10 +18,16 @@ type Client struct {
 
 // NewClient 创建指定基础地址的新 API 客户端
 func NewClient(baseURL string) *Client {
+	// 创建跳过 SSL 验证的 HTTP 客户端（用于自签名证书）
+	insecureTransport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
 	return &Client{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second, // 10 秒超时，避免长时间阻塞
+			Timeout:   10 * time.Second, // 10 秒超时，避免长时间阻塞
+			Transport: insecureTransport,
 		},
 	}
 }

@@ -1,15 +1,21 @@
 import { LitElement, html, nothing } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
+import { fetchActiveWorkspaces, fetchWorkspaceLatestMessages, sendWorkspaceFollowUp } from "./lib/http-api";
+import { connectRealtime } from "./lib/realtime-api";
 import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
 import { renderMessageMarkdown } from "./lib/render-message-markdown";
 import { getStatusMeta } from "./lib/status-meta";
 import { cardStyles } from "./styles";
 import type {
+  ActiveWorkspacesResponse,
   KanbanEntityAttributes,
   KanbanSessionAttributes,
   KanbanSessionMessage,
   KanbanWorkspace,
+  LocalWorkspaceSummary,
+  RealtimeEvent,
+  SessionMessageResponse,
 } from "./types";
 
 type SectionKey = "attention" | "running" | "idle";
@@ -24,10 +30,14 @@ type HomeAssistantLike = {
 
 type CardConfig = {
   entity: string;
+  base_url?: string;
+  api_key?: string;
+  messages_limit?: number;
 };
 
 type DialogAction = "send" | "queue" | "stop";
 type DialogMessage = {
+  key?: string;
   sender: "user" | "ai";
   text: string;
 };
@@ -42,6 +52,11 @@ const SECTION_ORDER: Array<{ key: SectionKey; label: string }> = [
   { key: "idle", label: "空闲" },
 ];
 
+const DEFAULT_MESSAGES_LIMIT = 50;
+const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
+const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 5_000;
+const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
+
 export class KanbanWatcherCard extends LitElement {
   static styles = cardStyles;
 
@@ -51,25 +66,47 @@ export class KanbanWatcherCard extends LitElement {
     selectedWorkspaceId: { state: true },
     messageDraft: { state: true },
     actionFeedback: { state: true },
+    apiWorkspaces: { state: true },
+    boardLoading: { state: true },
+    boardError: { state: true },
+    dialogLoading: { state: true },
+    dialogError: { state: true },
+    dialogMessagesByWorkspace: { state: true },
   };
 
   hass?: HomeAssistantLike;
 
   private config?: CardConfig;
+  private refreshTimer?: number;
+  private dialogRefreshTimer?: number;
+  private boardRealtimeRetryTimer?: number;
+  private realtimeRetryTimer?: number;
+  private boardRealtimeSocket?: WebSocket;
+  private realtimeSocket?: WebSocket;
+  private boardRealtimeConnected = false;
+  private realtimeConnected = false;
 
   private collapsedSections = new Set<SectionKey>();
   private selectedWorkspaceId?: string;
   private messageDraft = "";
   private actionFeedback = "";
   private queuedItems: QueueItem[] = [];
+  private apiWorkspaces: KanbanWorkspace[] = [];
+  private boardLoading = false;
+  private boardError = "";
+  private dialogLoading = false;
+  private dialogError = "";
+  private dialogMessagesByWorkspace: Record<string, DialogMessage[]> = {};
 
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener("keydown", this.handleKeyDown);
+    this.startApiSyncIfNeeded();
   }
 
   disconnectedCallback() {
     this.removeEventListener("keydown", this.handleKeyDown);
+    this.stopApiSync();
     super.disconnectedCallback();
   }
 
@@ -79,6 +116,7 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     this.config = config;
+    this.startApiSyncIfNeeded();
   }
 
   getCardSize() {
@@ -91,11 +129,7 @@ export class KanbanWatcherCard extends LitElement {
     return html`
       <ha-card>
         <div class="board">
-          ${sections.length === 0
-            ? html`<div class="empty-state">当前没有任务</div>`
-            : sections.map(({ key, label, workspaces }) =>
-                this.renderSection(key, label, workspaces),
-              )}
+          ${this.renderBoardState(sections)}
         </div>
         ${this.renderDialog()}
       </ha-card>
@@ -106,6 +140,30 @@ export class KanbanWatcherCard extends LitElement {
     if (changedProperties.has("selectedWorkspaceId") && this.selectedWorkspaceId) {
       this.scrollMessagesToBottom();
     }
+    if (changedProperties.has("selectedWorkspaceId") && this.isApiMode) {
+      this.restartRealtimeConnection();
+      this.updateDialogPolling();
+    }
+  }
+
+  private renderBoardState(
+    sections: Array<{ key: SectionKey; label: string; workspaces: KanbanWorkspace[] }>,
+  ) {
+    if (this.boardLoading && sections.length === 0) {
+      return html`<div class="empty-state">正在加载工作区...</div>`;
+    }
+
+    if (this.boardError && sections.length === 0) {
+      return html`<div class="empty-state">${this.boardError}</div>`;
+    }
+
+    if (sections.length === 0) {
+      return html`<div class="empty-state">当前没有任务</div>`;
+    }
+
+    return sections.map(({ key, label, workspaces }) =>
+      this.renderSection(key, label, workspaces),
+    );
   }
 
   private renderSection(
@@ -178,6 +236,7 @@ export class KanbanWatcherCard extends LitElement {
     if (!workspace) {
       return nothing;
     }
+
     const messages = this.getDialogMessages(workspace);
     const isRunning = workspace.status === "running";
     const queuedItems = this.getQueueItems(workspace.id);
@@ -249,7 +308,7 @@ export class KanbanWatcherCard extends LitElement {
               <button
                 class="dialog-action dialog-action-primary"
                 type="button"
-                @click=${() => this.handleActionClick(isRunning ? "stop" : "send")}
+                @click=${() => void this.handleActionClick(isRunning ? "stop" : "send")}
               >
                 ${isRunning
                   ? html`
@@ -263,7 +322,7 @@ export class KanbanWatcherCard extends LitElement {
                     <button
                       class="dialog-action dialog-action-secondary"
                       type="button"
-                      @click=${() => this.handleActionClick("queue")}
+                      @click=${() => void this.handleActionClick("queue")}
                     >
                       加入队列
                     </button>
@@ -271,12 +330,25 @@ export class KanbanWatcherCard extends LitElement {
                 : nothing}
             </div>
             <div class="dialog-feedback" aria-live="polite">
-              ${this.actionFeedback || "消息操作暂未接入真实接口。"}
+              ${this.currentFeedback}
             </div>
           </div>
         </section>
       </div>
     `;
+  }
+
+  private get currentFeedback() {
+    if (this.actionFeedback) {
+      return this.actionFeedback;
+    }
+    if (this.dialogError) {
+      return this.dialogError;
+    }
+    if (this.dialogLoading) {
+      return "正在加载消息...";
+    }
+    return this.isApiMode ? "消息已切换为本地持久化接口。" : "消息操作暂未接入真实接口。";
   }
 
   private toggleSection(key: SectionKey) {
@@ -293,19 +365,25 @@ export class KanbanWatcherCard extends LitElement {
     this.selectedWorkspaceId = workspace.id;
     this.messageDraft = "";
     this.actionFeedback = "";
+    this.dialogError = "";
+    if (this.isApiMode) {
+      void this.loadWorkspaceMessages(workspace.id, true);
+    }
   }
 
   private closeWorkspaceDialog = () => {
     this.selectedWorkspaceId = undefined;
     this.messageDraft = "";
     this.actionFeedback = "";
+    this.dialogError = "";
+    this.dialogLoading = false;
   };
 
   private handleMessageInput = (event: Event) => {
     this.messageDraft = (event.target as HTMLTextAreaElement).value;
   };
 
-  private handleActionClick(action: DialogAction) {
+  private async handleActionClick(action: DialogAction) {
     if (action === "queue" && this.selectedWorkspaceId) {
       const content = this.messageDraft.trim() || "未填写内容的排队消息";
       this.queuedItems = [
@@ -316,10 +394,40 @@ export class KanbanWatcherCard extends LitElement {
       return;
     }
 
-    this.actionFeedback =
-      action === "send"
-        ? "发送消息功能暂未接入，当前仅展示界面。"
-        : "停止功能暂未接入，当前仅展示界面。";
+    if (action === "stop") {
+      this.actionFeedback = "停止功能暂未接入，当前仅展示界面。";
+      return;
+    }
+
+    if (!this.isApiMode || !this.selectedWorkspaceId) {
+      this.actionFeedback = "发送消息功能暂未接入，当前仅展示界面。";
+      return;
+    }
+
+    const message = this.messageDraft.trim();
+    if (!message) {
+      this.actionFeedback = "请输入要发送的消息。";
+      return;
+    }
+
+    try {
+      this.actionFeedback = "正在发送消息...";
+      const response = await sendWorkspaceFollowUp({
+        baseUrl: this.config!.base_url!,
+        apiKey: this.config?.api_key,
+        workspaceId: this.selectedWorkspaceId,
+        message,
+      });
+      this.messageDraft = "";
+      this.actionFeedback = response.message?.trim()
+        ? `发送成功：${response.message.trim()}`
+        : "发送成功。";
+      this.emitPreviewStatus();
+      await this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+    } catch (error) {
+      this.actionFeedback = this.toErrorMessage(error, "发送消息失败");
+      this.emitPreviewStatus(this.actionFeedback);
+    }
   }
 
   private handleKeyDown = (event: Event) => {
@@ -333,6 +441,8 @@ export class KanbanWatcherCard extends LitElement {
   private getWorkspaceDisplayMeta(workspace: KanbanWorkspace) {
     const timeSource =
       workspace.relative_time ||
+      workspace.updated_at ||
+      workspace.last_message_at ||
       (workspace.status === "completed"
         ? workspace.completed_at ?? this.entityAttributes?.updated_at
         : this.entityAttributes?.updated_at);
@@ -358,19 +468,21 @@ export class KanbanWatcherCard extends LitElement {
       return undefined;
     }
 
-    return this.normalizedWorkspaces.find(
-      (workspace) => workspace.id === this.selectedWorkspaceId,
-    );
+    return this.allWorkspaces.find((workspace) => workspace.id === this.selectedWorkspaceId);
   }
 
   private get visibleSections() {
-    const grouped = groupWorkspaces(this.normalizedWorkspaces);
+    const grouped = groupWorkspaces(this.allWorkspaces);
 
     return SECTION_ORDER.map(({ key, label }) => ({
       key,
       label,
       workspaces: grouped[key],
     })).filter((section) => section.workspaces.length > 0);
+  }
+
+  private get allWorkspaces(): KanbanWorkspace[] {
+    return this.isApiMode ? this.apiWorkspaces : this.normalizedWorkspaces;
   }
 
   private get normalizedWorkspaces(): KanbanWorkspace[] {
@@ -392,6 +504,10 @@ export class KanbanWatcherCard extends LitElement {
     return [];
   }
 
+  private get isApiMode() {
+    return Boolean(this.config?.base_url);
+  }
+
   private isWorkspaceLike(value: unknown): value is KanbanWorkspace {
     return Boolean(
       value &&
@@ -404,6 +520,19 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private getDialogMessages(workspace: KanbanWorkspace): DialogMessage[] {
+    if (this.isApiMode) {
+      const apiMessages = this.dialogMessagesByWorkspace[workspace.id];
+      if (apiMessages?.length) {
+        return apiMessages;
+      }
+      if (this.dialogLoading) {
+        return [{ sender: "ai", text: "正在加载消息..." }];
+      }
+      if (this.dialogError) {
+        return [{ sender: "ai", text: this.dialogError }];
+      }
+    }
+
     const recentSessionMessages = this.getRecentSessionMessages(workspace);
 
     if (recentSessionMessages.length > 0) {
@@ -515,5 +644,411 @@ export class KanbanWatcherCard extends LitElement {
 
   private getQueueItems(workspaceId: string) {
     return this.queuedItems.filter((item) => item.workspaceId === workspaceId);
+  }
+
+  private emitPreviewStatus(message?: string) {
+    this.dispatchEvent(
+      new CustomEvent("kanban-watcher-preview-status", {
+        detail: { message },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private startApiSyncIfNeeded() {
+    if (!this.isConnected) {
+      return;
+    }
+
+    this.stopApiSync();
+
+    if (!this.isApiMode) {
+      return;
+    }
+
+    void this.loadActiveWorkspaces();
+    this.connectBoardRealtimeIfNeeded();
+    this.startBoardPolling();
+  }
+
+  private stopApiSync() {
+    this.stopBoardPolling();
+    this.stopDialogPolling();
+    if (this.boardRealtimeRetryTimer) {
+      window.clearTimeout(this.boardRealtimeRetryTimer);
+      this.boardRealtimeRetryTimer = undefined;
+    }
+    if (this.realtimeRetryTimer) {
+      window.clearTimeout(this.realtimeRetryTimer);
+      this.realtimeRetryTimer = undefined;
+    }
+    if (this.boardRealtimeSocket) {
+      const socket = this.boardRealtimeSocket;
+      this.boardRealtimeSocket = undefined;
+      socket.close();
+    }
+    if (this.realtimeSocket) {
+      const socket = this.realtimeSocket;
+      this.realtimeSocket = undefined;
+      socket.close();
+    }
+    this.boardRealtimeConnected = false;
+    this.realtimeConnected = false;
+  }
+
+  private startBoardPolling() {
+    if (this.refreshTimer) {
+      return;
+    }
+    this.refreshTimer = window.setInterval(() => {
+      void this.loadActiveWorkspaces();
+    }, DEFAULT_REFRESH_INTERVAL_MS);
+  }
+
+  private stopBoardPolling() {
+    if (!this.refreshTimer) {
+      return;
+    }
+    window.clearInterval(this.refreshTimer);
+    this.refreshTimer = undefined;
+  }
+
+  private startDialogPolling() {
+    if (this.dialogRefreshTimer || !this.selectedWorkspaceId) {
+      return;
+    }
+    this.dialogRefreshTimer = window.setInterval(() => {
+      if (this.selectedWorkspaceId) {
+        void this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+      }
+    }, DEFAULT_DIALOG_FALLBACK_INTERVAL_MS);
+  }
+
+  private stopDialogPolling() {
+    if (!this.dialogRefreshTimer) {
+      return;
+    }
+    window.clearInterval(this.dialogRefreshTimer);
+    this.dialogRefreshTimer = undefined;
+  }
+
+  private updateDialogPolling() {
+    if (this.realtimeConnected || !this.selectedWorkspaceId) {
+      this.stopDialogPolling();
+      return;
+    }
+    this.startDialogPolling();
+  }
+
+  private connectBoardRealtimeIfNeeded() {
+    if (!this.config?.base_url || typeof WebSocket === "undefined") {
+      return;
+    }
+    const socket = connectRealtime({
+      baseUrl: this.config.base_url,
+      apiKey: this.config.api_key,
+      onOpen: () => {
+        if (this.boardRealtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        this.boardRealtimeConnected = true;
+        this.emitPreviewStatus(`首页实时已连接：${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`);
+        this.stopBoardPolling();
+        if (this.boardRealtimeRetryTimer) {
+          window.clearTimeout(this.boardRealtimeRetryTimer);
+          this.boardRealtimeRetryTimer = undefined;
+        }
+      },
+      onClose: () => {
+        if (this.boardRealtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        this.boardRealtimeConnected = false;
+        this.emitPreviewStatus(`首页实时已断开，已退回轮询：${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`);
+        void this.loadActiveWorkspaces();
+        this.startBoardPolling();
+        this.scheduleBoardRealtimeReconnect();
+      },
+      onMessage: (event) => {
+        if (this.boardRealtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        if (event.type === "workspace_snapshot") {
+          this.emitPreviewStatus(`首页实时已更新：${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`);
+          this.handleRealtimeEvent(event);
+        }
+      },
+    });
+    this.boardRealtimeSocket = socket;
+  }
+
+  private connectRealtimeIfNeeded() {
+    if (!this.config?.base_url || typeof WebSocket === "undefined") {
+      return;
+    }
+
+    const sessionId = this.selectedWorkspace?.latest_session_id ?? this.selectedWorkspace?.last_session_id;
+    if (!sessionId) {
+      this.realtimeConnected = false;
+      return;
+    }
+    const socket = connectRealtime({
+      baseUrl: this.config.base_url,
+      apiKey: this.config.api_key,
+      sessionId,
+      onOpen: () => {
+        if (this.realtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        this.realtimeConnected = true;
+        this.emitPreviewStatus(`弹窗实时已连接：${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`);
+        this.stopDialogPolling();
+        if (this.realtimeRetryTimer) {
+          window.clearTimeout(this.realtimeRetryTimer);
+          this.realtimeRetryTimer = undefined;
+        }
+      },
+      onClose: () => {
+        if (this.realtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        this.realtimeConnected = false;
+        this.emitPreviewStatus(`弹窗实时已断开，已退回轮询：${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`);
+        if (this.selectedWorkspaceId) {
+          void this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+        }
+        this.updateDialogPolling();
+        this.scheduleRealtimeReconnect();
+      },
+      onMessage: (event) => {
+        if (this.realtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        if (event.type === "session_messages_appended") {
+          this.emitPreviewStatus(`弹窗实时已追加：${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`);
+        }
+        this.handleRealtimeEvent(event);
+      },
+    });
+    this.realtimeSocket = socket;
+  }
+
+  private restartRealtimeConnection() {
+    if (!this.isApiMode) {
+      return;
+    }
+    if (this.realtimeSocket) {
+      const socket = this.realtimeSocket;
+      this.realtimeSocket = undefined;
+      socket.close();
+    }
+    this.connectRealtimeIfNeeded();
+  }
+
+  private scheduleBoardRealtimeReconnect() {
+    if (this.boardRealtimeRetryTimer || !this.isApiMode) {
+      return;
+    }
+    this.boardRealtimeRetryTimer = window.setTimeout(() => {
+      this.boardRealtimeRetryTimer = undefined;
+      if (this.boardRealtimeSocket) {
+        const socket = this.boardRealtimeSocket;
+        this.boardRealtimeSocket = undefined;
+        socket.close();
+      }
+      this.connectBoardRealtimeIfNeeded();
+    }, DEFAULT_REALTIME_RETRY_DELAY_MS);
+  }
+
+  private scheduleRealtimeReconnect() {
+    if (this.realtimeRetryTimer || !this.isApiMode) {
+      return;
+    }
+    this.realtimeRetryTimer = window.setTimeout(() => {
+      this.realtimeRetryTimer = undefined;
+      this.restartRealtimeConnection();
+    }, DEFAULT_REALTIME_RETRY_DELAY_MS);
+  }
+
+  private handleRealtimeEvent(event: RealtimeEvent) {
+    if (event.type === "workspace_snapshot") {
+      this.apiWorkspaces = this.normalizeApiWorkspaces({
+        workspaces: event.workspaces,
+      });
+      this.requestUpdate();
+      return;
+    }
+    if (event.type === "session_messages_appended" && event.session_id) {
+      this.appendRealtimeMessages(event.session_id, event.messages);
+    }
+  }
+
+  private appendRealtimeMessages(sessionId: string, messages: SessionMessageResponse[] | undefined) {
+    const workspace = this.apiWorkspaces.find(
+      (item) => item.latest_session_id === sessionId || item.last_session_id === sessionId,
+    );
+    if (!workspace) {
+      return;
+    }
+
+    const existing = this.dialogMessagesByWorkspace[workspace.id] ?? [];
+    const merged = [...existing];
+    const seenKeys = new Set(existing.map((item) => item.key ?? `${item.sender}:${item.text}`));
+
+    for (const message of this.normalizeApiMessages(messages)) {
+      const key = message.key ?? `${message.sender}:${message.text}`;
+      if (seenKeys.has(key)) {
+        continue;
+      }
+      seenKeys.add(key);
+      merged.push(message);
+    }
+
+    this.dialogMessagesByWorkspace = {
+      ...this.dialogMessagesByWorkspace,
+      [workspace.id]: merged,
+    };
+    this.requestUpdate();
+    void this.updateComplete.then(() => this.scrollMessagesToBottom());
+  }
+
+  private async loadActiveWorkspaces() {
+    if (!this.config?.base_url) {
+      return;
+    }
+
+    this.boardLoading = true;
+    this.boardError = "";
+
+    try {
+      const response = await fetchActiveWorkspaces({
+        baseUrl: this.config.base_url,
+        apiKey: this.config.api_key,
+      });
+      this.apiWorkspaces = this.normalizeApiWorkspaces(response);
+      this.emitPreviewStatus();
+    } catch (error) {
+      this.apiWorkspaces = [];
+      this.boardError = this.toErrorMessage(error, "加载工作区失败");
+      this.emitPreviewStatus(this.boardError);
+    } finally {
+      this.boardLoading = false;
+      this.requestUpdate();
+    }
+  }
+
+  private normalizeApiWorkspaces(response: ActiveWorkspacesResponse) {
+    const items = Array.isArray(response.workspaces) ? response.workspaces : [];
+    return items
+      .map((workspace) => this.mapApiWorkspace(workspace))
+      .sort((left, right) => this.compareWorkspaces(left, right));
+  }
+
+  private mapApiWorkspace(workspace: LocalWorkspaceSummary): KanbanWorkspace {
+    const updatedAt = workspace.last_message_at || workspace.updated_at;
+    return {
+      id: workspace.id,
+      name: workspace.name || workspace.id,
+      status: workspace.status || "completed",
+      latest_session_id: workspace.latest_session_id,
+      has_pending_approval: workspace.has_pending_approval,
+      has_unseen_turns: workspace.has_unseen_turns,
+      has_running_dev_server: workspace.has_running_dev_server,
+      updated_at: updatedAt,
+      relative_time: formatRelativeTime(updatedAt),
+      files_changed: workspace.files_changed ?? 0,
+      lines_added: workspace.lines_added ?? 0,
+      lines_removed: workspace.lines_removed ?? 0,
+    };
+  }
+
+  private compareWorkspaces(left: KanbanWorkspace, right: KanbanWorkspace) {
+    const leftPinned = Boolean(left.is_pinned);
+    const rightPinned = Boolean(right.is_pinned);
+    if (leftPinned !== rightPinned) {
+      return leftPinned ? -1 : 1;
+    }
+
+    const leftName = (left.name || left.id).trim().toLocaleLowerCase("zh-CN");
+    const rightName = (right.name || right.id).trim().toLocaleLowerCase("zh-CN");
+    if (leftName !== rightName) {
+      return leftName.localeCompare(rightName, "zh-CN");
+    }
+
+    return left.id.localeCompare(right.id, "zh-CN");
+  }
+
+  private async loadWorkspaceMessages(workspaceId: string, forceRefresh = false) {
+    if (!this.config?.base_url) {
+      return;
+    }
+    if (!forceRefresh && this.dialogMessagesByWorkspace[workspaceId]) {
+      return;
+    }
+
+    this.dialogLoading = true;
+    this.dialogError = "";
+
+    try {
+      const response = await fetchWorkspaceLatestMessages({
+        baseUrl: this.config.base_url,
+        apiKey: this.config.api_key,
+        workspaceId,
+        limit: this.config.messages_limit ?? DEFAULT_MESSAGES_LIMIT,
+      });
+      this.dialogMessagesByWorkspace = {
+        ...this.dialogMessagesByWorkspace,
+        [workspaceId]: this.normalizeApiMessages(response.messages),
+      };
+      this.emitPreviewStatus();
+      this.requestUpdate();
+      await this.updateComplete;
+      this.scrollMessagesToBottom();
+    } catch (error) {
+      this.dialogError = this.toErrorMessage(error, "加载消息失败");
+      this.emitPreviewStatus(this.dialogError);
+    } finally {
+      this.dialogLoading = false;
+      this.requestUpdate();
+    }
+  }
+
+  private normalizeApiMessages(messages: SessionMessageResponse[] | undefined) {
+    return (Array.isArray(messages) ? messages : [])
+      .map((message) => {
+        if (typeof message.content !== "string" || !message.content.trim()) {
+          return undefined;
+        }
+        return {
+          key: this.buildMessageKey(message),
+          sender: message.role === "user" ? "user" : "ai",
+          text: this.compactMessageText(message.content),
+        } satisfies DialogMessage;
+      })
+      .filter((message): message is DialogMessage => Boolean(message));
+  }
+
+  private buildMessageKey(message: SessionMessageResponse) {
+    if (
+      typeof message.process_id === "string" &&
+      typeof message.entry_index === "number"
+    ) {
+      return `${message.process_id}:${message.entry_index}`;
+    }
+    if (typeof message.id === "number") {
+      return `id:${message.id}`;
+    }
+    if (typeof message.timestamp === "string" && typeof message.content === "string") {
+      return `${message.timestamp}:${message.content}`;
+    }
+    return undefined;
+  }
+
+  private toErrorMessage(error: unknown, fallback: string) {
+    if (error instanceof Error && error.message.trim()) {
+      return `${fallback}：${error.message.trim()}`;
+    }
+    return fallback;
   }
 }

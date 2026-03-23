@@ -76,6 +76,63 @@
         font-size: 0.9rem;
       }
 
+      [data-preview-mode] {
+        display: block;
+      }
+
+      .preview-mode-tip {
+        display: grid;
+        gap: 4px;
+        border-radius: 16px;
+        padding: 12px 14px;
+      }
+
+      .preview-request-tip {
+        display: grid;
+        gap: 4px;
+        border-radius: 16px;
+        padding: 12px 14px;
+      }
+
+      .preview-mode-tip strong {
+        font-size: 0.92rem;
+        color: #92400e;
+      }
+
+      .preview-mode-tip span {
+        color: #475569;
+        line-height: 1.5;
+      }
+
+      .preview-request-tip strong {
+        font-size: 0.92rem;
+      }
+
+      .preview-request-tip span {
+        line-height: 1.5;
+      }
+
+      .preview-request-tip.tone-muted strong,
+      .preview-request-tip.tone-muted span {
+        color: #475569;
+      }
+
+      .preview-request-tip.tone-success strong {
+        color: #166534;
+      }
+
+      .preview-request-tip.tone-success span {
+        color: #15803d;
+      }
+
+      .preview-request-tip.tone-error strong {
+        color: #b91c1c;
+      }
+
+      .preview-request-tip.tone-error span {
+        color: #991b1b;
+      }
+
       .preview-shell {
         padding: 18px;
         border-radius: 28px;
@@ -106,13 +163,17 @@
         <div class="eyebrow">Local Preview</div>
         <h1>Kanban Watcher Card 本地预览</h1>
         <p>
-          这个页面会注入一份本地 mock 的 Home Assistant `hass` 数据，用来快速查看卡片列表、点击弹框、输入框与按钮反馈，不需要先部署到 Home Assistant。
+          这个页面默认注入一份本地 mock 的 Home Assistant `hass` 数据；如果 URL 里带上
+          `base_url`，则会改为直连 `kanban-watcher` 本地 API，直接查看真实工作区和会话消息。
         </p>
         <div class="tips">
           <div class="tip">点击任一工作区卡片打开弹框</div>
           <div class="tip">缩窄浏览器宽度检查移动端布局</div>
           <div class="tip">当前数据覆盖关注 / 运行中 / 空闲三种状态</div>
+          <div class="tip">真实数据示例：`?base_url=http://127.0.0.1:7778&api_key=xxx`</div>
         </div>
+        <div data-preview-mode></div>
+        <div data-preview-request></div>
       </section>
 
       <section class="preview-shell">

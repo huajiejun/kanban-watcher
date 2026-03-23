@@ -17,9 +17,66 @@ type HassLike = {
 
 type KanbanWatcherCardElement = HTMLElement & {
   hass?: HassLike;
-  setConfig(config: { entity: string }): void;
+  setConfig(config: {
+    entity: string;
+    base_url?: string;
+    api_key?: string;
+    messages_limit?: number;
+  }): void;
   updateComplete?: Promise<unknown>;
 };
+
+type MockRealtimeEvent = {
+  type: string;
+  session_id?: string;
+  workspaces?: Array<Record<string, unknown>>;
+  messages?: Array<Record<string, unknown>>;
+};
+
+class MockWebSocket {
+  static instances: MockWebSocket[] = [];
+
+  static OPEN = 1;
+
+  url: string;
+  readyState = MockWebSocket.OPEN;
+  onopen: ((event: Event) => void) | null = null;
+  onmessage: ((event: MessageEvent<string>) => void) | null = null;
+  onclose: ((event: CloseEvent) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
+
+  constructor(url: string) {
+    this.url = url;
+    MockWebSocket.instances.push(this);
+    queueMicrotask(() => {
+      this.onopen?.(new Event("open"));
+    });
+  }
+
+  send() {}
+
+  close() {
+    this.readyState = 3;
+    this.onclose?.(new CloseEvent("close"));
+  }
+
+  emitMessage(payload: MockRealtimeEvent) {
+    this.onmessage?.(
+      new MessageEvent("message", {
+        data: JSON.stringify(payload),
+      }),
+    );
+  }
+
+  emitClose() {
+    this.readyState = 3;
+    this.onclose?.(new CloseEvent("close"));
+  }
+
+  static reset() {
+    MockWebSocket.instances = [];
+  }
+}
 
 const entityId = "sensor.kanban_watcher_kanban_watcher";
 
@@ -79,12 +136,12 @@ function createHass(
           recent_messages: [
             {
               role: "user",
-              content: "帮我写一个函数来处理用户输入",
+              content: "真实 attention 用户消息",
               timestamp: "2026-03-21T11:53:00Z",
             },
             {
               role: "assistant",
-              content: "### 解决方案\n\n我来帮你创建一个输入处理函数：\n\n```typescript\nfunction sanitizeInput(input: string): string {\n  return input.trim().toLowerCase();\n}\n```\n\n这个函数会：\n- 去除首尾空格\n- 转换为小写",
+              content: "真实 attention 助手消息",
               timestamp: "2026-03-21T11:54:00Z",
             },
           ],
@@ -156,8 +213,46 @@ async function renderCard(hass = createHass()) {
   return card;
 }
 
+async function renderApiCard(
+  options: {
+    baseUrl?: string;
+    apiKey?: string;
+    messagesLimit?: number;
+  } = {},
+) {
+  const card = document.createElement(
+    "kanban-watcher-card",
+  ) as KanbanWatcherCardElement;
+  card.setConfig({
+    entity: entityId,
+    base_url: options.baseUrl ?? "http://localhost:7778",
+    api_key: options.apiKey ?? "test-api-key",
+    messages_limit: options.messagesLimit ?? 50,
+  });
+  card.hass = createHass([]);
+  document.body.append(card);
+  await settleCard(card);
+  return card;
+}
+
+async function settleCard(card: KanbanWatcherCardElement) {
+  await Promise.resolve();
+  await Promise.resolve();
+  await card.updateComplete;
+  await Promise.resolve();
+  await card.updateComplete;
+}
+
 function normalizeText(value?: string | null) {
   return value?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+function mockJSONResponse(payload: unknown) {
+  return {
+    ok: true,
+    status: 200,
+    text: vi.fn().mockResolvedValue(JSON.stringify(payload)),
+  } as unknown as Response;
 }
 
 describe("getStatusMeta", () => {
@@ -261,6 +356,22 @@ describe("getStatusMeta", () => {
     });
   });
 
+  it("treats killed workspaces with unseen turns as attention", () => {
+    expect(
+      getStatusMeta({
+        status: "killed",
+        latest_process_status: "killed",
+        has_unseen_turns: true,
+      }),
+    ).toEqual({
+      icons: [
+        { symbol: "▲", kind: "process-error", tone: "error" },
+        { symbol: "●", kind: "unseen", tone: "brand" },
+      ],
+      accentClass: "is-attention",
+    });
+  });
+
   it("orders dev server, process state, unread, pr, and pin icons by priority", () => {
     expect(
       getStatusMeta({
@@ -286,14 +397,18 @@ describe("kanban-watcher-card", () => {
   beforeAll(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-21T12:00:00Z"));
+    vi.stubGlobal("WebSocket", MockWebSocket);
   });
 
   afterAll(() => {
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
   beforeEach(() => {
     document.body.innerHTML = "";
+    vi.restoreAllMocks();
+    MockWebSocket.reset();
   });
 
   it("registers the custom card with Home Assistant metadata", () => {
@@ -942,6 +1057,532 @@ describe("kanban-watcher-card", () => {
 
     expect(normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
       "停止功能暂未接入",
+    );
+  });
+
+  it("loads workspaces from the local API when base_url is configured", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-running",
+              name: "API Running Workspace",
+              status: "running",
+              latest_session_id: "session-api-running",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+            {
+              id: "api-idle",
+              name: "API Idle Workspace",
+              status: "completed",
+              latest_session_id: "session-api-idle",
+              updated_at: "2026-03-21T11:50:00Z",
+            },
+          ],
+        }),
+      );
+
+    const card = await renderApiCard({ baseUrl: "http://localhost:7778" });
+    const text = normalizeText(card.shadowRoot?.textContent);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:7778/api/workspaces/active",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-API-Key": "test-api-key",
+        }),
+      }),
+    );
+    expect(text).toContain("API Running Workspace");
+    expect(text).toContain("API Idle Workspace");
+    expect(text).toContain("运行中");
+    expect(text).toContain("空闲");
+    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(MockWebSocket.instances[0]?.url).toContain("/api/realtime/ws");
+    expect(MockWebSocket.instances[0]?.url).not.toContain("session_id=");
+  });
+
+  it("renders API workspaces with unseen turns under attention", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockJSONResponse({
+        workspaces: [
+          {
+            id: "api-attention",
+            name: "API Attention Workspace",
+            status: "completed",
+            latest_session_id: "session-api-attention",
+            updated_at: "2026-03-21T11:58:00Z",
+            has_unseen_turns: true,
+            files_changed: 7,
+            lines_added: 18,
+            lines_removed: 4,
+          },
+        ],
+      }),
+    );
+
+    const card = await renderApiCard({ baseUrl: "http://localhost:7778" });
+    const text = normalizeText(card.shadowRoot?.textContent);
+
+    expect(text).toContain("需要注意");
+    expect(text).toContain("API Attention Workspace");
+    expect(text).toContain("📄 7 +18 -4");
+    expect(text).not.toContain("空闲");
+  });
+
+  it("renders killed API workspaces with unseen turns under attention", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockJSONResponse({
+        workspaces: [
+          {
+            id: "api-killed-attention",
+            name: "API Killed Attention Workspace",
+            status: "killed",
+            latest_session_id: "session-api-killed-attention",
+            updated_at: "2026-03-21T11:58:00Z",
+            has_unseen_turns: true,
+          },
+        ],
+      }),
+    );
+
+    const card = await renderApiCard({ baseUrl: "http://localhost:7778" });
+    const text = normalizeText(card.shadowRoot?.textContent);
+
+    expect(text).toContain("需要注意");
+    expect(text).toContain("API Killed Attention Workspace");
+    expect(text).not.toContain("空闲");
+  });
+
+  it("loads latest messages from the local API when opening a workspace dialog", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-dialog",
+              name: "API Dialog Workspace",
+              status: "completed",
+              latest_session_id: "session-api-dialog",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-dialog",
+          workspace_name: "API Dialog Workspace",
+          messages: [
+            {
+              id: 1,
+              session_id: "session-api-dialog",
+              entry_type: "user_message",
+              role: "user",
+              content: "这是 API 用户消息",
+              timestamp: "2026-03-21T11:57:00Z",
+            },
+            {
+              id: 2,
+              session_id: "session-api-dialog",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "这是 API 助手消息",
+              timestamp: "2026-03-21T11:58:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard({ messagesLimit: 20 });
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+      "这是 API 用户消息",
+    );
+    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+      "这是 API 助手消息",
+    );
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:7778/api/workspaces/api-dialog/latest-messages?limit=20",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-API-Key": "test-api-key",
+        }),
+      }),
+    );
+  });
+
+  it("sends follow-up messages through the local API in API mode", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-send",
+              name: "API Send Workspace",
+              status: "completed",
+              latest_session_id: "session-api-send",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-send",
+          workspace_name: "API Send Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          message: "Follow-up sent successfully",
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const input = card.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    input!.value = "继续推进这个任务";
+    input?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await card.updateComplete;
+
+    const sendButton = card.shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    sendButton?.click();
+    await settleCard(card);
+
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      3,
+      "http://localhost:7778/api/workspace/api-send/follow-up",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+          "X-API-Key": "test-api-key",
+        }),
+        body: JSON.stringify({ message: "继续推进这个任务" }),
+      }),
+    );
+    expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "发送成功",
+    );
+  });
+
+  it("appends realtime messages through WebSocket in API mode", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-live",
+              name: "API Live Workspace",
+              status: "running",
+              latest_session_id: "session-api-live",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-live",
+          workspace_name: "API Live Workspace",
+          messages: [
+            {
+              id: 1,
+              session_id: "session-api-live",
+              process_id: "process-1",
+              entry_index: 0,
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "初始消息",
+              timestamp: "2026-03-21T11:58:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const realtimeSocket = MockWebSocket.instances.at(-1);
+    expect(realtimeSocket?.url).toContain("/api/realtime/ws");
+    expect(realtimeSocket?.url).toContain("session_id=session-api-live");
+
+    realtimeSocket?.emitMessage({
+      type: "session_messages_appended",
+      session_id: "session-api-live",
+      messages: [
+        {
+          id: 2,
+          session_id: "session-api-live",
+          process_id: "process-1",
+          entry_index: 1,
+          entry_type: "assistant_message",
+          role: "assistant",
+          content: "实时新增消息",
+          timestamp: "2026-03-21T11:59:00Z",
+        },
+      ],
+    });
+    await settleCard(card);
+
+    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+      "实时新增消息",
+    );
+  });
+
+  it("updates workspace status through the board realtime WebSocket", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockJSONResponse({
+        workspaces: [
+          {
+            id: "api-board",
+            name: "API Board Workspace",
+            status: "completed",
+            latest_session_id: "session-api-board",
+            updated_at: "2026-03-21T11:58:00Z",
+          },
+        ],
+      }),
+    );
+
+    const card = await renderApiCard();
+    expect(normalizeText(card.shadowRoot?.textContent)).toContain("空闲");
+
+    const boardSocket = MockWebSocket.instances[0];
+    boardSocket?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "api-board",
+          name: "API Board Workspace",
+          status: "running",
+          latest_session_id: "session-api-board",
+          updated_at: "2026-03-21T11:59:00Z",
+        },
+      ],
+    });
+    await settleCard(card);
+
+    const text = normalizeText(card.shadowRoot?.textContent);
+    expect(text).toContain("运行中");
+    expect(text).not.toContain("空闲");
+  });
+
+  it("keeps a stable order inside sections when board realtime updates arrive", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockJSONResponse({
+        workspaces: [
+          {
+            id: "ws-b",
+            name: "Beta Workspace",
+            status: "completed",
+            latest_session_id: "session-ws-b",
+            updated_at: "2026-03-21T11:58:00Z",
+          },
+          {
+            id: "ws-a",
+            name: "Alpha Workspace",
+            status: "completed",
+            latest_session_id: "session-ws-a",
+            updated_at: "2026-03-21T11:59:00Z",
+          },
+        ],
+      }),
+    );
+
+    const card = await renderApiCard();
+
+    const beforeNames = Array.from(
+      card.shadowRoot?.querySelectorAll(".workspace-name") ?? [],
+    ).map((node) => normalizeText(node.textContent));
+    expect(beforeNames).toEqual(["Alpha Workspace", "Beta Workspace"]);
+
+    MockWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-b",
+          name: "Beta Workspace",
+          status: "completed",
+          latest_session_id: "session-ws-b",
+          updated_at: "2026-03-21T12:00:00Z",
+        },
+        {
+          id: "ws-a",
+          name: "Alpha Workspace",
+          status: "completed",
+          latest_session_id: "session-ws-a",
+          updated_at: "2026-03-21T11:59:00Z",
+        },
+      ],
+    });
+    await settleCard(card);
+
+    const afterNames = Array.from(
+      card.shadowRoot?.querySelectorAll(".workspace-name") ?? [],
+    ).map((node) => normalizeText(node.textContent));
+    expect(afterNames).toEqual(["Alpha Workspace", "Beta Workspace"]);
+  });
+
+  it("emits preview status when the board realtime WebSocket connects and updates", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockJSONResponse({
+        workspaces: [
+          {
+            id: "api-observe",
+            name: "API Observe Workspace",
+            status: "completed",
+            latest_session_id: "session-api-observe",
+            updated_at: "2026-03-21T11:58:00Z",
+          },
+        ],
+      }),
+    );
+
+    const card = document.createElement("kanban-watcher-card") as KanbanWatcherCardElement;
+    const messages: string[] = [];
+    card.addEventListener("kanban-watcher-preview-status", (event: Event) => {
+      messages.push(((event as CustomEvent<{ message?: string }>).detail?.message ?? "").trim());
+    });
+    card.setConfig({
+      entity: entityId,
+      base_url: "http://localhost:7778",
+      api_key: "test-api-key",
+    });
+    card.hass = createHass([]);
+    document.body.append(card);
+    await settleCard(card);
+
+    MockWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "api-observe",
+          name: "API Observe Workspace",
+          status: "running",
+          latest_session_id: "session-api-observe",
+          updated_at: "2026-03-21T11:59:00Z",
+        },
+      ],
+    });
+    await settleCard(card);
+
+    expect(messages.some((message) => message.includes("首页实时已连接"))).toBe(true);
+    expect(messages.some((message) => message.includes("首页实时已更新"))).toBe(true);
+  });
+
+  it("falls back to polling when realtime WebSocket closes", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-fallback",
+              name: "API Fallback Workspace",
+              status: "running",
+              latest_session_id: "session-api-fallback",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-fallback",
+          workspace_name: "API Fallback Workspace",
+          messages: [
+            {
+              id: 1,
+              session_id: "session-api-fallback",
+              process_id: "process-1",
+              entry_index: 0,
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "旧消息",
+              timestamp: "2026-03-21T11:58:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-fallback",
+              name: "API Fallback Workspace",
+              status: "completed",
+              latest_session_id: "session-api-fallback",
+              updated_at: "2026-03-21T11:59:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-fallback",
+          workspace_name: "API Fallback Workspace",
+          messages: [
+            {
+              id: 1,
+              session_id: "session-api-fallback",
+              process_id: "process-1",
+              entry_index: 0,
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "旧消息",
+              timestamp: "2026-03-21T11:58:00Z",
+            },
+            {
+              id: 2,
+              session_id: "session-api-fallback",
+              process_id: "process-1",
+              entry_index: 1,
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "轮询补偿消息",
+              timestamp: "2026-03-21T11:59:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    MockWebSocket.instances.at(-1)?.emitClose();
+    vi.advanceTimersByTime(5_000);
+    await settleCard(card);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:7778/api/workspaces/active",
+      expect.anything(),
+    );
+    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+      "轮询补偿消息",
     );
   });
 });

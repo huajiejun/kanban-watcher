@@ -11,19 +11,41 @@ import (
 // Config kanban-watcher 的根配置结构
 type Config struct {
 	KanbanAPIURL     string                 `yaml:"kanban_api_url"`        // vibe-kanban API 地址
-	MQTT             MQTTConfig             `yaml:"mqtt"`                  // MQTT 连接配置
 	ConversationSync ConversationSyncConfig `yaml:"conversation_sync"`     // 会话日志同步配置
 	WeChat           WeChatConfig           `yaml:"wechat"`                // 企业微信通知配置
 	WorkingHours     WorkingHours           `yaml:"working_hours"`         // 工作时间窗口
 	PollIntervalSecs int                    `yaml:"poll_interval_seconds"` // 轮询间隔（秒）
+	Database         DatabaseConfig         `yaml:"database"`              // 数据库配置
+	HTTPAPI          HTTPAPIConfig          `yaml:"http_api"`              // 本地 HTTP API 配置
 }
 
-// MQTTConfig MQTT Broker 连接参数
-type MQTTConfig struct {
-	Broker   string `yaml:"broker"`    // 服务器地址，如 tcp://192.168.1.100:1883
-	Username string `yaml:"username"`  // 用户名（留空表示无认证）
-	Password string `yaml:"password"`  // 密码
-	ClientID string `yaml:"client_id"` // 客户端标识符，需全局唯一
+// DatabaseConfig 数据库连接参数
+type DatabaseConfig struct {
+	Host             string   `yaml:"host"`                // 数据库主机地址
+	Port             int      `yaml:"port"`                // 数据库端口
+	User             string   `yaml:"user"`                // 用户名
+	Password         string   `yaml:"password"`            // 密码
+	Database         string   `yaml:"database"`            // 数据库名
+	SyncIntervalSecs int      `yaml:"sync_interval_seconds"` // 同步间隔（秒）
+	BatchSize        int      `yaml:"batch_size"`           // 批量大小
+	MessageTypes     []string `yaml:"message_types"`       // 同步的消息类型
+}
+
+// HTTPAPIConfig 本地 HTTP API 配置
+type HTTPAPIConfig struct {
+	Port   int    `yaml:"port"`
+	APIKey string `yaml:"api_key"`
+}
+
+// IsEnabled 检查数据库配置是否启用
+func (c DatabaseConfig) IsEnabled() bool {
+	return c.Host != "" && c.Database != "" && c.User != ""
+}
+
+// DSN 生成数据库连接字符串
+func (c DatabaseConfig) DSN() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local",
+		c.User, c.Password, c.Host, c.Port, c.Database)
 }
 
 // ConversationSyncConfig 对话日志提取与 Home Assistant 同步配置
@@ -119,10 +141,6 @@ func MustLoad() *Config {
 func defaultConfig() *Config {
 	return &Config{
 		KanbanAPIURL: "http://127.0.0.1:7777",
-		MQTT: MQTTConfig{
-			Broker:   "tcp://homeassistant.local:1883",
-			ClientID: "kanban-watcher",
-		},
 		ConversationSync: ConversationSyncConfig{
 			Enabled:             boolPtr(true),
 			RecentMessageLimit:  20,
@@ -137,6 +155,10 @@ func defaultConfig() *Config {
 			End:   "01:00", // 跨午夜：08:00 到次日 01:00
 		},
 		PollIntervalSecs: 15, // 默认 15 秒轮询一次
+		HTTPAPI: HTTPAPIConfig{
+			Port:   7778,
+			APIKey: "change-me",
+		},
 	}
 }
 
@@ -144,12 +166,6 @@ func defaultConfig() *Config {
 func applyDefaults(cfg *Config) {
 	if cfg.KanbanAPIURL == "" {
 		cfg.KanbanAPIURL = "http://127.0.0.1:7777"
-	}
-	if cfg.MQTT.ClientID == "" {
-		cfg.MQTT.ClientID = "kanban-watcher"
-	}
-	if cfg.MQTT.Broker == "" {
-		cfg.MQTT.Broker = "tcp://homeassistant.local:1883"
 	}
 	if cfg.WeChat.NotifyThresholdMinutes <= 0 {
 		cfg.WeChat.NotifyThresholdMinutes = 10
@@ -181,6 +197,12 @@ func applyDefaults(cfg *Config) {
 	if cfg.PollIntervalSecs <= 0 {
 		cfg.PollIntervalSecs = 15
 	}
+	if cfg.HTTPAPI.Port <= 0 {
+		cfg.HTTPAPI.Port = 7778
+	}
+	if cfg.HTTPAPI.APIKey == "" {
+		cfg.HTTPAPI.APIKey = "change-me"
+	}
 }
 
 func (c ConversationSyncConfig) IsEnabled() bool {
@@ -201,6 +223,7 @@ func writeExampleConfig(path string) error {
 	example.WeChat.AgentID = "1000001"
 	example.WeChat.Secret = "YOUR_SECRET"
 	example.WeChat.ToUser = "@all"
+	example.HTTPAPI.APIKey = "YOUR_API_KEY"
 	data, err := yaml.Marshal(example)
 	if err != nil {
 		return err

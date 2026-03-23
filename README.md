@@ -1,6 +1,9 @@
 # Kanban Watcher Card
 
-Lit-based Home Assistant custom card for the Kanban Watcher sensor entity.
+Lit-based Home Assistant custom card. Current version supports two data modes:
+
+- API mode: recommended. The card reads workspaces and conversation history from `kanban-watcher` HTTP API.
+- Hass fallback mode: keeps the old preview / sensor-attribute path for local preview and compatibility.
 
 This repository is currently set up for manual Home Assistant deployment rather than npm package distribution.
 
@@ -39,7 +42,17 @@ type: module
 
 ## Use The Card
 
-Add the custom card to a dashboard and point it at the Kanban Watcher entity:
+Recommended API-driven config:
+
+```yaml
+type: custom:kanban-watcher-card
+entity: sensor.kanban_watcher_kanban_watcher
+base_url: http://127.0.0.1:7778
+api_key: your-api-key-here
+messages_limit: 50
+```
+
+Compatibility config without API mode:
 
 ```yaml
 type: custom:kanban-watcher-card
@@ -52,3 +65,6 @@ entity: sensor.kanban_watcher_kanban_watcher
 - Section headers start expanded and can be collapsed
 - Each task is rendered as a compact two-line summary card
 - Empty boards show `当前没有任务`
+- In API mode, the board requests `/api/workspaces/active` on load and refreshes periodically
+- In API mode, clicking a workspace requests `/api/workspaces/{workspace_id}/latest-messages`
+- Sending a message in the dialog calls `/api/workspace/{workspace_id}/follow-up`

@@ -15,6 +15,8 @@ export interface KanbanWorkspace {
   lines_added?: number;
   lines_removed?: number;
   completed_at?: string;
+  updated_at?: string;
+  last_message_at?: string;
   needs_attention?: boolean;
   latest_process_status?: string;
   latestProcessStatus?: string;
@@ -47,4 +49,50 @@ export interface KanbanSessionAttributes {
   workspaceName?: string;
   last_message?: string;
   recent_messages?: KanbanSessionMessage[] | string;
+}
+
+export interface LocalWorkspaceSummary {
+  id: string;
+  name: string;
+  branch?: string;
+  latest_session_id?: string;
+  status?: string;
+  has_pending_approval?: boolean;
+  has_unseen_turns?: boolean;
+  has_running_dev_server?: boolean;
+  files_changed?: number;
+  lines_added?: number;
+  lines_removed?: number;
+  updated_at?: string;
+  message_count?: number;
+  last_message_at?: string;
+}
+
+export interface ActiveWorkspacesResponse {
+  workspaces?: LocalWorkspaceSummary[];
+}
+
+export interface SessionMessageResponse {
+  id?: number;
+  session_id?: string;
+  process_id?: string;
+  entry_index?: number;
+  entry_type?: string;
+  role?: string;
+  content?: string;
+  timestamp?: string;
+}
+
+export interface SessionMessagesResponse {
+  session_id?: string;
+  workspace_name?: string;
+  messages?: SessionMessageResponse[];
+  has_more?: boolean;
+}
+
+export interface RealtimeEvent {
+  type?: string;
+  workspaces?: LocalWorkspaceSummary[];
+  session_id?: string;
+  messages?: SessionMessageResponse[];
 }
