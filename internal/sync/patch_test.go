@@ -279,6 +279,28 @@ func TestShouldReconnectProcessLog(t *testing.T) {
 	}
 }
 
+func TestShouldReconnectRunningProcessByLatestStatus(t *testing.T) {
+	tests := []struct {
+		name   string
+		status *string
+		want   bool
+	}{
+		{name: "missing process stops reconnect", status: nil, want: false},
+		{name: "latest running keeps reconnect", status: stringPtr("running"), want: true},
+		{name: "latest completed stops reconnect", status: stringPtr("completed"), want: false},
+		{name: "latest failed stops reconnect", status: stringPtr("failed"), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldReconnectRunningProcessByLatestStatus(tt.status)
+			if got != tt.want {
+				t.Fatalf("shouldReconnectRunningProcessByLatestStatus(%v) = %v, want %v", tt.status, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestShouldSkipCompletedProcessSubscription(t *testing.T) {
 	tests := []struct {
 		name   string

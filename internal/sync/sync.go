@@ -558,7 +558,15 @@ func (s *SyncService) scheduleProcessReconnect(ctx context.Context, workspaceID,
 		case <-s.stopCh:
 			return
 		case <-timer.C:
-			s.subscribeProcessLogs(ctx, workspaceID, sessionID, processID, processStatus)
+			latestStatus, err := s.store.GetExecutionProcessStatus(ctx, processID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "读取 execution process 状态失败 [%s]: %v\n", processID, err)
+				return
+			}
+			if !shouldReconnectRunningProcessByLatestStatus(latestStatus) {
+				return
+			}
+			s.subscribeProcessLogs(ctx, workspaceID, sessionID, processID, *latestStatus)
 		}
 	}()
 }
@@ -693,6 +701,10 @@ func shouldReconnectProcessLog(processStatus string, receivedEntries bool, err e
 		return false
 	}
 	return processStatus == "running"
+}
+
+func shouldReconnectRunningProcessByLatestStatus(status *string) bool {
+	return status != nil && *status == "running"
 }
 
 func shouldSkipHistoricalProcess(processStatus, subscriptionStatus string) bool {

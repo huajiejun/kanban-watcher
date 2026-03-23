@@ -236,6 +236,25 @@ func (s *Store) UpsertExecutionProcess(ctx context.Context, ep *ExecutionProcess
 	return nil
 }
 
+// GetExecutionProcessStatus 获取 execution process 当前状态
+func (s *Store) GetExecutionProcessStatus(ctx context.Context, processID string) (*string, error) {
+	query := `
+		SELECT status
+		FROM kw_execution_processes
+		WHERE id = ?
+		LIMIT 1
+	`
+
+	var status string
+	if err := s.db.QueryRowContext(ctx, query, processID).Scan(&status); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get execution process status: %w", err)
+	}
+	return &status, nil
+}
+
 // RefreshWorkspaceRuntimeState 根据最新 execution process 刷新工作区运行态
 func (s *Store) RefreshWorkspaceRuntimeState(ctx context.Context, workspaceID string) error {
 	query := `

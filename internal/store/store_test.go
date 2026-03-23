@@ -152,6 +152,32 @@ func TestGetProcessEntryReturnsNilOnNotFound(t *testing.T) {
 	}
 }
 
+func TestGetExecutionProcessStatusReturnsNilOnNotFound(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT status
+		FROM kw_execution_processes
+		WHERE id = ?
+		LIMIT 1
+	`)).
+		WithArgs("missing-proc").
+		WillReturnError(sql.ErrNoRows)
+
+	got, err := store.GetExecutionProcessStatus(context.Background(), "missing-proc")
+	if err != nil {
+		t.Fatalf("GetExecutionProcessStatus 返回错误: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("status = %#v, want nil", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestShouldRetryExec(t *testing.T) {
 	tests := []struct {
 		name string
