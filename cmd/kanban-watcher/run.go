@@ -225,8 +225,12 @@ func runDaemon() error {
 
 	// 初始化数据库 Store（如果配置了）
 	var dbStore *store.Store
+	fmt.Fprintf(os.Stdout, "调试: Database.Host=%s, Database=%s, User=%s\n",
+		cfg.Database.Host, cfg.Database.Database, cfg.Database.User)
+	fmt.Fprintf(os.Stdout, "调试: IsEnabled=%v\n", cfg.Database.IsEnabled())
 	if cfg.Database.IsEnabled() {
 		var err error
+		fmt.Fprintf(os.Stdout, "调试: DSN=%s\n", cfg.Database.DSN())
 		dbStore, err = store.NewStore(cfg.Database.DSN())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "数据库连接失败: %v\n", err)
@@ -244,6 +248,8 @@ func runDaemon() error {
 				go syncService.Start(context.Background())
 			}
 		}
+	} else {
+		fmt.Fprintf(os.Stdout, "数据库未配置或配置不完整\n")
 	}
 
 	proxyClient := api.NewProxyClient(cfg.KanbanAPIURL)

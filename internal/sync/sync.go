@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -28,10 +30,15 @@ type SyncService struct {
 
 // NewSyncService 创建同步服务实例
 func NewSyncService(cfg *config.Config, store *store.Store) *SyncService {
+	// 创建跳过 SSL 验证的 HTTP 客户端（用于自签名证书）
+	insecureTransport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
 	return &SyncService{
 		cfg:     cfg,
 		store:   store,
-		client:  &http.Client{Timeout: 30 * time.Second},
+		client:  &http.Client{Timeout: 30 * time.Second, Transport: insecureTransport},
 		wsConns: make(map[string]*websocket.Conn),
 		stopCh:  make(chan struct{}),
 	}
@@ -97,10 +104,17 @@ func (s *SyncService) pollWorkspaces(ctx context.Context) {
 
 // syncActiveWorkspaces 同步活跃的工作区
 func (s *SyncService) syncActiveWorkspaces(ctx context.Context) {
-	// 获取活跃工作区列表
-	url := fmt.Sprintf("%s/api/workspaces/summaries?archived=false", s.cfg.KanbanAPIURL)
+	// 获取活跃工作区列表 - 使用 POST 请求
+	url := fmt.Sprintf("%s/api/workspaces/summaries", s.cfg.KanbanAPIURL)
 
-	resp, err := s.client.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader([]byte(`{"archived":false}`)))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "构建请求失败: %v\n", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "获取工作区列表失败: %v\n", err)
 		return
@@ -112,52 +126,64 @@ func (s *SyncService) syncActiveWorkspaces(ctx context.Context) {
 		return
 	}
 
-	var workspaces []api.EnrichedWorkspace
-	if err := json.NewDecoder(resp.Body).Decode(&workspaces); err != nil {
+	// 解析 API 响应结构 - API 返回的是 WorkspaceSummary 列表
+	var apiResp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Summaries []api.WorkspaceSummary `json:"summaries"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
 		fmt.Fprintf(os.Stderr, "解析工作区列表失败: %v\n", err)
 		return
 	}
 
-	fmt.Printf("获取到 %d 个活跃工作区\n", len(workspaces))
-
-	// 处理每个工作区
-	for _, ws := range workspaces {
-		s.syncWorkspace(ctx, ws)
-	}
-}
-
-// syncWorkspace 同步单个工作区
-func (s *SyncService) syncWorkspace(ctx context.Context, ws api.EnrichedWorkspace) {
-	// 保存工作区到数据库
-	if err := s.upsertWorkspace(ctx, ws); err != nil {
-		fmt.Fprintf(os.Stderr, "保存工作区 %s 失败: %v\n", ws.ID, err)
+	if !apiResp.Success {
+		fmt.Fprintf(os.Stderr, "API 返回失败\n")
 		return
 	}
 
+	summaries := apiResp.Data.Summaries
+	fmt.Printf("获取到 %d 个活跃工作区\n", len(summaries))
+
+	// 处理每个工作区
+	for _, summary := range summaries {
+		s.syncWorkspaceSummary(ctx, summary)
+	}
+}
+
+// syncWorkspaceSummary 同步单个工作区摘要
+func (s *SyncService) syncWorkspaceSummary(ctx context.Context, summary api.WorkspaceSummary) {
 	// 获取最新的 session ID
-	sessionID := ws.Summary.LatestSessionID
+	sessionID := summary.LatestSessionID
 	if sessionID == nil || *sessionID == "" {
 		return
 	}
 
+	// 保存工作区到数据库（只保存基本信息）
+	if err := s.upsertWorkspaceFromSummary(ctx, summary); err != nil {
+		fmt.Fprintf(os.Stderr, "保存工作区 %s 失败: %v\n", summary.WorkspaceID, err)
+		return
+	}
+
+	fmt.Printf("同步工作区 %s, session: %s\n", summary.WorkspaceID, *sessionID)
+
 	// 订阅 session 的消息
-	s.subscribeSession(ctx, ws.ID, *sessionID)
+	s.subscribeSession(ctx, summary.WorkspaceID, *sessionID)
 }
 
-// upsertWorkspace 保存或更新工作区
-func (s *SyncService) upsertWorkspace(ctx context.Context, ws api.EnrichedWorkspace) error {
-	createdAt, _ := time.Parse(time.RFC3339, ws.Workspace.CreatedAt)
-	updatedAt, _ := time.Parse(time.RFC3339, ws.Workspace.UpdatedAt)
-
+// upsertWorkspaceFromSummary 从 WorkspaceSummary 保存工作区信息
+func (s *SyncService) upsertWorkspaceFromSummary(ctx context.Context, summary api.WorkspaceSummary) error {
+	now := time.Now()
 	dbWS := &store.Workspace{
-		ID:              ws.Workspace.ID,
-		Name:            ws.DisplayName,
-		Branch:          ws.Workspace.Branch,
-		Archived:        ws.Workspace.Archived,
-		Pinned:          ws.Workspace.Pinned,
-		LatestSessionID: ws.Summary.LatestSessionID,
-		CreatedAt:       createdAt,
-		UpdatedAt:       updatedAt,
+		ID:              summary.WorkspaceID,
+		Name:            summary.WorkspaceID[:8], // 使用 ID 前 8 位作为临时名称
+		Branch:          "unknown",               // 暂时未知
+		Archived:        false,
+		Pinned:          false,
+		LatestSessionID: summary.LatestSessionID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 	return s.store.UpsertWorkspace(ctx, dbWS)
 }
@@ -178,7 +204,12 @@ func (s *SyncService) subscribeSession(ctx context.Context, workspaceID, session
 
 	fmt.Printf("订阅 session: %s\n", wsURL)
 
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	// 创建跳过 SSL 验证的 WebSocket Dialer
+	dialer := &websocket.Dialer{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	conn, _, err := dialer.Dial(wsURL, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "WebSocket 连接失败 [%s]: %v\n", sessionID, err)
 		return
