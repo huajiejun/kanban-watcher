@@ -378,6 +378,20 @@ export const cardStyles = css`
     margin-top: 6px;
   }
 
+  .message-tool-group-item + .message-tool-group-item {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 34%, transparent);
+  }
+
+  .message-tool-group-item-summary {
+    margin-bottom: 6px;
+    color: var(--secondary-text-color, #64748b);
+    font-size: 0.8rem;
+    font-weight: 600;
+    word-break: break-word;
+  }
+
   .message-tool-detail pre {
     margin: 8px 0 0;
     padding: 10px 12px;

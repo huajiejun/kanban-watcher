@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -446,6 +447,7 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 	defer s.wg.Done()
 	var lastErr error
 	receivedEntries := false
+	entryStateByIndex := map[int]store.NormalizedEntry{}
 	defer func() {
 		if historicalSlotAcquired {
 			s.releaseHistoricalLogSlot()
@@ -488,15 +490,27 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 				if shouldSkipEntryByIndex(lastEntryIndex, patch.EntryIndex) {
 					continue
 				}
-				if !store.ShouldSync(patch.Entry.EntryType.Type) {
+				mergedEntry, ok := mergeEntryPatch(entryStateByIndex[patch.EntryIndex], patch)
+				if !ok {
 					continue
 				}
+				if !store.ShouldSync(mergedEntry.EntryType.Type) {
+					continue
+				}
+				entryStateByIndex[patch.EntryIndex] = mergedEntry
+				patch.Entry = mergedEntry
 
 				entry, err := s.buildProcessEntry(workspaceID, sessionID, processID, patch)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "构建 process entry 失败 [%s]: %v\n", processID, err)
 					continue
 				}
+				existingEntry, err := s.store.GetProcessEntry(ctx, processID, patch.EntryIndex)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "读取已有 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
+					continue
+				}
+				shouldBroadcast := shouldBroadcastRealtimeEntry(existingEntry, entry)
 				if err := s.store.UpsertProcessEntry(ctx, entry); err != nil {
 					fmt.Fprintf(os.Stderr, "保存 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
 					_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &patch.EntryIndex, "error", err.Error())
@@ -505,7 +519,7 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 				idx := patch.EntryIndex
 				_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &idx, "active", "")
 				lastEntryIndex = &idx
-				if s.realtime != nil {
+				if shouldBroadcast && s.realtime != nil {
 					if err := s.realtime.PublishSessionMessagesAppended(ctx, sessionID, []store.ProcessEntry{*entry}); err != nil {
 						fmt.Fprintf(os.Stderr, "推送实时消息失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
 					}
@@ -690,6 +704,42 @@ func shouldSkipHistoricalProcess(processStatus, subscriptionStatus string) bool 
 
 func shouldSkipEntryByIndex(lastEntryIndex *int, entryIndex int) bool {
 	return lastEntryIndex != nil && entryIndex < *lastEntryIndex
+}
+
+func shouldBroadcastRealtimeEntry(existing, next *store.ProcessEntry) bool {
+	if next == nil {
+		return false
+	}
+	if existing == nil {
+		return true
+	}
+	return realtimeEntrySignature(existing) != realtimeEntrySignature(next)
+}
+
+func realtimeEntrySignature(entry *store.ProcessEntry) string {
+	if entry == nil {
+		return ""
+	}
+
+	parts := []string{
+		entry.ProcessID,
+		strconv.Itoa(entry.EntryIndex),
+		entry.EntryType,
+		entry.Role,
+		entry.ContentHash,
+		derefString(entry.ToolName),
+		derefString(entry.ActionTypeJSON),
+		derefString(entry.StatusJSON),
+		derefString(entry.ErrorType),
+	}
+	return strings.Join(parts, "::")
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func resolveProcessSubscriptionStatus(processStatus string, receivedEntries bool, stopping bool, err error) (string, string) {

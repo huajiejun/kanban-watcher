@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
@@ -61,8 +62,9 @@ type client struct {
 type Hub struct {
 	upgrader websocket.Upgrader
 
-	mu      sync.RWMutex
-	clients map[*client]struct{}
+	mu                          sync.RWMutex
+	clients                     map[*client]struct{}
+	lastWorkspaceSnapshotDigest string
 }
 
 func NewHub() *Hub {
@@ -103,6 +105,21 @@ func (h *Hub) SendWorkspaceSnapshot(c *websocket.Conn, event Event) error {
 }
 
 func (h *Hub) BroadcastWorkspaceSnapshot(workspaces []WorkspacePayload) {
+	digest, err := workspaceSnapshotDigest(workspaces)
+	if err != nil {
+		log.Printf("[Realtime] 计算 workspace_snapshot 摘要失败: %v", err)
+		return
+	}
+
+	h.mu.Lock()
+	if digest == h.lastWorkspaceSnapshotDigest {
+		h.mu.Unlock()
+		log.Printf("[Realtime] 跳过重复 workspace_snapshot count=%d", len(workspaces))
+		return
+	}
+	h.lastWorkspaceSnapshotDigest = digest
+	h.mu.Unlock()
+
 	log.Printf("[Realtime] 广播 workspace_snapshot count=%d", len(workspaces))
 	h.broadcast(Event{
 		Type:       EventTypeWorkspaceSnapshot,
@@ -171,4 +188,12 @@ func (h *Hub) unregister(c *client) {
 	h.mu.Unlock()
 	log.Printf("[Realtime] 客户端已断开 session_id=%q clients=%d", c.sessionID, clientCount)
 	_ = c.conn.Close()
+}
+
+func workspaceSnapshotDigest(workspaces []WorkspacePayload) (string, error) {
+	payload, err := json.Marshal(workspaces)
+	if err != nil {
+		return "", err
+	}
+	return string(payload), nil
 }

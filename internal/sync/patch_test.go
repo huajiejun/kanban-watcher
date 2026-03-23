@@ -3,6 +3,8 @@ package sync
 import (
 	"errors"
 	"testing"
+
+	"github.com/huajiejun/kanban-watcher/internal/store"
 )
 
 func TestExtractEntryPatchesFromInitialSnapshot(t *testing.T) {
@@ -42,6 +44,60 @@ func TestExtractEntryPatchesFromInitialSnapshot(t *testing.T) {
 	}
 	if patches[0].EntryIndex != 0 || patches[1].EntryIndex != 1 {
 		t.Fatalf("entry_index 错误: %#v", patches)
+	}
+}
+
+func TestExtractEntryPatchesIncludesNestedContentUpdate(t *testing.T) {
+	message := []byte(`{
+		"JsonPatch": [
+			{
+				"op": "replace",
+				"path": "/entries/1/content/content",
+				"value": "实现和验证都已经收口"
+			}
+		]
+	}`)
+
+	patches, err := extractEntryPatches(message)
+	if err != nil {
+		t.Fatalf("extractEntryPatches 返回错误: %v", err)
+	}
+	if len(patches) != 1 {
+		t.Fatalf("patches 数量 = %d, want 1", len(patches))
+	}
+	if patches[0].EntryIndex != 1 {
+		t.Fatalf("entry_index = %d, want 1", patches[0].EntryIndex)
+	}
+	if !patches[0].IsPartial {
+		t.Fatalf("IsPartial = false, want true")
+	}
+	if patches[0].Entry.Content != "实现和验证都已经收口" {
+		t.Fatalf("content = %q, want 完整增量文本", patches[0].Entry.Content)
+	}
+}
+
+func TestMergeEntryPatchAppliesPartialContentUpdate(t *testing.T) {
+	base := store.NormalizedEntry{
+		Timestamp: "2026-03-23T10:00:00Z",
+		EntryType: store.NormalizedEntryType{Type: "assistant_message"},
+		Content:   "实",
+	}
+
+	merged, ok := mergeEntryPatch(base, entryPatch{
+		EntryIndex: 1,
+		IsPartial:  true,
+		Entry: store.NormalizedEntry{
+			Content: "实现和验证都已经收口",
+		},
+	})
+	if !ok {
+		t.Fatalf("mergeEntryPatch 返回 ok=false, want true")
+	}
+	if merged.Content != "实现和验证都已经收口" {
+		t.Fatalf("merged content = %q, want 完整增量文本", merged.Content)
+	}
+	if merged.EntryType.Type != "assistant_message" {
+		t.Fatalf("merged entry_type = %q, want assistant_message", merged.EntryType.Type)
 	}
 }
 

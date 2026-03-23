@@ -1,15 +1,15 @@
-const Qt = globalThis, Ji = Qt.ShadowRoot && (Qt.ShadyCSS === void 0 || Qt.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, ji = /* @__PURE__ */ Symbol(), wo = /* @__PURE__ */ new WeakMap();
+const Qt = globalThis, eo = Qt.ShadowRoot && (Qt.ShadyCSS === void 0 || Qt.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, to = /* @__PURE__ */ Symbol(), ko = /* @__PURE__ */ new WeakMap();
 let w_ = class {
   constructor(e, t, r) {
-    if (this._$cssResult$ = !0, r !== ji) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
+    if (this._$cssResult$ = !0, r !== to) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
     this.cssText = e, this.t = t;
   }
   get styleSheet() {
     let e = this.o;
     const t = this.t;
-    if (Ji && e === void 0) {
+    if (eo && e === void 0) {
       const r = t !== void 0 && t.length === 1;
-      r && (e = wo.get(t)), e === void 0 && ((this.o = e = new CSSStyleSheet()).replaceSync(this.cssText), r && wo.set(t, e));
+      r && (e = ko.get(t)), e === void 0 && ((this.o = e = new CSSStyleSheet()).replaceSync(this.cssText), r && ko.set(t, e));
     }
     return e;
   }
@@ -17,25 +17,25 @@ let w_ = class {
     return this.cssText;
   }
 };
-const J_ = (n) => new w_(typeof n == "string" ? n : n + "", void 0, ji), j_ = (n, ...e) => {
+const J_ = (n) => new w_(typeof n == "string" ? n : n + "", void 0, to), j_ = (n, ...e) => {
   const t = n.length === 1 ? n[0] : e.reduce((r, a, i) => r + ((o) => {
     if (o._$cssResult$ === !0) return o.cssText;
     if (typeof o == "number") return o;
     throw Error("Value passed to 'css' function must be a 'css' function result: " + o + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
   })(a) + n[i + 1], n[0]);
-  return new w_(t, n, ji);
+  return new w_(t, n, to);
 }, ed = (n, e) => {
-  if (Ji) n.adoptedStyleSheets = e.map((t) => t instanceof CSSStyleSheet ? t : t.styleSheet);
+  if (eo) n.adoptedStyleSheets = e.map((t) => t instanceof CSSStyleSheet ? t : t.styleSheet);
   else for (const t of e) {
     const r = document.createElement("style"), a = Qt.litNonce;
     a !== void 0 && r.setAttribute("nonce", a), r.textContent = t.cssText, n.appendChild(r);
   }
-}, Po = Ji ? (n) => n : (n) => n instanceof CSSStyleSheet ? ((e) => {
+}, Uo = eo ? (n) => n : (n) => n instanceof CSSStyleSheet ? ((e) => {
   let t = "";
   for (const r of e.cssRules) t += r.cssText;
   return J_(t);
 })(n) : n;
-const { is: td, defineProperty: nd, getOwnPropertyDescriptor: rd, getOwnPropertyNames: ad, getOwnPropertySymbols: id, getPrototypeOf: od } = Object, tn = globalThis, ko = tn.trustedTypes, sd = ko ? ko.emptyScript : "", ld = tn.reactiveElementPolyfillSupport, vt = (n, e) => n, zi = { toAttribute(n, e) {
+const { is: td, defineProperty: nd, getOwnPropertyDescriptor: rd, getOwnPropertyNames: ad, getOwnPropertySymbols: id, getPrototypeOf: od } = Object, tn = globalThis, Fo = tn.trustedTypes, sd = Fo ? Fo.emptyScript : "", ld = tn.reactiveElementPolyfillSupport, vt = (n, e) => n, Ki = { toAttribute(n, e) {
   switch (e) {
     case Boolean:
       n = n ? sd : null;
@@ -63,7 +63,7 @@ const { is: td, defineProperty: nd, getOwnPropertyDescriptor: rd, getOwnProperty
       }
   }
   return t;
-} }, P_ = (n, e) => !td(n, e), Uo = { attribute: !0, type: String, converter: zi, reflect: !1, useDefault: !1, hasChanged: P_ };
+} }, P_ = (n, e) => !td(n, e), Bo = { attribute: !0, type: String, converter: Ki, reflect: !1, useDefault: !1, hasChanged: P_ };
 Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), tn.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
 let at = class extends HTMLElement {
   static addInitializer(e) {
@@ -72,7 +72,7 @@ let at = class extends HTMLElement {
   static get observedAttributes() {
     return this.finalize(), this._$Eh && [...this._$Eh.keys()];
   }
-  static createProperty(e, t = Uo) {
+  static createProperty(e, t = Bo) {
     if (t.state && (t.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(e) && ((t = Object.create(t)).wrapped = !0), this.elementProperties.set(e, t), !t.noAccessor) {
       const r = /* @__PURE__ */ Symbol(), a = this.getPropertyDescriptor(e, r, t);
       a !== void 0 && nd(this.prototype, e, a);
@@ -90,7 +90,7 @@ let at = class extends HTMLElement {
     }, configurable: !0, enumerable: !0 };
   }
   static getPropertyOptions(e) {
-    return this.elementProperties.get(e) ?? Uo;
+    return this.elementProperties.get(e) ?? Bo;
   }
   static _$Ei() {
     if (this.hasOwnProperty(vt("elementProperties"))) return;
@@ -119,8 +119,8 @@ let at = class extends HTMLElement {
     const t = [];
     if (Array.isArray(e)) {
       const r = new Set(e.flat(1 / 0).reverse());
-      for (const a of r) t.unshift(Po(a));
-    } else e !== void 0 && t.push(Po(e));
+      for (const a of r) t.unshift(Uo(a));
+    } else e !== void 0 && t.push(Uo(e));
     return t;
   }
   static _$Eu(e, t) {
@@ -162,14 +162,14 @@ let at = class extends HTMLElement {
   _$ET(e, t) {
     const r = this.constructor.elementProperties.get(e), a = this.constructor._$Eu(e, r);
     if (a !== void 0 && r.reflect === !0) {
-      const i = (r.converter?.toAttribute !== void 0 ? r.converter : zi).toAttribute(t, r.type);
+      const i = (r.converter?.toAttribute !== void 0 ? r.converter : Ki).toAttribute(t, r.type);
       this._$Em = e, i == null ? this.removeAttribute(a) : this.setAttribute(a, i), this._$Em = null;
     }
   }
   _$AK(e, t) {
     const r = this.constructor, a = r._$Eh.get(e);
     if (a !== void 0 && this._$Em !== a) {
-      const i = r.getPropertyOptions(a), o = typeof i.converter == "function" ? { fromAttribute: i.converter } : i.converter?.fromAttribute !== void 0 ? i.converter : zi;
+      const i = r.getPropertyOptions(a), o = typeof i.converter == "function" ? { fromAttribute: i.converter } : i.converter?.fromAttribute !== void 0 ? i.converter : Ki;
       this._$Em = a;
       const s = o.fromAttribute(t, i.type);
       this[a] = s ?? this._$Ej?.get(a) ?? s, this._$Em = null;
@@ -247,12 +247,12 @@ let at = class extends HTMLElement {
   }
 };
 at.elementStyles = [], at.shadowRootOptions = { mode: "open" }, at[vt("elementProperties")] = /* @__PURE__ */ new Map(), at[vt("finalized")] = /* @__PURE__ */ new Map(), ld?.({ ReactiveElement: at }), (tn.reactiveElementVersions ??= []).push("2.1.2");
-const eo = globalThis, Fo = (n) => n, Xt = eo.trustedTypes, Bo = Xt ? Xt.createPolicy("lit-html", { createHTML: (n) => n }) : void 0, k_ = "$lit$", qe = `lit$${Math.random().toFixed(9).slice(2)}$`, U_ = "?" + qe, cd = `<${U_}>`, Qe = document, Dt = () => Qe.createComment(""), Mt = (n) => n === null || typeof n != "object" && typeof n != "function", to = Array.isArray, _d = (n) => to(n) || typeof n?.[Symbol.iterator] == "function", pn = `[ 	
-\f\r]`, ht = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Go = /-->/g, Yo = />/g, ze = RegExp(`>|${pn}(?:([^\\s"'>=/]+)(${pn}*=${pn}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), qo = /'/g, Ho = /"/g, F_ = /^(?:script|style|textarea|title)$/i, dd = (n) => (e, ...t) => ({ _$litType$: n, strings: e, values: t }), ge = dd(1), Xe = /* @__PURE__ */ Symbol.for("lit-noChange"), j = /* @__PURE__ */ Symbol.for("lit-nothing"), Vo = /* @__PURE__ */ new WeakMap(), Ke = Qe.createTreeWalker(Qe, 129);
+const no = globalThis, Go = (n) => n, Xt = no.trustedTypes, Yo = Xt ? Xt.createPolicy("lit-html", { createHTML: (n) => n }) : void 0, k_ = "$lit$", qe = `lit$${Math.random().toFixed(9).slice(2)}$`, U_ = "?" + qe, cd = `<${U_}>`, Qe = document, Dt = () => Qe.createComment(""), Mt = (n) => n === null || typeof n != "object" && typeof n != "function", ro = Array.isArray, _d = (n) => ro(n) || typeof n?.[Symbol.iterator] == "function", pn = `[ 	
+\f\r]`, ht = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, qo = /-->/g, Ho = />/g, ze = RegExp(`>|${pn}(?:([^\\s"'>=/]+)(${pn}*=${pn}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Vo = /'/g, $o = /"/g, F_ = /^(?:script|style|textarea|title)$/i, dd = (n) => (e, ...t) => ({ _$litType$: n, strings: e, values: t }), le = dd(1), Xe = /* @__PURE__ */ Symbol.for("lit-noChange"), Z = /* @__PURE__ */ Symbol.for("lit-nothing"), zo = /* @__PURE__ */ new WeakMap(), Ke = Qe.createTreeWalker(Qe, 129);
 function B_(n, e) {
-  if (!to(n) || !n.hasOwnProperty("raw")) throw Error("invalid template strings array");
-  return Bo !== void 0 ? Bo.createHTML(e) : e;
+  if (!ro(n) || !n.hasOwnProperty("raw")) throw Error("invalid template strings array");
+  return Yo !== void 0 ? Yo.createHTML(e) : e;
 }
 const ud = (n, e) => {
   const t = n.length - 1, r = [];
@@ -260,7 +260,7 @@ const ud = (n, e) => {
   for (let s = 0; s < t; s++) {
     const l = n[s];
     let _, c, d = -1, u = 0;
-    for (; u < l.length && (o.lastIndex = u, c = o.exec(l), c !== null); ) u = o.lastIndex, o === ht ? c[1] === "!--" ? o = Go : c[1] !== void 0 ? o = Yo : c[2] !== void 0 ? (F_.test(c[2]) && (a = RegExp("</" + c[2], "g")), o = ze) : c[3] !== void 0 && (o = ze) : o === ze ? c[0] === ">" ? (o = a ?? ht, d = -1) : c[1] === void 0 ? d = -2 : (d = o.lastIndex - c[2].length, _ = c[1], o = c[3] === void 0 ? ze : c[3] === '"' ? Ho : qo) : o === Ho || o === qo ? o = ze : o === Go || o === Yo ? o = ht : (o = ze, a = void 0);
+    for (; u < l.length && (o.lastIndex = u, c = o.exec(l), c !== null); ) u = o.lastIndex, o === ht ? c[1] === "!--" ? o = qo : c[1] !== void 0 ? o = Ho : c[2] !== void 0 ? (F_.test(c[2]) && (a = RegExp("</" + c[2], "g")), o = ze) : c[3] !== void 0 && (o = ze) : o === ze ? c[0] === ">" ? (o = a ?? ht, d = -1) : c[1] === void 0 ? d = -2 : (d = o.lastIndex - c[2].length, _ = c[1], o = c[3] === void 0 ? ze : c[3] === '"' ? $o : Vo) : o === $o || o === Vo ? o = ze : o === qo || o === Ho ? o = ht : (o = ze, a = void 0);
     const E = o === ze && n[s + 1].startsWith("/>") ? " " : "";
     i += o === ht ? l + cd : d >= 0 ? (r.push(_), l.slice(0, d) + k_ + l.slice(d) + qe + E) : l + qe + (d === -2 ? s : E);
   }
@@ -326,7 +326,7 @@ class pd {
     for (; l !== void 0; ) {
       if (o === l.index) {
         let _;
-        l.type === 2 ? _ = new no(i, i.nextSibling, this, e) : l.type === 1 ? _ = new l.ctor(i, l.name, l.strings, this, e) : l.type === 6 && (_ = new Sd(i, this, e)), this._$AV.push(_), l = r[++s];
+        l.type === 2 ? _ = new ao(i, i.nextSibling, this, e) : l.type === 1 ? _ = new l.ctor(i, l.name, l.strings, this, e) : l.type === 6 && (_ = new Sd(i, this, e)), this._$AV.push(_), l = r[++s];
       }
       o !== l?.index && (i = Ke.nextNode(), o++);
     }
@@ -337,12 +337,12 @@ class pd {
     for (const r of this._$AV) r !== void 0 && (r.strings !== void 0 ? (r._$AI(e, r, t), t += r.strings.length - 2) : r._$AI(e[t])), t++;
   }
 }
-let no = class G_ {
+let ao = class G_ {
   get _$AU() {
     return this._$AM?._$AU ?? this._$Cv;
   }
   constructor(e, t, r, a) {
-    this.type = 2, this._$AH = j, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = r, this.options = a, this._$Cv = a?.isConnected ?? !0;
+    this.type = 2, this._$AH = Z, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = r, this.options = a, this._$Cv = a?.isConnected ?? !0;
   }
   get parentNode() {
     let e = this._$AA.parentNode;
@@ -356,7 +356,7 @@ let no = class G_ {
     return this._$AB;
   }
   _$AI(e, t = this) {
-    e = it(this, e, t), Mt(e) ? e === j || e == null || e === "" ? (this._$AH !== j && this._$AR(), this._$AH = j) : e !== this._$AH && e !== Xe && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : _d(e) ? this.k(e) : this._(e);
+    e = it(this, e, t), Mt(e) ? e === Z || e == null || e === "" ? (this._$AH !== Z && this._$AR(), this._$AH = Z) : e !== this._$AH && e !== Xe && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : _d(e) ? this.k(e) : this._(e);
   }
   O(e) {
     return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -365,7 +365,7 @@ let no = class G_ {
     this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
   }
   _(e) {
-    this._$AH !== j && Mt(this._$AH) ? this._$AA.nextSibling.data = e : this.T(Qe.createTextNode(e)), this._$AH = e;
+    this._$AH !== Z && Mt(this._$AH) ? this._$AA.nextSibling.data = e : this.T(Qe.createTextNode(e)), this._$AH = e;
   }
   $(e) {
     const { values: t, _$litType$: r } = e, a = typeof r == "number" ? this._$AC(e) : (r.el === void 0 && (r.el = Lt.createElement(B_(r.h, r.h[0]), this.options)), r);
@@ -376,11 +376,11 @@ let no = class G_ {
     }
   }
   _$AC(e) {
-    let t = Vo.get(e.strings);
-    return t === void 0 && Vo.set(e.strings, t = new Lt(e)), t;
+    let t = zo.get(e.strings);
+    return t === void 0 && zo.set(e.strings, t = new Lt(e)), t;
   }
   k(e) {
-    to(this._$AH) || (this._$AH = [], this._$AR());
+    ro(this._$AH) || (this._$AH = [], this._$AR());
     const t = this._$AH;
     let r, a = 0;
     for (const i of e) a === t.length ? t.push(r = new G_(this.O(Dt()), this.O(Dt()), this, this.options)) : r = t[a], r._$AI(i), a++;
@@ -388,8 +388,8 @@ let no = class G_ {
   }
   _$AR(e = this._$AA.nextSibling, t) {
     for (this._$AP?.(!1, !0, t); e !== this._$AB; ) {
-      const r = Fo(e).nextSibling;
-      Fo(e).remove(), e = r;
+      const r = Go(e).nextSibling;
+      Go(e).remove(), e = r;
     }
   }
   setConnected(e) {
@@ -403,7 +403,7 @@ let no = class G_ {
     return this._$AM._$AU;
   }
   constructor(e, t, r, a, i) {
-    this.type = 1, this._$AH = j, this._$AN = void 0, this.element = e, this.name = t, this._$AM = a, this.options = i, r.length > 2 || r[0] !== "" || r[1] !== "" ? (this._$AH = Array(r.length - 1).fill(new String()), this.strings = r) : this._$AH = j;
+    this.type = 1, this._$AH = Z, this._$AN = void 0, this.element = e, this.name = t, this._$AM = a, this.options = i, r.length > 2 || r[0] !== "" || r[1] !== "" ? (this._$AH = Array(r.length - 1).fill(new String()), this.strings = r) : this._$AH = Z;
   }
   _$AI(e, t = this, r, a) {
     const i = this.strings;
@@ -412,34 +412,34 @@ let no = class G_ {
     else {
       const s = e;
       let l, _;
-      for (e = i[0], l = 0; l < i.length - 1; l++) _ = it(this, s[r + l], t, l), _ === Xe && (_ = this._$AH[l]), o ||= !Mt(_) || _ !== this._$AH[l], _ === j ? e = j : e !== j && (e += (_ ?? "") + i[l + 1]), this._$AH[l] = _;
+      for (e = i[0], l = 0; l < i.length - 1; l++) _ = it(this, s[r + l], t, l), _ === Xe && (_ = this._$AH[l]), o ||= !Mt(_) || _ !== this._$AH[l], _ === Z ? e = Z : e !== Z && (e += (_ ?? "") + i[l + 1]), this._$AH[l] = _;
     }
     o && !a && this.j(e);
   }
   j(e) {
-    e === j ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
+    e === Z ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
   }
 }, md = class extends nn {
   constructor() {
     super(...arguments), this.type = 3;
   }
   j(e) {
-    this.element[this.name] = e === j ? void 0 : e;
+    this.element[this.name] = e === Z ? void 0 : e;
   }
 }, Ed = class extends nn {
   constructor() {
     super(...arguments), this.type = 4;
   }
   j(e) {
-    this.element.toggleAttribute(this.name, !!e && e !== j);
+    this.element.toggleAttribute(this.name, !!e && e !== Z);
   }
 }, gd = class extends nn {
   constructor(e, t, r, a, i) {
     super(e, t, r, a, i), this.type = 5;
   }
   _$AI(e, t = this) {
-    if ((e = it(this, e, t, 0) ?? j) === Xe) return;
-    const r = this._$AH, a = e === j && r !== j || e.capture !== r.capture || e.once !== r.once || e.passive !== r.passive, i = e !== j && (r === j || a);
+    if ((e = it(this, e, t, 0) ?? Z) === Xe) return;
+    const r = this._$AH, a = e === Z && r !== Z || e.capture !== r.capture || e.once !== r.once || e.passive !== r.passive, i = e !== Z && (r === Z || a);
     a && this.element.removeEventListener(this.name, this, r), i && this.element.addEventListener(this.name, this, e), this._$AH = e;
   }
   handleEvent(e) {
@@ -457,18 +457,18 @@ class Sd {
     it(this, e);
   }
 }
-const Td = eo.litHtmlPolyfillSupport;
-Td?.(Lt, no), (eo.litHtmlVersions ??= []).push("3.3.2");
+const Td = no.litHtmlPolyfillSupport;
+Td?.(Lt, ao), (no.litHtmlVersions ??= []).push("3.3.2");
 const bd = (n, e, t) => {
   const r = t?.renderBefore ?? e;
   let a = r._$litPart$;
   if (a === void 0) {
     const i = t?.renderBefore ?? null;
-    r._$litPart$ = a = new no(e.insertBefore(Dt(), i), i, void 0, t ?? {});
+    r._$litPart$ = a = new ao(e.insertBefore(Dt(), i), i, void 0, t ?? {});
   }
   return a._$AI(n), a;
 };
-const ro = globalThis;
+const io = globalThis;
 let yt = class extends at {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
@@ -491,10 +491,10 @@ let yt = class extends at {
     return Xe;
   }
 };
-yt._$litElement$ = !0, yt.finalized = !0, ro.litElementHydrateSupport?.({ LitElement: yt });
-const fd = ro.litElementPolyfillSupport;
+yt._$litElement$ = !0, yt.finalized = !0, io.litElementHydrateSupport?.({ LitElement: yt });
+const fd = io.litElementPolyfillSupport;
 fd?.({ LitElement: yt });
-(ro.litElementVersions ??= []).push("4.2.2");
+(io.litElementVersions ??= []).push("4.2.2");
 const Rd = { CHILD: 2 }, Cd = (n) => (...e) => ({ _$litDirective$: n, values: e });
 class Nd {
   constructor(e) {
@@ -512,12 +512,12 @@ class Nd {
     return this.render(...t);
   }
 }
-class Wi extends Nd {
+class Qi extends Nd {
   constructor(e) {
-    if (super(e), this.it = j, e.type !== Rd.CHILD) throw Error(this.constructor.directiveName + "() can only be used in child bindings");
+    if (super(e), this.it = Z, e.type !== Rd.CHILD) throw Error(this.constructor.directiveName + "() can only be used in child bindings");
   }
   render(e) {
-    if (e === j || e == null) return this._t = void 0, this.it = e;
+    if (e === Z || e == null) return this._t = void 0, this.it = e;
     if (e === Xe) return e;
     if (typeof e != "string") throw Error(this.constructor.directiveName + "() called with a non-string value");
     if (e === this.it) return this._t;
@@ -526,19 +526,19 @@ class Wi extends Nd {
     return t.raw = t, this._t = { _$litType$: this.constructor.resultType, strings: t, values: [] };
   }
 }
-Wi.directiveName = "unsafeHTML", Wi.resultType = 1;
-const $o = Cd(Wi);
-function ao(n, e = !1) {
+Qi.directiveName = "unsafeHTML", Qi.resultType = 1;
+const mn = Cd(Qi);
+function oo(n, e = !1) {
   const t = {};
   return n && (t["X-API-Key"] = n), e && (t["Content-Type"] = "application/json"), t;
 }
-function io(n) {
+function so(n) {
   return n.replace(/\/+$/, "");
 }
 async function hd(n) {
   return (await n.text()).trim() || `请求失败（${n.status}）`;
 }
-async function oo(n, e) {
+async function lo(n, e) {
   const t = await fetch(n, e);
   if (!t.ok)
     throw new Error(await hd(t));
@@ -549,11 +549,11 @@ async function Od({
   baseUrl: n,
   apiKey: e
 }) {
-  return oo(
-    `${io(n)}/api/workspaces/active`,
+  return lo(
+    `${so(n)}/api/workspaces/active`,
     {
       method: "GET",
-      headers: ao(e)
+      headers: oo(e)
     }
   );
 }
@@ -564,11 +564,11 @@ async function Ad({
   limit: r
 }) {
   const a = new URLSearchParams({ limit: String(r) });
-  return oo(
-    `${io(n)}/api/workspaces/${t}/latest-messages?${a.toString()}`,
+  return lo(
+    `${so(n)}/api/workspaces/${t}/latest-messages?${a.toString()}`,
     {
       method: "GET",
-      headers: ao(e)
+      headers: oo(e)
     }
   );
 }
@@ -578,11 +578,11 @@ async function Id({
   workspaceId: t,
   message: r
 }) {
-  return oo(
-    `${io(n)}/api/workspace/${t}/follow-up`,
+  return lo(
+    `${so(n)}/api/workspace/${t}/follow-up`,
     {
       method: "POST",
-      headers: ao(e, !0),
+      headers: oo(e, !0),
       body: JSON.stringify({ message: r })
     }
   );
@@ -591,7 +591,7 @@ function vd(n, e, t) {
   const r = n.replace(/\/+$/, ""), a = new URL(`${r}/api/realtime/ws`);
   return e && a.searchParams.set("api_key", e), t && a.searchParams.set("session_id", t), a.protocol === "https:" ? a.protocol = "wss:" : a.protocol === "http:" && (a.protocol = "ws:"), a.toString();
 }
-function zo(n) {
+function Wo(n) {
   const e = new WebSocket(
     vd(n.baseUrl, n.apiKey, n.sessionId)
   );
@@ -614,7 +614,7 @@ function yd(n = []) {
     { attention: [], running: [], idle: [] }
   );
 }
-function Wo(n, e = /* @__PURE__ */ new Date()) {
+function Ko(n, e = /* @__PURE__ */ new Date()) {
   if (!n)
     return "recently";
   const t = Date.parse(n);
@@ -631,10 +631,10 @@ function Wo(n, e = /* @__PURE__ */ new Date()) {
   const i = Math.floor(a / 60);
   return i < 24 ? `${i}h ago` : `${Math.floor(i / 24)}d ago`;
 }
-function so() {
+function co() {
   return { async: !1, breaks: !1, extensions: null, gfm: !0, hooks: null, pedantic: !1, renderer: null, silent: !1, tokenizer: null, walkTokens: null };
 }
-var Je = so();
+var Je = co();
 function Y_(n) {
   Je = n;
 }
@@ -652,15 +652,15 @@ var Dd = (() => {
   } catch {
     return !1;
   }
-})(), fe = { codeRemoveIndent: /^(?: {1,4}| {0,3}\t)/gm, outputLinkReplace: /\\([\[\]])/g, indentCodeCompensation: /^(\s+)(?:```)/, beginningSpace: /^\s+/, endingHash: /#$/, startingSpaceChar: /^ /, endingSpaceChar: / $/, nonSpaceChar: /[^ ]/, newLineCharGlobal: /\n/g, tabCharGlobal: /\t/g, multipleSpaceGlobal: /\s+/g, blankLine: /^[ \t]*$/, doubleBlankLine: /\n[ \t]*\n[ \t]*$/, blockquoteStart: /^ {0,3}>/, blockquoteSetextReplace: /\n {0,3}((?:=+|-+) *)(?=\n|$)/g, blockquoteSetextReplace2: /^ {0,3}>[ \t]?/gm, listReplaceNesting: /^ {1,4}(?=( {4})*[^ ])/g, listIsTask: /^\[[ xX]\] +\S/, listReplaceTask: /^\[[ xX]\] +/, listTaskCheckbox: /\[[ xX]\]/, anyLine: /\n.*\n/, hrefBrackets: /^<(.*)>$/, tableDelimiter: /[:|]/, tableAlignChars: /^\||\| *$/g, tableRowBlankLine: /\n[ \t]*$/, tableAlignRight: /^ *-+: *$/, tableAlignCenter: /^ *:-+: *$/, tableAlignLeft: /^ *:-+ *$/, startATag: /^<a /i, endATag: /^<\/a>/i, startPreScriptTag: /^<(pre|code|kbd|script)(\s|>)/i, endPreScriptTag: /^<\/(pre|code|kbd|script)(\s|>)/i, startAngleBracket: /^</, endAngleBracket: />$/, pedanticHrefTitle: /^([^'"]*[^\s])\s+(['"])(.*)\2/, unicodeAlphaNumeric: /[\p{L}\p{N}]/u, escapeTest: /[&<>"']/, escapeReplace: /[&<>"']/g, escapeTestNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/, escapeReplaceNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g, caret: /(^|[^\[])\^/g, percentDecode: /%25/g, findPipe: /\|/g, splitPipe: / \|/, slashPipe: /\\\|/g, carriageReturn: /\r\n|\r/g, spaceLine: /^ +$/gm, notSpaceStart: /^\S*/, endingNewline: /\n$/, listItemRegex: (n) => new RegExp(`^( {0,3}${n})((?:[	 ][^\\n]*)?(?:\\n|$))`), nextBulletRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}(?:[*+-]|\\d{1,9}[.)])((?:[ 	][^\\n]*)?(?:\\n|$))`), hrRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}((?:- *){3,}|(?:_ *){3,}|(?:\\* *){3,})(?:\\n+|$)`), fencesBeginRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}(?:\`\`\`|~~~)`), headingBeginRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}#`), htmlBeginRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}<(?:[a-z].*>|!--)`, "i"), blockquoteBeginRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}>`) }, Md = /^(?:[ \t]*(?:\n|$))+/, Ld = /^((?: {4}| {0,3}\t)[^\n]+(?:\n(?:[ \t]*(?:\n|$))*)?)+/, xd = /^ {0,3}(`{3,}(?=[^`\n]*(?:\n|$))|~{3,})([^\n]*)(?:\n|$)(?:|([\s\S]*?)(?:\n|$))(?: {0,3}\1[~`]* *(?=\n|$)|$)/, xt = /^ {0,3}((?:-[\t ]*){3,}|(?:_[ \t]*){3,}|(?:\*[ \t]*){3,})(?:\n+|$)/, wd = /^ {0,3}(#{1,6})(?=\s|$)(.*)(?:\n+|$)/, lo = / {0,3}(?:[*+-]|\d{1,9}[.)])/, q_ = /^(?!bull |blockCode|fences|blockquote|heading|html|table)((?:.|\n(?!\s*?\n|bull |blockCode|fences|blockquote|heading|html|table))+?)\n {0,3}(=+|-+) *(?:\n+|$)/, H_ = q(q_).replace(/bull/g, lo).replace(/blockCode/g, /(?: {4}| {0,3}\t)/).replace(/fences/g, / {0,3}(?:`{3,}|~{3,})/).replace(/blockquote/g, / {0,3}>/).replace(/heading/g, / {0,3}#{1,6}/).replace(/html/g, / {0,3}<[^\n>]+>\n/).replace(/\|table/g, "").getRegex(), Pd = q(q_).replace(/bull/g, lo).replace(/blockCode/g, /(?: {4}| {0,3}\t)/).replace(/fences/g, / {0,3}(?:`{3,}|~{3,})/).replace(/blockquote/g, / {0,3}>/).replace(/heading/g, / {0,3}#{1,6}/).replace(/html/g, / {0,3}<[^\n>]+>\n/).replace(/table/g, / {0,3}\|?(?:[:\- ]*\|)+[\:\- ]*\n/).getRegex(), co = /^([^\n]+(?:\n(?!hr|heading|lheading|blockquote|fences|list|html|table| +\n)[^\n]+)*)/, kd = /^[^\n]+/, _o = /(?!\s*\])(?:\\[\s\S]|[^\[\]\\])+/, Ud = q(/^ {0,3}\[(label)\]: *(?:\n[ \t]*)?([^<\s][^\s]*|<.*?>)(?:(?: +(?:\n[ \t]*)?| *\n[ \t]*)(title))? *(?:\n+|$)/).replace("label", _o).replace("title", /(?:"(?:\\"?|[^"\\])*"|'[^'\n]*(?:\n[^'\n]+)*\n?'|\([^()]*\))/).getRegex(), Fd = q(/^(bull)([ \t][^\n]+?)?(?:\n|$)/).replace(/bull/g, lo).getRegex(), rn = "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|meta|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul", uo = /<!--(?:-?>|[\s\S]*?(?:-->|$))/, Bd = q("^ {0,3}(?:<(script|pre|style|textarea)[\\s>][\\s\\S]*?(?:</\\1>[^\\n]*\\n+|$)|comment[^\\n]*(\\n+|$)|<\\?[\\s\\S]*?(?:\\?>\\n*|$)|<![A-Z][\\s\\S]*?(?:>\\n*|$)|<!\\[CDATA\\[[\\s\\S]*?(?:\\]\\]>\\n*|$)|</?(tag)(?: +|\\n|/?>)[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$)|<(?!script|pre|style|textarea)([a-z][\\w-]*)(?:attribute)*? */?>(?=[ \\t]*(?:\\n|$))[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$)|</(?!script|pre|style|textarea)[a-z][\\w-]*\\s*>(?=[ \\t]*(?:\\n|$))[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$))", "i").replace("comment", uo).replace("tag", rn).replace("attribute", / +[a-zA-Z:_][\w.:-]*(?: *= *"[^"\n]*"| *= *'[^'\n]*'| *= *[^\s"'=<>`]+)?/).getRegex(), V_ = q(co).replace("hr", xt).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("|lheading", "").replace("|table", "").replace("blockquote", " {0,3}>").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*\\n)|~{3,})[^\\n]*\\n").replace("list", " {0,3}(?:[*+-]|1[.)])[ \\t]").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", rn).getRegex(), Gd = q(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/).replace("paragraph", V_).getRegex(), po = { blockquote: Gd, code: Ld, def: Ud, fences: xd, heading: wd, hr: xt, html: Bd, lheading: H_, list: Fd, newline: Md, paragraph: V_, table: We, text: kd }, Ko = q("^ *([^\\n ].*)\\n {0,3}((?:\\| *)?:?-+:? *(?:\\| *:?-+:? *)*(?:\\| *)?)(?:\\n((?:(?! *\\n|hr|heading|blockquote|code|fences|list|html).*(?:\\n|$))*)\\n*|$)").replace("hr", xt).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("blockquote", " {0,3}>").replace("code", "(?: {4}| {0,3}	)[^\\n]").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*\\n)|~{3,})[^\\n]*\\n").replace("list", " {0,3}(?:[*+-]|1[.)])[ \\t]").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", rn).getRegex(), Yd = { ...po, lheading: Pd, table: Ko, paragraph: q(co).replace("hr", xt).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("|lheading", "").replace("table", Ko).replace("blockquote", " {0,3}>").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*\\n)|~{3,})[^\\n]*\\n").replace("list", " {0,3}(?:[*+-]|1[.)])[ \\t]").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", rn).getRegex() }, qd = { ...po, html: q(`^ *(?:comment *(?:\\n|\\s*$)|<(tag)[\\s\\S]+?</\\1> *(?:\\n{2,}|\\s*$)|<tag(?:"[^"]*"|'[^']*'|\\s[^'"/>\\s]*)*?/?> *(?:\\n{2,}|\\s*$))`).replace("comment", uo).replace(/tag/g, "(?!(?:a|em|strong|small|s|cite|q|dfn|abbr|data|time|code|var|samp|kbd|sub|sup|i|b|u|mark|ruby|rt|rp|bdi|bdo|span|br|wbr|ins|del|img)\\b)\\w+(?!:|[^\\w\\s@]*@)\\b").getRegex(), def: /^ *\[([^\]]+)\]: *<?([^\s>]+)>?(?: +(["(][^\n]+[")]))? *(?:\n+|$)/, heading: /^(#{1,6})(.*)(?:\n+|$)/, fences: We, lheading: /^(.+?)\n {0,3}(=+|-+) *(?:\n+|$)/, paragraph: q(co).replace("hr", xt).replace("heading", ` *#{1,6} *[^
-]`).replace("lheading", H_).replace("|table", "").replace("blockquote", " {0,3}>").replace("|fences", "").replace("|list", "").replace("|html", "").replace("|tag", "").getRegex() }, Hd = /^\\([!"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~])/, Vd = /^(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/, $_ = /^( {2,}|\\)\n(?!\s*$)/, $d = /^(`+|[^`])(?:(?= {2,}\n)|[\s\S]*?(?:(?=[\\<!\[`*_]|\b_|$)|[^ ](?= {2,}\n)))/, ot = /[\p{P}\p{S}]/u, an = /[\s\p{P}\p{S}]/u, mo = /[^\s\p{P}\p{S}]/u, zd = q(/^((?![*_])punctSpace)/, "u").replace(/punctSpace/g, an).getRegex(), z_ = /(?!~)[\p{P}\p{S}]/u, Wd = /(?!~)[\s\p{P}\p{S}]/u, Kd = /(?:[^\s\p{P}\p{S}]|~)/u, Qd = q(/link|precode-code|html/, "g").replace("link", /\[(?:[^\[\]`]|(?<a>`+)[^`]+\k<a>(?!`))*?\]\((?:\\[\s\S]|[^\\\(\)]|\((?:\\[\s\S]|[^\\\(\)])*\))*\)/).replace("precode-", Dd ? "(?<!`)()" : "(^^|[^`])").replace("code", /(?<b>`+)[^`]+\k<b>(?!`)/).replace("html", /<(?! )[^<>]*?>/).getRegex(), W_ = /^(?:\*+(?:((?!\*)punct)|([^\s*]))?)|^_+(?:((?!_)punct)|([^\s_]))?/, Xd = q(W_, "u").replace(/punct/g, ot).getRegex(), Zd = q(W_, "u").replace(/punct/g, z_).getRegex(), K_ = "^[^_*]*?__[^_*]*?\\*[^_*]*?(?=__)|[^*]+(?=[^*])|(?!\\*)punct(\\*+)(?=[\\s]|$)|notPunctSpace(\\*+)(?!\\*)(?=punctSpace|$)|(?!\\*)punctSpace(\\*+)(?=notPunctSpace)|[\\s](\\*+)(?!\\*)(?=punct)|(?!\\*)punct(\\*+)(?!\\*)(?=punct)|notPunctSpace(\\*+)(?=notPunctSpace)", Jd = q(K_, "gu").replace(/notPunctSpace/g, mo).replace(/punctSpace/g, an).replace(/punct/g, ot).getRegex(), jd = q(K_, "gu").replace(/notPunctSpace/g, Kd).replace(/punctSpace/g, Wd).replace(/punct/g, z_).getRegex(), eu = q("^[^_*]*?\\*\\*[^_*]*?_[^_*]*?(?=\\*\\*)|[^_]+(?=[^_])|(?!_)punct(_+)(?=[\\s]|$)|notPunctSpace(_+)(?!_)(?=punctSpace|$)|(?!_)punctSpace(_+)(?=notPunctSpace)|[\\s](_+)(?!_)(?=punct)|(?!_)punct(_+)(?!_)(?=punct)", "gu").replace(/notPunctSpace/g, mo).replace(/punctSpace/g, an).replace(/punct/g, ot).getRegex(), tu = q(/^~~?(?:((?!~)punct)|[^\s~])/, "u").replace(/punct/g, ot).getRegex(), nu = "^[^~]+(?=[^~])|(?!~)punct(~~?)(?=[\\s]|$)|notPunctSpace(~~?)(?!~)(?=punctSpace|$)|(?!~)punctSpace(~~?)(?=notPunctSpace)|[\\s](~~?)(?!~)(?=punct)|(?!~)punct(~~?)(?!~)(?=punct)|notPunctSpace(~~?)(?=notPunctSpace)", ru = q(nu, "gu").replace(/notPunctSpace/g, mo).replace(/punctSpace/g, an).replace(/punct/g, ot).getRegex(), au = q(/\\(punct)/, "gu").replace(/punct/g, ot).getRegex(), iu = q(/^<(scheme:[^\s\x00-\x1f<>]*|email)>/).replace("scheme", /[a-zA-Z][a-zA-Z0-9+.-]{1,31}/).replace("email", /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+(@)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(?![-_])/).getRegex(), ou = q(uo).replace("(?:-->|$)", "-->").getRegex(), su = q("^comment|^</[a-zA-Z][\\w:-]*\\s*>|^<[a-zA-Z][\\w-]*(?:attribute)*?\\s*/?>|^<\\?[\\s\\S]*?\\?>|^<![a-zA-Z]+\\s[\\s\\S]*?>|^<!\\[CDATA\\[[\\s\\S]*?\\]\\]>").replace("comment", ou).replace("attribute", /\s+[a-zA-Z:_][\w.:-]*(?:\s*=\s*"[^"]*"|\s*=\s*'[^']*'|\s*=\s*[^\s"'=<>`]+)?/).getRegex(), Zt = /(?:\[(?:\\[\s\S]|[^\[\]\\])*\]|\\[\s\S]|`+(?!`)[^`]*?`+(?!`)|``+(?=\])|[^\[\]\\`])*?/, lu = q(/^!?\[(label)\]\(\s*(href)(?:(?:[ \t]+(?:\n[ \t]*)?|\n[ \t]*)(title))?\s*\)/).replace("label", Zt).replace("href", /<(?:\\.|[^\n<>\\])+>|[^ \t\n\x00-\x1f]*/).replace("title", /"(?:\\"?|[^"\\])*"|'(?:\\'?|[^'\\])*'|\((?:\\\)?|[^)\\])*\)/).getRegex(), Q_ = q(/^!?\[(label)\]\[(ref)\]/).replace("label", Zt).replace("ref", _o).getRegex(), X_ = q(/^!?\[(ref)\](?:\[\])?/).replace("ref", _o).getRegex(), cu = q("reflink|nolink(?!\\()", "g").replace("reflink", Q_).replace("nolink", X_).getRegex(), Qo = /[hH][tT][tT][pP][sS]?|[fF][tT][pP]/, Eo = { _backpedal: We, anyPunctuation: au, autolink: iu, blockSkip: Qd, br: $_, code: Vd, del: We, delLDelim: We, delRDelim: We, emStrongLDelim: Xd, emStrongRDelimAst: Jd, emStrongRDelimUnd: eu, escape: Hd, link: lu, nolink: X_, punctuation: zd, reflink: Q_, reflinkSearch: cu, tag: su, text: $d, url: We }, _u = { ...Eo, link: q(/^!?\[(label)\]\((.*?)\)/).replace("label", Zt).getRegex(), reflink: q(/^!?\[(label)\]\s*\[([^\]]*)\]/).replace("label", Zt).getRegex() }, Ki = { ...Eo, emStrongRDelimAst: jd, emStrongLDelim: Zd, delLDelim: tu, delRDelim: ru, url: q(/^((?:protocol):\/\/|www\.)(?:[a-zA-Z0-9\-]+\.?)+[^\s<]*|^email/).replace("protocol", Qo).replace("email", /[A-Za-z0-9._+-]+(@)[a-zA-Z0-9-_]+(?:\.[a-zA-Z0-9-_]*[a-zA-Z0-9])+(?![-_])/).getRegex(), _backpedal: /(?:[^?!.,:;*_'"~()&]+|\([^)]*\)|&(?![a-zA-Z0-9]+;$)|[?!.,:;*_'"~)]+(?!$))+/, del: /^(~~?)(?=[^\s~])((?:\\[\s\S]|[^\\])*?(?:\\[\s\S]|[^\s~\\]))\1(?=[^~]|$)/, text: q(/^([`~]+|[^`~])(?:(?= {2,}\n)|(?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)|[\s\S]*?(?:(?=[\\<!\[`*~_]|\b_|protocol:\/\/|www\.|$)|[^ ](?= {2,}\n)|[^a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-](?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)))/).replace("protocol", Qo).getRegex() }, du = { ...Ki, br: q($_).replace("{2,}", "*").getRegex(), text: q(Ki.text).replace("\\b_", "\\b_| {2,}\\n").replace(/\{2,\}/g, "*").getRegex() }, Wt = { normal: po, gfm: Yd, pedantic: qd }, Ot = { normal: Eo, gfm: Ki, breaks: du, pedantic: _u }, uu = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }, Xo = (n) => uu[n];
+})(), fe = { codeRemoveIndent: /^(?: {1,4}| {0,3}\t)/gm, outputLinkReplace: /\\([\[\]])/g, indentCodeCompensation: /^(\s+)(?:```)/, beginningSpace: /^\s+/, endingHash: /#$/, startingSpaceChar: /^ /, endingSpaceChar: / $/, nonSpaceChar: /[^ ]/, newLineCharGlobal: /\n/g, tabCharGlobal: /\t/g, multipleSpaceGlobal: /\s+/g, blankLine: /^[ \t]*$/, doubleBlankLine: /\n[ \t]*\n[ \t]*$/, blockquoteStart: /^ {0,3}>/, blockquoteSetextReplace: /\n {0,3}((?:=+|-+) *)(?=\n|$)/g, blockquoteSetextReplace2: /^ {0,3}>[ \t]?/gm, listReplaceNesting: /^ {1,4}(?=( {4})*[^ ])/g, listIsTask: /^\[[ xX]\] +\S/, listReplaceTask: /^\[[ xX]\] +/, listTaskCheckbox: /\[[ xX]\]/, anyLine: /\n.*\n/, hrefBrackets: /^<(.*)>$/, tableDelimiter: /[:|]/, tableAlignChars: /^\||\| *$/g, tableRowBlankLine: /\n[ \t]*$/, tableAlignRight: /^ *-+: *$/, tableAlignCenter: /^ *:-+: *$/, tableAlignLeft: /^ *:-+ *$/, startATag: /^<a /i, endATag: /^<\/a>/i, startPreScriptTag: /^<(pre|code|kbd|script)(\s|>)/i, endPreScriptTag: /^<\/(pre|code|kbd|script)(\s|>)/i, startAngleBracket: /^</, endAngleBracket: />$/, pedanticHrefTitle: /^([^'"]*[^\s])\s+(['"])(.*)\2/, unicodeAlphaNumeric: /[\p{L}\p{N}]/u, escapeTest: /[&<>"']/, escapeReplace: /[&<>"']/g, escapeTestNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/, escapeReplaceNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g, caret: /(^|[^\[])\^/g, percentDecode: /%25/g, findPipe: /\|/g, splitPipe: / \|/, slashPipe: /\\\|/g, carriageReturn: /\r\n|\r/g, spaceLine: /^ +$/gm, notSpaceStart: /^\S*/, endingNewline: /\n$/, listItemRegex: (n) => new RegExp(`^( {0,3}${n})((?:[	 ][^\\n]*)?(?:\\n|$))`), nextBulletRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}(?:[*+-]|\\d{1,9}[.)])((?:[ 	][^\\n]*)?(?:\\n|$))`), hrRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}((?:- *){3,}|(?:_ *){3,}|(?:\\* *){3,})(?:\\n+|$)`), fencesBeginRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}(?:\`\`\`|~~~)`), headingBeginRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}#`), htmlBeginRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}<(?:[a-z].*>|!--)`, "i"), blockquoteBeginRegex: (n) => new RegExp(`^ {0,${Math.min(3, n - 1)}}>`) }, Md = /^(?:[ \t]*(?:\n|$))+/, Ld = /^((?: {4}| {0,3}\t)[^\n]+(?:\n(?:[ \t]*(?:\n|$))*)?)+/, xd = /^ {0,3}(`{3,}(?=[^`\n]*(?:\n|$))|~{3,})([^\n]*)(?:\n|$)(?:|([\s\S]*?)(?:\n|$))(?: {0,3}\1[~`]* *(?=\n|$)|$)/, xt = /^ {0,3}((?:-[\t ]*){3,}|(?:_[ \t]*){3,}|(?:\*[ \t]*){3,})(?:\n+|$)/, wd = /^ {0,3}(#{1,6})(?=\s|$)(.*)(?:\n+|$)/, _o = / {0,3}(?:[*+-]|\d{1,9}[.)])/, q_ = /^(?!bull |blockCode|fences|blockquote|heading|html|table)((?:.|\n(?!\s*?\n|bull |blockCode|fences|blockquote|heading|html|table))+?)\n {0,3}(=+|-+) *(?:\n+|$)/, H_ = q(q_).replace(/bull/g, _o).replace(/blockCode/g, /(?: {4}| {0,3}\t)/).replace(/fences/g, / {0,3}(?:`{3,}|~{3,})/).replace(/blockquote/g, / {0,3}>/).replace(/heading/g, / {0,3}#{1,6}/).replace(/html/g, / {0,3}<[^\n>]+>\n/).replace(/\|table/g, "").getRegex(), Pd = q(q_).replace(/bull/g, _o).replace(/blockCode/g, /(?: {4}| {0,3}\t)/).replace(/fences/g, / {0,3}(?:`{3,}|~{3,})/).replace(/blockquote/g, / {0,3}>/).replace(/heading/g, / {0,3}#{1,6}/).replace(/html/g, / {0,3}<[^\n>]+>\n/).replace(/table/g, / {0,3}\|?(?:[:\- ]*\|)+[\:\- ]*\n/).getRegex(), uo = /^([^\n]+(?:\n(?!hr|heading|lheading|blockquote|fences|list|html|table| +\n)[^\n]+)*)/, kd = /^[^\n]+/, po = /(?!\s*\])(?:\\[\s\S]|[^\[\]\\])+/, Ud = q(/^ {0,3}\[(label)\]: *(?:\n[ \t]*)?([^<\s][^\s]*|<.*?>)(?:(?: +(?:\n[ \t]*)?| *\n[ \t]*)(title))? *(?:\n+|$)/).replace("label", po).replace("title", /(?:"(?:\\"?|[^"\\])*"|'[^'\n]*(?:\n[^'\n]+)*\n?'|\([^()]*\))/).getRegex(), Fd = q(/^(bull)([ \t][^\n]+?)?(?:\n|$)/).replace(/bull/g, _o).getRegex(), rn = "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|meta|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul", mo = /<!--(?:-?>|[\s\S]*?(?:-->|$))/, Bd = q("^ {0,3}(?:<(script|pre|style|textarea)[\\s>][\\s\\S]*?(?:</\\1>[^\\n]*\\n+|$)|comment[^\\n]*(\\n+|$)|<\\?[\\s\\S]*?(?:\\?>\\n*|$)|<![A-Z][\\s\\S]*?(?:>\\n*|$)|<!\\[CDATA\\[[\\s\\S]*?(?:\\]\\]>\\n*|$)|</?(tag)(?: +|\\n|/?>)[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$)|<(?!script|pre|style|textarea)([a-z][\\w-]*)(?:attribute)*? */?>(?=[ \\t]*(?:\\n|$))[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$)|</(?!script|pre|style|textarea)[a-z][\\w-]*\\s*>(?=[ \\t]*(?:\\n|$))[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$))", "i").replace("comment", mo).replace("tag", rn).replace("attribute", / +[a-zA-Z:_][\w.:-]*(?: *= *"[^"\n]*"| *= *'[^'\n]*'| *= *[^\s"'=<>`]+)?/).getRegex(), V_ = q(uo).replace("hr", xt).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("|lheading", "").replace("|table", "").replace("blockquote", " {0,3}>").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*\\n)|~{3,})[^\\n]*\\n").replace("list", " {0,3}(?:[*+-]|1[.)])[ \\t]").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", rn).getRegex(), Gd = q(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/).replace("paragraph", V_).getRegex(), Eo = { blockquote: Gd, code: Ld, def: Ud, fences: xd, heading: wd, hr: xt, html: Bd, lheading: H_, list: Fd, newline: Md, paragraph: V_, table: We, text: kd }, Qo = q("^ *([^\\n ].*)\\n {0,3}((?:\\| *)?:?-+:? *(?:\\| *:?-+:? *)*(?:\\| *)?)(?:\\n((?:(?! *\\n|hr|heading|blockquote|code|fences|list|html).*(?:\\n|$))*)\\n*|$)").replace("hr", xt).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("blockquote", " {0,3}>").replace("code", "(?: {4}| {0,3}	)[^\\n]").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*\\n)|~{3,})[^\\n]*\\n").replace("list", " {0,3}(?:[*+-]|1[.)])[ \\t]").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", rn).getRegex(), Yd = { ...Eo, lheading: Pd, table: Qo, paragraph: q(uo).replace("hr", xt).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("|lheading", "").replace("table", Qo).replace("blockquote", " {0,3}>").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*\\n)|~{3,})[^\\n]*\\n").replace("list", " {0,3}(?:[*+-]|1[.)])[ \\t]").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", rn).getRegex() }, qd = { ...Eo, html: q(`^ *(?:comment *(?:\\n|\\s*$)|<(tag)[\\s\\S]+?</\\1> *(?:\\n{2,}|\\s*$)|<tag(?:"[^"]*"|'[^']*'|\\s[^'"/>\\s]*)*?/?> *(?:\\n{2,}|\\s*$))`).replace("comment", mo).replace(/tag/g, "(?!(?:a|em|strong|small|s|cite|q|dfn|abbr|data|time|code|var|samp|kbd|sub|sup|i|b|u|mark|ruby|rt|rp|bdi|bdo|span|br|wbr|ins|del|img)\\b)\\w+(?!:|[^\\w\\s@]*@)\\b").getRegex(), def: /^ *\[([^\]]+)\]: *<?([^\s>]+)>?(?: +(["(][^\n]+[")]))? *(?:\n+|$)/, heading: /^(#{1,6})(.*)(?:\n+|$)/, fences: We, lheading: /^(.+?)\n {0,3}(=+|-+) *(?:\n+|$)/, paragraph: q(uo).replace("hr", xt).replace("heading", ` *#{1,6} *[^
+]`).replace("lheading", H_).replace("|table", "").replace("blockquote", " {0,3}>").replace("|fences", "").replace("|list", "").replace("|html", "").replace("|tag", "").getRegex() }, Hd = /^\\([!"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~])/, Vd = /^(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/, $_ = /^( {2,}|\\)\n(?!\s*$)/, $d = /^(`+|[^`])(?:(?= {2,}\n)|[\s\S]*?(?:(?=[\\<!\[`*_]|\b_|$)|[^ ](?= {2,}\n)))/, ot = /[\p{P}\p{S}]/u, an = /[\s\p{P}\p{S}]/u, go = /[^\s\p{P}\p{S}]/u, zd = q(/^((?![*_])punctSpace)/, "u").replace(/punctSpace/g, an).getRegex(), z_ = /(?!~)[\p{P}\p{S}]/u, Wd = /(?!~)[\s\p{P}\p{S}]/u, Kd = /(?:[^\s\p{P}\p{S}]|~)/u, Qd = q(/link|precode-code|html/, "g").replace("link", /\[(?:[^\[\]`]|(?<a>`+)[^`]+\k<a>(?!`))*?\]\((?:\\[\s\S]|[^\\\(\)]|\((?:\\[\s\S]|[^\\\(\)])*\))*\)/).replace("precode-", Dd ? "(?<!`)()" : "(^^|[^`])").replace("code", /(?<b>`+)[^`]+\k<b>(?!`)/).replace("html", /<(?! )[^<>]*?>/).getRegex(), W_ = /^(?:\*+(?:((?!\*)punct)|([^\s*]))?)|^_+(?:((?!_)punct)|([^\s_]))?/, Xd = q(W_, "u").replace(/punct/g, ot).getRegex(), Zd = q(W_, "u").replace(/punct/g, z_).getRegex(), K_ = "^[^_*]*?__[^_*]*?\\*[^_*]*?(?=__)|[^*]+(?=[^*])|(?!\\*)punct(\\*+)(?=[\\s]|$)|notPunctSpace(\\*+)(?!\\*)(?=punctSpace|$)|(?!\\*)punctSpace(\\*+)(?=notPunctSpace)|[\\s](\\*+)(?!\\*)(?=punct)|(?!\\*)punct(\\*+)(?!\\*)(?=punct)|notPunctSpace(\\*+)(?=notPunctSpace)", Jd = q(K_, "gu").replace(/notPunctSpace/g, go).replace(/punctSpace/g, an).replace(/punct/g, ot).getRegex(), jd = q(K_, "gu").replace(/notPunctSpace/g, Kd).replace(/punctSpace/g, Wd).replace(/punct/g, z_).getRegex(), eu = q("^[^_*]*?\\*\\*[^_*]*?_[^_*]*?(?=\\*\\*)|[^_]+(?=[^_])|(?!_)punct(_+)(?=[\\s]|$)|notPunctSpace(_+)(?!_)(?=punctSpace|$)|(?!_)punctSpace(_+)(?=notPunctSpace)|[\\s](_+)(?!_)(?=punct)|(?!_)punct(_+)(?!_)(?=punct)", "gu").replace(/notPunctSpace/g, go).replace(/punctSpace/g, an).replace(/punct/g, ot).getRegex(), tu = q(/^~~?(?:((?!~)punct)|[^\s~])/, "u").replace(/punct/g, ot).getRegex(), nu = "^[^~]+(?=[^~])|(?!~)punct(~~?)(?=[\\s]|$)|notPunctSpace(~~?)(?!~)(?=punctSpace|$)|(?!~)punctSpace(~~?)(?=notPunctSpace)|[\\s](~~?)(?!~)(?=punct)|(?!~)punct(~~?)(?!~)(?=punct)|notPunctSpace(~~?)(?=notPunctSpace)", ru = q(nu, "gu").replace(/notPunctSpace/g, go).replace(/punctSpace/g, an).replace(/punct/g, ot).getRegex(), au = q(/\\(punct)/, "gu").replace(/punct/g, ot).getRegex(), iu = q(/^<(scheme:[^\s\x00-\x1f<>]*|email)>/).replace("scheme", /[a-zA-Z][a-zA-Z0-9+.-]{1,31}/).replace("email", /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+(@)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(?![-_])/).getRegex(), ou = q(mo).replace("(?:-->|$)", "-->").getRegex(), su = q("^comment|^</[a-zA-Z][\\w:-]*\\s*>|^<[a-zA-Z][\\w-]*(?:attribute)*?\\s*/?>|^<\\?[\\s\\S]*?\\?>|^<![a-zA-Z]+\\s[\\s\\S]*?>|^<!\\[CDATA\\[[\\s\\S]*?\\]\\]>").replace("comment", ou).replace("attribute", /\s+[a-zA-Z:_][\w.:-]*(?:\s*=\s*"[^"]*"|\s*=\s*'[^']*'|\s*=\s*[^\s"'=<>`]+)?/).getRegex(), Zt = /(?:\[(?:\\[\s\S]|[^\[\]\\])*\]|\\[\s\S]|`+(?!`)[^`]*?`+(?!`)|``+(?=\])|[^\[\]\\`])*?/, lu = q(/^!?\[(label)\]\(\s*(href)(?:(?:[ \t]+(?:\n[ \t]*)?|\n[ \t]*)(title))?\s*\)/).replace("label", Zt).replace("href", /<(?:\\.|[^\n<>\\])+>|[^ \t\n\x00-\x1f]*/).replace("title", /"(?:\\"?|[^"\\])*"|'(?:\\'?|[^'\\])*'|\((?:\\\)?|[^)\\])*\)/).getRegex(), Q_ = q(/^!?\[(label)\]\[(ref)\]/).replace("label", Zt).replace("ref", po).getRegex(), X_ = q(/^!?\[(ref)\](?:\[\])?/).replace("ref", po).getRegex(), cu = q("reflink|nolink(?!\\()", "g").replace("reflink", Q_).replace("nolink", X_).getRegex(), Xo = /[hH][tT][tT][pP][sS]?|[fF][tT][pP]/, So = { _backpedal: We, anyPunctuation: au, autolink: iu, blockSkip: Qd, br: $_, code: Vd, del: We, delLDelim: We, delRDelim: We, emStrongLDelim: Xd, emStrongRDelimAst: Jd, emStrongRDelimUnd: eu, escape: Hd, link: lu, nolink: X_, punctuation: zd, reflink: Q_, reflinkSearch: cu, tag: su, text: $d, url: We }, _u = { ...So, link: q(/^!?\[(label)\]\((.*?)\)/).replace("label", Zt).getRegex(), reflink: q(/^!?\[(label)\]\s*\[([^\]]*)\]/).replace("label", Zt).getRegex() }, Xi = { ...So, emStrongRDelimAst: jd, emStrongLDelim: Zd, delLDelim: tu, delRDelim: ru, url: q(/^((?:protocol):\/\/|www\.)(?:[a-zA-Z0-9\-]+\.?)+[^\s<]*|^email/).replace("protocol", Xo).replace("email", /[A-Za-z0-9._+-]+(@)[a-zA-Z0-9-_]+(?:\.[a-zA-Z0-9-_]*[a-zA-Z0-9])+(?![-_])/).getRegex(), _backpedal: /(?:[^?!.,:;*_'"~()&]+|\([^)]*\)|&(?![a-zA-Z0-9]+;$)|[?!.,:;*_'"~)]+(?!$))+/, del: /^(~~?)(?=[^\s~])((?:\\[\s\S]|[^\\])*?(?:\\[\s\S]|[^\s~\\]))\1(?=[^~]|$)/, text: q(/^([`~]+|[^`~])(?:(?= {2,}\n)|(?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)|[\s\S]*?(?:(?=[\\<!\[`*~_]|\b_|protocol:\/\/|www\.|$)|[^ ](?= {2,}\n)|[^a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-](?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)))/).replace("protocol", Xo).getRegex() }, du = { ...Xi, br: q($_).replace("{2,}", "*").getRegex(), text: q(Xi.text).replace("\\b_", "\\b_| {2,}\\n").replace(/\{2,\}/g, "*").getRegex() }, Wt = { normal: Eo, gfm: Yd, pedantic: qd }, Ot = { normal: So, gfm: Xi, breaks: du, pedantic: _u }, uu = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }, Zo = (n) => uu[n];
 function ke(n, e) {
   if (e) {
-    if (fe.escapeTest.test(n)) return n.replace(fe.escapeReplace, Xo);
-  } else if (fe.escapeTestNoEncode.test(n)) return n.replace(fe.escapeReplaceNoEncode, Xo);
+    if (fe.escapeTest.test(n)) return n.replace(fe.escapeReplace, Zo);
+  } else if (fe.escapeTestNoEncode.test(n)) return n.replace(fe.escapeReplaceNoEncode, Zo);
   return n;
 }
-function Zo(n) {
+function Jo(n) {
   try {
     n = encodeURI(n).replace(fe.percentDecode, "%");
   } catch {
@@ -668,7 +668,7 @@ function Zo(n) {
   }
   return n;
 }
-function Jo(n, e) {
+function jo(n, e) {
   let t = n.replace(fe.findPipe, (i, o, s) => {
     let l = !1, _ = o;
     for (; --_ >= 0 && s[_] === "\\"; ) l = !l;
@@ -703,7 +703,7 @@ function mu(n, e = 0) {
   } else r += a, t++;
   return r;
 }
-function jo(n, e, t, r, a) {
+function es(n, e, t, r, a) {
   let i = e.href, o = e.title || null, s = n[1].replace(a.other.outputLinkReplace, "$1");
   r.state.inLink = !0;
   let l = { type: n[0].charAt(0) === "!" ? "image" : "link", raw: t, href: i, title: o, text: s, tokens: r.inlineTokens(s) };
@@ -882,12 +882,12 @@ ${c}` : c;
   table(n) {
     let e = this.rules.block.table.exec(n);
     if (!e || !this.rules.other.tableDelimiter.test(e[2])) return;
-    let t = Jo(e[1]), r = e[2].replace(this.rules.other.tableAlignChars, "").split("|"), a = e[3]?.trim() ? e[3].replace(this.rules.other.tableRowBlankLine, "").split(`
+    let t = jo(e[1]), r = e[2].replace(this.rules.other.tableAlignChars, "").split("|"), a = e[3]?.trim() ? e[3].replace(this.rules.other.tableRowBlankLine, "").split(`
 `) : [], i = { type: "table", raw: e[0], header: [], align: [], rows: [] };
     if (t.length === r.length) {
       for (let o of r) this.rules.other.tableAlignRight.test(o) ? i.align.push("right") : this.rules.other.tableAlignCenter.test(o) ? i.align.push("center") : this.rules.other.tableAlignLeft.test(o) ? i.align.push("left") : i.align.push(null);
       for (let o = 0; o < t.length; o++) i.header.push({ text: t[o], tokens: this.lexer.inline(t[o]), header: !0, align: i.align[o] });
-      for (let o of a) i.rows.push(Jo(o, i.header.length).map((s, l) => ({ text: s, tokens: this.lexer.inline(s), header: !1, align: i.align[l] })));
+      for (let o of a) i.rows.push(jo(o, i.header.length).map((s, l) => ({ text: s, tokens: this.lexer.inline(s), header: !1, align: i.align[l] })));
       return i;
     }
   }
@@ -939,7 +939,7 @@ ${c}` : c;
         let i = this.rules.other.pedanticHrefTitle.exec(r);
         i && (r = i[1], a = i[3]);
       } else a = e[3] ? e[3].slice(1, -1) : "";
-      return r = r.trim(), this.rules.other.startAngleBracket.test(r) && (this.options.pedantic && !this.rules.other.endAngleBracket.test(t) ? r = r.slice(1) : r = r.slice(1, -1)), jo(e, { href: r && r.replace(this.rules.inline.anyPunctuation, "$1"), title: a && a.replace(this.rules.inline.anyPunctuation, "$1") }, e[0], this.lexer, this.rules);
+      return r = r.trim(), this.rules.other.startAngleBracket.test(r) && (this.options.pedantic && !this.rules.other.endAngleBracket.test(t) ? r = r.slice(1) : r = r.slice(1, -1)), es(e, { href: r && r.replace(this.rules.inline.anyPunctuation, "$1"), title: a && a.replace(this.rules.inline.anyPunctuation, "$1") }, e[0], this.lexer, this.rules);
     }
   }
   reflink(n, e) {
@@ -950,7 +950,7 @@ ${c}` : c;
         let i = t[0].charAt(0);
         return { type: "text", raw: i, text: i };
       }
-      return jo(t, a, t[0], this.lexer, this.rules);
+      return es(t, a, t[0], this.lexer, this.rules);
     }
   }
   emStrong(n, e, t = "") {
@@ -1035,7 +1035,7 @@ ${c}` : c;
       return { type: "text", raw: e[0], text: e[0], escaped: t };
     }
   }
-}, Le = class Qi {
+}, Le = class Zi {
   tokens;
   options;
   state;
@@ -1050,10 +1050,10 @@ ${c}` : c;
     return { block: Wt, inline: Ot };
   }
   static lex(e, t) {
-    return new Qi(t).lex(e);
+    return new Zi(t).lex(e);
   }
   static lexInline(e, t) {
-    return new Qi(t).inlineTokens(e);
+    return new Zi(t).inlineTokens(e);
   }
   lex(e) {
     e = e.replace(fe.carriageReturn, `
@@ -1343,7 +1343,7 @@ ${n}</tr>
     return `<del>${this.parser.parseInline(n)}</del>`;
   }
   link({ href: n, title: e, tokens: t }) {
-    let r = this.parser.parseInline(t), a = Zo(n);
+    let r = this.parser.parseInline(t), a = Jo(n);
     if (a === null) return r;
     n = a;
     let i = '<a href="' + n + '"';
@@ -1351,7 +1351,7 @@ ${n}</tr>
   }
   image({ href: n, title: e, text: t, tokens: r }) {
     r && (t = this.parser.parseInline(r, this.parser.textRenderer));
-    let a = Zo(n);
+    let a = Jo(n);
     if (a === null) return ke(t);
     n = a;
     let i = `<img src="${n}" alt="${ke(t)}"`;
@@ -1360,7 +1360,7 @@ ${n}</tr>
   text(n) {
     return "tokens" in n && n.tokens ? this.parser.parseInline(n.tokens) : "escaped" in n && n.escaped ? n.text : ke(n.text);
   }
-}, go = class {
+}, To = class {
   strong({ text: n }) {
     return n;
   }
@@ -1391,18 +1391,18 @@ ${n}</tr>
   checkbox({ raw: n }) {
     return n;
   }
-}, xe = class Xi {
+}, xe = class Ji {
   options;
   renderer;
   textRenderer;
   constructor(e) {
-    this.options = e || Je, this.options.renderer = this.options.renderer || new jt(), this.renderer = this.options.renderer, this.renderer.options = this.options, this.renderer.parser = this, this.textRenderer = new go();
+    this.options = e || Je, this.options.renderer = this.options.renderer || new jt(), this.renderer = this.options.renderer, this.renderer.options = this.options, this.renderer.parser = this, this.textRenderer = new To();
   }
   static parse(e, t) {
-    return new Xi(t).parse(e);
+    return new Ji(t).parse(e);
   }
   static parseInline(e, t) {
-    return new Xi(t).parseInline(e);
+    return new Ji(t).parseInline(e);
   }
   parse(e) {
     this.renderer.parser = this;
@@ -1569,13 +1569,13 @@ ${n}</tr>
     return this.block ? xe.parse : xe.parseInline;
   }
 }, gu = class {
-  defaults = so();
+  defaults = co();
   options = this.setOptions;
   parse = this.parseMarkdown(!0);
   parseInline = this.parseMarkdown(!1);
   Parser = xe;
   Renderer = jt;
-  TextRenderer = go;
+  TextRenderer = To;
   Lexer = Le;
   Tokenizer = Jt;
   Hooks = It;
@@ -1735,7 +1735,7 @@ function $(n, e) {
 $.options = $.setOptions = function(n) {
   return Ze.setOptions(n), $.defaults = Ze.defaults, Y_($.defaults), $;
 };
-$.getDefaults = so;
+$.getDefaults = co;
 $.defaults = Je;
 $.use = function(...n) {
   return Ze.use(...n), $.defaults = Ze.defaults, Y_($.defaults), $;
@@ -1747,7 +1747,7 @@ $.parseInline = Ze.parseInline;
 $.Parser = xe;
 $.parser = xe.parse;
 $.Renderer = jt;
-$.TextRenderer = go;
+$.TextRenderer = To;
 $.Lexer = Le;
 $.lexer = Le.lex;
 $.Tokenizer = Jt;
@@ -1763,10 +1763,10 @@ Le.lex;
 function Su(n) {
   return n && n.__esModule && Object.prototype.hasOwnProperty.call(n, "default") ? n.default : n;
 }
-var mn, es;
+var En, ts;
 function Tu() {
-  if (es) return mn;
-  es = 1;
+  if (ts) return En;
+  ts = 1;
   function n(p) {
     return p instanceof Map ? p.clear = p.delete = p.set = function() {
       throw new Error("map is read-only");
@@ -2114,7 +2114,7 @@ function Tu() {
     scope: "number",
     begin: x,
     relevance: 0
-  }, ce = {
+  }, _e = {
     scope: "regexp",
     begin: /\/(?=[^/\n]*\/)/,
     end: /\/[gimuy]*/,
@@ -2127,11 +2127,11 @@ function Tu() {
         contains: [ne]
       }
     ]
-  }, ue = {
+  }, pe = {
     scope: "title",
     begin: L,
     relevance: 0
-  }, Z = {
+  }, J = {
     scope: "title",
     begin: y,
     relevance: 0
@@ -2174,21 +2174,21 @@ function Tu() {
     NUMBER_RE: P,
     PHRASAL_WORDS_MODE: ee,
     QUOTE_STRING_MODE: Q,
-    REGEXP_MODE: ce,
+    REGEXP_MODE: _e,
     RE_STARTERS_RE: V,
     SHEBANG: te,
-    TITLE_MODE: ue,
+    TITLE_MODE: pe,
     UNDERSCORE_IDENT_RE: y,
-    UNDERSCORE_TITLE_MODE: Z
+    UNDERSCORE_TITLE_MODE: J
   });
-  function _e(p, b) {
+  function de(p, b) {
     p.input[p.index - 1] === "." && b.ignoreMatch();
   }
   function Te(p, b) {
     p.className !== void 0 && (p.scope = p.className, delete p.className);
   }
   function Ie(p, b) {
-    b && p.beginKeywords && (p.begin = "\\b(" + p.beginKeywords.split(" ").join("|") + ")(?!\\.)(?=\\b|\\s)", p.__beforeBegin = _e, p.keywords = p.keywords || p.beginKeywords, delete p.beginKeywords, p.relevance === void 0 && (p.relevance = 0));
+    b && p.beginKeywords && (p.begin = "\\b(" + p.beginKeywords.split(" ").join("|") + ")(?!\\.)(?=\\b|\\s)", p.__beforeBegin = de, p.keywords = p.keywords || p.beginKeywords, delete p.beginKeywords, p.relevance === void 0 && (p.relevance = 0));
   }
   function st(p, b) {
     Array.isArray(p.illegal) && (p.illegal = T(...p.illegal));
@@ -2315,8 +2315,8 @@ function Tu() {
         const k = this.matcherRe.exec(v);
         if (!k)
           return null;
-        const pe = k.findIndex((rt, qt) => qt > 0 && rt !== void 0), le = this.matchIndexes[pe];
-        return k.splice(0, pe), Object.assign(k, le);
+        const me = k.findIndex((rt, qt) => qt > 0 && rt !== void 0), ce = this.matchIndexes[me];
+        return k.splice(0, me), Object.assign(k, ce);
       }
     }
     class U {
@@ -2327,7 +2327,7 @@ function Tu() {
       getMatcher(v) {
         if (this.multiRegexes[v]) return this.multiRegexes[v];
         const k = new O();
-        return this.rules.slice(v).forEach(([pe, le]) => k.addRule(pe, le)), k.compile(), this.multiRegexes[v] = k, k;
+        return this.rules.slice(v).forEach(([me, ce]) => k.addRule(me, ce)), k.compile(), this.multiRegexes[v] = k, k;
       }
       resumingScanAtSamePosition() {
         return this.regexIndex !== 0;
@@ -2343,12 +2343,12 @@ function Tu() {
       exec(v) {
         const k = this.getMatcher(this.regexIndex);
         k.lastIndex = this.lastIndex;
-        let pe = k.exec(v);
-        if (this.resumingScanAtSamePosition() && !(pe && pe.index === this.lastIndex)) {
-          const le = this.getMatcher(0);
-          le.lastIndex = this.lastIndex + 1, pe = le.exec(v);
+        let me = k.exec(v);
+        if (this.resumingScanAtSamePosition() && !(me && me.index === this.lastIndex)) {
+          const ce = this.getMatcher(0);
+          ce.lastIndex = this.lastIndex + 1, me = ce.exec(v);
         }
-        return pe && (this.regexIndex += pe.position + 1, this.regexIndex === this.count && this.considerAll()), pe;
+        return me && (this.regexIndex += me.position + 1, this.regexIndex === this.count && this.considerAll()), me;
       }
     }
     function oe(M) {
@@ -2368,24 +2368,24 @@ function Tu() {
         wt,
         mt,
         lt
-      ].forEach((le) => le(M, v)), p.compilerExtensions.forEach((le) => le(M, v)), M.__beforeBegin = null, [
+      ].forEach((ce) => ce(M, v)), p.compilerExtensions.forEach((ce) => ce(M, v)), M.__beforeBegin = null, [
         Ie,
         // do this later so compiler extensions that come earlier have access to the
         // raw array if they wanted to perhaps manipulate it, etc.
         st,
         // default to 1 relevance if not specified
         je
-      ].forEach((le) => le(M, v)), M.isCompiled = !0;
-      let pe = null;
-      return typeof M.keywords == "object" && M.keywords.$pattern && (M.keywords = Object.assign({}, M.keywords), pe = M.keywords.$pattern, delete M.keywords.$pattern), pe = pe || /\w+/, M.keywords && (M.keywords = _t(M.keywords, p.case_insensitive)), k.keywordPatternRe = b(pe, !0), v && (M.begin || (M.begin = /\B|\b/), k.beginRe = b(k.begin), !M.end && !M.endsWithParent && (M.end = /\B|\b/), M.end && (k.endRe = b(k.end)), k.terminatorEnd = d(k.end) || "", M.endsWithParent && v.terminatorEnd && (k.terminatorEnd += (M.end ? "|" : "") + v.terminatorEnd)), M.illegal && (k.illegalRe = b(
+      ].forEach((ce) => ce(M, v)), M.isCompiled = !0;
+      let me = null;
+      return typeof M.keywords == "object" && M.keywords.$pattern && (M.keywords = Object.assign({}, M.keywords), me = M.keywords.$pattern, delete M.keywords.$pattern), me = me || /\w+/, M.keywords && (M.keywords = _t(M.keywords, p.case_insensitive)), k.keywordPatternRe = b(me, !0), v && (M.begin || (M.begin = /\B|\b/), k.beginRe = b(k.begin), !M.end && !M.endsWithParent && (M.end = /\B|\b/), M.end && (k.endRe = b(k.end)), k.terminatorEnd = d(k.end) || "", M.endsWithParent && v.terminatorEnd && (k.terminatorEnd += (M.end ? "|" : "") + v.terminatorEnd)), M.illegal && (k.illegalRe = b(
         /** @type {RegExp | string} */
         M.illegal
-      )), M.contains || (M.contains = []), M.contains = [].concat(...M.contains.map(function(le) {
-        return Bt(le === "self" ? M : le);
-      })), M.contains.forEach(function(le) {
+      )), M.contains || (M.contains = []), M.contains = [].concat(...M.contains.map(function(ce) {
+        return Bt(ce === "self" ? M : ce);
+      })), M.contains.forEach(function(ce) {
         se(
           /** @type Mode */
-          le,
+          ce,
           k
         );
       }), M.starts && se(M.starts, v), k.matcher = oe(k), k;
@@ -2430,36 +2430,36 @@ function Tu() {
     function k(N) {
       return v.noHighlightRe.test(N);
     }
-    function pe(N) {
+    function me(N) {
       let w = N.className + " ";
       w += N.parentNode ? N.parentNode.className : "";
       const Y = v.languageDetectRe.exec(w);
       if (Y) {
-        const J = Be(Y[1]);
-        return J || (Ye(se.replace("{}", Y[1])), Ye("Falling back to no-highlight mode for this block.", N)), J ? Y[1] : "no-highlight";
+        const j = Be(Y[1]);
+        return j || (Ye(se.replace("{}", Y[1])), Ye("Falling back to no-highlight mode for this block.", N)), j ? Y[1] : "no-highlight";
       }
-      return w.split(/\s+/).find((J) => k(J) || Be(J));
+      return w.split(/\s+/).find((j) => k(j) || Be(j));
     }
-    function le(N, w, Y) {
-      let J = "", de = "";
-      typeof w == "object" ? (J = N, Y = w.ignoreIllegals, de = w.language) : (be("10.7.0", "highlight(lang, code, ...args) has been deprecated."), be("10.7.0", `Please use highlight(code, options) instead.
-https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y === void 0 && (Y = !0);
+    function ce(N, w, Y) {
+      let j = "", ue = "";
+      typeof w == "object" ? (j = N, Y = w.ignoreIllegals, ue = w.language) : (be("10.7.0", "highlight(lang, code, ...args) has been deprecated."), be("10.7.0", `Please use highlight(code, options) instead.
+https://github.com/highlightjs/highlight.js/issues/2277`), ue = N, j = w), Y === void 0 && (Y = !0);
       const ve = {
-        code: J,
-        language: de
+        code: j,
+        language: ue
       };
       Tt("before:highlight", ve);
       const Ge = ve.result ? ve.result : rt(ve.language, ve.code, Y);
       return Ge.code = ve.code, Tt("after:highlight", Ge), Ge;
     }
-    function rt(N, w, Y, J) {
-      const de = /* @__PURE__ */ Object.create(null);
+    function rt(N, w, Y, j) {
+      const ue = /* @__PURE__ */ Object.create(null);
       function ve(A, D) {
         return A.keywords[D];
       }
       function Ge() {
         if (!F.keywords) {
-          me.addText(X);
+          Ee.addText(X);
           return;
         }
         let A = 0;
@@ -2467,40 +2467,40 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
         let D = F.keywordPatternRe.exec(X), B = "";
         for (; D; ) {
           B += X.substring(A, D.index);
-          const H = ye.case_insensitive ? D[0].toLowerCase() : D[0], Ee = ve(F, H);
-          if (Ee) {
-            const [De, Lo] = Ee;
-            if (me.addText(B), B = "", de[H] = (de[H] || 0) + 1, de[H] <= Ve && ($e += Lo), De.startsWith("_"))
+          const H = ye.case_insensitive ? D[0].toLowerCase() : D[0], ge = ve(F, H);
+          if (ge) {
+            const [De, wo] = ge;
+            if (Ee.addText(B), B = "", ue[H] = (ue[H] || 0) + 1, ue[H] <= Ve && ($e += wo), De.startsWith("_"))
               B += D[0];
             else {
-              const xo = ye.classNameAliases[De] || De;
-              Me(D[0], xo);
+              const Po = ye.classNameAliases[De] || De;
+              Me(D[0], Po);
             }
           } else
             B += D[0];
           A = F.keywordPatternRe.lastIndex, D = F.keywordPatternRe.exec(X);
         }
-        B += X.substring(A), me.addText(B);
+        B += X.substring(A), Ee.addText(B);
       }
       function bt() {
         if (X === "") return;
         let A = null;
         if (typeof F.subLanguage == "string") {
           if (!b[F.subLanguage]) {
-            me.addText(X);
+            Ee.addText(X);
             return;
           }
           A = rt(F.subLanguage, X, !0, zt[F.subLanguage]), zt[F.subLanguage] = /** @type {CompiledMode} */
           A._top;
         } else
           A = Ht(X, F.subLanguage.length ? F.subLanguage : null);
-        F.relevance > 0 && ($e += A.relevance), me.__addSublanguage(A._emitter, A.language);
+        F.relevance > 0 && ($e += A.relevance), Ee.__addSublanguage(A._emitter, A.language);
       }
       function he() {
         F.subLanguage != null ? bt() : Ge(), X = "";
       }
       function Me(A, D) {
-        A !== "" && (me.startScope(D), me.addText(A), me.endScope());
+        A !== "" && (Ee.startScope(D), Ee.addText(A), Ee.endScope());
       }
       function cn(A, D) {
         let B = 1;
@@ -2510,19 +2510,19 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
             B++;
             continue;
           }
-          const Ee = ye.classNameAliases[A[B]] || A[B], De = D[B];
-          Ee ? Me(De, Ee) : (X = De, Ge(), X = ""), B++;
+          const ge = ye.classNameAliases[A[B]] || A[B], De = D[B];
+          ge ? Me(De, ge) : (X = De, Ge(), X = ""), B++;
         }
       }
       function _n(A, D) {
-        return A.scope && typeof A.scope == "string" && me.openNode(ye.classNameAliases[A.scope] || A.scope), A.beginScope && (A.beginScope._wrap ? (Me(X, ye.classNameAliases[A.beginScope._wrap] || A.beginScope._wrap), X = "") : A.beginScope._multi && (cn(A.beginScope, D), X = "")), F = Object.create(A, { parent: { value: F } }), F;
+        return A.scope && typeof A.scope == "string" && Ee.openNode(ye.classNameAliases[A.scope] || A.scope), A.beginScope && (A.beginScope._wrap ? (Me(X, ye.classNameAliases[A.beginScope._wrap] || A.beginScope._wrap), X = "") : A.beginScope._multi && (cn(A.beginScope, D), X = "")), F = Object.create(A, { parent: { value: F } }), F;
       }
       function dn(A, D, B) {
         let H = R(A.endRe, B);
         if (H) {
           if (A["on:end"]) {
-            const Ee = new e(A);
-            A["on:end"](D, Ee), Ee.isMatchIgnored && (H = !1);
+            const ge = new e(A);
+            A["on:end"](D, ge), ge.isMatchIgnored && (H = !1);
           }
           if (H) {
             for (; A.endsParent && A.parent; )
@@ -2533,32 +2533,32 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
         if (A.endsWithParent)
           return dn(A.parent, D, B);
       }
-      function vo(A) {
+      function Do(A) {
         return F.matcher.regexIndex === 0 ? (X += A[0], 1) : (Nt = !0, 0);
       }
-      function yo(A) {
-        const D = A[0], B = A.rule, H = new e(B), Ee = [B.__beforeBegin, B["on:begin"]];
-        for (const De of Ee)
+      function Mo(A) {
+        const D = A[0], B = A.rule, H = new e(B), ge = [B.__beforeBegin, B["on:begin"]];
+        for (const De of ge)
           if (De && (De(A, H), H.isMatchIgnored))
-            return vo(D);
+            return Do(D);
         return B.skip ? X += D : (B.excludeBegin && (X += D), he(), !B.returnBegin && !B.excludeBegin && (X = D)), _n(B, A), B.returnBegin ? 0 : D.length;
       }
-      function Do(A) {
+      function Lo(A) {
         const D = A[0], B = w.substring(A.index), H = dn(F, A, B);
         if (!H)
           return K;
-        const Ee = F;
-        F.endScope && F.endScope._wrap ? (he(), Me(D, F.endScope._wrap)) : F.endScope && F.endScope._multi ? (he(), cn(F.endScope, A)) : Ee.skip ? X += D : (Ee.returnEnd || Ee.excludeEnd || (X += D), he(), Ee.excludeEnd && (X = D));
+        const ge = F;
+        F.endScope && F.endScope._wrap ? (he(), Me(D, F.endScope._wrap)) : F.endScope && F.endScope._multi ? (he(), cn(F.endScope, A)) : ge.skip ? X += D : (ge.returnEnd || ge.excludeEnd || (X += D), he(), ge.excludeEnd && (X = D));
         do
-          F.scope && me.closeNode(), !F.skip && !F.subLanguage && ($e += F.relevance), F = F.parent;
+          F.scope && Ee.closeNode(), !F.skip && !F.subLanguage && ($e += F.relevance), F = F.parent;
         while (F !== H.parent);
-        return H.starts && _n(H.starts, A), Ee.returnEnd ? 0 : D.length;
+        return H.starts && _n(H.starts, A), ge.returnEnd ? 0 : D.length;
       }
-      function Mo() {
+      function xo() {
         const A = [];
         for (let D = F; D !== ye; D = D.parent)
           D.scope && A.unshift(D.scope);
-        A.forEach((D) => me.openNode(D));
+        A.forEach((D) => Ee.openNode(D));
       }
       let ft = {};
       function $t(A, D) {
@@ -2573,12 +2573,12 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
           return 1;
         }
         if (ft = D, D.type === "begin")
-          return yo(D);
+          return Mo(D);
         if (D.type === "illegal" && !Y) {
           const H = new Error('Illegal lexeme "' + B + '" for mode "' + (F.scope || "<unnamed>") + '"');
           throw H.mode = F, H;
         } else if (D.type === "end") {
-          const H = Do(D);
+          const H = Lo(D);
           if (H !== K)
             return H;
         }
@@ -2593,13 +2593,13 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
       if (!ye)
         throw we(se.replace("{}", N)), new Error('Unknown language: "' + N + '"');
       const un = Ft(ye);
-      let Rt = "", F = J || un;
-      const zt = {}, me = new v.__emitter(v);
-      Mo();
+      let Rt = "", F = j || un;
+      const zt = {}, Ee = new v.__emitter(v);
+      xo();
       let X = "", $e = 0, Pe = 0, Ct = 0, Nt = !1;
       try {
         if (ye.__emitTokens)
-          ye.__emitTokens(w, me);
+          ye.__emitTokens(w, Ee);
         else {
           for (F.matcher.considerAll(); ; ) {
             Ct++, Nt ? Nt = !1 : F.matcher.considerAll(), F.matcher.lastIndex = Pe;
@@ -2610,12 +2610,12 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
           }
           $t(w.substring(Pe));
         }
-        return me.finalize(), Rt = me.toHTML(), {
+        return Ee.finalize(), Rt = Ee.toHTML(), {
           language: N,
           value: Rt,
           relevance: $e,
           illegal: !1,
-          _emitter: me,
+          _emitter: Ee,
           _top: F
         };
       } catch (A) {
@@ -2632,7 +2632,7 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
               mode: A.mode,
               resultSoFar: Rt
             },
-            _emitter: me
+            _emitter: Ee
           };
         if (oe)
           return {
@@ -2641,7 +2641,7 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
             illegal: !1,
             relevance: 0,
             errorRaised: A,
-            _emitter: me,
+            _emitter: Ee,
             _top: F
           };
         throw A;
@@ -2659,11 +2659,11 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
     }
     function Ht(N, w) {
       w = w || v.languages || Object.keys(b);
-      const Y = qt(N), J = w.filter(Be).filter(ln).map(
+      const Y = qt(N), j = w.filter(Be).filter(ln).map(
         (he) => rt(he, N, !1)
       );
-      J.unshift(Y);
-      const de = J.sort((he, Me) => {
+      j.unshift(Y);
+      const ue = j.sort((he, Me) => {
         if (he.relevance !== Me.relevance) return Me.relevance - he.relevance;
         if (he.language && Me.language) {
           if (Be(he.language).supersetOf === Me.language)
@@ -2672,16 +2672,16 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
             return -1;
         }
         return 0;
-      }), [ve, Ge] = de, bt = ve;
+      }), [ve, Ge] = ue, bt = ve;
       return bt.secondBest = Ge, bt;
     }
-    function So(N, w, Y) {
-      const J = w && O[w] || Y;
-      N.classList.add("hljs"), N.classList.add(`language-${J}`);
+    function bo(N, w, Y) {
+      const j = w && O[w] || Y;
+      N.classList.add("hljs"), N.classList.add(`language-${j}`);
     }
     function Vt(N) {
       let w = null;
-      const Y = pe(N);
+      const Y = me(N);
       if (k(Y)) return;
       if (Tt(
         "before:highlightElement",
@@ -2696,24 +2696,24 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
           N.innerHTML
         );
       w = N;
-      const J = w.textContent, de = Y ? le(J, { language: Y, ignoreIllegals: !0 }) : Ht(J);
-      N.innerHTML = de.value, N.dataset.highlighted = "yes", So(N, Y, de.language), N.result = {
-        language: de.language,
+      const j = w.textContent, ue = Y ? ce(j, { language: Y, ignoreIllegals: !0 }) : Ht(j);
+      N.innerHTML = ue.value, N.dataset.highlighted = "yes", bo(N, Y, ue.language), N.result = {
+        language: ue.language,
         // TODO: remove with version 11.0
-        re: de.relevance,
-        relevance: de.relevance
-      }, de.secondBest && (N.secondBest = {
-        language: de.secondBest.language,
-        relevance: de.secondBest.relevance
-      }), Tt("after:highlightElement", { el: N, result: de, text: J });
+        re: ue.relevance,
+        relevance: ue.relevance
+      }, ue.secondBest && (N.secondBest = {
+        language: ue.secondBest.language,
+        relevance: ue.secondBest.relevance
+      }), Tt("after:highlightElement", { el: N, result: ue, text: j });
     }
-    function To(N) {
+    function fo(N) {
       v = gt(v, N);
     }
-    const bo = () => {
+    const Ro = () => {
       St(), be("10.6.0", "initHighlighting() deprecated.  Use highlightAll() now.");
     };
-    function fo() {
+    function Co() {
       St(), be("10.6.0", "initHighlightingOnLoad() deprecated.  Use highlightAll() now.");
     }
     let on = !1;
@@ -2727,25 +2727,25 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
       }
       document.querySelectorAll(v.cssSelector).forEach(Vt);
     }
-    function Ro(N, w) {
+    function No(N, w) {
       let Y = null;
       try {
         Y = w(p);
-      } catch (J) {
+      } catch (j) {
         if (we("Language definition for '{}' could not be registered.".replace("{}", N)), oe)
-          we(J);
+          we(j);
         else
-          throw J;
+          throw j;
         Y = M;
       }
       Y.name || (Y.name = N), b[N] = Y, Y.rawDefinition = w.bind(null, p), Y.aliases && sn(Y.aliases, { languageName: N });
     }
-    function Co(N) {
+    function ho(N) {
       delete b[N];
       for (const w of Object.keys(O))
         O[w] === N && delete O[w];
     }
-    function No() {
+    function Oo() {
       return Object.keys(b);
     }
     function Be(N) {
@@ -2760,7 +2760,7 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
       const w = Be(N);
       return w && !w.disableAutodetect;
     }
-    function ho(N) {
+    function Ao(N) {
       N["before:highlightBlock"] && !N["before:highlightElement"] && (N["before:highlightElement"] = (w) => {
         N["before:highlightBlock"](
           Object.assign({ block: w.el }, w)
@@ -2771,41 +2771,41 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
         );
       });
     }
-    function Oo(N) {
-      ho(N), U.push(N);
+    function Io(N) {
+      Ao(N), U.push(N);
     }
-    function Ao(N) {
+    function vo(N) {
       const w = U.indexOf(N);
       w !== -1 && U.splice(w, 1);
     }
     function Tt(N, w) {
       const Y = N;
-      U.forEach(function(J) {
-        J[Y] && J[Y](w);
+      U.forEach(function(j) {
+        j[Y] && j[Y](w);
       });
     }
-    function Io(N) {
+    function yo(N) {
       return be("10.7.0", "highlightBlock will be removed entirely in v12.0"), be("10.7.0", "Please use highlightElement now."), Vt(N);
     }
     Object.assign(p, {
-      highlight: le,
+      highlight: ce,
       highlightAuto: Ht,
       highlightAll: St,
       highlightElement: Vt,
       // TODO: Remove with v12 API
-      highlightBlock: Io,
-      configure: To,
-      initHighlighting: bo,
-      initHighlightingOnLoad: fo,
-      registerLanguage: Ro,
-      unregisterLanguage: Co,
-      listLanguages: No,
+      highlightBlock: yo,
+      configure: fo,
+      initHighlighting: Ro,
+      initHighlightingOnLoad: Co,
+      registerLanguage: No,
+      unregisterLanguage: ho,
+      listLanguages: Oo,
       getLanguage: Be,
       registerAliases: sn,
       autoDetection: ln,
       inherit: gt,
-      addPlugin: Oo,
-      removePlugin: Ao
+      addPlugin: Io,
+      removePlugin: vo
     }), p.debugMode = function() {
       oe = !1;
     }, p.safeMode = function() {
@@ -2821,19 +2821,19 @@ https://github.com/highlightjs/highlight.js/issues/2277`), de = N, J = w), Y ===
       typeof ae[N] == "object" && n(ae[N]);
     return Object.assign(p, ae), p;
   }, Fe = Ue({});
-  return Fe.newInstance = () => Ue({}), mn = Fe, Fe.HighlightJS = Fe, Fe.default = Fe, mn;
+  return Fe.newInstance = () => Ue({}), En = Fe, Fe.HighlightJS = Fe, Fe.default = Fe, En;
 }
-var En, ts;
+var gn, ns;
 function bu() {
-  if (ts) return En;
-  ts = 1;
+  if (ns) return gn;
+  ns = 1;
   function n(e) {
-    const t = "[A-Za-zА-Яа-яёЁ_][A-Za-zА-Яа-яёЁ_0-9]+", i = "далее " + "возврат вызватьисключение выполнить для если и из или иначе иначеесли исключение каждого конецесли конецпопытки конеццикла не новый перейти перем по пока попытка прервать продолжить тогда цикл экспорт ", l = "загрузитьизфайла " + "вебклиент вместо внешнеесоединение клиент конецобласти мобильноеприложениеклиент мобильноеприложениесервер наклиенте наклиентенасервере наклиентенасерверебезконтекста насервере насерверебезконтекста область перед после сервер толстыйклиентобычноеприложение толстыйклиентуправляемоеприложение тонкийклиент ", E = "разделительстраниц разделительстрок символтабуляции " + "ansitooem oemtoansi ввестивидсубконто ввестиперечисление ввестипериод ввестиплансчетов выбранныйплансчетов датагод датамесяц датачисло заголовоксистемы значениевстроку значениеизстроки каталогиб каталогпользователя кодсимв конгода конецпериодаби конецрассчитанногопериодаби конецстандартногоинтервала конквартала конмесяца коннедели лог лог10 максимальноеколичествосубконто названиеинтерфейса названиенабораправ назначитьвид назначитьсчет найтиссылки началопериодаби началостандартногоинтервала начгода начквартала начмесяца начнедели номерднягода номерднянедели номернеделигода обработкаожидания основнойжурналрасчетов основнойплансчетов основнойязык очиститьокносообщений периодстр получитьвремята получитьдатута получитьдокументта получитьзначенияотбора получитьпозициюта получитьпустоезначение получитьта префиксавтонумерации пропись пустоезначение разм разобратьпозициюдокумента рассчитатьрегистрына рассчитатьрегистрыпо симв создатьобъект статусвозврата стрколичествострок сформироватьпозициюдокумента счетпокоду текущеевремя типзначения типзначениястр установитьтана установитьтапо фиксшаблон шаблон " + "acos asin atan base64значение base64строка cos exp log log10 pow sin sqrt tan xmlзначение xmlстрока xmlтип xmlтипзнч активноеокно безопасныйрежим безопасныйрежимразделенияданных булево ввестидату ввестизначение ввестистроку ввестичисло возможностьчтенияxml вопрос восстановитьзначение врег выгрузитьжурналрегистрации выполнитьобработкуоповещения выполнитьпроверкуправдоступа вычислить год данныеформывзначение дата день деньгода деньнедели добавитьмесяц заблокироватьданныедляредактирования заблокироватьработупользователя завершитьработусистемы загрузитьвнешнююкомпоненту закрытьсправку записатьjson записатьxml записатьдатуjson записьжурналарегистрации заполнитьзначениясвойств запроситьразрешениепользователя запуститьприложение запуститьсистему зафиксироватьтранзакцию значениевданныеформы значениевстрокувнутр значениевфайл значениезаполнено значениеизстрокивнутр значениеизфайла изxmlтипа импортмоделиxdto имякомпьютера имяпользователя инициализироватьпредопределенныеданные информацияобошибке каталогбиблиотекимобильногоустройства каталогвременныхфайлов каталогдокументов каталогпрограммы кодироватьстроку кодлокализацииинформационнойбазы кодсимвола командасистемы конецгода конецдня конецквартала конецмесяца конецминуты конецнедели конецчаса конфигурациябазыданныхизмененадинамически конфигурацияизменена копироватьданныеформы копироватьфайл краткоепредставлениеошибки лев макс местноевремя месяц мин минута монопольныйрежим найти найтинедопустимыесимволыxml найтиокнопонавигационнойссылке найтипомеченныенаудаление найтипоссылкам найтифайлы началогода началодня началоквартала началомесяца началоминуты началонедели началочаса начатьзапросразрешенияпользователя начатьзапускприложения начатькопированиефайла начатьперемещениефайла начатьподключениевнешнейкомпоненты начатьподключениерасширенияработыскриптографией начатьподключениерасширенияработысфайлами начатьпоискфайлов начатьполучениекаталогавременныхфайлов начатьполучениекаталогадокументов начатьполучениерабочегокаталогаданныхпользователя начатьполучениефайлов начатьпомещениефайла начатьпомещениефайлов начатьсозданиедвоичныхданныхизфайла начатьсозданиекаталога начатьтранзакцию начатьудалениефайлов начатьустановкувнешнейкомпоненты начатьустановкурасширенияработыскриптографией начатьустановкурасширенияработысфайлами неделягода необходимостьзавершениясоединения номерсеансаинформационнойбазы номерсоединенияинформационнойбазы нрег нстр обновитьинтерфейс обновитьнумерациюобъектов обновитьповторноиспользуемыезначения обработкапрерыванияпользователя объединитьфайлы окр описаниеошибки оповестить оповеститьобизменении отключитьобработчикзапросанастроекклиенталицензирования отключитьобработчикожидания отключитьобработчикоповещения открытьзначение открытьиндекссправки открытьсодержаниесправки открытьсправку открытьформу открытьформумодально отменитьтранзакцию очиститьжурналрегистрации очиститьнастройкипользователя очиститьсообщения параметрыдоступа перейтипонавигационнойссылке переместитьфайл подключитьвнешнююкомпоненту подключитьобработчикзапросанастроекклиенталицензирования подключитьобработчикожидания подключитьобработчикоповещения подключитьрасширениеработыскриптографией подключитьрасширениеработысфайлами подробноепредставлениеошибки показатьвводдаты показатьвводзначения показатьвводстроки показатьвводчисла показатьвопрос показатьзначение показатьинформациюобошибке показатьнакарте показатьоповещениепользователя показатьпредупреждение полноеимяпользователя получитьcomобъект получитьxmlтип получитьадреспоместоположению получитьблокировкусеансов получитьвремязавершенияспящегосеанса получитьвремязасыпанияпассивногосеанса получитьвремяожиданияблокировкиданных получитьданныевыбора получитьдополнительныйпараметрклиенталицензирования получитьдопустимыекодылокализации получитьдопустимыечасовыепояса получитьзаголовокклиентскогоприложения получитьзаголовоксистемы получитьзначенияотборажурналарегистрации получитьидентификаторконфигурации получитьизвременногохранилища получитьимявременногофайла получитьимяклиенталицензирования получитьинформациюэкрановклиента получитьиспользованиежурналарегистрации получитьиспользованиесобытияжурналарегистрации получитькраткийзаголовокприложения получитьмакетоформления получитьмаскувсефайлы получитьмаскувсефайлыклиента получитьмаскувсефайлысервера получитьместоположениепоадресу получитьминимальнуюдлинупаролейпользователей получитьнавигационнуюссылку получитьнавигационнуюссылкуинформационнойбазы получитьобновлениеконфигурациибазыданных получитьобновлениепредопределенныхданныхинформационнойбазы получитьобщиймакет получитьобщуюформу получитьокна получитьоперативнуюотметкувремени получитьотключениебезопасногорежима получитьпараметрыфункциональныхопцийинтерфейса получитьполноеимяпредопределенногозначения получитьпредставлениянавигационныхссылок получитьпроверкусложностипаролейпользователей получитьразделительпути получитьразделительпутиклиента получитьразделительпутисервера получитьсеансыинформационнойбазы получитьскоростьклиентскогосоединения получитьсоединенияинформационнойбазы получитьсообщенияпользователю получитьсоответствиеобъектаиформы получитьсоставстандартногоинтерфейсаodata получитьструктурухранениябазыданных получитьтекущийсеансинформационнойбазы получитьфайл получитьфайлы получитьформу получитьфункциональнуюопцию получитьфункциональнуюопциюинтерфейса получитьчасовойпоясинформационнойбазы пользователиос поместитьвовременноехранилище поместитьфайл поместитьфайлы прав праводоступа предопределенноезначение представлениекодалокализации представлениепериода представлениеправа представлениеприложения представлениесобытияжурналарегистрации представлениечасовогопояса предупреждение прекратитьработусистемы привилегированныйрежим продолжитьвызов прочитатьjson прочитатьxml прочитатьдатуjson пустаястрока рабочийкаталогданныхпользователя разблокироватьданныедляредактирования разделитьфайл разорватьсоединениесвнешнимисточникомданных раскодироватьстроку рольдоступна секунда сигнал символ скопироватьжурналрегистрации смещениелетнеговремени смещениестандартноговремени соединитьбуферыдвоичныхданных создатькаталог создатьфабрикуxdto сокрл сокрлп сокрп сообщить состояние сохранитьзначение сохранитьнастройкипользователя сред стрдлина стрзаканчиваетсяна стрзаменить стрнайти стрначинаетсяс строка строкасоединенияинформационнойбазы стрполучитьстроку стрразделить стрсоединить стрсравнить стрчисловхождений стрчислострок стршаблон текущаядата текущаядатасеанса текущаяуниверсальнаядата текущаяуниверсальнаядатавмиллисекундах текущийвариантинтерфейсаклиентскогоприложения текущийвариантосновногошрифтаклиентскогоприложения текущийкодлокализации текущийрежимзапуска текущийязык текущийязыксистемы тип типзнч транзакцияактивна трег удалитьданныеинформационнойбазы удалитьизвременногохранилища удалитьобъекты удалитьфайлы универсальноевремя установитьбезопасныйрежим установитьбезопасныйрежимразделенияданных установитьблокировкусеансов установитьвнешнююкомпоненту установитьвремязавершенияспящегосеанса установитьвремязасыпанияпассивногосеанса установитьвремяожиданияблокировкиданных установитьзаголовокклиентскогоприложения установитьзаголовоксистемы установитьиспользованиежурналарегистрации установитьиспользованиесобытияжурналарегистрации установитькраткийзаголовокприложения установитьминимальнуюдлинупаролейпользователей установитьмонопольныйрежим установитьнастройкиклиенталицензирования установитьобновлениепредопределенныхданныхинформационнойбазы установитьотключениебезопасногорежима установитьпараметрыфункциональныхопцийинтерфейса установитьпривилегированныйрежим установитьпроверкусложностипаролейпользователей установитьрасширениеработыскриптографией установитьрасширениеработысфайлами установитьсоединениесвнешнимисточникомданных установитьсоответствиеобъектаиформы установитьсоставстандартногоинтерфейсаodata установитьчасовойпоясинформационнойбазы установитьчасовойпояссеанса формат цел час часовойпояс часовойпояссеанса число числопрописью этоадресвременногохранилища " + "wsссылки библиотекакартинок библиотекамакетовоформлениякомпоновкиданных библиотекастилей бизнеспроцессы внешниеисточникиданных внешниеобработки внешниеотчеты встроенныепокупки главныйинтерфейс главныйстиль документы доставляемыеуведомления журналыдокументов задачи информацияобинтернетсоединении использованиерабочейдаты историяработыпользователя константы критерииотбора метаданные обработки отображениерекламы отправкадоставляемыхуведомлений отчеты панельзадачос параметрзапуска параметрысеанса перечисления планывидоврасчета планывидовхарактеристик планыобмена планысчетов полнотекстовыйпоиск пользователиинформационнойбазы последовательности проверкавстроенныхпокупок рабочаядата расширенияконфигурации регистрыбухгалтерии регистрынакопления регистрырасчета регистрысведений регламентныезадания сериализаторxdto справочники средствагеопозиционирования средствакриптографии средствамультимедиа средстваотображениярекламы средствапочты средствателефонии фабрикаxdto файловыепотоки фоновыезадания хранилищанастроек хранилищевариантовотчетов хранилищенастроекданныхформ хранилищеобщихнастроек хранилищепользовательскихнастроекдинамическихсписков хранилищепользовательскихнастроекотчетов хранилищесистемныхнастроек ", Oe = "webцвета windowsцвета windowsшрифты библиотекакартинок рамкистиля символы цветастиля шрифтыстиля " + "автоматическоесохранениеданныхформывнастройках автонумерациявформе автораздвижениесерий анимациядиаграммы вариантвыравниванияэлементовизаголовков вариантуправлениявысотойтаблицы вертикальнаяпрокруткаформы вертикальноеположение вертикальноеположениеэлемента видгруппыформы виддекорацииформы виддополненияэлементаформы видизмененияданных видкнопкиформы видпереключателя видподписейкдиаграмме видполяформы видфлажка влияниеразмеранапузырекдиаграммы горизонтальноеположение горизонтальноеположениеэлемента группировкаколонок группировкаподчиненныхэлементовформы группыиэлементы действиеперетаскивания дополнительныйрежимотображения допустимыедействияперетаскивания интервалмеждуэлементамиформы использованиевывода использованиеполосыпрокрутки используемоезначениеточкибиржевойдиаграммы историявыборапривводе источникзначенийоситочекдиаграммы источникзначенияразмерапузырькадиаграммы категориягруппыкоманд максимумсерий начальноеотображениедерева начальноеотображениесписка обновлениетекстаредактирования ориентациядендрограммы ориентациядиаграммы ориентацияметокдиаграммы ориентацияметоксводнойдиаграммы ориентацияэлементаформы отображениевдиаграмме отображениевлегендедиаграммы отображениегруппыкнопок отображениезаголовкашкалыдиаграммы отображениезначенийсводнойдиаграммы отображениезначенияизмерительнойдиаграммы отображениеинтерваладиаграммыганта отображениекнопки отображениекнопкивыбора отображениеобсужденийформы отображениеобычнойгруппы отображениеотрицательныхзначенийпузырьковойдиаграммы отображениепанелипоиска отображениеподсказки отображениепредупрежденияприредактировании отображениеразметкиполосырегулирования отображениестраницформы отображениетаблицы отображениетекстазначениядиаграммыганта отображениеуправленияобычнойгруппы отображениефигурыкнопки палитрацветовдиаграммы поведениеобычнойгруппы поддержкамасштабадендрограммы поддержкамасштабадиаграммыганта поддержкамасштабасводнойдиаграммы поисквтаблицепривводе положениезаголовкаэлементаформы положениекартинкикнопкиформы положениекартинкиэлементаграфическойсхемы положениекоманднойпанелиформы положениекоманднойпанелиэлементаформы положениеопорнойточкиотрисовки положениеподписейкдиаграмме положениеподписейшкалызначенийизмерительнойдиаграммы положениесостоянияпросмотра положениестрокипоиска положениетекстасоединительнойлинии положениеуправленияпоиском положениешкалывремени порядокотображенияточекгоризонтальнойгистограммы порядоксерийвлегендедиаграммы размеркартинки расположениезаголовкашкалыдиаграммы растягиваниеповертикалидиаграммыганта режимавтоотображениясостояния режимвводастроктаблицы режимвыборанезаполненного режимвыделениядаты режимвыделениястрокитаблицы режимвыделениятаблицы режимизмененияразмера режимизменениясвязанногозначения режимиспользованиядиалогапечати режимиспользованияпараметракоманды режиммасштабированияпросмотра режимосновногоокнаклиентскогоприложения режимоткрытияокнаформы режимотображениявыделения режимотображениягеографическойсхемы режимотображениязначенийсерии режимотрисовкисеткиграфическойсхемы режимполупрозрачностидиаграммы режимпробеловдиаграммы режимразмещениянастранице режимредактированияколонки режимсглаживаниядиаграммы режимсглаживанияиндикатора режимсписказадач сквозноевыравнивание сохранениеданныхформывнастройках способзаполнениятекстазаголовкашкалыдиаграммы способопределенияограничивающегозначениядиаграммы стандартнаягруппакоманд стандартноеоформление статусоповещенияпользователя стильстрелки типаппроксимациилиниитрендадиаграммы типдиаграммы типединицышкалывремени типимпортасерийслоягеографическойсхемы типлиниигеографическойсхемы типлиниидиаграммы типмаркерагеографическойсхемы типмаркерадиаграммы типобластиоформления типорганизацииисточникаданныхгеографическойсхемы типотображениясериислоягеографическойсхемы типотображенияточечногообъектагеографическойсхемы типотображенияшкалыэлементалегендыгеографическойсхемы типпоискаобъектовгеографическойсхемы типпроекциигеографическойсхемы типразмещенияизмерений типразмещенияреквизитовизмерений типрамкиэлементауправления типсводнойдиаграммы типсвязидиаграммыганта типсоединениязначенийпосериямдиаграммы типсоединенияточекдиаграммы типсоединительнойлинии типстороныэлементаграфическойсхемы типформыотчета типшкалырадарнойдиаграммы факторлиниитрендадиаграммы фигуракнопки фигурыграфическойсхемы фиксациявтаблице форматдняшкалывремени форматкартинки ширинаподчиненныхэлементовформы " + "виддвижениябухгалтерии виддвижениянакопления видпериодарегистрарасчета видсчета видточкимаршрутабизнеспроцесса использованиеагрегатарегистранакопления использованиегруппиэлементов использованиережимапроведения использованиесреза периодичностьагрегатарегистранакопления режимавтовремя режимзаписидокумента режимпроведениядокумента " + "авторегистрацияизменений допустимыйномерсообщения отправкаэлементаданных получениеэлементаданных " + "использованиерасшифровкитабличногодокумента ориентациястраницы положениеитоговколоноксводнойтаблицы положениеитоговстроксводнойтаблицы положениетекстаотносительнокартинки расположениезаголовкагруппировкитабличногодокумента способчтениязначенийтабличногодокумента типдвустороннейпечати типзаполненияобластитабличногодокумента типкурсоровтабличногодокумента типлиниирисункатабличногодокумента типлинииячейкитабличногодокумента типнаправленияпереходатабличногодокумента типотображениявыделениятабличногодокумента типотображениялинийсводнойтаблицы типразмещениятекстатабличногодокумента типрисункатабличногодокумента типсмещениятабличногодокумента типузоратабличногодокумента типфайлатабличногодокумента точностьпечати чередованиерасположениястраниц " + "отображениевремениэлементовпланировщика " + "типфайлаформатированногодокумента " + "обходрезультатазапроса типзаписизапроса " + "видзаполнениярасшифровкипостроителяотчета типдобавленияпредставлений типизмеренияпостроителяотчета типразмещенияитогов " + "доступкфайлу режимдиалогавыборафайла режимоткрытияфайла " + "типизмеренияпостроителязапроса " + "видданныханализа методкластеризации типединицыинтервалавременианализаданных типзаполнениятаблицырезультатаанализаданных типиспользованиячисловыхзначенийанализаданных типисточникаданныхпоискаассоциаций типколонкианализаданныхдереворешений типколонкианализаданныхкластеризация типколонкианализаданныхобщаястатистика типколонкианализаданныхпоискассоциаций типколонкианализаданныхпоискпоследовательностей типколонкимоделипрогноза типмерырасстоянияанализаданных типотсеченияправилассоциации типполяанализаданных типстандартизациианализаданных типупорядочиванияправилассоциациианализаданных типупорядочиванияшаблоновпоследовательностейанализаданных типупрощениядереварешений " + "wsнаправлениепараметра вариантxpathxs вариантзаписидатыjson вариантпростоготипаxs видгруппымоделиxs видфасетаxdto действиепостроителяdom завершенностьпростоготипаxs завершенностьсоставноготипаxs завершенностьсхемыxs запрещенныеподстановкиxs исключениягруппподстановкиxs категорияиспользованияатрибутаxs категорияограниченияидентичностиxs категорияограниченияпространствименxs методнаследованияxs модельсодержимогоxs назначениетипаxml недопустимыеподстановкиxs обработкапробельныхсимволовxs обработкасодержимогоxs ограничениезначенияxs параметрыотбораузловdom переносстрокjson позициявдокументеdom пробельныесимволыxml типатрибутаxml типзначенияjson типканоническогоxml типкомпонентыxs типпроверкиxml типрезультатаdomxpath типузлаdom типузлаxml формаxml формапредставленияxs форматдатыjson экранированиесимволовjson " + "видсравнениякомпоновкиданных действиеобработкирасшифровкикомпоновкиданных направлениесортировкикомпоновкиданных расположениевложенныхэлементоврезультатакомпоновкиданных расположениеитоговкомпоновкиданных расположениегруппировкикомпоновкиданных расположениеполейгруппировкикомпоновкиданных расположениеполякомпоновкиданных расположениереквизитовкомпоновкиданных расположениересурсовкомпоновкиданных типбухгалтерскогоостаткакомпоновкиданных типвыводатекстакомпоновкиданных типгруппировкикомпоновкиданных типгруппыэлементовотборакомпоновкиданных типдополненияпериодакомпоновкиданных типзаголовкаполейкомпоновкиданных типмакетагруппировкикомпоновкиданных типмакетаобластикомпоновкиданных типостаткакомпоновкиданных типпериодакомпоновкиданных типразмещениятекстакомпоновкиданных типсвязинаборовданныхкомпоновкиданных типэлементарезультатакомпоновкиданных расположениелегендыдиаграммыкомпоновкиданных типпримененияотборакомпоновкиданных режимотображенияэлементанастройкикомпоновкиданных режимотображениянастроеккомпоновкиданных состояниеэлементанастройкикомпоновкиданных способвосстановлениянастроеккомпоновкиданных режимкомпоновкирезультата использованиепараметракомпоновкиданных автопозицияресурсовкомпоновкиданных вариантиспользованиягруппировкикомпоновкиданных расположениересурсоввдиаграммекомпоновкиданных фиксациякомпоновкиданных использованиеусловногооформлениякомпоновкиданных " + "важностьинтернетпочтовогосообщения обработкатекстаинтернетпочтовогосообщения способкодированияинтернетпочтовоговложения способкодированиянеasciiсимволовинтернетпочтовогосообщения типтекстапочтовогосообщения протоколинтернетпочты статусразборапочтовогосообщения " + "режимтранзакциизаписижурналарегистрации статустранзакциизаписижурналарегистрации уровеньжурналарегистрации " + "расположениехранилищасертификатовкриптографии режимвключениясертификатовкриптографии режимпроверкисертификатакриптографии типхранилищасертификатовкриптографии " + "кодировкаименфайловвzipфайле методсжатияzip методшифрованияzip режимвосстановленияпутейфайловzip режимобработкиподкаталоговzip режимсохраненияпутейzip уровеньсжатияzip " + "звуковоеоповещение направлениепереходакстроке позициявпотоке порядокбайтов режимблокировкиданных режимуправленияблокировкойданных сервисвстроенныхпокупок состояниефоновогозадания типподписчикадоставляемыхуведомлений уровеньиспользованиязащищенногосоединенияftp " + "направлениепорядкасхемызапроса типдополненияпериодамисхемызапроса типконтрольнойточкисхемызапроса типобъединениясхемызапроса типпараметрадоступнойтаблицысхемызапроса типсоединениясхемызапроса " + "httpметод автоиспользованиеобщегореквизита автопрефиксномеразадачи вариантвстроенногоязыка видиерархии видрегистранакопления видтаблицывнешнегоисточникаданных записьдвиженийприпроведении заполнениепоследовательностей индексирование использованиебазыпланавидоврасчета использованиебыстроговыбора использованиеобщегореквизита использованиеподчинения использованиеполнотекстовогопоиска использованиеразделяемыхданныхобщегореквизита использованиереквизита назначениеиспользованияприложения назначениерасширенияконфигурации направлениепередачи обновлениепредопределенныхданных оперативноепроведение основноепредставлениевидарасчета основноепредставлениевидахарактеристики основноепредставлениезадачи основноепредставлениепланаобмена основноепредставлениесправочника основноепредставлениесчета перемещениеграницыприпроведении периодичностьномерабизнеспроцесса периодичностьномерадокумента периодичностьрегистрарасчета периодичностьрегистрасведений повторноеиспользованиевозвращаемыхзначений полнотекстовыйпоискпривводепостроке принадлежностьобъекта проведение разделениеаутентификацииобщегореквизита разделениеданныхобщегореквизита разделениерасширенийконфигурацииобщегореквизита режимавтонумерацииобъектов режимзаписирегистра режимиспользованиямодальности режимиспользованиясинхронныхвызововрасширенийплатформыивнешнихкомпонент режимповторногоиспользованиясеансов режимполученияданныхвыборапривводепостроке режимсовместимости режимсовместимостиинтерфейса режимуправленияблокировкойданныхпоумолчанию сериикодовпланавидовхарактеристик сериикодовпланасчетов сериикодовсправочника созданиепривводе способвыбора способпоискастрокипривводепостроке способредактирования типданныхтаблицывнешнегоисточникаданных типкодапланавидоврасчета типкодасправочника типмакета типномерабизнеспроцесса типномерадокумента типномеразадачи типформы удалениедвижений " + "важностьпроблемыприменениярасширенияконфигурации вариантинтерфейсаклиентскогоприложения вариантмасштабаформклиентскогоприложения вариантосновногошрифтаклиентскогоприложения вариантстандартногопериода вариантстандартнойдатыначала видграницы видкартинки видотображенияполнотекстовогопоиска видрамки видсравнения видцвета видчисловогозначения видшрифта допустимаядлина допустимыйзнак использованиеbyteordermark использованиеметаданныхполнотекстовогопоиска источникрасширенийконфигурации клавиша кодвозвратадиалога кодировкаxbase кодировкатекста направлениепоиска направлениесортировки обновлениепредопределенныхданных обновлениеприизмененииданных отображениепанелиразделов проверказаполнения режимдиалогавопрос режимзапускаклиентскогоприложения режимокругления режимоткрытияформприложения режимполнотекстовогопоиска скоростьклиентскогосоединения состояниевнешнегоисточникаданных состояниеобновленияконфигурациибазыданных способвыборасертификатаwindows способкодированиястроки статуссообщения типвнешнейкомпоненты типплатформы типповеденияклавишиenter типэлементаинформацииовыполненииобновленияконфигурациибазыданных уровеньизоляциитранзакций хешфункция частидаты", Ne = "comобъект ftpсоединение httpзапрос httpсервисответ httpсоединение wsопределения wsпрокси xbase анализданных аннотацияxs блокировкаданных буфердвоичныхданных включениеxs выражениекомпоновкиданных генераторслучайныхчисел географическаясхема географическиекоординаты графическаясхема группамоделиxs данныерасшифровкикомпоновкиданных двоичныеданные дендрограмма диаграмма диаграммаганта диалогвыборафайла диалогвыборацвета диалогвыборашрифта диалограсписаниярегламентногозадания диалогредактированиястандартногопериода диапазон документdom документhtml документацияxs доставляемоеуведомление записьdom записьfastinfoset записьhtml записьjson записьxml записьzipфайла записьданных записьтекста записьузловdom запрос защищенноесоединениеopenssl значенияполейрасшифровкикомпоновкиданных извлечениетекста импортxs интернетпочта интернетпочтовоесообщение интернетпочтовыйпрофиль интернетпрокси интернетсоединение информациядляприложенияxs использованиеатрибутаxs использованиесобытияжурналарегистрации источникдоступныхнастроеккомпоновкиданных итераторузловdom картинка квалификаторыдаты квалификаторыдвоичныхданных квалификаторыстроки квалификаторычисла компоновщикмакетакомпоновкиданных компоновщикнастроеккомпоновкиданных конструктормакетаоформлениякомпоновкиданных конструкторнастроеккомпоновкиданных конструкторформатнойстроки линия макеткомпоновкиданных макетобластикомпоновкиданных макетоформлениякомпоновкиданных маскаxs менеджеркриптографии наборсхемxml настройкикомпоновкиданных настройкисериализацииjson обработкакартинок обработкарасшифровкикомпоновкиданных обходдереваdom объявлениеатрибутаxs объявлениенотацииxs объявлениеэлементаxs описаниеиспользованиясобытиядоступжурналарегистрации описаниеиспользованиясобытияотказвдоступежурналарегистрации описаниеобработкирасшифровкикомпоновкиданных описаниепередаваемогофайла описаниетипов определениегруппыатрибутовxs определениегруппымоделиxs определениеограниченияидентичностиxs определениепростоготипаxs определениесоставноготипаxs определениетипадокументаdom определенияxpathxs отборкомпоновкиданных пакетотображаемыхдокументов параметрвыбора параметркомпоновкиданных параметрызаписиjson параметрызаписиxml параметрычтенияxml переопределениеxs планировщик полеанализаданных полекомпоновкиданных построительdom построительзапроса построительотчета построительотчетаанализаданных построительсхемxml поток потоквпамяти почта почтовоесообщение преобразованиеxsl преобразованиекканоническомуxml процессорвыводарезультатакомпоновкиданныхвколлекциюзначений процессорвыводарезультатакомпоновкиданныхвтабличныйдокумент процессоркомпоновкиданных разыменовательпространствименdom рамка расписаниерегламентногозадания расширенноеимяxml результатчтенияданных своднаядиаграмма связьпараметравыбора связьпотипу связьпотипукомпоновкиданных сериализаторxdto сертификатклиентаwindows сертификатклиентафайл сертификаткриптографии сертификатыудостоверяющихцентровwindows сертификатыудостоверяющихцентровфайл сжатиеданных системнаяинформация сообщениепользователю сочетаниеклавиш сравнениезначений стандартнаядатаначала стандартныйпериод схемаxml схемакомпоновкиданных табличныйдокумент текстовыйдокумент тестируемоеприложение типданныхxml уникальныйидентификатор фабрикаxdto файл файловыйпоток фасетдлиныxs фасетколичестваразрядовдробнойчастиxs фасетмаксимальноговключающегозначенияxs фасетмаксимальногоисключающегозначенияxs фасетмаксимальнойдлиныxs фасетминимальноговключающегозначенияxs фасетминимальногоисключающегозначенияxs фасетминимальнойдлиныxs фасетобразцаxs фасетобщегоколичестваразрядовxs фасетперечисленияxs фасетпробельныхсимволовxs фильтрузловdom форматированнаястрока форматированныйдокумент фрагментxs хешированиеданных хранилищезначения цвет чтениеfastinfoset чтениеhtml чтениеjson чтениеxml чтениеzipфайла чтениеданных чтениетекста чтениеузловdom шрифт элементрезультатакомпоновкиданных " + "comsafearray деревозначений массив соответствие списокзначений структура таблицазначений фиксированнаяструктура фиксированноесоответствие фиксированныймассив ", Se = "null истина ложь неопределено", ce = e.inherit(e.NUMBER_MODE), ue = {
+    const t = "[A-Za-zА-Яа-яёЁ_][A-Za-zА-Яа-яёЁ_0-9]+", i = "далее " + "возврат вызватьисключение выполнить для если и из или иначе иначеесли исключение каждого конецесли конецпопытки конеццикла не новый перейти перем по пока попытка прервать продолжить тогда цикл экспорт ", l = "загрузитьизфайла " + "вебклиент вместо внешнеесоединение клиент конецобласти мобильноеприложениеклиент мобильноеприложениесервер наклиенте наклиентенасервере наклиентенасерверебезконтекста насервере насерверебезконтекста область перед после сервер толстыйклиентобычноеприложение толстыйклиентуправляемоеприложение тонкийклиент ", E = "разделительстраниц разделительстрок символтабуляции " + "ansitooem oemtoansi ввестивидсубконто ввестиперечисление ввестипериод ввестиплансчетов выбранныйплансчетов датагод датамесяц датачисло заголовоксистемы значениевстроку значениеизстроки каталогиб каталогпользователя кодсимв конгода конецпериодаби конецрассчитанногопериодаби конецстандартногоинтервала конквартала конмесяца коннедели лог лог10 максимальноеколичествосубконто названиеинтерфейса названиенабораправ назначитьвид назначитьсчет найтиссылки началопериодаби началостандартногоинтервала начгода начквартала начмесяца начнедели номерднягода номерднянедели номернеделигода обработкаожидания основнойжурналрасчетов основнойплансчетов основнойязык очиститьокносообщений периодстр получитьвремята получитьдатута получитьдокументта получитьзначенияотбора получитьпозициюта получитьпустоезначение получитьта префиксавтонумерации пропись пустоезначение разм разобратьпозициюдокумента рассчитатьрегистрына рассчитатьрегистрыпо симв создатьобъект статусвозврата стрколичествострок сформироватьпозициюдокумента счетпокоду текущеевремя типзначения типзначениястр установитьтана установитьтапо фиксшаблон шаблон " + "acos asin atan base64значение base64строка cos exp log log10 pow sin sqrt tan xmlзначение xmlстрока xmlтип xmlтипзнч активноеокно безопасныйрежим безопасныйрежимразделенияданных булево ввестидату ввестизначение ввестистроку ввестичисло возможностьчтенияxml вопрос восстановитьзначение врег выгрузитьжурналрегистрации выполнитьобработкуоповещения выполнитьпроверкуправдоступа вычислить год данныеформывзначение дата день деньгода деньнедели добавитьмесяц заблокироватьданныедляредактирования заблокироватьработупользователя завершитьработусистемы загрузитьвнешнююкомпоненту закрытьсправку записатьjson записатьxml записатьдатуjson записьжурналарегистрации заполнитьзначениясвойств запроситьразрешениепользователя запуститьприложение запуститьсистему зафиксироватьтранзакцию значениевданныеформы значениевстрокувнутр значениевфайл значениезаполнено значениеизстрокивнутр значениеизфайла изxmlтипа импортмоделиxdto имякомпьютера имяпользователя инициализироватьпредопределенныеданные информацияобошибке каталогбиблиотекимобильногоустройства каталогвременныхфайлов каталогдокументов каталогпрограммы кодироватьстроку кодлокализацииинформационнойбазы кодсимвола командасистемы конецгода конецдня конецквартала конецмесяца конецминуты конецнедели конецчаса конфигурациябазыданныхизмененадинамически конфигурацияизменена копироватьданныеформы копироватьфайл краткоепредставлениеошибки лев макс местноевремя месяц мин минута монопольныйрежим найти найтинедопустимыесимволыxml найтиокнопонавигационнойссылке найтипомеченныенаудаление найтипоссылкам найтифайлы началогода началодня началоквартала началомесяца началоминуты началонедели началочаса начатьзапросразрешенияпользователя начатьзапускприложения начатькопированиефайла начатьперемещениефайла начатьподключениевнешнейкомпоненты начатьподключениерасширенияработыскриптографией начатьподключениерасширенияработысфайлами начатьпоискфайлов начатьполучениекаталогавременныхфайлов начатьполучениекаталогадокументов начатьполучениерабочегокаталогаданныхпользователя начатьполучениефайлов начатьпомещениефайла начатьпомещениефайлов начатьсозданиедвоичныхданныхизфайла начатьсозданиекаталога начатьтранзакцию начатьудалениефайлов начатьустановкувнешнейкомпоненты начатьустановкурасширенияработыскриптографией начатьустановкурасширенияработысфайлами неделягода необходимостьзавершениясоединения номерсеансаинформационнойбазы номерсоединенияинформационнойбазы нрег нстр обновитьинтерфейс обновитьнумерациюобъектов обновитьповторноиспользуемыезначения обработкапрерыванияпользователя объединитьфайлы окр описаниеошибки оповестить оповеститьобизменении отключитьобработчикзапросанастроекклиенталицензирования отключитьобработчикожидания отключитьобработчикоповещения открытьзначение открытьиндекссправки открытьсодержаниесправки открытьсправку открытьформу открытьформумодально отменитьтранзакцию очиститьжурналрегистрации очиститьнастройкипользователя очиститьсообщения параметрыдоступа перейтипонавигационнойссылке переместитьфайл подключитьвнешнююкомпоненту подключитьобработчикзапросанастроекклиенталицензирования подключитьобработчикожидания подключитьобработчикоповещения подключитьрасширениеработыскриптографией подключитьрасширениеработысфайлами подробноепредставлениеошибки показатьвводдаты показатьвводзначения показатьвводстроки показатьвводчисла показатьвопрос показатьзначение показатьинформациюобошибке показатьнакарте показатьоповещениепользователя показатьпредупреждение полноеимяпользователя получитьcomобъект получитьxmlтип получитьадреспоместоположению получитьблокировкусеансов получитьвремязавершенияспящегосеанса получитьвремязасыпанияпассивногосеанса получитьвремяожиданияблокировкиданных получитьданныевыбора получитьдополнительныйпараметрклиенталицензирования получитьдопустимыекодылокализации получитьдопустимыечасовыепояса получитьзаголовокклиентскогоприложения получитьзаголовоксистемы получитьзначенияотборажурналарегистрации получитьидентификаторконфигурации получитьизвременногохранилища получитьимявременногофайла получитьимяклиенталицензирования получитьинформациюэкрановклиента получитьиспользованиежурналарегистрации получитьиспользованиесобытияжурналарегистрации получитькраткийзаголовокприложения получитьмакетоформления получитьмаскувсефайлы получитьмаскувсефайлыклиента получитьмаскувсефайлысервера получитьместоположениепоадресу получитьминимальнуюдлинупаролейпользователей получитьнавигационнуюссылку получитьнавигационнуюссылкуинформационнойбазы получитьобновлениеконфигурациибазыданных получитьобновлениепредопределенныхданныхинформационнойбазы получитьобщиймакет получитьобщуюформу получитьокна получитьоперативнуюотметкувремени получитьотключениебезопасногорежима получитьпараметрыфункциональныхопцийинтерфейса получитьполноеимяпредопределенногозначения получитьпредставлениянавигационныхссылок получитьпроверкусложностипаролейпользователей получитьразделительпути получитьразделительпутиклиента получитьразделительпутисервера получитьсеансыинформационнойбазы получитьскоростьклиентскогосоединения получитьсоединенияинформационнойбазы получитьсообщенияпользователю получитьсоответствиеобъектаиформы получитьсоставстандартногоинтерфейсаodata получитьструктурухранениябазыданных получитьтекущийсеансинформационнойбазы получитьфайл получитьфайлы получитьформу получитьфункциональнуюопцию получитьфункциональнуюопциюинтерфейса получитьчасовойпоясинформационнойбазы пользователиос поместитьвовременноехранилище поместитьфайл поместитьфайлы прав праводоступа предопределенноезначение представлениекодалокализации представлениепериода представлениеправа представлениеприложения представлениесобытияжурналарегистрации представлениечасовогопояса предупреждение прекратитьработусистемы привилегированныйрежим продолжитьвызов прочитатьjson прочитатьxml прочитатьдатуjson пустаястрока рабочийкаталогданныхпользователя разблокироватьданныедляредактирования разделитьфайл разорватьсоединениесвнешнимисточникомданных раскодироватьстроку рольдоступна секунда сигнал символ скопироватьжурналрегистрации смещениелетнеговремени смещениестандартноговремени соединитьбуферыдвоичныхданных создатькаталог создатьфабрикуxdto сокрл сокрлп сокрп сообщить состояние сохранитьзначение сохранитьнастройкипользователя сред стрдлина стрзаканчиваетсяна стрзаменить стрнайти стрначинаетсяс строка строкасоединенияинформационнойбазы стрполучитьстроку стрразделить стрсоединить стрсравнить стрчисловхождений стрчислострок стршаблон текущаядата текущаядатасеанса текущаяуниверсальнаядата текущаяуниверсальнаядатавмиллисекундах текущийвариантинтерфейсаклиентскогоприложения текущийвариантосновногошрифтаклиентскогоприложения текущийкодлокализации текущийрежимзапуска текущийязык текущийязыксистемы тип типзнч транзакцияактивна трег удалитьданныеинформационнойбазы удалитьизвременногохранилища удалитьобъекты удалитьфайлы универсальноевремя установитьбезопасныйрежим установитьбезопасныйрежимразделенияданных установитьблокировкусеансов установитьвнешнююкомпоненту установитьвремязавершенияспящегосеанса установитьвремязасыпанияпассивногосеанса установитьвремяожиданияблокировкиданных установитьзаголовокклиентскогоприложения установитьзаголовоксистемы установитьиспользованиежурналарегистрации установитьиспользованиесобытияжурналарегистрации установитькраткийзаголовокприложения установитьминимальнуюдлинупаролейпользователей установитьмонопольныйрежим установитьнастройкиклиенталицензирования установитьобновлениепредопределенныхданныхинформационнойбазы установитьотключениебезопасногорежима установитьпараметрыфункциональныхопцийинтерфейса установитьпривилегированныйрежим установитьпроверкусложностипаролейпользователей установитьрасширениеработыскриптографией установитьрасширениеработысфайлами установитьсоединениесвнешнимисточникомданных установитьсоответствиеобъектаиформы установитьсоставстандартногоинтерфейсаodata установитьчасовойпоясинформационнойбазы установитьчасовойпояссеанса формат цел час часовойпояс часовойпояссеанса число числопрописью этоадресвременногохранилища " + "wsссылки библиотекакартинок библиотекамакетовоформлениякомпоновкиданных библиотекастилей бизнеспроцессы внешниеисточникиданных внешниеобработки внешниеотчеты встроенныепокупки главныйинтерфейс главныйстиль документы доставляемыеуведомления журналыдокументов задачи информацияобинтернетсоединении использованиерабочейдаты историяработыпользователя константы критерииотбора метаданные обработки отображениерекламы отправкадоставляемыхуведомлений отчеты панельзадачос параметрзапуска параметрысеанса перечисления планывидоврасчета планывидовхарактеристик планыобмена планысчетов полнотекстовыйпоиск пользователиинформационнойбазы последовательности проверкавстроенныхпокупок рабочаядата расширенияконфигурации регистрыбухгалтерии регистрынакопления регистрырасчета регистрысведений регламентныезадания сериализаторxdto справочники средствагеопозиционирования средствакриптографии средствамультимедиа средстваотображениярекламы средствапочты средствателефонии фабрикаxdto файловыепотоки фоновыезадания хранилищанастроек хранилищевариантовотчетов хранилищенастроекданныхформ хранилищеобщихнастроек хранилищепользовательскихнастроекдинамическихсписков хранилищепользовательскихнастроекотчетов хранилищесистемныхнастроек ", Oe = "webцвета windowsцвета windowsшрифты библиотекакартинок рамкистиля символы цветастиля шрифтыстиля " + "автоматическоесохранениеданныхформывнастройках автонумерациявформе автораздвижениесерий анимациядиаграммы вариантвыравниванияэлементовизаголовков вариантуправлениявысотойтаблицы вертикальнаяпрокруткаформы вертикальноеположение вертикальноеположениеэлемента видгруппыформы виддекорацииформы виддополненияэлементаформы видизмененияданных видкнопкиформы видпереключателя видподписейкдиаграмме видполяформы видфлажка влияниеразмеранапузырекдиаграммы горизонтальноеположение горизонтальноеположениеэлемента группировкаколонок группировкаподчиненныхэлементовформы группыиэлементы действиеперетаскивания дополнительныйрежимотображения допустимыедействияперетаскивания интервалмеждуэлементамиформы использованиевывода использованиеполосыпрокрутки используемоезначениеточкибиржевойдиаграммы историявыборапривводе источникзначенийоситочекдиаграммы источникзначенияразмерапузырькадиаграммы категориягруппыкоманд максимумсерий начальноеотображениедерева начальноеотображениесписка обновлениетекстаредактирования ориентациядендрограммы ориентациядиаграммы ориентацияметокдиаграммы ориентацияметоксводнойдиаграммы ориентацияэлементаформы отображениевдиаграмме отображениевлегендедиаграммы отображениегруппыкнопок отображениезаголовкашкалыдиаграммы отображениезначенийсводнойдиаграммы отображениезначенияизмерительнойдиаграммы отображениеинтерваладиаграммыганта отображениекнопки отображениекнопкивыбора отображениеобсужденийформы отображениеобычнойгруппы отображениеотрицательныхзначенийпузырьковойдиаграммы отображениепанелипоиска отображениеподсказки отображениепредупрежденияприредактировании отображениеразметкиполосырегулирования отображениестраницформы отображениетаблицы отображениетекстазначениядиаграммыганта отображениеуправленияобычнойгруппы отображениефигурыкнопки палитрацветовдиаграммы поведениеобычнойгруппы поддержкамасштабадендрограммы поддержкамасштабадиаграммыганта поддержкамасштабасводнойдиаграммы поисквтаблицепривводе положениезаголовкаэлементаформы положениекартинкикнопкиформы положениекартинкиэлементаграфическойсхемы положениекоманднойпанелиформы положениекоманднойпанелиэлементаформы положениеопорнойточкиотрисовки положениеподписейкдиаграмме положениеподписейшкалызначенийизмерительнойдиаграммы положениесостоянияпросмотра положениестрокипоиска положениетекстасоединительнойлинии положениеуправленияпоиском положениешкалывремени порядокотображенияточекгоризонтальнойгистограммы порядоксерийвлегендедиаграммы размеркартинки расположениезаголовкашкалыдиаграммы растягиваниеповертикалидиаграммыганта режимавтоотображениясостояния режимвводастроктаблицы режимвыборанезаполненного режимвыделениядаты режимвыделениястрокитаблицы режимвыделениятаблицы режимизмененияразмера режимизменениясвязанногозначения режимиспользованиядиалогапечати режимиспользованияпараметракоманды режиммасштабированияпросмотра режимосновногоокнаклиентскогоприложения режимоткрытияокнаформы режимотображениявыделения режимотображениягеографическойсхемы режимотображениязначенийсерии режимотрисовкисеткиграфическойсхемы режимполупрозрачностидиаграммы режимпробеловдиаграммы режимразмещениянастранице режимредактированияколонки режимсглаживаниядиаграммы режимсглаживанияиндикатора режимсписказадач сквозноевыравнивание сохранениеданныхформывнастройках способзаполнениятекстазаголовкашкалыдиаграммы способопределенияограничивающегозначениядиаграммы стандартнаягруппакоманд стандартноеоформление статусоповещенияпользователя стильстрелки типаппроксимациилиниитрендадиаграммы типдиаграммы типединицышкалывремени типимпортасерийслоягеографическойсхемы типлиниигеографическойсхемы типлиниидиаграммы типмаркерагеографическойсхемы типмаркерадиаграммы типобластиоформления типорганизацииисточникаданныхгеографическойсхемы типотображениясериислоягеографическойсхемы типотображенияточечногообъектагеографическойсхемы типотображенияшкалыэлементалегендыгеографическойсхемы типпоискаобъектовгеографическойсхемы типпроекциигеографическойсхемы типразмещенияизмерений типразмещенияреквизитовизмерений типрамкиэлементауправления типсводнойдиаграммы типсвязидиаграммыганта типсоединениязначенийпосериямдиаграммы типсоединенияточекдиаграммы типсоединительнойлинии типстороныэлементаграфическойсхемы типформыотчета типшкалырадарнойдиаграммы факторлиниитрендадиаграммы фигуракнопки фигурыграфическойсхемы фиксациявтаблице форматдняшкалывремени форматкартинки ширинаподчиненныхэлементовформы " + "виддвижениябухгалтерии виддвижениянакопления видпериодарегистрарасчета видсчета видточкимаршрутабизнеспроцесса использованиеагрегатарегистранакопления использованиегруппиэлементов использованиережимапроведения использованиесреза периодичностьагрегатарегистранакопления режимавтовремя режимзаписидокумента режимпроведениядокумента " + "авторегистрацияизменений допустимыйномерсообщения отправкаэлементаданных получениеэлементаданных " + "использованиерасшифровкитабличногодокумента ориентациястраницы положениеитоговколоноксводнойтаблицы положениеитоговстроксводнойтаблицы положениетекстаотносительнокартинки расположениезаголовкагруппировкитабличногодокумента способчтениязначенийтабличногодокумента типдвустороннейпечати типзаполненияобластитабличногодокумента типкурсоровтабличногодокумента типлиниирисункатабличногодокумента типлинииячейкитабличногодокумента типнаправленияпереходатабличногодокумента типотображениявыделениятабличногодокумента типотображениялинийсводнойтаблицы типразмещениятекстатабличногодокумента типрисункатабличногодокумента типсмещениятабличногодокумента типузоратабличногодокумента типфайлатабличногодокумента точностьпечати чередованиерасположениястраниц " + "отображениевремениэлементовпланировщика " + "типфайлаформатированногодокумента " + "обходрезультатазапроса типзаписизапроса " + "видзаполнениярасшифровкипостроителяотчета типдобавленияпредставлений типизмеренияпостроителяотчета типразмещенияитогов " + "доступкфайлу режимдиалогавыборафайла режимоткрытияфайла " + "типизмеренияпостроителязапроса " + "видданныханализа методкластеризации типединицыинтервалавременианализаданных типзаполнениятаблицырезультатаанализаданных типиспользованиячисловыхзначенийанализаданных типисточникаданныхпоискаассоциаций типколонкианализаданныхдереворешений типколонкианализаданныхкластеризация типколонкианализаданныхобщаястатистика типколонкианализаданныхпоискассоциаций типколонкианализаданныхпоискпоследовательностей типколонкимоделипрогноза типмерырасстоянияанализаданных типотсеченияправилассоциации типполяанализаданных типстандартизациианализаданных типупорядочиванияправилассоциациианализаданных типупорядочиванияшаблоновпоследовательностейанализаданных типупрощениядереварешений " + "wsнаправлениепараметра вариантxpathxs вариантзаписидатыjson вариантпростоготипаxs видгруппымоделиxs видфасетаxdto действиепостроителяdom завершенностьпростоготипаxs завершенностьсоставноготипаxs завершенностьсхемыxs запрещенныеподстановкиxs исключениягруппподстановкиxs категорияиспользованияатрибутаxs категорияограниченияидентичностиxs категорияограниченияпространствименxs методнаследованияxs модельсодержимогоxs назначениетипаxml недопустимыеподстановкиxs обработкапробельныхсимволовxs обработкасодержимогоxs ограничениезначенияxs параметрыотбораузловdom переносстрокjson позициявдокументеdom пробельныесимволыxml типатрибутаxml типзначенияjson типканоническогоxml типкомпонентыxs типпроверкиxml типрезультатаdomxpath типузлаdom типузлаxml формаxml формапредставленияxs форматдатыjson экранированиесимволовjson " + "видсравнениякомпоновкиданных действиеобработкирасшифровкикомпоновкиданных направлениесортировкикомпоновкиданных расположениевложенныхэлементоврезультатакомпоновкиданных расположениеитоговкомпоновкиданных расположениегруппировкикомпоновкиданных расположениеполейгруппировкикомпоновкиданных расположениеполякомпоновкиданных расположениереквизитовкомпоновкиданных расположениересурсовкомпоновкиданных типбухгалтерскогоостаткакомпоновкиданных типвыводатекстакомпоновкиданных типгруппировкикомпоновкиданных типгруппыэлементовотборакомпоновкиданных типдополненияпериодакомпоновкиданных типзаголовкаполейкомпоновкиданных типмакетагруппировкикомпоновкиданных типмакетаобластикомпоновкиданных типостаткакомпоновкиданных типпериодакомпоновкиданных типразмещениятекстакомпоновкиданных типсвязинаборовданныхкомпоновкиданных типэлементарезультатакомпоновкиданных расположениелегендыдиаграммыкомпоновкиданных типпримененияотборакомпоновкиданных режимотображенияэлементанастройкикомпоновкиданных режимотображениянастроеккомпоновкиданных состояниеэлементанастройкикомпоновкиданных способвосстановлениянастроеккомпоновкиданных режимкомпоновкирезультата использованиепараметракомпоновкиданных автопозицияресурсовкомпоновкиданных вариантиспользованиягруппировкикомпоновкиданных расположениересурсоввдиаграммекомпоновкиданных фиксациякомпоновкиданных использованиеусловногооформлениякомпоновкиданных " + "важностьинтернетпочтовогосообщения обработкатекстаинтернетпочтовогосообщения способкодированияинтернетпочтовоговложения способкодированиянеasciiсимволовинтернетпочтовогосообщения типтекстапочтовогосообщения протоколинтернетпочты статусразборапочтовогосообщения " + "режимтранзакциизаписижурналарегистрации статустранзакциизаписижурналарегистрации уровеньжурналарегистрации " + "расположениехранилищасертификатовкриптографии режимвключениясертификатовкриптографии режимпроверкисертификатакриптографии типхранилищасертификатовкриптографии " + "кодировкаименфайловвzipфайле методсжатияzip методшифрованияzip режимвосстановленияпутейфайловzip режимобработкиподкаталоговzip режимсохраненияпутейzip уровеньсжатияzip " + "звуковоеоповещение направлениепереходакстроке позициявпотоке порядокбайтов режимблокировкиданных режимуправленияблокировкойданных сервисвстроенныхпокупок состояниефоновогозадания типподписчикадоставляемыхуведомлений уровеньиспользованиязащищенногосоединенияftp " + "направлениепорядкасхемызапроса типдополненияпериодамисхемызапроса типконтрольнойточкисхемызапроса типобъединениясхемызапроса типпараметрадоступнойтаблицысхемызапроса типсоединениясхемызапроса " + "httpметод автоиспользованиеобщегореквизита автопрефиксномеразадачи вариантвстроенногоязыка видиерархии видрегистранакопления видтаблицывнешнегоисточникаданных записьдвиженийприпроведении заполнениепоследовательностей индексирование использованиебазыпланавидоврасчета использованиебыстроговыбора использованиеобщегореквизита использованиеподчинения использованиеполнотекстовогопоиска использованиеразделяемыхданныхобщегореквизита использованиереквизита назначениеиспользованияприложения назначениерасширенияконфигурации направлениепередачи обновлениепредопределенныхданных оперативноепроведение основноепредставлениевидарасчета основноепредставлениевидахарактеристики основноепредставлениезадачи основноепредставлениепланаобмена основноепредставлениесправочника основноепредставлениесчета перемещениеграницыприпроведении периодичностьномерабизнеспроцесса периодичностьномерадокумента периодичностьрегистрарасчета периодичностьрегистрасведений повторноеиспользованиевозвращаемыхзначений полнотекстовыйпоискпривводепостроке принадлежностьобъекта проведение разделениеаутентификацииобщегореквизита разделениеданныхобщегореквизита разделениерасширенийконфигурацииобщегореквизита режимавтонумерацииобъектов режимзаписирегистра режимиспользованиямодальности режимиспользованиясинхронныхвызововрасширенийплатформыивнешнихкомпонент режимповторногоиспользованиясеансов режимполученияданныхвыборапривводепостроке режимсовместимости режимсовместимостиинтерфейса режимуправленияблокировкойданныхпоумолчанию сериикодовпланавидовхарактеристик сериикодовпланасчетов сериикодовсправочника созданиепривводе способвыбора способпоискастрокипривводепостроке способредактирования типданныхтаблицывнешнегоисточникаданных типкодапланавидоврасчета типкодасправочника типмакета типномерабизнеспроцесса типномерадокумента типномеразадачи типформы удалениедвижений " + "важностьпроблемыприменениярасширенияконфигурации вариантинтерфейсаклиентскогоприложения вариантмасштабаформклиентскогоприложения вариантосновногошрифтаклиентскогоприложения вариантстандартногопериода вариантстандартнойдатыначала видграницы видкартинки видотображенияполнотекстовогопоиска видрамки видсравнения видцвета видчисловогозначения видшрифта допустимаядлина допустимыйзнак использованиеbyteordermark использованиеметаданныхполнотекстовогопоиска источникрасширенийконфигурации клавиша кодвозвратадиалога кодировкаxbase кодировкатекста направлениепоиска направлениесортировки обновлениепредопределенныхданных обновлениеприизмененииданных отображениепанелиразделов проверказаполнения режимдиалогавопрос режимзапускаклиентскогоприложения режимокругления режимоткрытияформприложения режимполнотекстовогопоиска скоростьклиентскогосоединения состояниевнешнегоисточникаданных состояниеобновленияконфигурациибазыданных способвыборасертификатаwindows способкодированиястроки статуссообщения типвнешнейкомпоненты типплатформы типповеденияклавишиenter типэлементаинформацииовыполненииобновленияконфигурациибазыданных уровеньизоляциитранзакций хешфункция частидаты", Ne = "comобъект ftpсоединение httpзапрос httpсервисответ httpсоединение wsопределения wsпрокси xbase анализданных аннотацияxs блокировкаданных буфердвоичныхданных включениеxs выражениекомпоновкиданных генераторслучайныхчисел географическаясхема географическиекоординаты графическаясхема группамоделиxs данныерасшифровкикомпоновкиданных двоичныеданные дендрограмма диаграмма диаграммаганта диалогвыборафайла диалогвыборацвета диалогвыборашрифта диалограсписаниярегламентногозадания диалогредактированиястандартногопериода диапазон документdom документhtml документацияxs доставляемоеуведомление записьdom записьfastinfoset записьhtml записьjson записьxml записьzipфайла записьданных записьтекста записьузловdom запрос защищенноесоединениеopenssl значенияполейрасшифровкикомпоновкиданных извлечениетекста импортxs интернетпочта интернетпочтовоесообщение интернетпочтовыйпрофиль интернетпрокси интернетсоединение информациядляприложенияxs использованиеатрибутаxs использованиесобытияжурналарегистрации источникдоступныхнастроеккомпоновкиданных итераторузловdom картинка квалификаторыдаты квалификаторыдвоичныхданных квалификаторыстроки квалификаторычисла компоновщикмакетакомпоновкиданных компоновщикнастроеккомпоновкиданных конструктормакетаоформлениякомпоновкиданных конструкторнастроеккомпоновкиданных конструкторформатнойстроки линия макеткомпоновкиданных макетобластикомпоновкиданных макетоформлениякомпоновкиданных маскаxs менеджеркриптографии наборсхемxml настройкикомпоновкиданных настройкисериализацииjson обработкакартинок обработкарасшифровкикомпоновкиданных обходдереваdom объявлениеатрибутаxs объявлениенотацииxs объявлениеэлементаxs описаниеиспользованиясобытиядоступжурналарегистрации описаниеиспользованиясобытияотказвдоступежурналарегистрации описаниеобработкирасшифровкикомпоновкиданных описаниепередаваемогофайла описаниетипов определениегруппыатрибутовxs определениегруппымоделиxs определениеограниченияидентичностиxs определениепростоготипаxs определениесоставноготипаxs определениетипадокументаdom определенияxpathxs отборкомпоновкиданных пакетотображаемыхдокументов параметрвыбора параметркомпоновкиданных параметрызаписиjson параметрызаписиxml параметрычтенияxml переопределениеxs планировщик полеанализаданных полекомпоновкиданных построительdom построительзапроса построительотчета построительотчетаанализаданных построительсхемxml поток потоквпамяти почта почтовоесообщение преобразованиеxsl преобразованиекканоническомуxml процессорвыводарезультатакомпоновкиданныхвколлекциюзначений процессорвыводарезультатакомпоновкиданныхвтабличныйдокумент процессоркомпоновкиданных разыменовательпространствименdom рамка расписаниерегламентногозадания расширенноеимяxml результатчтенияданных своднаядиаграмма связьпараметравыбора связьпотипу связьпотипукомпоновкиданных сериализаторxdto сертификатклиентаwindows сертификатклиентафайл сертификаткриптографии сертификатыудостоверяющихцентровwindows сертификатыудостоверяющихцентровфайл сжатиеданных системнаяинформация сообщениепользователю сочетаниеклавиш сравнениезначений стандартнаядатаначала стандартныйпериод схемаxml схемакомпоновкиданных табличныйдокумент текстовыйдокумент тестируемоеприложение типданныхxml уникальныйидентификатор фабрикаxdto файл файловыйпоток фасетдлиныxs фасетколичестваразрядовдробнойчастиxs фасетмаксимальноговключающегозначенияxs фасетмаксимальногоисключающегозначенияxs фасетмаксимальнойдлиныxs фасетминимальноговключающегозначенияxs фасетминимальногоисключающегозначенияxs фасетминимальнойдлиныxs фасетобразцаxs фасетобщегоколичестваразрядовxs фасетперечисленияxs фасетпробельныхсимволовxs фильтрузловdom форматированнаястрока форматированныйдокумент фрагментxs хешированиеданных хранилищезначения цвет чтениеfastinfoset чтениеhtml чтениеjson чтениеxml чтениеzipфайла чтениеданных чтениетекста чтениеузловdom шрифт элементрезультатакомпоновкиданных " + "comsafearray деревозначений массив соответствие списокзначений структура таблицазначений фиксированнаяструктура фиксированноесоответствие фиксированныймассив ", Se = "null истина ложь неопределено", _e = e.inherit(e.NUMBER_MODE), pe = {
       className: "string",
       begin: '"|\\|',
       end: '"|$',
       contains: [{ begin: '""' }]
-    }, Z = {
+    }, J = {
       begin: "'",
       end: "'",
       excludeBegin: !0,
@@ -2857,7 +2857,7 @@ function bu() {
         keyword: i + l
       },
       contains: [re]
-    }, _e = {
+    }, de = {
       className: "symbol",
       begin: "~",
       end: ";|:",
@@ -2893,9 +2893,9 @@ function bu() {
                 literal: Se
               },
               contains: [
-                ce,
-                ue,
-                Z
+                _e,
+                pe,
+                J
               ]
             },
             re
@@ -2919,20 +2919,20 @@ function bu() {
         ae,
         Te,
         re,
+        de,
         _e,
-        ce,
-        ue,
-        Z,
+        pe,
+        J,
         W
       ]
     };
   }
-  return En = n, En;
+  return gn = n, gn;
 }
-var gn, ns;
+var Sn, rs;
 function fu() {
-  if (ns) return gn;
-  ns = 1;
+  if (rs) return Sn;
+  rs = 1;
   function n(e) {
     const t = e.regex, r = /^[a-zA-Z][a-zA-Z0-9-]*/, a = [
       "ALPHA",
@@ -2987,12 +2987,12 @@ function fu() {
       ]
     };
   }
-  return gn = n, gn;
+  return Sn = n, Sn;
 }
-var Sn, rs;
+var Tn, as;
 function Ru() {
-  if (rs) return Sn;
-  rs = 1;
+  if (as) return Tn;
+  as = 1;
   function n(e) {
     const t = e.regex, r = [
       "GET",
@@ -3071,12 +3071,12 @@ function Ru() {
       ]
     };
   }
-  return Sn = n, Sn;
+  return Tn = n, Tn;
 }
-var Tn, as;
+var bn, is;
 function Cu() {
-  if (as) return Tn;
-  as = 1;
+  if (is) return bn;
+  is = 1;
   function n(e) {
     const t = e.regex, r = /[a-zA-Z_$][a-zA-Z0-9_$]*/, a = t.concat(
       r,
@@ -3211,12 +3211,12 @@ function Cu() {
       illegal: /#/
     };
   }
-  return Tn = n, Tn;
+  return bn = n, bn;
 }
-var bn, is;
+var fn, os;
 function Nu() {
-  if (is) return bn;
-  is = 1;
+  if (os) return fn;
+  os = 1;
   function n(e) {
     const t = "\\d(_|\\d)*", r = "[eE][-+]?" + t, a = t + "(\\." + t + ")?(" + r + ")?", i = "\\w+", s = "\\b(" + (t + "#" + i + "(\\." + i + ")?#(" + r + ")?") + "|" + a + ")", l = "[A-Za-z](_?[A-Za-z0-9.])*", _ = `[]\\{\\}%#'"`, c = e.COMMENT("--", "$"), d = {
       // TODO: These spaces are not required by the Ada syntax
@@ -3427,12 +3427,12 @@ function Nu() {
       ]
     };
   }
-  return bn = n, bn;
+  return fn = n, fn;
 }
-var fn, os;
+var Rn, ss;
 function hu() {
-  if (os) return fn;
-  os = 1;
+  if (ss) return Rn;
+  ss = 1;
   function n(e) {
     const t = {
       className: "built_in",
@@ -3592,12 +3592,12 @@ function hu() {
       ]
     };
   }
-  return fn = n, fn;
+  return Rn = n, Rn;
 }
-var Rn, ss;
+var Cn, ls;
 function Ou() {
-  if (ss) return Rn;
-  ss = 1;
+  if (ls) return Cn;
+  ls = 1;
   function n(e) {
     const t = {
       className: "number",
@@ -3687,12 +3687,12 @@ function Ou() {
       illegal: /\S/
     };
   }
-  return Rn = n, Rn;
+  return Cn = n, Cn;
 }
-var Cn, ls;
+var Nn, cs;
 function Au() {
-  if (ls) return Cn;
-  ls = 1;
+  if (cs) return Nn;
+  cs = 1;
   function n(e) {
     const t = e.regex, r = e.inherit(
       e.QUOTE_STRING_MODE,
@@ -3805,12 +3805,12 @@ function Au() {
       illegal: /\/\/|->|=>|\[\[/
     };
   }
-  return Cn = n, Cn;
+  return Nn = n, Nn;
 }
-var Nn, cs;
+var hn, _s;
 function Iu() {
-  if (cs) return Nn;
-  cs = 1;
+  if (_s) return hn;
+  _s = 1;
   function n(e) {
     const t = e.regex, r = "[A-Za-z_][0-9A-Za-z_]*", a = {
       keyword: [
@@ -4224,12 +4224,12 @@ function Iu() {
       illegal: /#(?!!)/
     };
   }
-  return Nn = n, Nn;
+  return hn = n, hn;
 }
-var hn, _s;
+var On, ds;
 function vu() {
-  if (_s) return hn;
-  _s = 1;
+  if (ds) return On;
+  ds = 1;
   function n(t) {
     const r = t.regex, a = t.COMMENT("//", "$", { contains: [{ begin: /\\\n/ }] }), i = "decltype\\(auto\\)", o = "[a-zA-Z_]\\w*::", l = "(?!struct)(" + i + "|" + r.optional(o) + "[a-zA-Z_]\\w*" + r.optional("<[^<>]+>") + ")", _ = {
       className: "type",
@@ -5129,12 +5129,12 @@ function vu() {
       ...r.built_in
     ], i._hints = r._hints, a.name = "Arduino", a.aliases = ["ino"], a.supersetOf = "cpp", a;
   }
-  return hn = e, hn;
+  return On = e, On;
 }
-var On, ds;
+var An, us;
 function yu() {
-  if (ds) return On;
-  ds = 1;
+  if (us) return An;
+  us = 1;
   function n(e) {
     const t = { variants: [
       e.COMMENT("^[ \\t]*(?=#)", "$", {
@@ -5221,12 +5221,12 @@ function yu() {
       ]
     };
   }
-  return On = n, On;
+  return An = n, An;
 }
-var An, us;
+var In, ps;
 function Du() {
-  if (us) return An;
-  us = 1;
+  if (ps) return In;
+  ps = 1;
   function n(e) {
     const t = e.regex, r = t.concat(/[\p{L}_]/u, t.optional(/[\p{L}0-9_.-]*:/u), /[\p{L}0-9_.-]*/u), a = /[\p{L}0-9._:-]+/u, i = {
       className: "symbol",
@@ -5443,12 +5443,12 @@ function Du() {
       ]
     };
   }
-  return An = n, An;
+  return In = n, In;
 }
-var In, ps;
+var vn, ms;
 function Mu() {
-  if (ps) return In;
-  ps = 1;
+  if (ms) return vn;
+  ms = 1;
   function n(e) {
     const t = e.regex, r = {
       begin: "^'{3,}[ \\t]*$",
@@ -5689,12 +5689,12 @@ function Mu() {
       ]
     };
   }
-  return In = n, In;
+  return vn = n, vn;
 }
-var vn, ms;
+var yn, Es;
 function Lu() {
-  if (ms) return vn;
-  ms = 1;
+  if (Es) return yn;
+  Es = 1;
   function n(e) {
     const t = e.regex, r = [
       "false",
@@ -5911,12 +5911,12 @@ function Lu() {
       ]
     };
   }
-  return vn = n, vn;
+  return yn = n, yn;
 }
-var yn, Es;
+var Dn, gs;
 function xu() {
-  if (Es) return yn;
-  Es = 1;
+  if (gs) return Dn;
+  gs = 1;
   function n(e) {
     const t = { begin: "`[\\s\\S]" };
     return {
@@ -5982,12 +5982,12 @@ function xu() {
       ]
     };
   }
-  return yn = n, yn;
+  return Dn = n, Dn;
 }
-var Dn, gs;
+var Mn, Ss;
 function wu() {
-  if (gs) return Dn;
-  gs = 1;
+  if (Ss) return Mn;
+  Ss = 1;
   function n(e) {
     const t = "ByRef Case Const ContinueCase ContinueLoop Dim Do Else ElseIf EndFunc EndIf EndSelect EndSwitch EndWith Enum Exit ExitLoop For Func Global If In Local Next ReDim Return Select Static Step Switch Then To Until Volatile WEnd While With", r = [
       "EndRegion",
@@ -6130,12 +6130,12 @@ function wu() {
       ]
     };
   }
-  return Dn = n, Dn;
+  return Mn = n, Mn;
 }
-var Mn, Ss;
+var Ln, Ts;
 function Pu() {
-  if (Ss) return Mn;
-  Ss = 1;
+  if (Ts) return Ln;
+  Ts = 1;
   function n(e) {
     return {
       name: "AVR Assembly",
@@ -6192,12 +6192,12 @@ function Pu() {
       ]
     };
   }
-  return Mn = n, Mn;
+  return Ln = n, Ln;
 }
-var Ln, Ts;
+var xn, bs;
 function ku() {
-  if (Ts) return Ln;
-  Ts = 1;
+  if (bs) return xn;
+  bs = 1;
   function n(e) {
     const t = {
       className: "variable",
@@ -6253,12 +6253,12 @@ function ku() {
       ]
     };
   }
-  return Ln = n, Ln;
+  return xn = n, xn;
 }
-var xn, bs;
+var wn, fs;
 function Uu() {
-  if (bs) return xn;
-  bs = 1;
+  if (fs) return wn;
+  fs = 1;
   function n(e) {
     const t = e.UNDERSCORE_IDENT_RE, o = {
       keyword: [
@@ -6426,12 +6426,12 @@ function Uu() {
       ]
     };
   }
-  return xn = n, xn;
+  return wn = n, wn;
 }
-var wn, fs;
+var Pn, Rs;
 function Fu() {
-  if (fs) return wn;
-  fs = 1;
+  if (Rs) return Pn;
+  Rs = 1;
   function n(e) {
     const t = e.regex, r = {}, a = {
       begin: /\$\{/,
@@ -6806,12 +6806,12 @@ function Fu() {
       ]
     };
   }
-  return wn = n, wn;
+  return Pn = n, Pn;
 }
-var Pn, Rs;
+var kn, Cs;
 function Bu() {
-  if (Rs) return Pn;
-  Rs = 1;
+  if (Cs) return kn;
+  Cs = 1;
   function n(e) {
     return {
       name: "BASIC",
@@ -7035,12 +7035,12 @@ function Bu() {
       ]
     };
   }
-  return Pn = n, Pn;
+  return kn = n, kn;
 }
-var kn, Cs;
+var Un, Ns;
 function Gu() {
-  if (Cs) return kn;
-  Cs = 1;
+  if (Ns) return Un;
+  Ns = 1;
   function n(e) {
     return {
       name: "Backus–Naur Form",
@@ -7070,12 +7070,12 @@ function Gu() {
       ]
     };
   }
-  return kn = n, kn;
+  return Un = n, Un;
 }
-var Un, Ns;
+var Fn, hs;
 function Yu() {
-  if (Ns) return Un;
-  Ns = 1;
+  if (hs) return Fn;
+  hs = 1;
   function n(e) {
     const t = {
       className: "literal",
@@ -7121,12 +7121,12 @@ function Yu() {
       ]
     };
   }
-  return Un = n, Un;
+  return Fn = n, Fn;
 }
-var Fn, hs;
+var Bn, Os;
 function qu() {
-  if (hs) return Fn;
-  hs = 1;
+  if (Os) return Bn;
+  Os = 1;
   function n(e) {
     const t = e.regex, r = e.COMMENT("//", "$", { contains: [{ begin: /\\\n/ }] }), a = "decltype\\(auto\\)", i = "[a-zA-Z_]\\w*::", s = "(" + a + "|" + t.optional(i) + "[a-zA-Z_]\\w*" + t.optional("<[^<>]+>") + ")", l = {
       className: "type",
@@ -7401,12 +7401,12 @@ function qu() {
       }
     };
   }
-  return Fn = n, Fn;
+  return Bn = n, Bn;
 }
-var Bn, Os;
+var Gn, As;
 function Hu() {
-  if (Os) return Bn;
-  Os = 1;
+  if (As) return Gn;
+  As = 1;
   function n(e) {
     const t = e.regex, r = [
       "div",
@@ -7542,12 +7542,12 @@ function Hu() {
       ]
     };
   }
-  return Bn = n, Bn;
+  return Gn = n, Gn;
 }
-var Gn, As;
+var Yn, Is;
 function Vu() {
-  if (As) return Gn;
-  As = 1;
+  if (Is) return Yn;
+  Is = 1;
   function n(e) {
     const t = [
       "struct",
@@ -7633,12 +7633,12 @@ function Vu() {
       ]
     };
   }
-  return Gn = n, Gn;
+  return Yn = n, Yn;
 }
-var Yn, Is;
+var qn, vs;
 function $u() {
-  if (Is) return Yn;
-  Is = 1;
+  if (vs) return qn;
+  vs = 1;
   function n(e) {
     const t = [
       "assembly",
@@ -7760,12 +7760,12 @@ function $u() {
       ].concat(o)
     };
   }
-  return Yn = n, Yn;
+  return qn = n, qn;
 }
-var qn, vs;
+var Hn, ys;
 function zu() {
-  if (vs) return qn;
-  vs = 1;
+  if (ys) return Hn;
+  ys = 1;
   function n(e) {
     return {
       name: "Clean",
@@ -7822,12 +7822,12 @@ function zu() {
       ]
     };
   }
-  return qn = n, qn;
+  return Hn = n, Hn;
 }
-var Hn, ys;
+var Vn, Ds;
 function Wu() {
-  if (ys) return Hn;
-  ys = 1;
+  if (Ds) return Vn;
+  Ds = 1;
   function n(e) {
     const t = "a-zA-Z_\\-!.?+*=<>&'", r = "[#]?[" + t + "][" + t + "0-9/;:$#]*", a = "def defonce defprotocol defstruct defmulti defmethod defn- defn defmacro deftype defrecord", i = {
       $pattern: r,
@@ -7960,12 +7960,12 @@ function Wu() {
       ]
     };
   }
-  return Hn = n, Hn;
+  return Vn = n, Vn;
 }
-var Vn, Ds;
+var $n, Ms;
 function Ku() {
-  if (Ds) return Vn;
-  Ds = 1;
+  if (Ms) return $n;
+  Ms = 1;
   function n(e) {
     return {
       name: "Clojure REPL",
@@ -7981,12 +7981,12 @@ function Ku() {
       ]
     };
   }
-  return Vn = n, Vn;
+  return $n = n, $n;
 }
-var $n, Ms;
+var zn, Ls;
 function Qu() {
-  if (Ms) return $n;
-  Ms = 1;
+  if (Ls) return zn;
+  Ls = 1;
   function n(e) {
     return {
       name: "CMake",
@@ -8009,12 +8009,12 @@ function Qu() {
       ]
     };
   }
-  return $n = n, $n;
+  return zn = n, zn;
 }
-var zn, Ls;
+var Wn, xs;
 function Xu() {
-  if (Ls) return zn;
-  Ls = 1;
+  if (xs) return Wn;
+  xs = 1;
   const n = [
     "as",
     // for exports
@@ -8347,12 +8347,12 @@ function Xu() {
       ]
     };
   }
-  return zn = o, zn;
+  return Wn = o, Wn;
 }
-var Wn, xs;
+var Kn, ws;
 function Zu() {
-  if (xs) return Wn;
-  xs = 1;
+  if (ws) return Kn;
+  ws = 1;
   function n(e) {
     return {
       name: "Coq",
@@ -8788,12 +8788,12 @@ function Zu() {
       ]
     };
   }
-  return Wn = n, Wn;
+  return Kn = n, Kn;
 }
-var Kn, ws;
+var Qn, Ps;
 function Ju() {
-  if (ws) return Kn;
-  ws = 1;
+  if (Ps) return Qn;
+  Ps = 1;
   function n(e) {
     return {
       name: "Caché Object Script",
@@ -8880,12 +8880,12 @@ function Ju() {
       ]
     };
   }
-  return Kn = n, Kn;
+  return Qn = n, Qn;
 }
-var Qn, Ps;
+var Xn, ks;
 function ju() {
-  if (Ps) return Qn;
-  Ps = 1;
+  if (ks) return Xn;
+  ks = 1;
   function n(e) {
     const t = e.regex, r = e.COMMENT("//", "$", { contains: [{ begin: /\\\n/ }] }), a = "decltype\\(auto\\)", i = "[a-zA-Z_]\\w*::", s = "(?!struct)(" + a + "|" + t.optional(i) + "[a-zA-Z_]\\w*" + t.optional("<[^<>]+>") + ")", l = {
       className: "type",
@@ -9404,12 +9404,12 @@ function ju() {
       )
     };
   }
-  return Qn = n, Qn;
+  return Xn = n, Xn;
 }
-var Xn, ks;
+var Zn, Us;
 function ep() {
-  if (ks) return Xn;
-  ks = 1;
+  if (Us) return Zn;
+  Us = 1;
   function n(e) {
     const t = "primitive rsc_template", r = "group clone ms master location colocation order fencing_topology rsc_ticket acl_target acl_group user role tag xml";
     return {
@@ -9488,12 +9488,12 @@ function ep() {
       ]
     };
   }
-  return Xn = n, Xn;
+  return Zn = n, Zn;
 }
-var Zn, Us;
+var Jn, Fs;
 function tp() {
-  if (Us) return Zn;
-  Us = 1;
+  if (Fs) return Jn;
+  Fs = 1;
   function n(e) {
     const t = "(_?[ui](8|16|32|64|128))?", r = "(_?f(32|64))?", a = "[a-zA-Z_]\\w*[!?=]?", i = "[a-zA-Z_]\\w*[!?=]?|[-+~]@|<<|>>|[=!]~|===?|<=>|[<>]=?|\\*\\*|[-/+%^&*~|]|//|//=|&[-+*]=?|&\\*\\*|\\[\\][=?]?", o = "[A-Za-z_]\\w*(::\\w+)*(\\?|!)?", s = {
       $pattern: a,
@@ -9774,12 +9774,12 @@ function tp() {
       contains: T
     };
   }
-  return Zn = n, Zn;
+  return Jn = n, Jn;
 }
-var Jn, Fs;
+var jn, Bs;
 function np() {
-  if (Fs) return Jn;
-  Fs = 1;
+  if (Bs) return jn;
+  Bs = 1;
   function n(e) {
     const t = [
       "bool",
@@ -10159,12 +10159,12 @@ function np() {
       ]
     };
   }
-  return Jn = n, Jn;
+  return jn = n, jn;
 }
-var jn, Bs;
+var er, Gs;
 function rp() {
-  if (Bs) return jn;
-  Bs = 1;
+  if (Gs) return er;
+  Gs = 1;
   function n(e) {
     return {
       name: "CSP",
@@ -10209,12 +10209,12 @@ function rp() {
       ]
     };
   }
-  return jn = n, jn;
+  return er = n, er;
 }
-var er, Gs;
+var tr, Ys;
 function ap() {
-  if (Gs) return er;
-  Gs = 1;
+  if (Ys) return tr;
+  Ys = 1;
   const n = (_) => ({
     IMPORTANT: {
       scope: "meta",
@@ -11135,12 +11135,12 @@ function ap() {
       ]
     };
   }
-  return er = l, er;
+  return tr = l, tr;
 }
-var tr, Ys;
+var nr, qs;
 function ip() {
-  if (Ys) return tr;
-  Ys = 1;
+  if (qs) return nr;
+  qs = 1;
   function n(e) {
     const t = {
       $pattern: e.UNDERSCORE_IDENT_RE,
@@ -11227,12 +11227,12 @@ function ip() {
       ]
     };
   }
-  return tr = n, tr;
+  return nr = n, nr;
 }
-var nr, qs;
+var rr, Hs;
 function op() {
-  if (qs) return nr;
-  qs = 1;
+  if (Hs) return rr;
+  Hs = 1;
   function n(e) {
     const t = e.regex, r = {
       begin: /<\/?[A-Za-z_]/,
@@ -11446,12 +11446,12 @@ function op() {
       ]
     };
   }
-  return nr = n, nr;
+  return rr = n, rr;
 }
-var rr, Hs;
+var ar, Vs;
 function sp() {
-  if (Hs) return rr;
-  Hs = 1;
+  if (Vs) return ar;
+  Vs = 1;
   function n(e) {
     const t = {
       className: "subst",
@@ -11698,12 +11698,12 @@ function sp() {
       ]
     };
   }
-  return rr = n, rr;
+  return ar = n, ar;
 }
-var ar, Vs;
+var ir, $s;
 function lp() {
-  if (Vs) return ar;
-  Vs = 1;
+  if ($s) return ir;
+  $s = 1;
   function n(e) {
     const t = [
       "exports",
@@ -11940,12 +11940,12 @@ function lp() {
       ].concat(r)
     };
   }
-  return ar = n, ar;
+  return ir = n, ir;
 }
-var ir, $s;
+var or, zs;
 function cp() {
-  if ($s) return ir;
-  $s = 1;
+  if (zs) return or;
+  zs = 1;
   function n(e) {
     const t = e.regex;
     return {
@@ -11997,12 +11997,12 @@ function cp() {
       ]
     };
   }
-  return ir = n, ir;
+  return or = n, or;
 }
-var or, zs;
+var sr, Ws;
 function _p() {
-  if (zs) return or;
-  zs = 1;
+  if (Ws) return sr;
+  Ws = 1;
   function n(e) {
     const t = {
       begin: /\|[A-Za-z]+:?/,
@@ -12047,12 +12047,12 @@ function _p() {
       ]
     };
   }
-  return or = n, or;
+  return sr = n, sr;
 }
-var sr, Ws;
+var lr, Ks;
 function dp() {
-  if (Ws) return sr;
-  Ws = 1;
+  if (Ks) return lr;
+  Ks = 1;
   function n(e) {
     return {
       name: "DNS Zone",
@@ -12120,12 +12120,12 @@ function dp() {
       ]
     };
   }
-  return sr = n, sr;
+  return lr = n, lr;
 }
-var lr, Ks;
+var cr, Qs;
 function up() {
-  if (Ks) return lr;
-  Ks = 1;
+  if (Qs) return cr;
+  Qs = 1;
   function n(e) {
     return {
       name: "Dockerfile",
@@ -12157,12 +12157,12 @@ function up() {
       illegal: "</"
     };
   }
-  return lr = n, lr;
+  return cr = n, cr;
 }
-var cr, Qs;
+var _r, Xs;
 function pp() {
-  if (Qs) return cr;
-  Qs = 1;
+  if (Xs) return _r;
+  Xs = 1;
   function n(e) {
     const t = e.COMMENT(
       /^\s*@?rem\b/,
@@ -12315,12 +12315,12 @@ function pp() {
       ]
     };
   }
-  return cr = n, cr;
+  return _r = n, _r;
 }
-var _r, Xs;
+var dr, Zs;
 function mp() {
-  if (Xs) return _r;
-  Xs = 1;
+  if (Zs) return dr;
+  Zs = 1;
   function n(e) {
     return {
       keywords: "dsconfig",
@@ -12372,12 +12372,12 @@ function mp() {
       ]
     };
   }
-  return _r = n, _r;
+  return dr = n, dr;
 }
-var dr, Zs;
+var ur, Js;
 function Ep() {
-  if (Zs) return dr;
-  Zs = 1;
+  if (Js) return ur;
+  Js = 1;
   function n(e) {
     const t = {
       className: "string",
@@ -12500,12 +12500,12 @@ function Ep() {
       ]
     };
   }
-  return dr = n, dr;
+  return ur = n, ur;
 }
-var ur, Js;
+var pr, js;
 function gp() {
-  if (Js) return ur;
-  Js = 1;
+  if (js) return pr;
+  js = 1;
   function n(e) {
     return {
       name: "Dust",
@@ -12540,12 +12540,12 @@ function gp() {
       ]
     };
   }
-  return ur = n, ur;
+  return pr = n, pr;
 }
-var pr, js;
+var mr, el;
 function Sp() {
-  if (js) return pr;
-  js = 1;
+  if (el) return mr;
+  el = 1;
   function n(e) {
     const t = e.COMMENT(/\(\*/, /\*\)/), r = {
       className: "attribute",
@@ -12583,12 +12583,12 @@ function Sp() {
       ]
     };
   }
-  return pr = n, pr;
+  return mr = n, mr;
 }
-var mr, el;
+var Er, tl;
 function Tp() {
-  if (el) return mr;
-  el = 1;
+  if (tl) return Er;
+  tl = 1;
   function n(e) {
     const t = e.regex, r = "[a-zA-Z_][a-zA-Z0-9_.]*(!|\\?)?", a = "[a-zA-Z_]\\w*[!?=]?|[-+~]@|<<|>>|=~|===?|<=>|[<>]=?|\\*\\*|[-/+%^&*~`|]|\\[\\]=?", s = {
       $pattern: r,
@@ -12837,12 +12837,12 @@ function Tp() {
       contains: h
     };
   }
-  return mr = n, mr;
+  return Er = n, Er;
 }
-var Er, tl;
+var gr, nl;
 function bp() {
-  if (tl) return Er;
-  tl = 1;
+  if (nl) return gr;
+  nl = 1;
   function n(e) {
     const t = { variants: [
       e.COMMENT("--", "$"),
@@ -12964,12 +12964,12 @@ function bp() {
       illegal: /;/
     };
   }
-  return Er = n, Er;
+  return gr = n, gr;
 }
-var gr, nl;
+var Sr, rl;
 function fp() {
-  if (nl) return gr;
-  nl = 1;
+  if (rl) return Sr;
+  rl = 1;
   function n(e) {
     const t = e.regex, r = "([a-zA-Z_]\\w*[!?=]?|[-+~]@|<<|>>|=~|===?|<=>|[<>]=?|\\*\\*|[-/+%^&*~`|]|\\[\\]=?)", a = t.either(
       /\b([A-Z]+[a-z0-9]+)+/,
@@ -13355,12 +13355,12 @@ function fp() {
       contains: [e.SHEBANG({ binary: "ruby" })].concat(x).concat(c).concat(L)
     };
   }
-  return gr = n, gr;
+  return Sr = n, Sr;
 }
-var Sr, rl;
+var Tr, al;
 function Rp() {
-  if (rl) return Sr;
-  rl = 1;
+  if (al) return Tr;
+  al = 1;
   function n(e) {
     return {
       name: "ERB",
@@ -13377,12 +13377,12 @@ function Rp() {
       ]
     };
   }
-  return Sr = n, Sr;
+  return Tr = n, Tr;
 }
-var Tr, al;
+var br, il;
 function Cp() {
-  if (al) return Tr;
-  al = 1;
+  if (il) return br;
+  il = 1;
   function n(e) {
     const t = e.regex;
     return {
@@ -13426,12 +13426,12 @@ function Cp() {
       ]
     };
   }
-  return Tr = n, Tr;
+  return br = n, br;
 }
-var br, il;
+var fr, ol;
 function Np() {
-  if (il) return br;
-  il = 1;
+  if (ol) return fr;
+  ol = 1;
   function n(e) {
     const t = "[a-z'][a-zA-Z0-9_']*", r = "(" + t + ":" + t + "|" + t + ")", a = {
       keyword: "after and andalso|10 band begin bnot bor bsl bzr bxor case catch cond div end fun if let not of orelse|10 query receive rem try when xor maybe else",
@@ -13630,12 +13630,12 @@ function Np() {
       ]
     };
   }
-  return br = n, br;
+  return fr = n, fr;
 }
-var fr, ol;
+var Rr, sl;
 function hp() {
-  if (ol) return fr;
-  ol = 1;
+  if (sl) return Rr;
+  sl = 1;
   function n(e) {
     return {
       name: "Excel formulae",
@@ -14207,12 +14207,12 @@ function hp() {
       ]
     };
   }
-  return fr = n, fr;
+  return Rr = n, Rr;
 }
-var Rr, sl;
+var Cr, ll;
 function Op() {
-  if (sl) return Rr;
-  sl = 1;
+  if (ll) return Cr;
+  ll = 1;
   function n(e) {
     return {
       name: "FIX",
@@ -14244,12 +14244,12 @@ function Op() {
       case_insensitive: !0
     };
   }
-  return Rr = n, Rr;
+  return Cr = n, Cr;
 }
-var Cr, ll;
+var Nr, cl;
 function Ap() {
-  if (ll) return Cr;
-  ll = 1;
+  if (cl) return Nr;
+  cl = 1;
   function n(e) {
     const t = {
       className: "string",
@@ -14312,12 +14312,12 @@ function Ap() {
       ]
     };
   }
-  return Cr = n, Cr;
+  return Nr = n, Nr;
 }
-var Nr, cl;
+var hr, _l;
 function Ip() {
-  if (cl) return Nr;
-  cl = 1;
+  if (_l) return hr;
+  _l = 1;
   function n(e) {
     const t = e.regex, r = {
       className: "params",
@@ -14866,12 +14866,12 @@ function Ip() {
       ]
     };
   }
-  return Nr = n, Nr;
+  return hr = n, hr;
 }
-var hr, _l;
+var Or, dl;
 function vp() {
-  if (_l) return hr;
-  _l = 1;
+  if (dl) return Or;
+  dl = 1;
   function n(s) {
     return new RegExp(s.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"), "m");
   }
@@ -15096,10 +15096,10 @@ function vp() {
         { match: r(I, s.UNDERSCORE_IDENT_RE) }
       ],
       relevance: 0
-    }, C = function({ includeEqual: ce }) {
-      let ue;
-      ce ? ue = "!%&*+-/<=>@^|~?" : ue = "!%&*+-/<>@^|~?";
-      const Z = Array.from(ue), W = r("[", ...Z.map(n), "]"), re = i(W, /\./), ae = r(re, t(re)), _e = i(
+    }, C = function({ includeEqual: _e }) {
+      let pe;
+      _e ? pe = "!%&*+-/<=>@^|~?" : pe = "!%&*+-/<>@^|~?";
+      const J = Array.from(pe), W = r("[", ...J.map(n), "]"), re = i(W, /\./), ae = r(re, t(re)), de = i(
         r(ae, re, "*"),
         // Matches at least 2 chars operators
         r(W, "+")
@@ -15109,7 +15109,7 @@ function vp() {
         scope: "operator",
         match: i(
           // symbolic operators:
-          _e,
+          de,
           // other symbolic keywords:
           // Type casting and conversion operators:
           /:\?>/,
@@ -15124,11 +15124,11 @@ function vp() {
         // A single $ can be used as an operator
         relevance: 0
       };
-    }, L = C({ includeEqual: !0 }), y = C({ includeEqual: !1 }), P = function(ce, ue) {
+    }, L = C({ includeEqual: !0 }), y = C({ includeEqual: !1 }), P = function(_e, pe) {
       return {
         begin: r(
           // a type annotation is a
-          ce,
+          _e,
           // should be a colon or the 'of' keyword
           t(
             // that has to be followed by
@@ -15155,7 +15155,7 @@ function vp() {
             )
           )
         ),
-        beginScope: ue,
+        beginScope: pe,
         // BUG: because ending with \n is necessary for some cases, multi-line type annotations are not properly supported.
         // Examples where \n is required at the end:
         // - abstract member definitions in classes: abstract Property : int * string
@@ -15386,12 +15386,12 @@ function vp() {
       ]
     };
   }
-  return hr = o, hr;
+  return Or = o, Or;
 }
-var Or, dl;
+var Ar, ul;
 function yp() {
-  if (dl) return Or;
-  dl = 1;
+  if (ul) return Ar;
+  ul = 1;
   function n(e) {
     const t = e.regex, r = {
       keyword: "abort acronym acronyms alias all and assign binary card diag display else eq file files for free ge gt if integer le loop lt maximizing minimizing model models ne negative no not option options or ord positive prod put putpage puttl repeat sameas semicont semiint smax smin solve sos1 sos2 sum system table then until using while xor yes",
@@ -15536,12 +15536,12 @@ function yp() {
       ]
     };
   }
-  return Or = n, Or;
+  return Ar = n, Ar;
 }
-var Ar, ul;
+var Ir, pl;
 function Dp() {
-  if (ul) return Ar;
-  ul = 1;
+  if (pl) return Ir;
+  pl = 1;
   function n(e) {
     const t = {
       keyword: "bool break call callexe checkinterrupt clear clearg closeall cls comlog compile continue create debug declare delete disable dlibrary dllcall do dos ed edit else elseif enable end endfor endif endp endo errorlog errorlogat expr external fn for format goto gosub graph if keyword let lib library line load loadarray loadexe loadf loadk loadm loadp loads loadx local locate loopnextindex lprint lpwidth lshow matrix msym ndpclex new open output outwidth plot plotsym pop prcsn print printdos proc push retp return rndcon rndmod rndmult rndseed run save saveall screen scroll setarray show sparse stop string struct system trace trap threadfor threadendfor threadbegin threadjoin threadstat threadend until use while winprint ne ge le gt lt and xor or not eq eqv",
@@ -15712,12 +15712,12 @@ function Dp() {
       ]
     };
   }
-  return Ar = n, Ar;
+  return Ir = n, Ir;
 }
-var Ir, pl;
+var vr, ml;
 function Mp() {
-  if (pl) return Ir;
-  pl = 1;
+  if (ml) return vr;
+  ml = 1;
   function n(e) {
     const t = e.regex, r = {
       $pattern: /[A-Z]+|%/,
@@ -15862,12 +15862,12 @@ function Mp() {
       contains: E
     };
   }
-  return Ir = n, Ir;
+  return vr = n, vr;
 }
-var vr, ml;
+var yr, El;
 function Lp() {
-  if (ml) return vr;
-  ml = 1;
+  if (El) return yr;
+  El = 1;
   function n(e) {
     return {
       name: "Gherkin",
@@ -15908,12 +15908,12 @@ function Lp() {
       ]
     };
   }
-  return vr = n, vr;
+  return yr = n, yr;
 }
-var yr, El;
+var Dr, gl;
 function xp() {
-  if (El) return yr;
-  El = 1;
+  if (gl) return Dr;
+  gl = 1;
   function n(e) {
     return {
       name: "GLSL",
@@ -15942,12 +15942,12 @@ function xp() {
       ]
     };
   }
-  return yr = n, yr;
+  return Dr = n, Dr;
 }
-var Dr, gl;
+var Mr, Sl;
 function wp() {
-  if (gl) return Dr;
-  gl = 1;
+  if (Sl) return Mr;
+  Sl = 1;
   function n(e) {
     return {
       name: "GML",
@@ -19065,12 +19065,12 @@ function wp() {
       ]
     };
   }
-  return Dr = n, Dr;
+  return Mr = n, Mr;
 }
-var Mr, Sl;
+var Lr, Tl;
 function Pp() {
-  if (Sl) return Mr;
-  Sl = 1;
+  if (Tl) return Lr;
+  Tl = 1;
   function n(e) {
     const o = {
       keyword: [
@@ -19219,12 +19219,12 @@ function Pp() {
       ]
     };
   }
-  return Mr = n, Mr;
+  return Lr = n, Lr;
 }
-var Lr, Tl;
+var xr, bl;
 function kp() {
-  if (Tl) return Lr;
-  Tl = 1;
+  if (bl) return xr;
+  bl = 1;
   function n(e) {
     return {
       name: "Golo",
@@ -19294,12 +19294,12 @@ function kp() {
       ]
     };
   }
-  return Lr = n, Lr;
+  return xr = n, xr;
 }
-var xr, bl;
+var wr, fl;
 function Up() {
-  if (bl) return xr;
-  bl = 1;
+  if (fl) return wr;
+  fl = 1;
   function n(e) {
     return {
       name: "Gradle",
@@ -19478,12 +19478,12 @@ function Up() {
       ]
     };
   }
-  return xr = n, xr;
+  return wr = n, wr;
 }
-var wr, fl;
+var Pr, Rl;
 function Fp() {
-  if (fl) return wr;
-  fl = 1;
+  if (Rl) return Pr;
+  Rl = 1;
   function n(e) {
     const t = e.regex, r = /[_A-Za-z][_0-9A-Za-z]*/;
     return {
@@ -19551,12 +19551,12 @@ function Fp() {
       ]
     };
   }
-  return wr = n, wr;
+  return Pr = n, Pr;
 }
-var Pr, Rl;
+var kr, Cl;
 function Bp() {
-  if (Rl) return Pr;
-  Rl = 1;
+  if (Cl) return kr;
+  Cl = 1;
   function n(t, r = {}) {
     return r.variants = t, r;
   }
@@ -19726,12 +19726,12 @@ function Bp() {
       illegal: /#|<\//
     };
   }
-  return Pr = e, Pr;
+  return kr = e, kr;
 }
-var kr, Cl;
+var Ur, Nl;
 function Gp() {
-  if (Cl) return kr;
-  Cl = 1;
+  if (Nl) return Ur;
+  Nl = 1;
   function n(e) {
     return {
       name: "HAML",
@@ -19834,12 +19834,12 @@ function Gp() {
       ]
     };
   }
-  return kr = n, kr;
+  return Ur = n, Ur;
 }
-var Ur, Nl;
+var Fr, hl;
 function Yp() {
-  if (Nl) return Ur;
-  Nl = 1;
+  if (hl) return Fr;
+  hl = 1;
   function n(e) {
     const t = e.regex, r = {
       $pattern: /[\w.\/]+/,
@@ -20047,12 +20047,12 @@ function Yp() {
       ]
     };
   }
-  return Ur = n, Ur;
+  return Fr = n, Fr;
 }
-var Fr, hl;
+var Br, Ol;
 function qp() {
-  if (hl) return Fr;
-  hl = 1;
+  if (Ol) return Br;
+  Ol = 1;
   function n(e) {
     const t = "([0-9]_*)+", r = "([0-9a-fA-F]_*)+", a = "([01]_*)+", i = "([0-7]_*)+", _ = "([!#$%&*+.\\/<=>?@\\\\^~-]|(?!([(),;\\[\\]`|{}]|[_:\"']))(\\p{S}|\\p{P}))", c = { variants: [
       // Double dash forms a valid comment only if it's not part of legal lexeme.
@@ -20227,12 +20227,12 @@ function qp() {
       ]
     };
   }
-  return Fr = n, Fr;
+  return Br = n, Br;
 }
-var Br, Ol;
+var Gr, Al;
 function Hp() {
-  if (Ol) return Br;
-  Ol = 1;
+  if (Al) return Gr;
+  Al = 1;
   function n(e) {
     const t = "[a-zA-Z_$][a-zA-Z0-9_$]*", r = /(-?)(\b0[xX][a-fA-F0-9_]+|(\b\d+(\.[\d_]*)?|\.[\d_]+)(([eE][-+]?\d+)|i32|u32|i64|f64)?)/;
     return {
@@ -20389,12 +20389,12 @@ function Hp() {
       illegal: /<\//
     };
   }
-  return Br = n, Br;
+  return Gr = n, Gr;
 }
-var Gr, Al;
+var Yr, Il;
 function Vp() {
-  if (Al) return Gr;
-  Al = 1;
+  if (Il) return Yr;
+  Il = 1;
   function n(e) {
     return {
       name: "HSP",
@@ -20440,12 +20440,12 @@ function Vp() {
       ]
     };
   }
-  return Gr = n, Gr;
+  return Yr = n, Yr;
 }
-var Yr, Il;
+var qr, vl;
 function $p() {
-  if (Il) return Yr;
-  Il = 1;
+  if (vl) return qr;
+  vl = 1;
   function n(e) {
     const t = e.regex, r = "HTTP/([32]|1\\.[01])", a = /[A-Za-z][A-Za-z0-9-]*/, i = {
       className: "attribute",
@@ -20528,12 +20528,12 @@ function $p() {
       ]
     };
   }
-  return Yr = n, Yr;
+  return qr = n, qr;
 }
-var qr, vl;
+var Hr, yl;
 function zp() {
-  if (vl) return qr;
-  vl = 1;
+  if (yl) return Hr;
+  yl = 1;
   function n(e) {
     const t = "a-zA-Z_\\-!.?+*=<>&#'", r = "[" + t + "][" + t + "0-9/;:]*", a = {
       $pattern: r,
@@ -20611,12 +20611,12 @@ function zp() {
       ]
     };
   }
-  return qr = n, qr;
+  return Hr = n, Hr;
 }
-var Hr, yl;
+var Vr, Dl;
 function Wp() {
-  if (yl) return Hr;
-  yl = 1;
+  if (Dl) return Vr;
+  Dl = 1;
   function n(e) {
     return {
       name: "Inform 7",
@@ -20670,12 +20670,12 @@ function Wp() {
       ]
     };
   }
-  return Hr = n, Hr;
+  return Vr = n, Vr;
 }
-var Vr, Dl;
+var $r, Ml;
 function Kp() {
-  if (Dl) return Vr;
-  Dl = 1;
+  if (Ml) return $r;
+  Ml = 1;
   function n(e) {
     const t = e.regex, r = {
       className: "number",
@@ -20780,12 +20780,12 @@ function Kp() {
       ]
     };
   }
-  return Vr = n, Vr;
+  return $r = n, $r;
 }
-var $r, Ml;
+var zr, Ll;
 function Qp() {
-  if (Ml) return $r;
-  Ml = 1;
+  if (Ll) return zr;
+  Ll = 1;
   function n(e) {
     const t = e.regex, r = {
       className: "params",
@@ -20833,14 +20833,14 @@ function Qp() {
       ]
     };
   }
-  return $r = n, $r;
+  return zr = n, zr;
 }
-var zr, Ll;
+var Wr, xl;
 function Xp() {
-  if (Ll) return zr;
-  Ll = 1;
+  if (xl) return Wr;
+  xl = 1;
   function n(e) {
-    const t = "[A-Za-zА-Яа-яёЁ_!][A-Za-zА-Яа-яёЁ_0-9]*", r = "[A-Za-zА-Яа-яёЁ_][A-Za-zА-Яа-яёЁ_0-9]*", a = "and и else иначе endexcept endfinally endforeach конецвсе endif конецесли endwhile конецпока except exitfor finally foreach все if если in в not не or или try while пока ", ce = "SYSRES_CONST_ACCES_RIGHT_TYPE_EDIT SYSRES_CONST_ACCES_RIGHT_TYPE_FULL SYSRES_CONST_ACCES_RIGHT_TYPE_VIEW SYSRES_CONST_ACCESS_MODE_REQUISITE_CODE SYSRES_CONST_ACCESS_NO_ACCESS_VIEW SYSRES_CONST_ACCESS_NO_ACCESS_VIEW_CODE SYSRES_CONST_ACCESS_RIGHTS_ADD_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_ADD_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_CHANGE_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_CHANGE_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_DELETE_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_DELETE_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_EXECUTE_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_EXECUTE_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_NO_ACCESS_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_NO_ACCESS_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_RATIFY_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_RATIFY_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_VIEW SYSRES_CONST_ACCESS_RIGHTS_VIEW_CODE SYSRES_CONST_ACCESS_RIGHTS_VIEW_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_VIEW_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_TYPE_CHANGE SYSRES_CONST_ACCESS_TYPE_CHANGE_CODE SYSRES_CONST_ACCESS_TYPE_EXISTS SYSRES_CONST_ACCESS_TYPE_EXISTS_CODE SYSRES_CONST_ACCESS_TYPE_FULL SYSRES_CONST_ACCESS_TYPE_FULL_CODE SYSRES_CONST_ACCESS_TYPE_VIEW SYSRES_CONST_ACCESS_TYPE_VIEW_CODE SYSRES_CONST_ACTION_TYPE_ABORT SYSRES_CONST_ACTION_TYPE_ACCEPT SYSRES_CONST_ACTION_TYPE_ACCESS_RIGHTS SYSRES_CONST_ACTION_TYPE_ADD_ATTACHMENT SYSRES_CONST_ACTION_TYPE_CHANGE_CARD SYSRES_CONST_ACTION_TYPE_CHANGE_KIND SYSRES_CONST_ACTION_TYPE_CHANGE_STORAGE SYSRES_CONST_ACTION_TYPE_CONTINUE SYSRES_CONST_ACTION_TYPE_COPY SYSRES_CONST_ACTION_TYPE_CREATE SYSRES_CONST_ACTION_TYPE_CREATE_VERSION SYSRES_CONST_ACTION_TYPE_DELETE SYSRES_CONST_ACTION_TYPE_DELETE_ATTACHMENT SYSRES_CONST_ACTION_TYPE_DELETE_VERSION SYSRES_CONST_ACTION_TYPE_DISABLE_DELEGATE_ACCESS_RIGHTS SYSRES_CONST_ACTION_TYPE_ENABLE_DELEGATE_ACCESS_RIGHTS SYSRES_CONST_ACTION_TYPE_ENCRYPTION_BY_CERTIFICATE SYSRES_CONST_ACTION_TYPE_ENCRYPTION_BY_CERTIFICATE_AND_PASSWORD SYSRES_CONST_ACTION_TYPE_ENCRYPTION_BY_PASSWORD SYSRES_CONST_ACTION_TYPE_EXPORT_WITH_LOCK SYSRES_CONST_ACTION_TYPE_EXPORT_WITHOUT_LOCK SYSRES_CONST_ACTION_TYPE_IMPORT_WITH_UNLOCK SYSRES_CONST_ACTION_TYPE_IMPORT_WITHOUT_UNLOCK SYSRES_CONST_ACTION_TYPE_LIFE_CYCLE_STAGE SYSRES_CONST_ACTION_TYPE_LOCK SYSRES_CONST_ACTION_TYPE_LOCK_FOR_SERVER SYSRES_CONST_ACTION_TYPE_LOCK_MODIFY SYSRES_CONST_ACTION_TYPE_MARK_AS_READED SYSRES_CONST_ACTION_TYPE_MARK_AS_UNREADED SYSRES_CONST_ACTION_TYPE_MODIFY SYSRES_CONST_ACTION_TYPE_MODIFY_CARD SYSRES_CONST_ACTION_TYPE_MOVE_TO_ARCHIVE SYSRES_CONST_ACTION_TYPE_OFF_ENCRYPTION SYSRES_CONST_ACTION_TYPE_PASSWORD_CHANGE SYSRES_CONST_ACTION_TYPE_PERFORM SYSRES_CONST_ACTION_TYPE_RECOVER_FROM_LOCAL_COPY SYSRES_CONST_ACTION_TYPE_RESTART SYSRES_CONST_ACTION_TYPE_RESTORE_FROM_ARCHIVE SYSRES_CONST_ACTION_TYPE_REVISION SYSRES_CONST_ACTION_TYPE_SEND_BY_MAIL SYSRES_CONST_ACTION_TYPE_SIGN SYSRES_CONST_ACTION_TYPE_START SYSRES_CONST_ACTION_TYPE_UNLOCK SYSRES_CONST_ACTION_TYPE_UNLOCK_FROM_SERVER SYSRES_CONST_ACTION_TYPE_VERSION_STATE SYSRES_CONST_ACTION_TYPE_VERSION_VISIBILITY SYSRES_CONST_ACTION_TYPE_VIEW SYSRES_CONST_ACTION_TYPE_VIEW_SHADOW_COPY SYSRES_CONST_ACTION_TYPE_WORKFLOW_DESCRIPTION_MODIFY SYSRES_CONST_ACTION_TYPE_WRITE_HISTORY SYSRES_CONST_ACTIVE_VERSION_STATE_PICK_VALUE SYSRES_CONST_ADD_REFERENCE_MODE_NAME SYSRES_CONST_ADDITION_REQUISITE_CODE SYSRES_CONST_ADDITIONAL_PARAMS_REQUISITE_CODE SYSRES_CONST_ADITIONAL_JOB_END_DATE_REQUISITE_NAME SYSRES_CONST_ADITIONAL_JOB_READ_REQUISITE_NAME SYSRES_CONST_ADITIONAL_JOB_START_DATE_REQUISITE_NAME SYSRES_CONST_ADITIONAL_JOB_STATE_REQUISITE_NAME SYSRES_CONST_ADMINISTRATION_HISTORY_ADDING_USER_TO_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_ADDING_USER_TO_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_COMP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_COMP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_USER_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_USER_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_DATABASE_USER_CREATION SYSRES_CONST_ADMINISTRATION_HISTORY_DATABASE_USER_CREATION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DATABASE_USER_DELETION SYSRES_CONST_ADMINISTRATION_HISTORY_DATABASE_USER_DELETION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_COMP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_COMP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_USER_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_USER_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_USER_FROM_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_USER_FROM_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_FILTERER_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_FILTERER_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_FILTERER_RESTRICTION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_FILTERER_RESTRICTION_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_PRIVILEGE_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_PRIVILEGE_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_RIGHTS_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_RIGHTS_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_IS_MAIN_SERVER_CHANGED_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_IS_MAIN_SERVER_CHANGED_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_IS_PUBLIC_CHANGED_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_IS_PUBLIC_CHANGED_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_FILTERER_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_FILTERER_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_FILTERER_RESTRICTION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_FILTERER_RESTRICTION_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_PRIVILEGE_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_PRIVILEGE_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_RIGHTS_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_RIGHTS_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_SERVER_LOGIN_CREATION SYSRES_CONST_ADMINISTRATION_HISTORY_SERVER_LOGIN_CREATION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_SERVER_LOGIN_DELETION SYSRES_CONST_ADMINISTRATION_HISTORY_SERVER_LOGIN_DELETION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_CATEGORY_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_CATEGORY_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_COMP_TITLE_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_COMP_TITLE_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_FULL_NAME_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_FULL_NAME_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_PARENT_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_PARENT_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_AUTH_TYPE_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_AUTH_TYPE_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_LOGIN_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_LOGIN_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_STATUS_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_STATUS_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_USER_PASSWORD_CHANGE SYSRES_CONST_ADMINISTRATION_HISTORY_USER_PASSWORD_CHANGE_ACTION SYSRES_CONST_ALL_ACCEPT_CONDITION_RUS SYSRES_CONST_ALL_USERS_GROUP SYSRES_CONST_ALL_USERS_GROUP_NAME SYSRES_CONST_ALL_USERS_SERVER_GROUP_NAME SYSRES_CONST_ALLOWED_ACCESS_TYPE_CODE SYSRES_CONST_ALLOWED_ACCESS_TYPE_NAME SYSRES_CONST_APP_VIEWER_TYPE_REQUISITE_CODE SYSRES_CONST_APPROVING_SIGNATURE_NAME SYSRES_CONST_APPROVING_SIGNATURE_REQUISITE_CODE SYSRES_CONST_ASSISTANT_SUBSTITUE_TYPE SYSRES_CONST_ASSISTANT_SUBSTITUE_TYPE_CODE SYSRES_CONST_ATTACH_TYPE_COMPONENT_TOKEN SYSRES_CONST_ATTACH_TYPE_DOC SYSRES_CONST_ATTACH_TYPE_EDOC SYSRES_CONST_ATTACH_TYPE_FOLDER SYSRES_CONST_ATTACH_TYPE_JOB SYSRES_CONST_ATTACH_TYPE_REFERENCE SYSRES_CONST_ATTACH_TYPE_TASK SYSRES_CONST_AUTH_ENCODED_PASSWORD SYSRES_CONST_AUTH_ENCODED_PASSWORD_CODE SYSRES_CONST_AUTH_NOVELL SYSRES_CONST_AUTH_PASSWORD SYSRES_CONST_AUTH_PASSWORD_CODE SYSRES_CONST_AUTH_WINDOWS SYSRES_CONST_AUTHENTICATING_SIGNATURE_NAME SYSRES_CONST_AUTHENTICATING_SIGNATURE_REQUISITE_CODE SYSRES_CONST_AUTO_ENUM_METHOD_FLAG SYSRES_CONST_AUTO_NUMERATION_CODE SYSRES_CONST_AUTO_STRONG_ENUM_METHOD_FLAG SYSRES_CONST_AUTOTEXT_NAME_REQUISITE_CODE SYSRES_CONST_AUTOTEXT_TEXT_REQUISITE_CODE SYSRES_CONST_AUTOTEXT_USAGE_ALL SYSRES_CONST_AUTOTEXT_USAGE_ALL_CODE SYSRES_CONST_AUTOTEXT_USAGE_SIGN SYSRES_CONST_AUTOTEXT_USAGE_SIGN_CODE SYSRES_CONST_AUTOTEXT_USAGE_WORK SYSRES_CONST_AUTOTEXT_USAGE_WORK_CODE SYSRES_CONST_AUTOTEXT_USE_ANYWHERE_CODE SYSRES_CONST_AUTOTEXT_USE_ON_SIGNING_CODE SYSRES_CONST_AUTOTEXT_USE_ON_WORK_CODE SYSRES_CONST_BEGIN_DATE_REQUISITE_CODE SYSRES_CONST_BLACK_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_BLUE_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_BTN_PART SYSRES_CONST_CALCULATED_ROLE_TYPE_CODE SYSRES_CONST_CALL_TYPE_VARIABLE_BUTTON_VALUE SYSRES_CONST_CALL_TYPE_VARIABLE_PROGRAM_VALUE SYSRES_CONST_CANCEL_MESSAGE_FUNCTION_RESULT SYSRES_CONST_CARD_PART SYSRES_CONST_CARD_REFERENCE_MODE_NAME SYSRES_CONST_CERTIFICATE_TYPE_REQUISITE_ENCRYPT_VALUE SYSRES_CONST_CERTIFICATE_TYPE_REQUISITE_SIGN_AND_ENCRYPT_VALUE SYSRES_CONST_CERTIFICATE_TYPE_REQUISITE_SIGN_VALUE SYSRES_CONST_CHECK_PARAM_VALUE_DATE_PARAM_TYPE SYSRES_CONST_CHECK_PARAM_VALUE_FLOAT_PARAM_TYPE SYSRES_CONST_CHECK_PARAM_VALUE_INTEGER_PARAM_TYPE SYSRES_CONST_CHECK_PARAM_VALUE_PICK_PARAM_TYPE SYSRES_CONST_CHECK_PARAM_VALUE_REEFRENCE_PARAM_TYPE SYSRES_CONST_CLOSED_RECORD_FLAG_VALUE_FEMININE SYSRES_CONST_CLOSED_RECORD_FLAG_VALUE_MASCULINE SYSRES_CONST_CODE_COMPONENT_TYPE_ADMIN SYSRES_CONST_CODE_COMPONENT_TYPE_DEVELOPER SYSRES_CONST_CODE_COMPONENT_TYPE_DOCS SYSRES_CONST_CODE_COMPONENT_TYPE_EDOC_CARDS SYSRES_CONST_CODE_COMPONENT_TYPE_EXTERNAL_EXECUTABLE SYSRES_CONST_CODE_COMPONENT_TYPE_OTHER SYSRES_CONST_CODE_COMPONENT_TYPE_REFERENCE SYSRES_CONST_CODE_COMPONENT_TYPE_REPORT SYSRES_CONST_CODE_COMPONENT_TYPE_SCRIPT SYSRES_CONST_CODE_COMPONENT_TYPE_URL SYSRES_CONST_CODE_REQUISITE_ACCESS SYSRES_CONST_CODE_REQUISITE_CODE SYSRES_CONST_CODE_REQUISITE_COMPONENT SYSRES_CONST_CODE_REQUISITE_DESCRIPTION SYSRES_CONST_CODE_REQUISITE_EXCLUDE_COMPONENT SYSRES_CONST_CODE_REQUISITE_RECORD SYSRES_CONST_COMMENT_REQ_CODE SYSRES_CONST_COMMON_SETTINGS_REQUISITE_CODE SYSRES_CONST_COMP_CODE_GRD SYSRES_CONST_COMPONENT_GROUP_TYPE_REQUISITE_CODE SYSRES_CONST_COMPONENT_TYPE_ADMIN_COMPONENTS SYSRES_CONST_COMPONENT_TYPE_DEVELOPER_COMPONENTS SYSRES_CONST_COMPONENT_TYPE_DOCS SYSRES_CONST_COMPONENT_TYPE_EDOC_CARDS SYSRES_CONST_COMPONENT_TYPE_EDOCS SYSRES_CONST_COMPONENT_TYPE_EXTERNAL_EXECUTABLE SYSRES_CONST_COMPONENT_TYPE_OTHER SYSRES_CONST_COMPONENT_TYPE_REFERENCE_TYPES SYSRES_CONST_COMPONENT_TYPE_REFERENCES SYSRES_CONST_COMPONENT_TYPE_REPORTS SYSRES_CONST_COMPONENT_TYPE_SCRIPTS SYSRES_CONST_COMPONENT_TYPE_URL SYSRES_CONST_COMPONENTS_REMOTE_SERVERS_VIEW_CODE SYSRES_CONST_CONDITION_BLOCK_DESCRIPTION SYSRES_CONST_CONST_FIRM_STATUS_COMMON SYSRES_CONST_CONST_FIRM_STATUS_INDIVIDUAL SYSRES_CONST_CONST_NEGATIVE_VALUE SYSRES_CONST_CONST_POSITIVE_VALUE SYSRES_CONST_CONST_SERVER_STATUS_DONT_REPLICATE SYSRES_CONST_CONST_SERVER_STATUS_REPLICATE SYSRES_CONST_CONTENTS_REQUISITE_CODE SYSRES_CONST_DATA_TYPE_BOOLEAN SYSRES_CONST_DATA_TYPE_DATE SYSRES_CONST_DATA_TYPE_FLOAT SYSRES_CONST_DATA_TYPE_INTEGER SYSRES_CONST_DATA_TYPE_PICK SYSRES_CONST_DATA_TYPE_REFERENCE SYSRES_CONST_DATA_TYPE_STRING SYSRES_CONST_DATA_TYPE_TEXT SYSRES_CONST_DATA_TYPE_VARIANT SYSRES_CONST_DATE_CLOSE_REQ_CODE SYSRES_CONST_DATE_FORMAT_DATE_ONLY_CHAR SYSRES_CONST_DATE_OPEN_REQ_CODE SYSRES_CONST_DATE_REQUISITE SYSRES_CONST_DATE_REQUISITE_CODE SYSRES_CONST_DATE_REQUISITE_NAME SYSRES_CONST_DATE_REQUISITE_TYPE SYSRES_CONST_DATE_TYPE_CHAR SYSRES_CONST_DATETIME_FORMAT_VALUE SYSRES_CONST_DEA_ACCESS_RIGHTS_ACTION_CODE SYSRES_CONST_DESCRIPTION_LOCALIZE_ID_REQUISITE_CODE SYSRES_CONST_DESCRIPTION_REQUISITE_CODE SYSRES_CONST_DET1_PART SYSRES_CONST_DET2_PART SYSRES_CONST_DET3_PART SYSRES_CONST_DET4_PART SYSRES_CONST_DET5_PART SYSRES_CONST_DET6_PART SYSRES_CONST_DETAIL_DATASET_KEY_REQUISITE_CODE SYSRES_CONST_DETAIL_PICK_REQUISITE_CODE SYSRES_CONST_DETAIL_REQ_CODE SYSRES_CONST_DO_NOT_USE_ACCESS_TYPE_CODE SYSRES_CONST_DO_NOT_USE_ACCESS_TYPE_NAME SYSRES_CONST_DO_NOT_USE_ON_VIEW_ACCESS_TYPE_CODE SYSRES_CONST_DO_NOT_USE_ON_VIEW_ACCESS_TYPE_NAME SYSRES_CONST_DOCUMENT_STORAGES_CODE SYSRES_CONST_DOCUMENT_TEMPLATES_TYPE_NAME SYSRES_CONST_DOUBLE_REQUISITE_CODE SYSRES_CONST_EDITOR_CLOSE_FILE_OBSERV_TYPE_CODE SYSRES_CONST_EDITOR_CLOSE_PROCESS_OBSERV_TYPE_CODE SYSRES_CONST_EDITOR_TYPE_REQUISITE_CODE SYSRES_CONST_EDITORS_APPLICATION_NAME_REQUISITE_CODE SYSRES_CONST_EDITORS_CREATE_SEVERAL_PROCESSES_REQUISITE_CODE SYSRES_CONST_EDITORS_EXTENSION_REQUISITE_CODE SYSRES_CONST_EDITORS_OBSERVER_BY_PROCESS_TYPE SYSRES_CONST_EDITORS_REFERENCE_CODE SYSRES_CONST_EDITORS_REPLACE_SPEC_CHARS_REQUISITE_CODE SYSRES_CONST_EDITORS_USE_PLUGINS_REQUISITE_CODE SYSRES_CONST_EDITORS_VIEW_DOCUMENT_OPENED_TO_EDIT_CODE SYSRES_CONST_EDOC_CARD_TYPE_REQUISITE_CODE SYSRES_CONST_EDOC_CARD_TYPES_LINK_REQUISITE_CODE SYSRES_CONST_EDOC_CERTIFICATE_AND_PASSWORD_ENCODE_CODE SYSRES_CONST_EDOC_CERTIFICATE_ENCODE_CODE SYSRES_CONST_EDOC_DATE_REQUISITE_CODE SYSRES_CONST_EDOC_KIND_REFERENCE_CODE SYSRES_CONST_EDOC_KINDS_BY_TEMPLATE_ACTION_CODE SYSRES_CONST_EDOC_MANAGE_ACCESS_CODE SYSRES_CONST_EDOC_NONE_ENCODE_CODE SYSRES_CONST_EDOC_NUMBER_REQUISITE_CODE SYSRES_CONST_EDOC_PASSWORD_ENCODE_CODE SYSRES_CONST_EDOC_READONLY_ACCESS_CODE SYSRES_CONST_EDOC_SHELL_LIFE_TYPE_VIEW_VALUE SYSRES_CONST_EDOC_SIZE_RESTRICTION_PRIORITY_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_CHECK_ACCESS_RIGHTS_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_COMPUTER_NAME_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_DATABASE_NAME_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_EDIT_IN_STORAGE_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_LOCAL_PATH_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_SHARED_SOURCE_NAME_REQUISITE_CODE SYSRES_CONST_EDOC_TEMPLATE_REQUISITE_CODE SYSRES_CONST_EDOC_TYPES_REFERENCE_CODE SYSRES_CONST_EDOC_VERSION_ACTIVE_STAGE_CODE SYSRES_CONST_EDOC_VERSION_DESIGN_STAGE_CODE SYSRES_CONST_EDOC_VERSION_OBSOLETE_STAGE_CODE SYSRES_CONST_EDOC_WRITE_ACCES_CODE SYSRES_CONST_EDOCUMENT_CARD_REQUISITES_REFERENCE_CODE_SELECTED_REQUISITE SYSRES_CONST_ENCODE_CERTIFICATE_TYPE_CODE SYSRES_CONST_END_DATE_REQUISITE_CODE SYSRES_CONST_ENUMERATION_TYPE_REQUISITE_CODE SYSRES_CONST_EXECUTE_ACCESS_RIGHTS_TYPE_CODE SYSRES_CONST_EXECUTIVE_FILE_STORAGE_TYPE SYSRES_CONST_EXIST_CONST SYSRES_CONST_EXIST_VALUE SYSRES_CONST_EXPORT_LOCK_TYPE_ASK SYSRES_CONST_EXPORT_LOCK_TYPE_WITH_LOCK SYSRES_CONST_EXPORT_LOCK_TYPE_WITHOUT_LOCK SYSRES_CONST_EXPORT_VERSION_TYPE_ASK SYSRES_CONST_EXPORT_VERSION_TYPE_LAST SYSRES_CONST_EXPORT_VERSION_TYPE_LAST_ACTIVE SYSRES_CONST_EXTENSION_REQUISITE_CODE SYSRES_CONST_FILTER_NAME_REQUISITE_CODE SYSRES_CONST_FILTER_REQUISITE_CODE SYSRES_CONST_FILTER_TYPE_COMMON_CODE SYSRES_CONST_FILTER_TYPE_COMMON_NAME SYSRES_CONST_FILTER_TYPE_USER_CODE SYSRES_CONST_FILTER_TYPE_USER_NAME SYSRES_CONST_FILTER_VALUE_REQUISITE_NAME SYSRES_CONST_FLOAT_NUMBER_FORMAT_CHAR SYSRES_CONST_FLOAT_REQUISITE_TYPE SYSRES_CONST_FOLDER_AUTHOR_VALUE SYSRES_CONST_FOLDER_KIND_ANY_OBJECTS SYSRES_CONST_FOLDER_KIND_COMPONENTS SYSRES_CONST_FOLDER_KIND_EDOCS SYSRES_CONST_FOLDER_KIND_JOBS SYSRES_CONST_FOLDER_KIND_TASKS SYSRES_CONST_FOLDER_TYPE_COMMON SYSRES_CONST_FOLDER_TYPE_COMPONENT SYSRES_CONST_FOLDER_TYPE_FAVORITES SYSRES_CONST_FOLDER_TYPE_INBOX SYSRES_CONST_FOLDER_TYPE_OUTBOX SYSRES_CONST_FOLDER_TYPE_QUICK_LAUNCH SYSRES_CONST_FOLDER_TYPE_SEARCH SYSRES_CONST_FOLDER_TYPE_SHORTCUTS SYSRES_CONST_FOLDER_TYPE_USER SYSRES_CONST_FROM_DICTIONARY_ENUM_METHOD_FLAG SYSRES_CONST_FULL_SUBSTITUTE_TYPE SYSRES_CONST_FULL_SUBSTITUTE_TYPE_CODE SYSRES_CONST_FUNCTION_CANCEL_RESULT SYSRES_CONST_FUNCTION_CATEGORY_SYSTEM SYSRES_CONST_FUNCTION_CATEGORY_USER SYSRES_CONST_FUNCTION_FAILURE_RESULT SYSRES_CONST_FUNCTION_SAVE_RESULT SYSRES_CONST_GENERATED_REQUISITE SYSRES_CONST_GREEN_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_GROUP_ACCOUNT_TYPE_VALUE_CODE SYSRES_CONST_GROUP_CATEGORY_NORMAL_CODE SYSRES_CONST_GROUP_CATEGORY_NORMAL_NAME SYSRES_CONST_GROUP_CATEGORY_SERVICE_CODE SYSRES_CONST_GROUP_CATEGORY_SERVICE_NAME SYSRES_CONST_GROUP_COMMON_CATEGORY_FIELD_VALUE SYSRES_CONST_GROUP_FULL_NAME_REQUISITE_CODE SYSRES_CONST_GROUP_NAME_REQUISITE_CODE SYSRES_CONST_GROUP_RIGHTS_T_REQUISITE_CODE SYSRES_CONST_GROUP_SERVER_CODES_REQUISITE_CODE SYSRES_CONST_GROUP_SERVER_NAME_REQUISITE_CODE SYSRES_CONST_GROUP_SERVICE_CATEGORY_FIELD_VALUE SYSRES_CONST_GROUP_USER_REQUISITE_CODE SYSRES_CONST_GROUPS_REFERENCE_CODE SYSRES_CONST_GROUPS_REQUISITE_CODE SYSRES_CONST_HIDDEN_MODE_NAME SYSRES_CONST_HIGH_LVL_REQUISITE_CODE SYSRES_CONST_HISTORY_ACTION_CREATE_CODE SYSRES_CONST_HISTORY_ACTION_DELETE_CODE SYSRES_CONST_HISTORY_ACTION_EDIT_CODE SYSRES_CONST_HOUR_CHAR SYSRES_CONST_ID_REQUISITE_CODE SYSRES_CONST_IDSPS_REQUISITE_CODE SYSRES_CONST_IMAGE_MODE_COLOR SYSRES_CONST_IMAGE_MODE_GREYSCALE SYSRES_CONST_IMAGE_MODE_MONOCHROME SYSRES_CONST_IMPORTANCE_HIGH SYSRES_CONST_IMPORTANCE_LOW SYSRES_CONST_IMPORTANCE_NORMAL SYSRES_CONST_IN_DESIGN_VERSION_STATE_PICK_VALUE SYSRES_CONST_INCOMING_WORK_RULE_TYPE_CODE SYSRES_CONST_INT_REQUISITE SYSRES_CONST_INT_REQUISITE_TYPE SYSRES_CONST_INTEGER_NUMBER_FORMAT_CHAR SYSRES_CONST_INTEGER_TYPE_CHAR SYSRES_CONST_IS_GENERATED_REQUISITE_NEGATIVE_VALUE SYSRES_CONST_IS_PUBLIC_ROLE_REQUISITE_CODE SYSRES_CONST_IS_REMOTE_USER_NEGATIVE_VALUE SYSRES_CONST_IS_REMOTE_USER_POSITIVE_VALUE SYSRES_CONST_IS_STORED_REQUISITE_NEGATIVE_VALUE SYSRES_CONST_IS_STORED_REQUISITE_STORED_VALUE SYSRES_CONST_ITALIC_LIFE_CYCLE_STAGE_DRAW_STYLE SYSRES_CONST_JOB_BLOCK_DESCRIPTION SYSRES_CONST_JOB_KIND_CONTROL_JOB SYSRES_CONST_JOB_KIND_JOB SYSRES_CONST_JOB_KIND_NOTICE SYSRES_CONST_JOB_STATE_ABORTED SYSRES_CONST_JOB_STATE_COMPLETE SYSRES_CONST_JOB_STATE_WORKING SYSRES_CONST_KIND_REQUISITE_CODE SYSRES_CONST_KIND_REQUISITE_NAME SYSRES_CONST_KINDS_CREATE_SHADOW_COPIES_REQUISITE_CODE SYSRES_CONST_KINDS_DEFAULT_EDOC_LIFE_STAGE_REQUISITE_CODE SYSRES_CONST_KINDS_EDOC_ALL_TEPLATES_ALLOWED_REQUISITE_CODE SYSRES_CONST_KINDS_EDOC_ALLOW_LIFE_CYCLE_STAGE_CHANGING_REQUISITE_CODE SYSRES_CONST_KINDS_EDOC_ALLOW_MULTIPLE_ACTIVE_VERSIONS_REQUISITE_CODE SYSRES_CONST_KINDS_EDOC_SHARE_ACCES_RIGHTS_BY_DEFAULT_CODE SYSRES_CONST_KINDS_EDOC_TEMPLATE_REQUISITE_CODE SYSRES_CONST_KINDS_EDOC_TYPE_REQUISITE_CODE SYSRES_CONST_KINDS_SIGNERS_REQUISITES_CODE SYSRES_CONST_KOD_INPUT_TYPE SYSRES_CONST_LAST_UPDATE_DATE_REQUISITE_CODE SYSRES_CONST_LIFE_CYCLE_START_STAGE_REQUISITE_CODE SYSRES_CONST_LILAC_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_LINK_OBJECT_KIND_COMPONENT SYSRES_CONST_LINK_OBJECT_KIND_DOCUMENT SYSRES_CONST_LINK_OBJECT_KIND_EDOC SYSRES_CONST_LINK_OBJECT_KIND_FOLDER SYSRES_CONST_LINK_OBJECT_KIND_JOB SYSRES_CONST_LINK_OBJECT_KIND_REFERENCE SYSRES_CONST_LINK_OBJECT_KIND_TASK SYSRES_CONST_LINK_REF_TYPE_REQUISITE_CODE SYSRES_CONST_LIST_REFERENCE_MODE_NAME SYSRES_CONST_LOCALIZATION_DICTIONARY_MAIN_VIEW_CODE SYSRES_CONST_MAIN_VIEW_CODE SYSRES_CONST_MANUAL_ENUM_METHOD_FLAG SYSRES_CONST_MASTER_COMP_TYPE_REQUISITE_CODE SYSRES_CONST_MASTER_TABLE_REC_ID_REQUISITE_CODE SYSRES_CONST_MAXIMIZED_MODE_NAME SYSRES_CONST_ME_VALUE SYSRES_CONST_MESSAGE_ATTENTION_CAPTION SYSRES_CONST_MESSAGE_CONFIRMATION_CAPTION SYSRES_CONST_MESSAGE_ERROR_CAPTION SYSRES_CONST_MESSAGE_INFORMATION_CAPTION SYSRES_CONST_MINIMIZED_MODE_NAME SYSRES_CONST_MINUTE_CHAR SYSRES_CONST_MODULE_REQUISITE_CODE SYSRES_CONST_MONITORING_BLOCK_DESCRIPTION SYSRES_CONST_MONTH_FORMAT_VALUE SYSRES_CONST_NAME_LOCALIZE_ID_REQUISITE_CODE SYSRES_CONST_NAME_REQUISITE_CODE SYSRES_CONST_NAME_SINGULAR_REQUISITE_CODE SYSRES_CONST_NAMEAN_INPUT_TYPE SYSRES_CONST_NEGATIVE_PICK_VALUE SYSRES_CONST_NEGATIVE_VALUE SYSRES_CONST_NO SYSRES_CONST_NO_PICK_VALUE SYSRES_CONST_NO_SIGNATURE_REQUISITE_CODE SYSRES_CONST_NO_VALUE SYSRES_CONST_NONE_ACCESS_RIGHTS_TYPE_CODE SYSRES_CONST_NONOPERATING_RECORD_FLAG_VALUE SYSRES_CONST_NONOPERATING_RECORD_FLAG_VALUE_MASCULINE SYSRES_CONST_NORMAL_ACCESS_RIGHTS_TYPE_CODE SYSRES_CONST_NORMAL_LIFE_CYCLE_STAGE_DRAW_STYLE SYSRES_CONST_NORMAL_MODE_NAME SYSRES_CONST_NOT_ALLOWED_ACCESS_TYPE_CODE SYSRES_CONST_NOT_ALLOWED_ACCESS_TYPE_NAME SYSRES_CONST_NOTE_REQUISITE_CODE SYSRES_CONST_NOTICE_BLOCK_DESCRIPTION SYSRES_CONST_NUM_REQUISITE SYSRES_CONST_NUM_STR_REQUISITE_CODE SYSRES_CONST_NUMERATION_AUTO_NOT_STRONG SYSRES_CONST_NUMERATION_AUTO_STRONG SYSRES_CONST_NUMERATION_FROM_DICTONARY SYSRES_CONST_NUMERATION_MANUAL SYSRES_CONST_NUMERIC_TYPE_CHAR SYSRES_CONST_NUMREQ_REQUISITE_CODE SYSRES_CONST_OBSOLETE_VERSION_STATE_PICK_VALUE SYSRES_CONST_OPERATING_RECORD_FLAG_VALUE SYSRES_CONST_OPERATING_RECORD_FLAG_VALUE_CODE SYSRES_CONST_OPERATING_RECORD_FLAG_VALUE_FEMININE SYSRES_CONST_OPERATING_RECORD_FLAG_VALUE_MASCULINE SYSRES_CONST_OPTIONAL_FORM_COMP_REQCODE_PREFIX SYSRES_CONST_ORANGE_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_ORIGINALREF_REQUISITE_CODE SYSRES_CONST_OURFIRM_REF_CODE SYSRES_CONST_OURFIRM_REQUISITE_CODE SYSRES_CONST_OURFIRM_VAR SYSRES_CONST_OUTGOING_WORK_RULE_TYPE_CODE SYSRES_CONST_PICK_NEGATIVE_RESULT SYSRES_CONST_PICK_POSITIVE_RESULT SYSRES_CONST_PICK_REQUISITE SYSRES_CONST_PICK_REQUISITE_TYPE SYSRES_CONST_PICK_TYPE_CHAR SYSRES_CONST_PLAN_STATUS_REQUISITE_CODE SYSRES_CONST_PLATFORM_VERSION_COMMENT SYSRES_CONST_PLUGINS_SETTINGS_DESCRIPTION_REQUISITE_CODE SYSRES_CONST_POSITIVE_PICK_VALUE SYSRES_CONST_POWER_TO_CREATE_ACTION_CODE SYSRES_CONST_POWER_TO_SIGN_ACTION_CODE SYSRES_CONST_PRIORITY_REQUISITE_CODE SYSRES_CONST_QUALIFIED_TASK_TYPE SYSRES_CONST_QUALIFIED_TASK_TYPE_CODE SYSRES_CONST_RECSTAT_REQUISITE_CODE SYSRES_CONST_RED_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_REF_ID_T_REF_TYPE_REQUISITE_CODE SYSRES_CONST_REF_REQUISITE SYSRES_CONST_REF_REQUISITE_TYPE SYSRES_CONST_REF_REQUISITES_REFERENCE_CODE_SELECTED_REQUISITE SYSRES_CONST_REFERENCE_RECORD_HISTORY_CREATE_ACTION_CODE SYSRES_CONST_REFERENCE_RECORD_HISTORY_DELETE_ACTION_CODE SYSRES_CONST_REFERENCE_RECORD_HISTORY_MODIFY_ACTION_CODE SYSRES_CONST_REFERENCE_TYPE_CHAR SYSRES_CONST_REFERENCE_TYPE_REQUISITE_NAME SYSRES_CONST_REFERENCES_ADD_PARAMS_REQUISITE_CODE SYSRES_CONST_REFERENCES_DISPLAY_REQUISITE_REQUISITE_CODE SYSRES_CONST_REMOTE_SERVER_STATUS_WORKING SYSRES_CONST_REMOTE_SERVER_TYPE_MAIN SYSRES_CONST_REMOTE_SERVER_TYPE_SECONDARY SYSRES_CONST_REMOTE_USER_FLAG_VALUE_CODE SYSRES_CONST_REPORT_APP_EDITOR_INTERNAL SYSRES_CONST_REPORT_BASE_REPORT_ID_REQUISITE_CODE SYSRES_CONST_REPORT_BASE_REPORT_REQUISITE_CODE SYSRES_CONST_REPORT_SCRIPT_REQUISITE_CODE SYSRES_CONST_REPORT_TEMPLATE_REQUISITE_CODE SYSRES_CONST_REPORT_VIEWER_CODE_REQUISITE_CODE SYSRES_CONST_REQ_ALLOW_COMPONENT_DEFAULT_VALUE SYSRES_CONST_REQ_ALLOW_RECORD_DEFAULT_VALUE SYSRES_CONST_REQ_ALLOW_SERVER_COMPONENT_DEFAULT_VALUE SYSRES_CONST_REQ_MODE_AVAILABLE_CODE SYSRES_CONST_REQ_MODE_EDIT_CODE SYSRES_CONST_REQ_MODE_HIDDEN_CODE SYSRES_CONST_REQ_MODE_NOT_AVAILABLE_CODE SYSRES_CONST_REQ_MODE_VIEW_CODE SYSRES_CONST_REQ_NUMBER_REQUISITE_CODE SYSRES_CONST_REQ_SECTION_VALUE SYSRES_CONST_REQ_TYPE_VALUE SYSRES_CONST_REQUISITE_FORMAT_BY_UNIT SYSRES_CONST_REQUISITE_FORMAT_DATE_FULL SYSRES_CONST_REQUISITE_FORMAT_DATE_TIME SYSRES_CONST_REQUISITE_FORMAT_LEFT SYSRES_CONST_REQUISITE_FORMAT_RIGHT SYSRES_CONST_REQUISITE_FORMAT_WITHOUT_UNIT SYSRES_CONST_REQUISITE_NUMBER_REQUISITE_CODE SYSRES_CONST_REQUISITE_SECTION_ACTIONS SYSRES_CONST_REQUISITE_SECTION_BUTTON SYSRES_CONST_REQUISITE_SECTION_BUTTONS SYSRES_CONST_REQUISITE_SECTION_CARD SYSRES_CONST_REQUISITE_SECTION_TABLE SYSRES_CONST_REQUISITE_SECTION_TABLE10 SYSRES_CONST_REQUISITE_SECTION_TABLE11 SYSRES_CONST_REQUISITE_SECTION_TABLE12 SYSRES_CONST_REQUISITE_SECTION_TABLE13 SYSRES_CONST_REQUISITE_SECTION_TABLE14 SYSRES_CONST_REQUISITE_SECTION_TABLE15 SYSRES_CONST_REQUISITE_SECTION_TABLE16 SYSRES_CONST_REQUISITE_SECTION_TABLE17 SYSRES_CONST_REQUISITE_SECTION_TABLE18 SYSRES_CONST_REQUISITE_SECTION_TABLE19 SYSRES_CONST_REQUISITE_SECTION_TABLE2 SYSRES_CONST_REQUISITE_SECTION_TABLE20 SYSRES_CONST_REQUISITE_SECTION_TABLE21 SYSRES_CONST_REQUISITE_SECTION_TABLE22 SYSRES_CONST_REQUISITE_SECTION_TABLE23 SYSRES_CONST_REQUISITE_SECTION_TABLE24 SYSRES_CONST_REQUISITE_SECTION_TABLE3 SYSRES_CONST_REQUISITE_SECTION_TABLE4 SYSRES_CONST_REQUISITE_SECTION_TABLE5 SYSRES_CONST_REQUISITE_SECTION_TABLE6 SYSRES_CONST_REQUISITE_SECTION_TABLE7 SYSRES_CONST_REQUISITE_SECTION_TABLE8 SYSRES_CONST_REQUISITE_SECTION_TABLE9 SYSRES_CONST_REQUISITES_PSEUDOREFERENCE_REQUISITE_NUMBER_REQUISITE_CODE SYSRES_CONST_RIGHT_ALIGNMENT_CODE SYSRES_CONST_ROLES_REFERENCE_CODE SYSRES_CONST_ROUTE_STEP_AFTER_RUS SYSRES_CONST_ROUTE_STEP_AND_CONDITION_RUS SYSRES_CONST_ROUTE_STEP_OR_CONDITION_RUS SYSRES_CONST_ROUTE_TYPE_COMPLEX SYSRES_CONST_ROUTE_TYPE_PARALLEL SYSRES_CONST_ROUTE_TYPE_SERIAL SYSRES_CONST_SBDATASETDESC_NEGATIVE_VALUE SYSRES_CONST_SBDATASETDESC_POSITIVE_VALUE SYSRES_CONST_SBVIEWSDESC_POSITIVE_VALUE SYSRES_CONST_SCRIPT_BLOCK_DESCRIPTION SYSRES_CONST_SEARCH_BY_TEXT_REQUISITE_CODE SYSRES_CONST_SEARCHES_COMPONENT_CONTENT SYSRES_CONST_SEARCHES_CRITERIA_ACTION_NAME SYSRES_CONST_SEARCHES_EDOC_CONTENT SYSRES_CONST_SEARCHES_FOLDER_CONTENT SYSRES_CONST_SEARCHES_JOB_CONTENT SYSRES_CONST_SEARCHES_REFERENCE_CODE SYSRES_CONST_SEARCHES_TASK_CONTENT SYSRES_CONST_SECOND_CHAR SYSRES_CONST_SECTION_REQUISITE_ACTIONS_VALUE SYSRES_CONST_SECTION_REQUISITE_CARD_VALUE SYSRES_CONST_SECTION_REQUISITE_CODE SYSRES_CONST_SECTION_REQUISITE_DETAIL_1_VALUE SYSRES_CONST_SECTION_REQUISITE_DETAIL_2_VALUE SYSRES_CONST_SECTION_REQUISITE_DETAIL_3_VALUE SYSRES_CONST_SECTION_REQUISITE_DETAIL_4_VALUE SYSRES_CONST_SECTION_REQUISITE_DETAIL_5_VALUE SYSRES_CONST_SECTION_REQUISITE_DETAIL_6_VALUE SYSRES_CONST_SELECT_REFERENCE_MODE_NAME SYSRES_CONST_SELECT_TYPE_SELECTABLE SYSRES_CONST_SELECT_TYPE_SELECTABLE_ONLY_CHILD SYSRES_CONST_SELECT_TYPE_SELECTABLE_WITH_CHILD SYSRES_CONST_SELECT_TYPE_UNSLECTABLE SYSRES_CONST_SERVER_TYPE_MAIN SYSRES_CONST_SERVICE_USER_CATEGORY_FIELD_VALUE SYSRES_CONST_SETTINGS_USER_REQUISITE_CODE SYSRES_CONST_SIGNATURE_AND_ENCODE_CERTIFICATE_TYPE_CODE SYSRES_CONST_SIGNATURE_CERTIFICATE_TYPE_CODE SYSRES_CONST_SINGULAR_TITLE_REQUISITE_CODE SYSRES_CONST_SQL_SERVER_AUTHENTIFICATION_FLAG_VALUE_CODE SYSRES_CONST_SQL_SERVER_ENCODE_AUTHENTIFICATION_FLAG_VALUE_CODE SYSRES_CONST_STANDART_ROUTE_REFERENCE_CODE SYSRES_CONST_STANDART_ROUTE_REFERENCE_COMMENT_REQUISITE_CODE SYSRES_CONST_STANDART_ROUTES_GROUPS_REFERENCE_CODE SYSRES_CONST_STATE_REQ_NAME SYSRES_CONST_STATE_REQUISITE_ACTIVE_VALUE SYSRES_CONST_STATE_REQUISITE_CLOSED_VALUE SYSRES_CONST_STATE_REQUISITE_CODE SYSRES_CONST_STATIC_ROLE_TYPE_CODE SYSRES_CONST_STATUS_PLAN_DEFAULT_VALUE SYSRES_CONST_STATUS_VALUE_AUTOCLEANING SYSRES_CONST_STATUS_VALUE_BLUE_SQUARE SYSRES_CONST_STATUS_VALUE_COMPLETE SYSRES_CONST_STATUS_VALUE_GREEN_SQUARE SYSRES_CONST_STATUS_VALUE_ORANGE_SQUARE SYSRES_CONST_STATUS_VALUE_PURPLE_SQUARE SYSRES_CONST_STATUS_VALUE_RED_SQUARE SYSRES_CONST_STATUS_VALUE_SUSPEND SYSRES_CONST_STATUS_VALUE_YELLOW_SQUARE SYSRES_CONST_STDROUTE_SHOW_TO_USERS_REQUISITE_CODE SYSRES_CONST_STORAGE_TYPE_FILE SYSRES_CONST_STORAGE_TYPE_SQL_SERVER SYSRES_CONST_STR_REQUISITE SYSRES_CONST_STRIKEOUT_LIFE_CYCLE_STAGE_DRAW_STYLE SYSRES_CONST_STRING_FORMAT_LEFT_ALIGN_CHAR SYSRES_CONST_STRING_FORMAT_RIGHT_ALIGN_CHAR SYSRES_CONST_STRING_REQUISITE_CODE SYSRES_CONST_STRING_REQUISITE_TYPE SYSRES_CONST_STRING_TYPE_CHAR SYSRES_CONST_SUBSTITUTES_PSEUDOREFERENCE_CODE SYSRES_CONST_SUBTASK_BLOCK_DESCRIPTION SYSRES_CONST_SYSTEM_SETTING_CURRENT_USER_PARAM_VALUE SYSRES_CONST_SYSTEM_SETTING_EMPTY_VALUE_PARAM_VALUE SYSRES_CONST_SYSTEM_VERSION_COMMENT SYSRES_CONST_TASK_ACCESS_TYPE_ALL SYSRES_CONST_TASK_ACCESS_TYPE_ALL_MEMBERS SYSRES_CONST_TASK_ACCESS_TYPE_MANUAL SYSRES_CONST_TASK_ENCODE_TYPE_CERTIFICATION SYSRES_CONST_TASK_ENCODE_TYPE_CERTIFICATION_AND_PASSWORD SYSRES_CONST_TASK_ENCODE_TYPE_NONE SYSRES_CONST_TASK_ENCODE_TYPE_PASSWORD SYSRES_CONST_TASK_ROUTE_ALL_CONDITION SYSRES_CONST_TASK_ROUTE_AND_CONDITION SYSRES_CONST_TASK_ROUTE_OR_CONDITION SYSRES_CONST_TASK_STATE_ABORTED SYSRES_CONST_TASK_STATE_COMPLETE SYSRES_CONST_TASK_STATE_CONTINUED SYSRES_CONST_TASK_STATE_CONTROL SYSRES_CONST_TASK_STATE_INIT SYSRES_CONST_TASK_STATE_WORKING SYSRES_CONST_TASK_TITLE SYSRES_CONST_TASK_TYPES_GROUPS_REFERENCE_CODE SYSRES_CONST_TASK_TYPES_REFERENCE_CODE SYSRES_CONST_TEMPLATES_REFERENCE_CODE SYSRES_CONST_TEST_DATE_REQUISITE_NAME SYSRES_CONST_TEST_DEV_DATABASE_NAME SYSRES_CONST_TEST_DEV_SYSTEM_CODE SYSRES_CONST_TEST_EDMS_DATABASE_NAME SYSRES_CONST_TEST_EDMS_MAIN_CODE SYSRES_CONST_TEST_EDMS_MAIN_DB_NAME SYSRES_CONST_TEST_EDMS_SECOND_CODE SYSRES_CONST_TEST_EDMS_SECOND_DB_NAME SYSRES_CONST_TEST_EDMS_SYSTEM_CODE SYSRES_CONST_TEST_NUMERIC_REQUISITE_NAME SYSRES_CONST_TEXT_REQUISITE SYSRES_CONST_TEXT_REQUISITE_CODE SYSRES_CONST_TEXT_REQUISITE_TYPE SYSRES_CONST_TEXT_TYPE_CHAR SYSRES_CONST_TYPE_CODE_REQUISITE_CODE SYSRES_CONST_TYPE_REQUISITE_CODE SYSRES_CONST_UNDEFINED_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_UNITS_SECTION_ID_REQUISITE_CODE SYSRES_CONST_UNITS_SECTION_REQUISITE_CODE SYSRES_CONST_UNOPERATING_RECORD_FLAG_VALUE_CODE SYSRES_CONST_UNSTORED_DATA_REQUISITE_CODE SYSRES_CONST_UNSTORED_DATA_REQUISITE_NAME SYSRES_CONST_USE_ACCESS_TYPE_CODE SYSRES_CONST_USE_ACCESS_TYPE_NAME SYSRES_CONST_USER_ACCOUNT_TYPE_VALUE_CODE SYSRES_CONST_USER_ADDITIONAL_INFORMATION_REQUISITE_CODE SYSRES_CONST_USER_AND_GROUP_ID_FROM_PSEUDOREFERENCE_REQUISITE_CODE SYSRES_CONST_USER_CATEGORY_NORMAL SYSRES_CONST_USER_CERTIFICATE_REQUISITE_CODE SYSRES_CONST_USER_CERTIFICATE_STATE_REQUISITE_CODE SYSRES_CONST_USER_CERTIFICATE_SUBJECT_NAME_REQUISITE_CODE SYSRES_CONST_USER_CERTIFICATE_THUMBPRINT_REQUISITE_CODE SYSRES_CONST_USER_COMMON_CATEGORY SYSRES_CONST_USER_COMMON_CATEGORY_CODE SYSRES_CONST_USER_FULL_NAME_REQUISITE_CODE SYSRES_CONST_USER_GROUP_TYPE_REQUISITE_CODE SYSRES_CONST_USER_LOGIN_REQUISITE_CODE SYSRES_CONST_USER_REMOTE_CONTROLLER_REQUISITE_CODE SYSRES_CONST_USER_REMOTE_SYSTEM_REQUISITE_CODE SYSRES_CONST_USER_RIGHTS_T_REQUISITE_CODE SYSRES_CONST_USER_SERVER_NAME_REQUISITE_CODE SYSRES_CONST_USER_SERVICE_CATEGORY SYSRES_CONST_USER_SERVICE_CATEGORY_CODE SYSRES_CONST_USER_STATUS_ADMINISTRATOR_CODE SYSRES_CONST_USER_STATUS_ADMINISTRATOR_NAME SYSRES_CONST_USER_STATUS_DEVELOPER_CODE SYSRES_CONST_USER_STATUS_DEVELOPER_NAME SYSRES_CONST_USER_STATUS_DISABLED_CODE SYSRES_CONST_USER_STATUS_DISABLED_NAME SYSRES_CONST_USER_STATUS_SYSTEM_DEVELOPER_CODE SYSRES_CONST_USER_STATUS_USER_CODE SYSRES_CONST_USER_STATUS_USER_NAME SYSRES_CONST_USER_STATUS_USER_NAME_DEPRECATED SYSRES_CONST_USER_TYPE_FIELD_VALUE_USER SYSRES_CONST_USER_TYPE_REQUISITE_CODE SYSRES_CONST_USERS_CONTROLLER_REQUISITE_CODE SYSRES_CONST_USERS_IS_MAIN_SERVER_REQUISITE_CODE SYSRES_CONST_USERS_REFERENCE_CODE SYSRES_CONST_USERS_REGISTRATION_CERTIFICATES_ACTION_NAME SYSRES_CONST_USERS_REQUISITE_CODE SYSRES_CONST_USERS_SYSTEM_REQUISITE_CODE SYSRES_CONST_USERS_USER_ACCESS_RIGHTS_TYPR_REQUISITE_CODE SYSRES_CONST_USERS_USER_AUTHENTICATION_REQUISITE_CODE SYSRES_CONST_USERS_USER_COMPONENT_REQUISITE_CODE SYSRES_CONST_USERS_USER_GROUP_REQUISITE_CODE SYSRES_CONST_USERS_VIEW_CERTIFICATES_ACTION_NAME SYSRES_CONST_VIEW_DEFAULT_CODE SYSRES_CONST_VIEW_DEFAULT_NAME SYSRES_CONST_VIEWER_REQUISITE_CODE SYSRES_CONST_WAITING_BLOCK_DESCRIPTION SYSRES_CONST_WIZARD_FORM_LABEL_TEST_STRING  SYSRES_CONST_WIZARD_QUERY_PARAM_HEIGHT_ETALON_STRING SYSRES_CONST_WIZARD_REFERENCE_COMMENT_REQUISITE_CODE SYSRES_CONST_WORK_RULES_DESCRIPTION_REQUISITE_CODE SYSRES_CONST_WORK_TIME_CALENDAR_REFERENCE_CODE SYSRES_CONST_WORK_WORKFLOW_HARD_ROUTE_TYPE_VALUE SYSRES_CONST_WORK_WORKFLOW_HARD_ROUTE_TYPE_VALUE_CODE SYSRES_CONST_WORK_WORKFLOW_HARD_ROUTE_TYPE_VALUE_CODE_RUS SYSRES_CONST_WORK_WORKFLOW_SOFT_ROUTE_TYPE_VALUE_CODE_RUS SYSRES_CONST_WORKFLOW_ROUTE_TYPR_HARD SYSRES_CONST_WORKFLOW_ROUTE_TYPR_SOFT SYSRES_CONST_XML_ENCODING SYSRES_CONST_XREC_STAT_REQUISITE_CODE SYSRES_CONST_XRECID_FIELD_NAME SYSRES_CONST_YES SYSRES_CONST_YES_NO_2_REQUISITE_CODE SYSRES_CONST_YES_NO_REQUISITE_CODE SYSRES_CONST_YES_NO_T_REF_TYPE_REQUISITE_CODE SYSRES_CONST_YES_PICK_VALUE SYSRES_CONST_YES_VALUE " + "CR FALSE nil NO_VALUE NULL TAB TRUE YES_VALUE " + "ADMINISTRATORS_GROUP_NAME CUSTOMIZERS_GROUP_NAME DEVELOPERS_GROUP_NAME SERVICE_USERS_GROUP_NAME " + "DECISION_BLOCK_FIRST_OPERAND_PROPERTY DECISION_BLOCK_NAME_PROPERTY DECISION_BLOCK_OPERATION_PROPERTY DECISION_BLOCK_RESULT_TYPE_PROPERTY DECISION_BLOCK_SECOND_OPERAND_PROPERTY " + "ANY_FILE_EXTENTION COMPRESSED_DOCUMENT_EXTENSION EXTENDED_DOCUMENT_EXTENSION SHORT_COMPRESSED_DOCUMENT_EXTENSION SHORT_EXTENDED_DOCUMENT_EXTENSION " + "JOB_BLOCK_ABORT_DEADLINE_PROPERTY JOB_BLOCK_AFTER_FINISH_EVENT JOB_BLOCK_AFTER_QUERY_PARAMETERS_EVENT JOB_BLOCK_ATTACHMENT_PROPERTY JOB_BLOCK_ATTACHMENTS_RIGHTS_GROUP_PROPERTY JOB_BLOCK_ATTACHMENTS_RIGHTS_TYPE_PROPERTY JOB_BLOCK_BEFORE_QUERY_PARAMETERS_EVENT JOB_BLOCK_BEFORE_START_EVENT JOB_BLOCK_CREATED_JOBS_PROPERTY JOB_BLOCK_DEADLINE_PROPERTY JOB_BLOCK_EXECUTION_RESULTS_PROPERTY JOB_BLOCK_IS_PARALLEL_PROPERTY JOB_BLOCK_IS_RELATIVE_ABORT_DEADLINE_PROPERTY JOB_BLOCK_IS_RELATIVE_DEADLINE_PROPERTY JOB_BLOCK_JOB_TEXT_PROPERTY JOB_BLOCK_NAME_PROPERTY JOB_BLOCK_NEED_SIGN_ON_PERFORM_PROPERTY JOB_BLOCK_PERFORMER_PROPERTY JOB_BLOCK_RELATIVE_ABORT_DEADLINE_TYPE_PROPERTY JOB_BLOCK_RELATIVE_DEADLINE_TYPE_PROPERTY JOB_BLOCK_SUBJECT_PROPERTY " + "ENGLISH_LANGUAGE_CODE RUSSIAN_LANGUAGE_CODE " + "smHidden smMaximized smMinimized smNormal wmNo wmYes " + "COMPONENT_TOKEN_LINK_KIND DOCUMENT_LINK_KIND EDOCUMENT_LINK_KIND FOLDER_LINK_KIND JOB_LINK_KIND REFERENCE_LINK_KIND TASK_LINK_KIND " + "COMPONENT_TOKEN_LOCK_TYPE EDOCUMENT_VERSION_LOCK_TYPE " + "MONITOR_BLOCK_AFTER_FINISH_EVENT MONITOR_BLOCK_BEFORE_START_EVENT MONITOR_BLOCK_DEADLINE_PROPERTY MONITOR_BLOCK_INTERVAL_PROPERTY MONITOR_BLOCK_INTERVAL_TYPE_PROPERTY MONITOR_BLOCK_IS_RELATIVE_DEADLINE_PROPERTY MONITOR_BLOCK_NAME_PROPERTY MONITOR_BLOCK_RELATIVE_DEADLINE_TYPE_PROPERTY MONITOR_BLOCK_SEARCH_SCRIPT_PROPERTY " + "NOTICE_BLOCK_AFTER_FINISH_EVENT NOTICE_BLOCK_ATTACHMENT_PROPERTY NOTICE_BLOCK_ATTACHMENTS_RIGHTS_GROUP_PROPERTY NOTICE_BLOCK_ATTACHMENTS_RIGHTS_TYPE_PROPERTY NOTICE_BLOCK_BEFORE_START_EVENT NOTICE_BLOCK_CREATED_NOTICES_PROPERTY NOTICE_BLOCK_DEADLINE_PROPERTY NOTICE_BLOCK_IS_RELATIVE_DEADLINE_PROPERTY NOTICE_BLOCK_NAME_PROPERTY NOTICE_BLOCK_NOTICE_TEXT_PROPERTY NOTICE_BLOCK_PERFORMER_PROPERTY NOTICE_BLOCK_RELATIVE_DEADLINE_TYPE_PROPERTY NOTICE_BLOCK_SUBJECT_PROPERTY " + "dseAfterCancel dseAfterClose dseAfterDelete dseAfterDeleteOutOfTransaction dseAfterInsert dseAfterOpen dseAfterScroll dseAfterUpdate dseAfterUpdateOutOfTransaction dseBeforeCancel dseBeforeClose dseBeforeDelete dseBeforeDetailUpdate dseBeforeInsert dseBeforeOpen dseBeforeUpdate dseOnAnyRequisiteChange dseOnCloseRecord dseOnDeleteError dseOnOpenRecord dseOnPrepareUpdate dseOnUpdateError dseOnUpdateRatifiedRecord dseOnValidDelete dseOnValidUpdate reOnChange reOnChangeValues SELECTION_BEGIN_ROUTE_EVENT SELECTION_END_ROUTE_EVENT " + "CURRENT_PERIOD_IS_REQUIRED PREVIOUS_CARD_TYPE_NAME SHOW_RECORD_PROPERTIES_FORM " + "ACCESS_RIGHTS_SETTING_DIALOG_CODE ADMINISTRATOR_USER_CODE ANALYTIC_REPORT_TYPE asrtHideLocal asrtHideRemote CALCULATED_ROLE_TYPE_CODE COMPONENTS_REFERENCE_DEVELOPER_VIEW_CODE DCTS_TEST_PROTOCOLS_FOLDER_PATH E_EDOC_VERSION_ALREADY_APPROVINGLY_SIGNED E_EDOC_VERSION_ALREADY_APPROVINGLY_SIGNED_BY_USER E_EDOC_VERSION_ALREDY_SIGNED E_EDOC_VERSION_ALREDY_SIGNED_BY_USER EDOC_TYPES_CODE_REQUISITE_FIELD_NAME EDOCUMENTS_ALIAS_NAME FILES_FOLDER_PATH FILTER_OPERANDS_DELIMITER FILTER_OPERATIONS_DELIMITER FORMCARD_NAME FORMLIST_NAME GET_EXTENDED_DOCUMENT_EXTENSION_CREATION_MODE GET_EXTENDED_DOCUMENT_EXTENSION_IMPORT_MODE INTEGRATED_REPORT_TYPE IS_BUILDER_APPLICATION_ROLE IS_BUILDER_APPLICATION_ROLE2 IS_BUILDER_USERS ISBSYSDEV LOG_FOLDER_PATH mbCancel mbNo mbNoToAll mbOK mbYes mbYesToAll MEMORY_DATASET_DESRIPTIONS_FILENAME mrNo mrNoToAll mrYes mrYesToAll MULTIPLE_SELECT_DIALOG_CODE NONOPERATING_RECORD_FLAG_FEMININE NONOPERATING_RECORD_FLAG_MASCULINE OPERATING_RECORD_FLAG_FEMININE OPERATING_RECORD_FLAG_MASCULINE PROFILING_SETTINGS_COMMON_SETTINGS_CODE_VALUE PROGRAM_INITIATED_LOOKUP_ACTION ratDelete ratEdit ratInsert REPORT_TYPE REQUIRED_PICK_VALUES_VARIABLE rmCard rmList SBRTE_PROGID_DEV SBRTE_PROGID_RELEASE STATIC_ROLE_TYPE_CODE SUPPRESS_EMPTY_TEMPLATE_CREATION SYSTEM_USER_CODE UPDATE_DIALOG_DATASET USED_IN_OBJECT_HINT_PARAM USER_INITIATED_LOOKUP_ACTION USER_NAME_FORMAT USER_SELECTION_RESTRICTIONS WORKFLOW_TEST_PROTOCOLS_FOLDER_PATH ELS_SUBTYPE_CONTROL_NAME ELS_FOLDER_KIND_CONTROL_NAME REPEAT_PROCESS_CURRENT_OBJECT_EXCEPTION_NAME " + "PRIVILEGE_COMPONENT_FULL_ACCESS PRIVILEGE_DEVELOPMENT_EXPORT PRIVILEGE_DEVELOPMENT_IMPORT PRIVILEGE_DOCUMENT_DELETE PRIVILEGE_ESD PRIVILEGE_FOLDER_DELETE PRIVILEGE_MANAGE_ACCESS_RIGHTS PRIVILEGE_MANAGE_REPLICATION PRIVILEGE_MANAGE_SESSION_SERVER PRIVILEGE_OBJECT_FULL_ACCESS PRIVILEGE_OBJECT_VIEW PRIVILEGE_RESERVE_LICENSE PRIVILEGE_SYSTEM_CUSTOMIZE PRIVILEGE_SYSTEM_DEVELOP PRIVILEGE_SYSTEM_INSTALL PRIVILEGE_TASK_DELETE PRIVILEGE_USER_PLUGIN_SETTINGS_CUSTOMIZE PRIVILEGES_PSEUDOREFERENCE_CODE " + "ACCESS_TYPES_PSEUDOREFERENCE_CODE ALL_AVAILABLE_COMPONENTS_PSEUDOREFERENCE_CODE ALL_AVAILABLE_PRIVILEGES_PSEUDOREFERENCE_CODE ALL_REPLICATE_COMPONENTS_PSEUDOREFERENCE_CODE AVAILABLE_DEVELOPERS_COMPONENTS_PSEUDOREFERENCE_CODE COMPONENTS_PSEUDOREFERENCE_CODE FILTRATER_SETTINGS_CONFLICTS_PSEUDOREFERENCE_CODE GROUPS_PSEUDOREFERENCE_CODE RECEIVE_PROTOCOL_PSEUDOREFERENCE_CODE REFERENCE_REQUISITE_PSEUDOREFERENCE_CODE REFERENCE_REQUISITES_PSEUDOREFERENCE_CODE REFTYPES_PSEUDOREFERENCE_CODE REPLICATION_SEANCES_DIARY_PSEUDOREFERENCE_CODE SEND_PROTOCOL_PSEUDOREFERENCE_CODE SUBSTITUTES_PSEUDOREFERENCE_CODE SYSTEM_SETTINGS_PSEUDOREFERENCE_CODE UNITS_PSEUDOREFERENCE_CODE USERS_PSEUDOREFERENCE_CODE VIEWERS_PSEUDOREFERENCE_CODE " + "CERTIFICATE_TYPE_ENCRYPT CERTIFICATE_TYPE_SIGN CERTIFICATE_TYPE_SIGN_AND_ENCRYPT " + "STORAGE_TYPE_FILE STORAGE_TYPE_NAS_CIFS STORAGE_TYPE_SAPERION STORAGE_TYPE_SQL_SERVER " + "COMPTYPE2_REQUISITE_DOCUMENTS_VALUE COMPTYPE2_REQUISITE_TASKS_VALUE COMPTYPE2_REQUISITE_FOLDERS_VALUE COMPTYPE2_REQUISITE_REFERENCES_VALUE " + "SYSREQ_CODE SYSREQ_COMPTYPE2 SYSREQ_CONST_AVAILABLE_FOR_WEB SYSREQ_CONST_COMMON_CODE SYSREQ_CONST_COMMON_VALUE SYSREQ_CONST_FIRM_CODE SYSREQ_CONST_FIRM_STATUS SYSREQ_CONST_FIRM_VALUE SYSREQ_CONST_SERVER_STATUS SYSREQ_CONTENTS SYSREQ_DATE_OPEN SYSREQ_DATE_CLOSE SYSREQ_DESCRIPTION SYSREQ_DESCRIPTION_LOCALIZE_ID SYSREQ_DOUBLE SYSREQ_EDOC_ACCESS_TYPE SYSREQ_EDOC_AUTHOR SYSREQ_EDOC_CREATED SYSREQ_EDOC_DELEGATE_RIGHTS_REQUISITE_CODE SYSREQ_EDOC_EDITOR SYSREQ_EDOC_ENCODE_TYPE SYSREQ_EDOC_ENCRYPTION_PLUGIN_NAME SYSREQ_EDOC_ENCRYPTION_PLUGIN_VERSION SYSREQ_EDOC_EXPORT_DATE SYSREQ_EDOC_EXPORTER SYSREQ_EDOC_KIND SYSREQ_EDOC_LIFE_STAGE_NAME SYSREQ_EDOC_LOCKED_FOR_SERVER_CODE SYSREQ_EDOC_MODIFIED SYSREQ_EDOC_NAME SYSREQ_EDOC_NOTE SYSREQ_EDOC_QUALIFIED_ID SYSREQ_EDOC_SESSION_KEY SYSREQ_EDOC_SESSION_KEY_ENCRYPTION_PLUGIN_NAME SYSREQ_EDOC_SESSION_KEY_ENCRYPTION_PLUGIN_VERSION SYSREQ_EDOC_SIGNATURE_TYPE SYSREQ_EDOC_SIGNED SYSREQ_EDOC_STORAGE SYSREQ_EDOC_STORAGES_ARCHIVE_STORAGE SYSREQ_EDOC_STORAGES_CHECK_RIGHTS SYSREQ_EDOC_STORAGES_COMPUTER_NAME SYSREQ_EDOC_STORAGES_EDIT_IN_STORAGE SYSREQ_EDOC_STORAGES_EXECUTIVE_STORAGE SYSREQ_EDOC_STORAGES_FUNCTION SYSREQ_EDOC_STORAGES_INITIALIZED SYSREQ_EDOC_STORAGES_LOCAL_PATH SYSREQ_EDOC_STORAGES_SAPERION_DATABASE_NAME SYSREQ_EDOC_STORAGES_SEARCH_BY_TEXT SYSREQ_EDOC_STORAGES_SERVER_NAME SYSREQ_EDOC_STORAGES_SHARED_SOURCE_NAME SYSREQ_EDOC_STORAGES_TYPE SYSREQ_EDOC_TEXT_MODIFIED SYSREQ_EDOC_TYPE_ACT_CODE SYSREQ_EDOC_TYPE_ACT_DESCRIPTION SYSREQ_EDOC_TYPE_ACT_DESCRIPTION_LOCALIZE_ID SYSREQ_EDOC_TYPE_ACT_ON_EXECUTE SYSREQ_EDOC_TYPE_ACT_ON_EXECUTE_EXISTS SYSREQ_EDOC_TYPE_ACT_SECTION SYSREQ_EDOC_TYPE_ADD_PARAMS SYSREQ_EDOC_TYPE_COMMENT SYSREQ_EDOC_TYPE_EVENT_TEXT SYSREQ_EDOC_TYPE_NAME_IN_SINGULAR SYSREQ_EDOC_TYPE_NAME_IN_SINGULAR_LOCALIZE_ID SYSREQ_EDOC_TYPE_NAME_LOCALIZE_ID SYSREQ_EDOC_TYPE_NUMERATION_METHOD SYSREQ_EDOC_TYPE_PSEUDO_REQUISITE_CODE SYSREQ_EDOC_TYPE_REQ_CODE SYSREQ_EDOC_TYPE_REQ_DESCRIPTION SYSREQ_EDOC_TYPE_REQ_DESCRIPTION_LOCALIZE_ID SYSREQ_EDOC_TYPE_REQ_IS_LEADING SYSREQ_EDOC_TYPE_REQ_IS_REQUIRED SYSREQ_EDOC_TYPE_REQ_NUMBER SYSREQ_EDOC_TYPE_REQ_ON_CHANGE SYSREQ_EDOC_TYPE_REQ_ON_CHANGE_EXISTS SYSREQ_EDOC_TYPE_REQ_ON_SELECT SYSREQ_EDOC_TYPE_REQ_ON_SELECT_KIND SYSREQ_EDOC_TYPE_REQ_SECTION SYSREQ_EDOC_TYPE_VIEW_CARD SYSREQ_EDOC_TYPE_VIEW_CODE SYSREQ_EDOC_TYPE_VIEW_COMMENT SYSREQ_EDOC_TYPE_VIEW_IS_MAIN SYSREQ_EDOC_TYPE_VIEW_NAME SYSREQ_EDOC_TYPE_VIEW_NAME_LOCALIZE_ID SYSREQ_EDOC_VERSION_AUTHOR SYSREQ_EDOC_VERSION_CRC SYSREQ_EDOC_VERSION_DATA SYSREQ_EDOC_VERSION_EDITOR SYSREQ_EDOC_VERSION_EXPORT_DATE SYSREQ_EDOC_VERSION_EXPORTER SYSREQ_EDOC_VERSION_HIDDEN SYSREQ_EDOC_VERSION_LIFE_STAGE SYSREQ_EDOC_VERSION_MODIFIED SYSREQ_EDOC_VERSION_NOTE SYSREQ_EDOC_VERSION_SIGNATURE_TYPE SYSREQ_EDOC_VERSION_SIGNED SYSREQ_EDOC_VERSION_SIZE SYSREQ_EDOC_VERSION_SOURCE SYSREQ_EDOC_VERSION_TEXT_MODIFIED SYSREQ_EDOCKIND_DEFAULT_VERSION_STATE_CODE SYSREQ_FOLDER_KIND SYSREQ_FUNC_CATEGORY SYSREQ_FUNC_COMMENT SYSREQ_FUNC_GROUP SYSREQ_FUNC_GROUP_COMMENT SYSREQ_FUNC_GROUP_NUMBER SYSREQ_FUNC_HELP SYSREQ_FUNC_PARAM_DEF_VALUE SYSREQ_FUNC_PARAM_IDENT SYSREQ_FUNC_PARAM_NUMBER SYSREQ_FUNC_PARAM_TYPE SYSREQ_FUNC_TEXT SYSREQ_GROUP_CATEGORY SYSREQ_ID SYSREQ_LAST_UPDATE SYSREQ_LEADER_REFERENCE SYSREQ_LINE_NUMBER SYSREQ_MAIN_RECORD_ID SYSREQ_NAME SYSREQ_NAME_LOCALIZE_ID SYSREQ_NOTE SYSREQ_ORIGINAL_RECORD SYSREQ_OUR_FIRM SYSREQ_PROFILING_SETTINGS_BATCH_LOGING SYSREQ_PROFILING_SETTINGS_BATCH_SIZE SYSREQ_PROFILING_SETTINGS_PROFILING_ENABLED SYSREQ_PROFILING_SETTINGS_SQL_PROFILING_ENABLED SYSREQ_PROFILING_SETTINGS_START_LOGGED SYSREQ_RECORD_STATUS SYSREQ_REF_REQ_FIELD_NAME SYSREQ_REF_REQ_FORMAT SYSREQ_REF_REQ_GENERATED SYSREQ_REF_REQ_LENGTH SYSREQ_REF_REQ_PRECISION SYSREQ_REF_REQ_REFERENCE SYSREQ_REF_REQ_SECTION SYSREQ_REF_REQ_STORED SYSREQ_REF_REQ_TOKENS SYSREQ_REF_REQ_TYPE SYSREQ_REF_REQ_VIEW SYSREQ_REF_TYPE_ACT_CODE SYSREQ_REF_TYPE_ACT_DESCRIPTION SYSREQ_REF_TYPE_ACT_DESCRIPTION_LOCALIZE_ID SYSREQ_REF_TYPE_ACT_ON_EXECUTE SYSREQ_REF_TYPE_ACT_ON_EXECUTE_EXISTS SYSREQ_REF_TYPE_ACT_SECTION SYSREQ_REF_TYPE_ADD_PARAMS SYSREQ_REF_TYPE_COMMENT SYSREQ_REF_TYPE_COMMON_SETTINGS SYSREQ_REF_TYPE_DISPLAY_REQUISITE_NAME SYSREQ_REF_TYPE_EVENT_TEXT SYSREQ_REF_TYPE_MAIN_LEADING_REF SYSREQ_REF_TYPE_NAME_IN_SINGULAR SYSREQ_REF_TYPE_NAME_IN_SINGULAR_LOCALIZE_ID SYSREQ_REF_TYPE_NAME_LOCALIZE_ID SYSREQ_REF_TYPE_NUMERATION_METHOD SYSREQ_REF_TYPE_REQ_CODE SYSREQ_REF_TYPE_REQ_DESCRIPTION SYSREQ_REF_TYPE_REQ_DESCRIPTION_LOCALIZE_ID SYSREQ_REF_TYPE_REQ_IS_CONTROL SYSREQ_REF_TYPE_REQ_IS_FILTER SYSREQ_REF_TYPE_REQ_IS_LEADING SYSREQ_REF_TYPE_REQ_IS_REQUIRED SYSREQ_REF_TYPE_REQ_NUMBER SYSREQ_REF_TYPE_REQ_ON_CHANGE SYSREQ_REF_TYPE_REQ_ON_CHANGE_EXISTS SYSREQ_REF_TYPE_REQ_ON_SELECT SYSREQ_REF_TYPE_REQ_ON_SELECT_KIND SYSREQ_REF_TYPE_REQ_SECTION SYSREQ_REF_TYPE_VIEW_CARD SYSREQ_REF_TYPE_VIEW_CODE SYSREQ_REF_TYPE_VIEW_COMMENT SYSREQ_REF_TYPE_VIEW_IS_MAIN SYSREQ_REF_TYPE_VIEW_NAME SYSREQ_REF_TYPE_VIEW_NAME_LOCALIZE_ID SYSREQ_REFERENCE_TYPE_ID SYSREQ_STATE SYSREQ_STATЕ SYSREQ_SYSTEM_SETTINGS_VALUE SYSREQ_TYPE SYSREQ_UNIT SYSREQ_UNIT_ID SYSREQ_USER_GROUPS_GROUP_FULL_NAME SYSREQ_USER_GROUPS_GROUP_NAME SYSREQ_USER_GROUPS_GROUP_SERVER_NAME SYSREQ_USERS_ACCESS_RIGHTS SYSREQ_USERS_AUTHENTICATION SYSREQ_USERS_CATEGORY SYSREQ_USERS_COMPONENT SYSREQ_USERS_COMPONENT_USER_IS_PUBLIC SYSREQ_USERS_DOMAIN SYSREQ_USERS_FULL_USER_NAME SYSREQ_USERS_GROUP SYSREQ_USERS_IS_MAIN_SERVER SYSREQ_USERS_LOGIN SYSREQ_USERS_REFERENCE_USER_IS_PUBLIC SYSREQ_USERS_STATUS SYSREQ_USERS_USER_CERTIFICATE SYSREQ_USERS_USER_CERTIFICATE_INFO SYSREQ_USERS_USER_CERTIFICATE_PLUGIN_NAME SYSREQ_USERS_USER_CERTIFICATE_PLUGIN_VERSION SYSREQ_USERS_USER_CERTIFICATE_STATE SYSREQ_USERS_USER_CERTIFICATE_SUBJECT_NAME SYSREQ_USERS_USER_CERTIFICATE_THUMBPRINT SYSREQ_USERS_USER_DEFAULT_CERTIFICATE SYSREQ_USERS_USER_DESCRIPTION SYSREQ_USERS_USER_GLOBAL_NAME SYSREQ_USERS_USER_LOGIN SYSREQ_USERS_USER_MAIN_SERVER SYSREQ_USERS_USER_TYPE SYSREQ_WORK_RULES_FOLDER_ID " + "RESULT_VAR_NAME RESULT_VAR_NAME_ENG " + "AUTO_NUMERATION_RULE_ID CANT_CHANGE_ID_REQUISITE_RULE_ID CANT_CHANGE_OURFIRM_REQUISITE_RULE_ID CHECK_CHANGING_REFERENCE_RECORD_USE_RULE_ID CHECK_CODE_REQUISITE_RULE_ID CHECK_DELETING_REFERENCE_RECORD_USE_RULE_ID CHECK_FILTRATER_CHANGES_RULE_ID CHECK_RECORD_INTERVAL_RULE_ID CHECK_REFERENCE_INTERVAL_RULE_ID CHECK_REQUIRED_DATA_FULLNESS_RULE_ID CHECK_REQUIRED_REQUISITES_FULLNESS_RULE_ID MAKE_RECORD_UNRATIFIED_RULE_ID RESTORE_AUTO_NUMERATION_RULE_ID SET_FIRM_CONTEXT_FROM_RECORD_RULE_ID SET_FIRST_RECORD_IN_LIST_FORM_RULE_ID SET_IDSPS_VALUE_RULE_ID SET_NEXT_CODE_VALUE_RULE_ID SET_OURFIRM_BOUNDS_RULE_ID SET_OURFIRM_REQUISITE_RULE_ID " + "SCRIPT_BLOCK_AFTER_FINISH_EVENT SCRIPT_BLOCK_BEFORE_START_EVENT SCRIPT_BLOCK_EXECUTION_RESULTS_PROPERTY SCRIPT_BLOCK_NAME_PROPERTY SCRIPT_BLOCK_SCRIPT_PROPERTY " + "SUBTASK_BLOCK_ABORT_DEADLINE_PROPERTY SUBTASK_BLOCK_AFTER_FINISH_EVENT SUBTASK_BLOCK_ASSIGN_PARAMS_EVENT SUBTASK_BLOCK_ATTACHMENTS_PROPERTY SUBTASK_BLOCK_ATTACHMENTS_RIGHTS_GROUP_PROPERTY SUBTASK_BLOCK_ATTACHMENTS_RIGHTS_TYPE_PROPERTY SUBTASK_BLOCK_BEFORE_START_EVENT SUBTASK_BLOCK_CREATED_TASK_PROPERTY SUBTASK_BLOCK_CREATION_EVENT SUBTASK_BLOCK_DEADLINE_PROPERTY SUBTASK_BLOCK_IMPORTANCE_PROPERTY SUBTASK_BLOCK_INITIATOR_PROPERTY SUBTASK_BLOCK_IS_RELATIVE_ABORT_DEADLINE_PROPERTY SUBTASK_BLOCK_IS_RELATIVE_DEADLINE_PROPERTY SUBTASK_BLOCK_JOBS_TYPE_PROPERTY SUBTASK_BLOCK_NAME_PROPERTY SUBTASK_BLOCK_PARALLEL_ROUTE_PROPERTY SUBTASK_BLOCK_PERFORMERS_PROPERTY SUBTASK_BLOCK_RELATIVE_ABORT_DEADLINE_TYPE_PROPERTY SUBTASK_BLOCK_RELATIVE_DEADLINE_TYPE_PROPERTY SUBTASK_BLOCK_REQUIRE_SIGN_PROPERTY SUBTASK_BLOCK_STANDARD_ROUTE_PROPERTY SUBTASK_BLOCK_START_EVENT SUBTASK_BLOCK_STEP_CONTROL_PROPERTY SUBTASK_BLOCK_SUBJECT_PROPERTY SUBTASK_BLOCK_TASK_CONTROL_PROPERTY SUBTASK_BLOCK_TEXT_PROPERTY SUBTASK_BLOCK_UNLOCK_ATTACHMENTS_ON_STOP_PROPERTY SUBTASK_BLOCK_USE_STANDARD_ROUTE_PROPERTY SUBTASK_BLOCK_WAIT_FOR_TASK_COMPLETE_PROPERTY " + "SYSCOMP_CONTROL_JOBS SYSCOMP_FOLDERS SYSCOMP_JOBS SYSCOMP_NOTICES SYSCOMP_TASKS " + "SYSDLG_CREATE_EDOCUMENT SYSDLG_CREATE_EDOCUMENT_VERSION SYSDLG_CURRENT_PERIOD SYSDLG_EDIT_FUNCTION_HELP SYSDLG_EDOCUMENT_KINDS_FOR_TEMPLATE SYSDLG_EXPORT_MULTIPLE_EDOCUMENTS SYSDLG_EXPORT_SINGLE_EDOCUMENT SYSDLG_IMPORT_EDOCUMENT SYSDLG_MULTIPLE_SELECT SYSDLG_SETUP_ACCESS_RIGHTS SYSDLG_SETUP_DEFAULT_RIGHTS SYSDLG_SETUP_FILTER_CONDITION SYSDLG_SETUP_SIGN_RIGHTS SYSDLG_SETUP_TASK_OBSERVERS SYSDLG_SETUP_TASK_ROUTE SYSDLG_SETUP_USERS_LIST SYSDLG_SIGN_EDOCUMENT SYSDLG_SIGN_MULTIPLE_EDOCUMENTS " + "SYSREF_ACCESS_RIGHTS_TYPES SYSREF_ADMINISTRATION_HISTORY SYSREF_ALL_AVAILABLE_COMPONENTS SYSREF_ALL_AVAILABLE_PRIVILEGES SYSREF_ALL_REPLICATING_COMPONENTS SYSREF_AVAILABLE_DEVELOPERS_COMPONENTS SYSREF_CALENDAR_EVENTS SYSREF_COMPONENT_TOKEN_HISTORY SYSREF_COMPONENT_TOKENS SYSREF_COMPONENTS SYSREF_CONSTANTS SYSREF_DATA_RECEIVE_PROTOCOL SYSREF_DATA_SEND_PROTOCOL SYSREF_DIALOGS SYSREF_DIALOGS_REQUISITES SYSREF_EDITORS SYSREF_EDOC_CARDS SYSREF_EDOC_TYPES SYSREF_EDOCUMENT_CARD_REQUISITES SYSREF_EDOCUMENT_CARD_TYPES SYSREF_EDOCUMENT_CARD_TYPES_REFERENCE SYSREF_EDOCUMENT_CARDS SYSREF_EDOCUMENT_HISTORY SYSREF_EDOCUMENT_KINDS SYSREF_EDOCUMENT_REQUISITES SYSREF_EDOCUMENT_SIGNATURES SYSREF_EDOCUMENT_TEMPLATES SYSREF_EDOCUMENT_TEXT_STORAGES SYSREF_EDOCUMENT_VIEWS SYSREF_FILTERER_SETUP_CONFLICTS SYSREF_FILTRATER_SETTING_CONFLICTS SYSREF_FOLDER_HISTORY SYSREF_FOLDERS SYSREF_FUNCTION_GROUPS SYSREF_FUNCTION_PARAMS SYSREF_FUNCTIONS SYSREF_JOB_HISTORY SYSREF_LINKS SYSREF_LOCALIZATION_DICTIONARY SYSREF_LOCALIZATION_LANGUAGES SYSREF_MODULES SYSREF_PRIVILEGES SYSREF_RECORD_HISTORY SYSREF_REFERENCE_REQUISITES SYSREF_REFERENCE_TYPE_VIEWS SYSREF_REFERENCE_TYPES SYSREF_REFERENCES SYSREF_REFERENCES_REQUISITES SYSREF_REMOTE_SERVERS SYSREF_REPLICATION_SESSIONS_LOG SYSREF_REPLICATION_SESSIONS_PROTOCOL SYSREF_REPORTS SYSREF_ROLES SYSREF_ROUTE_BLOCK_GROUPS SYSREF_ROUTE_BLOCKS SYSREF_SCRIPTS SYSREF_SEARCHES SYSREF_SERVER_EVENTS SYSREF_SERVER_EVENTS_HISTORY SYSREF_STANDARD_ROUTE_GROUPS SYSREF_STANDARD_ROUTES SYSREF_STATUSES SYSREF_SYSTEM_SETTINGS SYSREF_TASK_HISTORY SYSREF_TASK_KIND_GROUPS SYSREF_TASK_KINDS SYSREF_TASK_RIGHTS SYSREF_TASK_SIGNATURES SYSREF_TASKS SYSREF_UNITS SYSREF_USER_GROUPS SYSREF_USER_GROUPS_REFERENCE SYSREF_USER_SUBSTITUTION SYSREF_USERS SYSREF_USERS_REFERENCE SYSREF_VIEWERS SYSREF_WORKING_TIME_CALENDARS " + "ACCESS_RIGHTS_TABLE_NAME EDMS_ACCESS_TABLE_NAME EDOC_TYPES_TABLE_NAME " + "TEST_DEV_DB_NAME TEST_DEV_SYSTEM_CODE TEST_EDMS_DB_NAME TEST_EDMS_MAIN_CODE TEST_EDMS_MAIN_DB_NAME TEST_EDMS_SECOND_CODE TEST_EDMS_SECOND_DB_NAME TEST_EDMS_SYSTEM_CODE TEST_ISB5_MAIN_CODE TEST_ISB5_SECOND_CODE TEST_SQL_SERVER_2005_NAME TEST_SQL_SERVER_NAME " + "ATTENTION_CAPTION cbsCommandLinks cbsDefault CONFIRMATION_CAPTION ERROR_CAPTION INFORMATION_CAPTION mrCancel mrOk " + "EDOC_VERSION_ACTIVE_STAGE_CODE EDOC_VERSION_DESIGN_STAGE_CODE EDOC_VERSION_OBSOLETE_STAGE_CODE " + "cpDataEnciphermentEnabled cpDigitalSignatureEnabled cpID cpIssuer cpPluginVersion cpSerial cpSubjectName cpSubjSimpleName cpValidFromDate cpValidToDate " + "ISBL_SYNTAX NO_SYNTAX XML_SYNTAX " + "WAIT_BLOCK_AFTER_FINISH_EVENT WAIT_BLOCK_BEFORE_START_EVENT WAIT_BLOCK_DEADLINE_PROPERTY WAIT_BLOCK_IS_RELATIVE_DEADLINE_PROPERTY WAIT_BLOCK_NAME_PROPERTY WAIT_BLOCK_RELATIVE_DEADLINE_TYPE_PROPERTY " + "SYSRES_COMMON SYSRES_CONST SYSRES_MBFUNC SYSRES_SBDATA SYSRES_SBGUI SYSRES_SBINTF SYSRES_SBREFDSC SYSRES_SQLERRORS SYSRES_SYSCOMP ", $t = "atUser atGroup atRole " + "aemEnabledAlways aemDisabledAlways aemEnabledOnBrowse aemEnabledOnEdit aemDisabledOnBrowseEmpty " + "apBegin apEnd " + "alLeft alRight " + "asmNever asmNoButCustomize asmAsLastTime asmYesButCustomize asmAlways " + "cirCommon cirRevoked " + "ctSignature ctEncode ctSignatureEncode " + "clbUnchecked clbChecked clbGrayed " + "ceISB ceAlways ceNever " + "ctDocument ctReference ctScript ctUnknown ctReport ctDialog ctFunction ctFolder ctEDocument ctTask ctJob ctNotice ctControlJob " + "cfInternal cfDisplay " + "ciUnspecified ciWrite ciRead " + "ckFolder ckEDocument ckTask ckJob ckComponentToken ckAny ckReference ckScript ckReport ckDialog " + "ctISBLEditor ctBevel ctButton ctCheckListBox ctComboBox ctComboEdit ctGrid ctDBCheckBox ctDBComboBox ctDBEdit ctDBEllipsis ctDBMemo ctDBNavigator ctDBRadioGroup ctDBStatusLabel ctEdit ctGroupBox ctInplaceHint ctMemo ctPanel ctListBox ctRadioButton ctRichEdit ctTabSheet ctWebBrowser ctImage ctHyperLink ctLabel ctDBMultiEllipsis ctRibbon ctRichView ctInnerPanel ctPanelGroup ctBitButton " + "cctDate cctInteger cctNumeric cctPick cctReference cctString cctText " + "cltInternal cltPrimary cltGUI " + "dseBeforeOpen dseAfterOpen dseBeforeClose dseAfterClose dseOnValidDelete dseBeforeDelete dseAfterDelete dseAfterDeleteOutOfTransaction dseOnDeleteError dseBeforeInsert dseAfterInsert dseOnValidUpdate dseBeforeUpdate dseOnUpdateRatifiedRecord dseAfterUpdate dseAfterUpdateOutOfTransaction dseOnUpdateError dseAfterScroll dseOnOpenRecord dseOnCloseRecord dseBeforeCancel dseAfterCancel dseOnUpdateDeadlockError dseBeforeDetailUpdate dseOnPrepareUpdate dseOnAnyRequisiteChange " + "dssEdit dssInsert dssBrowse dssInActive " + "dftDate dftShortDate dftDateTime dftTimeStamp " + "dotDays dotHours dotMinutes dotSeconds " + "dtkndLocal dtkndUTC " + "arNone arView arEdit arFull " + "ddaView ddaEdit " + "emLock emEdit emSign emExportWithLock emImportWithUnlock emChangeVersionNote emOpenForModify emChangeLifeStage emDelete emCreateVersion emImport emUnlockExportedWithLock emStart emAbort emReInit emMarkAsReaded emMarkAsUnreaded emPerform emAccept emResume emChangeRights emEditRoute emEditObserver emRecoveryFromLocalCopy emChangeWorkAccessType emChangeEncodeTypeToCertificate emChangeEncodeTypeToPassword emChangeEncodeTypeToNone emChangeEncodeTypeToCertificatePassword emChangeStandardRoute emGetText emOpenForView emMoveToStorage emCreateObject emChangeVersionHidden emDeleteVersion emChangeLifeCycleStage emApprovingSign emExport emContinue emLockFromEdit emUnLockForEdit emLockForServer emUnlockFromServer emDelegateAccessRights emReEncode " + "ecotFile ecotProcess " + "eaGet eaCopy eaCreate eaCreateStandardRoute " + "edltAll edltNothing edltQuery " + "essmText essmCard " + "esvtLast esvtLastActive esvtSpecified " + "edsfExecutive edsfArchive " + "edstSQLServer edstFile " + "edvstNone edvstEDocumentVersionCopy edvstFile edvstTemplate edvstScannedFile " + "vsDefault vsDesign vsActive vsObsolete " + "etNone etCertificate etPassword etCertificatePassword " + "ecException ecWarning ecInformation " + "estAll estApprovingOnly " + "evtLast evtLastActive evtQuery " + "fdtString fdtNumeric fdtInteger fdtDate fdtText fdtUnknown fdtWideString fdtLargeInteger " + "ftInbox ftOutbox ftFavorites ftCommonFolder ftUserFolder ftComponents ftQuickLaunch ftShortcuts ftSearch " + "grhAuto grhX1 grhX2 grhX3 " + "hltText hltRTF hltHTML " + "iffBMP iffJPEG iffMultiPageTIFF iffSinglePageTIFF iffTIFF iffPNG " + "im8bGrayscale im24bRGB im1bMonochrome " + "itBMP itJPEG itWMF itPNG " + "ikhInformation ikhWarning ikhError ikhNoIcon " + "icUnknown icScript icFunction icIntegratedReport icAnalyticReport icDataSetEventHandler icActionHandler icFormEventHandler icLookUpEventHandler icRequisiteChangeEventHandler icBeforeSearchEventHandler icRoleCalculation icSelectRouteEventHandler icBlockPropertyCalculation icBlockQueryParamsEventHandler icChangeSearchResultEventHandler icBlockEventHandler icSubTaskInitEventHandler icEDocDataSetEventHandler icEDocLookUpEventHandler icEDocActionHandler icEDocFormEventHandler icEDocRequisiteChangeEventHandler icStructuredConversionRule icStructuredConversionEventBefore icStructuredConversionEventAfter icWizardEventHandler icWizardFinishEventHandler icWizardStepEventHandler icWizardStepFinishEventHandler icWizardActionEnableEventHandler icWizardActionExecuteEventHandler icCreateJobsHandler icCreateNoticesHandler icBeforeLookUpEventHandler icAfterLookUpEventHandler icTaskAbortEventHandler icWorkflowBlockActionHandler icDialogDataSetEventHandler icDialogActionHandler icDialogLookUpEventHandler icDialogRequisiteChangeEventHandler icDialogFormEventHandler icDialogValidCloseEventHandler icBlockFormEventHandler icTaskFormEventHandler icReferenceMethod icEDocMethod icDialogMethod icProcessMessageHandler " + "isShow isHide isByUserSettings " + "jkJob jkNotice jkControlJob " + "jtInner jtLeft jtRight jtFull jtCross " + "lbpAbove lbpBelow lbpLeft lbpRight " + "eltPerConnection eltPerUser " + "sfcUndefined sfcBlack sfcGreen sfcRed sfcBlue sfcOrange sfcLilac " + "sfsItalic sfsStrikeout sfsNormal " + "ldctStandardRoute ldctWizard ldctScript ldctFunction ldctRouteBlock ldctIntegratedReport ldctAnalyticReport ldctReferenceType ldctEDocumentType ldctDialog ldctServerEvents " + "mrcrtNone mrcrtUser mrcrtMaximal mrcrtCustom " + "vtEqual vtGreaterOrEqual vtLessOrEqual vtRange " + "rdYesterday rdToday rdTomorrow rdThisWeek rdThisMonth rdThisYear rdNextMonth rdNextWeek rdLastWeek rdLastMonth " + "rdWindow rdFile rdPrinter " + "rdtString rdtNumeric rdtInteger rdtDate rdtReference rdtAccount rdtText rdtPick rdtUnknown rdtLargeInteger rdtDocument " + "reOnChange reOnChangeValues " + "ttGlobal ttLocal ttUser ttSystem " + "ssmBrowse ssmSelect ssmMultiSelect ssmBrowseModal " + "smSelect smLike smCard " + "stNone stAuthenticating stApproving " + "sctString sctStream " + "sstAnsiSort sstNaturalSort " + "svtEqual svtContain " + "soatString soatNumeric soatInteger soatDatetime soatReferenceRecord soatText soatPick soatBoolean soatEDocument soatAccount soatIntegerCollection soatNumericCollection soatStringCollection soatPickCollection soatDatetimeCollection soatBooleanCollection soatReferenceRecordCollection soatEDocumentCollection soatAccountCollection soatContents soatUnknown " + "tarAbortByUser tarAbortByWorkflowException " + "tvtAllWords tvtExactPhrase tvtAnyWord " + "usNone usCompleted usRedSquare usBlueSquare usYellowSquare usGreenSquare usOrangeSquare usPurpleSquare usFollowUp " + "utUnknown utUser utDeveloper utAdministrator utSystemDeveloper utDisconnected " + "btAnd btDetailAnd btOr btNotOr btOnly " + "vmView vmSelect vmNavigation " + "vsmSingle vsmMultiple vsmMultipleCheck vsmNoSelection " + "wfatPrevious wfatNext wfatCancel wfatFinish " + "wfepUndefined wfepText3 wfepText6 wfepText9 wfepSpinEdit wfepDropDown wfepRadioGroup wfepFlag wfepText12 wfepText15 wfepText18 wfepText21 wfepText24 wfepText27 wfepText30 wfepRadioGroupColumn1 wfepRadioGroupColumn2 wfepRadioGroupColumn3 " + "wfetQueryParameter wfetText wfetDelimiter wfetLabel " + "wptString wptInteger wptNumeric wptBoolean wptDateTime wptPick wptText wptUser wptUserList wptEDocumentInfo wptEDocumentInfoList wptReferenceRecordInfo wptReferenceRecordInfoList wptFolderInfo wptTaskInfo wptContents wptFileName wptDate " + "wsrComplete wsrGoNext wsrGoPrevious wsrCustom wsrCancel wsrGoFinal " + "wstForm wstEDocument wstTaskCard wstReferenceRecordCard wstFinal " + "waAll waPerformers waManual " + "wsbStart wsbFinish wsbNotice wsbStep wsbDecision wsbWait wsbMonitor wsbScript wsbConnector wsbSubTask wsbLifeCycleStage wsbPause " + "wdtInteger wdtFloat wdtString wdtPick wdtDateTime wdtBoolean wdtTask wdtJob wdtFolder wdtEDocument wdtReferenceRecord wdtUser wdtGroup wdtRole wdtIntegerCollection wdtFloatCollection wdtStringCollection wdtPickCollection wdtDateTimeCollection wdtBooleanCollection wdtTaskCollection wdtJobCollection wdtFolderCollection wdtEDocumentCollection wdtReferenceRecordCollection wdtUserCollection wdtGroupCollection wdtRoleCollection wdtContents wdtUserList wdtSearchDescription wdtDeadLine wdtPickSet wdtAccountCollection " + "wiLow wiNormal wiHigh " + "wrtSoft wrtHard " + "wsInit wsRunning wsDone wsControlled wsAborted wsContinued " + "wtmFull wtmFromCurrent wtmOnlyCurrent ", ye = "AddSubString AdjustLineBreaks AmountInWords Analysis ArrayDimCount ArrayHighBound ArrayLowBound ArrayOf ArrayReDim Assert Assigned BeginOfMonth BeginOfPeriod BuildProfilingOperationAnalysis CallProcedure CanReadFile CArrayElement CDataSetRequisite ChangeDate ChangeReferenceDataset Char CharPos CheckParam CheckParamValue CompareStrings ConstantExists ControlState ConvertDateStr Copy CopyFile CreateArray CreateCachedReference CreateConnection CreateDialog CreateDualListDialog CreateEditor CreateException CreateFile CreateFolderDialog CreateInputDialog CreateLinkFile CreateList CreateLock CreateMemoryDataSet CreateObject CreateOpenDialog CreateProgress CreateQuery CreateReference CreateReport CreateSaveDialog CreateScript CreateSQLPivotFunction CreateStringList CreateTreeListSelectDialog CSelectSQL CSQL CSubString CurrentUserID CurrentUserName CurrentVersion DataSetLocateEx DateDiff DateTimeDiff DateToStr DayOfWeek DeleteFile DirectoryExists DisableCheckAccessRights DisableCheckFullShowingRestriction DisableMassTaskSendingRestrictions DropTable DupeString EditText EnableCheckAccessRights EnableCheckFullShowingRestriction EnableMassTaskSendingRestrictions EndOfMonth EndOfPeriod ExceptionExists ExceptionsOff ExceptionsOn Execute ExecuteProcess Exit ExpandEnvironmentVariables ExtractFileDrive ExtractFileExt ExtractFileName ExtractFilePath ExtractParams FileExists FileSize FindFile FindSubString FirmContext ForceDirectories Format FormatDate FormatNumeric FormatSQLDate FormatString FreeException GetComponent GetComponentLaunchParam GetConstant GetLastException GetReferenceRecord GetRefTypeByRefID GetTableID GetTempFolder IfThen In IndexOf InputDialog InputDialogEx InteractiveMode IsFileLocked IsGraphicFile IsNumeric Length LoadString LoadStringFmt LocalTimeToUTC LowerCase Max MessageBox MessageBoxEx MimeDecodeBinary MimeDecodeString MimeEncodeBinary MimeEncodeString Min MoneyInWords MoveFile NewID Now OpenFile Ord Precision Raise ReadCertificateFromFile ReadFile ReferenceCodeByID ReferenceNumber ReferenceRequisiteMode ReferenceRequisiteValue RegionDateSettings RegionNumberSettings RegionTimeSettings RegRead RegWrite RenameFile Replace Round SelectServerCode SelectSQL ServerDateTime SetConstant SetManagedFolderFieldsState ShowConstantsInputDialog ShowMessage Sleep Split SQL SQL2XLSTAB SQLProfilingSendReport StrToDate SubString SubStringCount SystemSetting Time TimeDiff Today Transliterate Trim UpperCase UserStatus UTCToLocalTime ValidateXML VarIsClear VarIsEmpty VarIsNull WorkTimeDiff WriteFile WriteFileEx WriteObjectHistory Анализ БазаДанных БлокЕсть БлокЕстьРасш БлокИнфо БлокСнять БлокСнятьРасш БлокУстановить Ввод ВводМеню ВедС ВедСпр ВерхняяГраницаМассива ВнешПрогр Восст ВременнаяПапка Время ВыборSQL ВыбратьЗапись ВыделитьСтр Вызвать Выполнить ВыпПрогр ГрафическийФайл ГруппаДополнительно ДатаВремяСерв ДеньНедели ДиалогДаНет ДлинаСтр ДобПодстр ЕПусто ЕслиТо ЕЧисло ЗамПодстр ЗаписьСправочника ЗначПоляСпр ИДТипСпр ИзвлечьДиск ИзвлечьИмяФайла ИзвлечьПуть ИзвлечьРасширение ИзмДат ИзменитьРазмерМассива ИзмеренийМассива ИмяОрг ИмяПоляСпр Индекс ИндикаторЗакрыть ИндикаторОткрыть ИндикаторШаг ИнтерактивныйРежим ИтогТблСпр КодВидВедСпр КодВидСпрПоИД КодПоAnalit КодСимвола КодСпр КолПодстр КолПроп КонМес Конст КонстЕсть КонстЗнач КонТран КопироватьФайл КопияСтр КПериод КСтрТблСпр Макс МаксСтрТблСпр Массив Меню МенюРасш Мин НаборДанныхНайтиРасш НаимВидСпр НаимПоAnalit НаимСпр НастроитьПереводыСтрок НачМес НачТран НижняяГраницаМассива НомерСпр НПериод Окно Окр Окружение ОтлИнфДобавить ОтлИнфУдалить Отчет ОтчетАнал ОтчетИнт ПапкаСуществует Пауза ПВыборSQL ПереименоватьФайл Переменные ПереместитьФайл Подстр ПоискПодстр ПоискСтр ПолучитьИДТаблицы ПользовательДополнительно ПользовательИД ПользовательИмя ПользовательСтатус Прервать ПроверитьПараметр ПроверитьПараметрЗнач ПроверитьУсловие РазбСтр РазнВремя РазнДат РазнДатаВремя РазнРабВремя РегУстВрем РегУстДат РегУстЧсл РедТекст РеестрЗапись РеестрСписокИменПарам РеестрЧтение РеквСпр РеквСпрПр Сегодня Сейчас Сервер СерверПроцессИД СертификатФайлСчитать СжПроб Символ СистемаДиректумКод СистемаИнформация СистемаКод Содержит СоединениеЗакрыть СоединениеОткрыть СоздатьДиалог СоздатьДиалогВыбораИзДвухСписков СоздатьДиалогВыбораПапки СоздатьДиалогОткрытияФайла СоздатьДиалогСохраненияФайла СоздатьЗапрос СоздатьИндикатор СоздатьИсключение СоздатьКэшированныйСправочник СоздатьМассив СоздатьНаборДанных СоздатьОбъект СоздатьОтчет СоздатьПапку СоздатьРедактор СоздатьСоединение СоздатьСписок СоздатьСписокСтрок СоздатьСправочник СоздатьСценарий СоздСпр СостСпр Сохр СохрСпр СписокСистем Спр Справочник СпрБлокЕсть СпрБлокСнять СпрБлокСнятьРасш СпрБлокУстановить СпрИзмНабДан СпрКод СпрНомер СпрОбновить СпрОткрыть СпрОтменить СпрПарам СпрПолеЗнач СпрПолеИмя СпрРекв СпрРеквВведЗн СпрРеквНовые СпрРеквПр СпрРеквПредЗн СпрРеквРежим СпрРеквТипТекст СпрСоздать СпрСост СпрСохранить СпрТблИтог СпрТблСтр СпрТблСтрКол СпрТблСтрМакс СпрТблСтрМин СпрТблСтрПред СпрТблСтрСлед СпрТблСтрСозд СпрТблСтрУд СпрТекПредст СпрУдалить СравнитьСтр СтрВерхРегистр СтрНижнРегистр СтрТблСпр СумПроп Сценарий СценарийПарам ТекВерсия ТекОрг Точн Тран Транслитерация УдалитьТаблицу УдалитьФайл УдСпр УдСтрТблСпр Уст УстановкиКонстант ФайлАтрибутСчитать ФайлАтрибутУстановить ФайлВремя ФайлВремяУстановить ФайлВыбрать ФайлЗанят ФайлЗаписать ФайлИскать ФайлКопировать ФайлМожноЧитать ФайлОткрыть ФайлПереименовать ФайлПерекодировать ФайлПереместить ФайлПросмотреть ФайлРазмер ФайлСоздать ФайлСсылкаСоздать ФайлСуществует ФайлСчитать ФайлУдалить ФмтSQLДат ФмтДат ФмтСтр ФмтЧсл Формат ЦМассивЭлемент ЦНаборДанныхРеквизит ЦПодстр ", un = "AltState Application CallType ComponentTokens CreatedJobs CreatedNotices ControlState DialogResult Dialogs EDocuments EDocumentVersionSource Folders GlobalIDs Job Jobs InputValue LookUpReference LookUpRequisiteNames LookUpSearch Object ParentComponent Processes References Requisite ReportName Reports Result Scripts Searches SelectedAttachments SelectedItems SelectMode Sender ServerEvents ServiceFactory ShiftState SubTask SystemDialogs Tasks Wizard Wizards Work ВызовСпособ ИмяОтчета РеквЗнач ", Rt = "IApplication IAccessRights IAccountRepository IAccountSelectionRestrictions IAction IActionList IAdministrationHistoryDescription IAnchors IApplication IArchiveInfo IAttachment IAttachmentList ICheckListBox ICheckPointedList IColumn IComponent IComponentDescription IComponentToken IComponentTokenFactory IComponentTokenInfo ICompRecordInfo IConnection IContents IControl IControlJob IControlJobInfo IControlList ICrypto ICrypto2 ICustomJob ICustomJobInfo ICustomListBox ICustomObjectWizardStep ICustomWork ICustomWorkInfo IDataSet IDataSetAccessInfo IDataSigner IDateCriterion IDateRequisite IDateRequisiteDescription IDateValue IDeaAccessRights IDeaObjectInfo IDevelopmentComponentLock IDialog IDialogFactory IDialogPickRequisiteItems IDialogsFactory IDICSFactory IDocRequisite IDocumentInfo IDualListDialog IECertificate IECertificateInfo IECertificates IEditControl IEditorForm IEdmsExplorer IEdmsObject IEdmsObjectDescription IEdmsObjectFactory IEdmsObjectInfo IEDocument IEDocumentAccessRights IEDocumentDescription IEDocumentEditor IEDocumentFactory IEDocumentInfo IEDocumentStorage IEDocumentVersion IEDocumentVersionListDialog IEDocumentVersionSource IEDocumentWizardStep IEDocVerSignature IEDocVersionState IEnabledMode IEncodeProvider IEncrypter IEvent IEventList IException IExternalEvents IExternalHandler IFactory IField IFileDialog IFolder IFolderDescription IFolderDialog IFolderFactory IFolderInfo IForEach IForm IFormTitle IFormWizardStep IGlobalIDFactory IGlobalIDInfo IGrid IHasher IHistoryDescription IHyperLinkControl IImageButton IImageControl IInnerPanel IInplaceHint IIntegerCriterion IIntegerList IIntegerRequisite IIntegerValue IISBLEditorForm IJob IJobDescription IJobFactory IJobForm IJobInfo ILabelControl ILargeIntegerCriterion ILargeIntegerRequisite ILargeIntegerValue ILicenseInfo ILifeCycleStage IList IListBox ILocalIDInfo ILocalization ILock IMemoryDataSet IMessagingFactory IMetadataRepository INotice INoticeInfo INumericCriterion INumericRequisite INumericValue IObject IObjectDescription IObjectImporter IObjectInfo IObserver IPanelGroup IPickCriterion IPickProperty IPickRequisite IPickRequisiteDescription IPickRequisiteItem IPickRequisiteItems IPickValue IPrivilege IPrivilegeList IProcess IProcessFactory IProcessMessage IProgress IProperty IPropertyChangeEvent IQuery IReference IReferenceCriterion IReferenceEnabledMode IReferenceFactory IReferenceHistoryDescription IReferenceInfo IReferenceRecordCardWizardStep IReferenceRequisiteDescription IReferencesFactory IReferenceValue IRefRequisite IReport IReportFactory IRequisite IRequisiteDescription IRequisiteDescriptionList IRequisiteFactory IRichEdit IRouteStep IRule IRuleList ISchemeBlock IScript IScriptFactory ISearchCriteria ISearchCriterion ISearchDescription ISearchFactory ISearchFolderInfo ISearchForObjectDescription ISearchResultRestrictions ISecuredContext ISelectDialog IServerEvent IServerEventFactory IServiceDialog IServiceFactory ISignature ISignProvider ISignProvider2 ISignProvider3 ISimpleCriterion IStringCriterion IStringList IStringRequisite IStringRequisiteDescription IStringValue ISystemDialogsFactory ISystemInfo ITabSheet ITask ITaskAbortReasonInfo ITaskCardWizardStep ITaskDescription ITaskFactory ITaskInfo ITaskRoute ITextCriterion ITextRequisite ITextValue ITreeListSelectDialog IUser IUserList IValue IView IWebBrowserControl IWizard IWizardAction IWizardFactory IWizardFormElement IWizardParam IWizardPickParam IWizardReferenceParam IWizardStep IWorkAccessRights IWorkDescription IWorkflowAskableParam IWorkflowAskableParams IWorkflowBlock IWorkflowBlockResult IWorkflowEnabledMode IWorkflowParam IWorkflowPickParam IWorkflowReferenceParam IWorkState IWorkTreeCustomNode IWorkTreeJobNode IWorkTreeTaskNode IXMLEditorForm SBCrypto ", F = ce + $t, zt = un, me = "null true false nil ", X = {
+    const t = "[A-Za-zА-Яа-яёЁ_!][A-Za-zА-Яа-яёЁ_0-9]*", r = "[A-Za-zА-Яа-яёЁ_][A-Za-zА-Яа-яёЁ_0-9]*", a = "and и else иначе endexcept endfinally endforeach конецвсе endif конецесли endwhile конецпока except exitfor finally foreach все if если in в not не or или try while пока ", _e = "SYSRES_CONST_ACCES_RIGHT_TYPE_EDIT SYSRES_CONST_ACCES_RIGHT_TYPE_FULL SYSRES_CONST_ACCES_RIGHT_TYPE_VIEW SYSRES_CONST_ACCESS_MODE_REQUISITE_CODE SYSRES_CONST_ACCESS_NO_ACCESS_VIEW SYSRES_CONST_ACCESS_NO_ACCESS_VIEW_CODE SYSRES_CONST_ACCESS_RIGHTS_ADD_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_ADD_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_CHANGE_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_CHANGE_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_DELETE_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_DELETE_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_EXECUTE_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_EXECUTE_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_NO_ACCESS_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_NO_ACCESS_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_RATIFY_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_RATIFY_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_RIGHTS_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_VIEW SYSRES_CONST_ACCESS_RIGHTS_VIEW_CODE SYSRES_CONST_ACCESS_RIGHTS_VIEW_REQUISITE_CODE SYSRES_CONST_ACCESS_RIGHTS_VIEW_REQUISITE_YES_CODE SYSRES_CONST_ACCESS_TYPE_CHANGE SYSRES_CONST_ACCESS_TYPE_CHANGE_CODE SYSRES_CONST_ACCESS_TYPE_EXISTS SYSRES_CONST_ACCESS_TYPE_EXISTS_CODE SYSRES_CONST_ACCESS_TYPE_FULL SYSRES_CONST_ACCESS_TYPE_FULL_CODE SYSRES_CONST_ACCESS_TYPE_VIEW SYSRES_CONST_ACCESS_TYPE_VIEW_CODE SYSRES_CONST_ACTION_TYPE_ABORT SYSRES_CONST_ACTION_TYPE_ACCEPT SYSRES_CONST_ACTION_TYPE_ACCESS_RIGHTS SYSRES_CONST_ACTION_TYPE_ADD_ATTACHMENT SYSRES_CONST_ACTION_TYPE_CHANGE_CARD SYSRES_CONST_ACTION_TYPE_CHANGE_KIND SYSRES_CONST_ACTION_TYPE_CHANGE_STORAGE SYSRES_CONST_ACTION_TYPE_CONTINUE SYSRES_CONST_ACTION_TYPE_COPY SYSRES_CONST_ACTION_TYPE_CREATE SYSRES_CONST_ACTION_TYPE_CREATE_VERSION SYSRES_CONST_ACTION_TYPE_DELETE SYSRES_CONST_ACTION_TYPE_DELETE_ATTACHMENT SYSRES_CONST_ACTION_TYPE_DELETE_VERSION SYSRES_CONST_ACTION_TYPE_DISABLE_DELEGATE_ACCESS_RIGHTS SYSRES_CONST_ACTION_TYPE_ENABLE_DELEGATE_ACCESS_RIGHTS SYSRES_CONST_ACTION_TYPE_ENCRYPTION_BY_CERTIFICATE SYSRES_CONST_ACTION_TYPE_ENCRYPTION_BY_CERTIFICATE_AND_PASSWORD SYSRES_CONST_ACTION_TYPE_ENCRYPTION_BY_PASSWORD SYSRES_CONST_ACTION_TYPE_EXPORT_WITH_LOCK SYSRES_CONST_ACTION_TYPE_EXPORT_WITHOUT_LOCK SYSRES_CONST_ACTION_TYPE_IMPORT_WITH_UNLOCK SYSRES_CONST_ACTION_TYPE_IMPORT_WITHOUT_UNLOCK SYSRES_CONST_ACTION_TYPE_LIFE_CYCLE_STAGE SYSRES_CONST_ACTION_TYPE_LOCK SYSRES_CONST_ACTION_TYPE_LOCK_FOR_SERVER SYSRES_CONST_ACTION_TYPE_LOCK_MODIFY SYSRES_CONST_ACTION_TYPE_MARK_AS_READED SYSRES_CONST_ACTION_TYPE_MARK_AS_UNREADED SYSRES_CONST_ACTION_TYPE_MODIFY SYSRES_CONST_ACTION_TYPE_MODIFY_CARD SYSRES_CONST_ACTION_TYPE_MOVE_TO_ARCHIVE SYSRES_CONST_ACTION_TYPE_OFF_ENCRYPTION SYSRES_CONST_ACTION_TYPE_PASSWORD_CHANGE SYSRES_CONST_ACTION_TYPE_PERFORM SYSRES_CONST_ACTION_TYPE_RECOVER_FROM_LOCAL_COPY SYSRES_CONST_ACTION_TYPE_RESTART SYSRES_CONST_ACTION_TYPE_RESTORE_FROM_ARCHIVE SYSRES_CONST_ACTION_TYPE_REVISION SYSRES_CONST_ACTION_TYPE_SEND_BY_MAIL SYSRES_CONST_ACTION_TYPE_SIGN SYSRES_CONST_ACTION_TYPE_START SYSRES_CONST_ACTION_TYPE_UNLOCK SYSRES_CONST_ACTION_TYPE_UNLOCK_FROM_SERVER SYSRES_CONST_ACTION_TYPE_VERSION_STATE SYSRES_CONST_ACTION_TYPE_VERSION_VISIBILITY SYSRES_CONST_ACTION_TYPE_VIEW SYSRES_CONST_ACTION_TYPE_VIEW_SHADOW_COPY SYSRES_CONST_ACTION_TYPE_WORKFLOW_DESCRIPTION_MODIFY SYSRES_CONST_ACTION_TYPE_WRITE_HISTORY SYSRES_CONST_ACTIVE_VERSION_STATE_PICK_VALUE SYSRES_CONST_ADD_REFERENCE_MODE_NAME SYSRES_CONST_ADDITION_REQUISITE_CODE SYSRES_CONST_ADDITIONAL_PARAMS_REQUISITE_CODE SYSRES_CONST_ADITIONAL_JOB_END_DATE_REQUISITE_NAME SYSRES_CONST_ADITIONAL_JOB_READ_REQUISITE_NAME SYSRES_CONST_ADITIONAL_JOB_START_DATE_REQUISITE_NAME SYSRES_CONST_ADITIONAL_JOB_STATE_REQUISITE_NAME SYSRES_CONST_ADMINISTRATION_HISTORY_ADDING_USER_TO_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_ADDING_USER_TO_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_COMP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_COMP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_USER_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_CREATION_USER_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_DATABASE_USER_CREATION SYSRES_CONST_ADMINISTRATION_HISTORY_DATABASE_USER_CREATION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DATABASE_USER_DELETION SYSRES_CONST_ADMINISTRATION_HISTORY_DATABASE_USER_DELETION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_COMP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_COMP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_USER_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_USER_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_USER_FROM_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_DELETION_USER_FROM_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_FILTERER_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_FILTERER_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_FILTERER_RESTRICTION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_FILTERER_RESTRICTION_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_PRIVILEGE_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_PRIVILEGE_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_RIGHTS_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_GRANTING_RIGHTS_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_IS_MAIN_SERVER_CHANGED_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_IS_MAIN_SERVER_CHANGED_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_IS_PUBLIC_CHANGED_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_IS_PUBLIC_CHANGED_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_FILTERER_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_FILTERER_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_FILTERER_RESTRICTION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_FILTERER_RESTRICTION_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_PRIVILEGE_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_PRIVILEGE_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_RIGHTS_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_REMOVING_RIGHTS_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_SERVER_LOGIN_CREATION SYSRES_CONST_ADMINISTRATION_HISTORY_SERVER_LOGIN_CREATION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_SERVER_LOGIN_DELETION SYSRES_CONST_ADMINISTRATION_HISTORY_SERVER_LOGIN_DELETION_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_CATEGORY_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_CATEGORY_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_COMP_TITLE_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_COMP_TITLE_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_FULL_NAME_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_FULL_NAME_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_PARENT_GROUP_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_PARENT_GROUP_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_AUTH_TYPE_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_AUTH_TYPE_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_LOGIN_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_LOGIN_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_STATUS_ACTION SYSRES_CONST_ADMINISTRATION_HISTORY_UPDATING_USER_STATUS_ACTION_CODE SYSRES_CONST_ADMINISTRATION_HISTORY_USER_PASSWORD_CHANGE SYSRES_CONST_ADMINISTRATION_HISTORY_USER_PASSWORD_CHANGE_ACTION SYSRES_CONST_ALL_ACCEPT_CONDITION_RUS SYSRES_CONST_ALL_USERS_GROUP SYSRES_CONST_ALL_USERS_GROUP_NAME SYSRES_CONST_ALL_USERS_SERVER_GROUP_NAME SYSRES_CONST_ALLOWED_ACCESS_TYPE_CODE SYSRES_CONST_ALLOWED_ACCESS_TYPE_NAME SYSRES_CONST_APP_VIEWER_TYPE_REQUISITE_CODE SYSRES_CONST_APPROVING_SIGNATURE_NAME SYSRES_CONST_APPROVING_SIGNATURE_REQUISITE_CODE SYSRES_CONST_ASSISTANT_SUBSTITUE_TYPE SYSRES_CONST_ASSISTANT_SUBSTITUE_TYPE_CODE SYSRES_CONST_ATTACH_TYPE_COMPONENT_TOKEN SYSRES_CONST_ATTACH_TYPE_DOC SYSRES_CONST_ATTACH_TYPE_EDOC SYSRES_CONST_ATTACH_TYPE_FOLDER SYSRES_CONST_ATTACH_TYPE_JOB SYSRES_CONST_ATTACH_TYPE_REFERENCE SYSRES_CONST_ATTACH_TYPE_TASK SYSRES_CONST_AUTH_ENCODED_PASSWORD SYSRES_CONST_AUTH_ENCODED_PASSWORD_CODE SYSRES_CONST_AUTH_NOVELL SYSRES_CONST_AUTH_PASSWORD SYSRES_CONST_AUTH_PASSWORD_CODE SYSRES_CONST_AUTH_WINDOWS SYSRES_CONST_AUTHENTICATING_SIGNATURE_NAME SYSRES_CONST_AUTHENTICATING_SIGNATURE_REQUISITE_CODE SYSRES_CONST_AUTO_ENUM_METHOD_FLAG SYSRES_CONST_AUTO_NUMERATION_CODE SYSRES_CONST_AUTO_STRONG_ENUM_METHOD_FLAG SYSRES_CONST_AUTOTEXT_NAME_REQUISITE_CODE SYSRES_CONST_AUTOTEXT_TEXT_REQUISITE_CODE SYSRES_CONST_AUTOTEXT_USAGE_ALL SYSRES_CONST_AUTOTEXT_USAGE_ALL_CODE SYSRES_CONST_AUTOTEXT_USAGE_SIGN SYSRES_CONST_AUTOTEXT_USAGE_SIGN_CODE SYSRES_CONST_AUTOTEXT_USAGE_WORK SYSRES_CONST_AUTOTEXT_USAGE_WORK_CODE SYSRES_CONST_AUTOTEXT_USE_ANYWHERE_CODE SYSRES_CONST_AUTOTEXT_USE_ON_SIGNING_CODE SYSRES_CONST_AUTOTEXT_USE_ON_WORK_CODE SYSRES_CONST_BEGIN_DATE_REQUISITE_CODE SYSRES_CONST_BLACK_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_BLUE_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_BTN_PART SYSRES_CONST_CALCULATED_ROLE_TYPE_CODE SYSRES_CONST_CALL_TYPE_VARIABLE_BUTTON_VALUE SYSRES_CONST_CALL_TYPE_VARIABLE_PROGRAM_VALUE SYSRES_CONST_CANCEL_MESSAGE_FUNCTION_RESULT SYSRES_CONST_CARD_PART SYSRES_CONST_CARD_REFERENCE_MODE_NAME SYSRES_CONST_CERTIFICATE_TYPE_REQUISITE_ENCRYPT_VALUE SYSRES_CONST_CERTIFICATE_TYPE_REQUISITE_SIGN_AND_ENCRYPT_VALUE SYSRES_CONST_CERTIFICATE_TYPE_REQUISITE_SIGN_VALUE SYSRES_CONST_CHECK_PARAM_VALUE_DATE_PARAM_TYPE SYSRES_CONST_CHECK_PARAM_VALUE_FLOAT_PARAM_TYPE SYSRES_CONST_CHECK_PARAM_VALUE_INTEGER_PARAM_TYPE SYSRES_CONST_CHECK_PARAM_VALUE_PICK_PARAM_TYPE SYSRES_CONST_CHECK_PARAM_VALUE_REEFRENCE_PARAM_TYPE SYSRES_CONST_CLOSED_RECORD_FLAG_VALUE_FEMININE SYSRES_CONST_CLOSED_RECORD_FLAG_VALUE_MASCULINE SYSRES_CONST_CODE_COMPONENT_TYPE_ADMIN SYSRES_CONST_CODE_COMPONENT_TYPE_DEVELOPER SYSRES_CONST_CODE_COMPONENT_TYPE_DOCS SYSRES_CONST_CODE_COMPONENT_TYPE_EDOC_CARDS SYSRES_CONST_CODE_COMPONENT_TYPE_EXTERNAL_EXECUTABLE SYSRES_CONST_CODE_COMPONENT_TYPE_OTHER SYSRES_CONST_CODE_COMPONENT_TYPE_REFERENCE SYSRES_CONST_CODE_COMPONENT_TYPE_REPORT SYSRES_CONST_CODE_COMPONENT_TYPE_SCRIPT SYSRES_CONST_CODE_COMPONENT_TYPE_URL SYSRES_CONST_CODE_REQUISITE_ACCESS SYSRES_CONST_CODE_REQUISITE_CODE SYSRES_CONST_CODE_REQUISITE_COMPONENT SYSRES_CONST_CODE_REQUISITE_DESCRIPTION SYSRES_CONST_CODE_REQUISITE_EXCLUDE_COMPONENT SYSRES_CONST_CODE_REQUISITE_RECORD SYSRES_CONST_COMMENT_REQ_CODE SYSRES_CONST_COMMON_SETTINGS_REQUISITE_CODE SYSRES_CONST_COMP_CODE_GRD SYSRES_CONST_COMPONENT_GROUP_TYPE_REQUISITE_CODE SYSRES_CONST_COMPONENT_TYPE_ADMIN_COMPONENTS SYSRES_CONST_COMPONENT_TYPE_DEVELOPER_COMPONENTS SYSRES_CONST_COMPONENT_TYPE_DOCS SYSRES_CONST_COMPONENT_TYPE_EDOC_CARDS SYSRES_CONST_COMPONENT_TYPE_EDOCS SYSRES_CONST_COMPONENT_TYPE_EXTERNAL_EXECUTABLE SYSRES_CONST_COMPONENT_TYPE_OTHER SYSRES_CONST_COMPONENT_TYPE_REFERENCE_TYPES SYSRES_CONST_COMPONENT_TYPE_REFERENCES SYSRES_CONST_COMPONENT_TYPE_REPORTS SYSRES_CONST_COMPONENT_TYPE_SCRIPTS SYSRES_CONST_COMPONENT_TYPE_URL SYSRES_CONST_COMPONENTS_REMOTE_SERVERS_VIEW_CODE SYSRES_CONST_CONDITION_BLOCK_DESCRIPTION SYSRES_CONST_CONST_FIRM_STATUS_COMMON SYSRES_CONST_CONST_FIRM_STATUS_INDIVIDUAL SYSRES_CONST_CONST_NEGATIVE_VALUE SYSRES_CONST_CONST_POSITIVE_VALUE SYSRES_CONST_CONST_SERVER_STATUS_DONT_REPLICATE SYSRES_CONST_CONST_SERVER_STATUS_REPLICATE SYSRES_CONST_CONTENTS_REQUISITE_CODE SYSRES_CONST_DATA_TYPE_BOOLEAN SYSRES_CONST_DATA_TYPE_DATE SYSRES_CONST_DATA_TYPE_FLOAT SYSRES_CONST_DATA_TYPE_INTEGER SYSRES_CONST_DATA_TYPE_PICK SYSRES_CONST_DATA_TYPE_REFERENCE SYSRES_CONST_DATA_TYPE_STRING SYSRES_CONST_DATA_TYPE_TEXT SYSRES_CONST_DATA_TYPE_VARIANT SYSRES_CONST_DATE_CLOSE_REQ_CODE SYSRES_CONST_DATE_FORMAT_DATE_ONLY_CHAR SYSRES_CONST_DATE_OPEN_REQ_CODE SYSRES_CONST_DATE_REQUISITE SYSRES_CONST_DATE_REQUISITE_CODE SYSRES_CONST_DATE_REQUISITE_NAME SYSRES_CONST_DATE_REQUISITE_TYPE SYSRES_CONST_DATE_TYPE_CHAR SYSRES_CONST_DATETIME_FORMAT_VALUE SYSRES_CONST_DEA_ACCESS_RIGHTS_ACTION_CODE SYSRES_CONST_DESCRIPTION_LOCALIZE_ID_REQUISITE_CODE SYSRES_CONST_DESCRIPTION_REQUISITE_CODE SYSRES_CONST_DET1_PART SYSRES_CONST_DET2_PART SYSRES_CONST_DET3_PART SYSRES_CONST_DET4_PART SYSRES_CONST_DET5_PART SYSRES_CONST_DET6_PART SYSRES_CONST_DETAIL_DATASET_KEY_REQUISITE_CODE SYSRES_CONST_DETAIL_PICK_REQUISITE_CODE SYSRES_CONST_DETAIL_REQ_CODE SYSRES_CONST_DO_NOT_USE_ACCESS_TYPE_CODE SYSRES_CONST_DO_NOT_USE_ACCESS_TYPE_NAME SYSRES_CONST_DO_NOT_USE_ON_VIEW_ACCESS_TYPE_CODE SYSRES_CONST_DO_NOT_USE_ON_VIEW_ACCESS_TYPE_NAME SYSRES_CONST_DOCUMENT_STORAGES_CODE SYSRES_CONST_DOCUMENT_TEMPLATES_TYPE_NAME SYSRES_CONST_DOUBLE_REQUISITE_CODE SYSRES_CONST_EDITOR_CLOSE_FILE_OBSERV_TYPE_CODE SYSRES_CONST_EDITOR_CLOSE_PROCESS_OBSERV_TYPE_CODE SYSRES_CONST_EDITOR_TYPE_REQUISITE_CODE SYSRES_CONST_EDITORS_APPLICATION_NAME_REQUISITE_CODE SYSRES_CONST_EDITORS_CREATE_SEVERAL_PROCESSES_REQUISITE_CODE SYSRES_CONST_EDITORS_EXTENSION_REQUISITE_CODE SYSRES_CONST_EDITORS_OBSERVER_BY_PROCESS_TYPE SYSRES_CONST_EDITORS_REFERENCE_CODE SYSRES_CONST_EDITORS_REPLACE_SPEC_CHARS_REQUISITE_CODE SYSRES_CONST_EDITORS_USE_PLUGINS_REQUISITE_CODE SYSRES_CONST_EDITORS_VIEW_DOCUMENT_OPENED_TO_EDIT_CODE SYSRES_CONST_EDOC_CARD_TYPE_REQUISITE_CODE SYSRES_CONST_EDOC_CARD_TYPES_LINK_REQUISITE_CODE SYSRES_CONST_EDOC_CERTIFICATE_AND_PASSWORD_ENCODE_CODE SYSRES_CONST_EDOC_CERTIFICATE_ENCODE_CODE SYSRES_CONST_EDOC_DATE_REQUISITE_CODE SYSRES_CONST_EDOC_KIND_REFERENCE_CODE SYSRES_CONST_EDOC_KINDS_BY_TEMPLATE_ACTION_CODE SYSRES_CONST_EDOC_MANAGE_ACCESS_CODE SYSRES_CONST_EDOC_NONE_ENCODE_CODE SYSRES_CONST_EDOC_NUMBER_REQUISITE_CODE SYSRES_CONST_EDOC_PASSWORD_ENCODE_CODE SYSRES_CONST_EDOC_READONLY_ACCESS_CODE SYSRES_CONST_EDOC_SHELL_LIFE_TYPE_VIEW_VALUE SYSRES_CONST_EDOC_SIZE_RESTRICTION_PRIORITY_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_CHECK_ACCESS_RIGHTS_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_COMPUTER_NAME_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_DATABASE_NAME_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_EDIT_IN_STORAGE_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_LOCAL_PATH_REQUISITE_CODE SYSRES_CONST_EDOC_STORAGE_SHARED_SOURCE_NAME_REQUISITE_CODE SYSRES_CONST_EDOC_TEMPLATE_REQUISITE_CODE SYSRES_CONST_EDOC_TYPES_REFERENCE_CODE SYSRES_CONST_EDOC_VERSION_ACTIVE_STAGE_CODE SYSRES_CONST_EDOC_VERSION_DESIGN_STAGE_CODE SYSRES_CONST_EDOC_VERSION_OBSOLETE_STAGE_CODE SYSRES_CONST_EDOC_WRITE_ACCES_CODE SYSRES_CONST_EDOCUMENT_CARD_REQUISITES_REFERENCE_CODE_SELECTED_REQUISITE SYSRES_CONST_ENCODE_CERTIFICATE_TYPE_CODE SYSRES_CONST_END_DATE_REQUISITE_CODE SYSRES_CONST_ENUMERATION_TYPE_REQUISITE_CODE SYSRES_CONST_EXECUTE_ACCESS_RIGHTS_TYPE_CODE SYSRES_CONST_EXECUTIVE_FILE_STORAGE_TYPE SYSRES_CONST_EXIST_CONST SYSRES_CONST_EXIST_VALUE SYSRES_CONST_EXPORT_LOCK_TYPE_ASK SYSRES_CONST_EXPORT_LOCK_TYPE_WITH_LOCK SYSRES_CONST_EXPORT_LOCK_TYPE_WITHOUT_LOCK SYSRES_CONST_EXPORT_VERSION_TYPE_ASK SYSRES_CONST_EXPORT_VERSION_TYPE_LAST SYSRES_CONST_EXPORT_VERSION_TYPE_LAST_ACTIVE SYSRES_CONST_EXTENSION_REQUISITE_CODE SYSRES_CONST_FILTER_NAME_REQUISITE_CODE SYSRES_CONST_FILTER_REQUISITE_CODE SYSRES_CONST_FILTER_TYPE_COMMON_CODE SYSRES_CONST_FILTER_TYPE_COMMON_NAME SYSRES_CONST_FILTER_TYPE_USER_CODE SYSRES_CONST_FILTER_TYPE_USER_NAME SYSRES_CONST_FILTER_VALUE_REQUISITE_NAME SYSRES_CONST_FLOAT_NUMBER_FORMAT_CHAR SYSRES_CONST_FLOAT_REQUISITE_TYPE SYSRES_CONST_FOLDER_AUTHOR_VALUE SYSRES_CONST_FOLDER_KIND_ANY_OBJECTS SYSRES_CONST_FOLDER_KIND_COMPONENTS SYSRES_CONST_FOLDER_KIND_EDOCS SYSRES_CONST_FOLDER_KIND_JOBS SYSRES_CONST_FOLDER_KIND_TASKS SYSRES_CONST_FOLDER_TYPE_COMMON SYSRES_CONST_FOLDER_TYPE_COMPONENT SYSRES_CONST_FOLDER_TYPE_FAVORITES SYSRES_CONST_FOLDER_TYPE_INBOX SYSRES_CONST_FOLDER_TYPE_OUTBOX SYSRES_CONST_FOLDER_TYPE_QUICK_LAUNCH SYSRES_CONST_FOLDER_TYPE_SEARCH SYSRES_CONST_FOLDER_TYPE_SHORTCUTS SYSRES_CONST_FOLDER_TYPE_USER SYSRES_CONST_FROM_DICTIONARY_ENUM_METHOD_FLAG SYSRES_CONST_FULL_SUBSTITUTE_TYPE SYSRES_CONST_FULL_SUBSTITUTE_TYPE_CODE SYSRES_CONST_FUNCTION_CANCEL_RESULT SYSRES_CONST_FUNCTION_CATEGORY_SYSTEM SYSRES_CONST_FUNCTION_CATEGORY_USER SYSRES_CONST_FUNCTION_FAILURE_RESULT SYSRES_CONST_FUNCTION_SAVE_RESULT SYSRES_CONST_GENERATED_REQUISITE SYSRES_CONST_GREEN_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_GROUP_ACCOUNT_TYPE_VALUE_CODE SYSRES_CONST_GROUP_CATEGORY_NORMAL_CODE SYSRES_CONST_GROUP_CATEGORY_NORMAL_NAME SYSRES_CONST_GROUP_CATEGORY_SERVICE_CODE SYSRES_CONST_GROUP_CATEGORY_SERVICE_NAME SYSRES_CONST_GROUP_COMMON_CATEGORY_FIELD_VALUE SYSRES_CONST_GROUP_FULL_NAME_REQUISITE_CODE SYSRES_CONST_GROUP_NAME_REQUISITE_CODE SYSRES_CONST_GROUP_RIGHTS_T_REQUISITE_CODE SYSRES_CONST_GROUP_SERVER_CODES_REQUISITE_CODE SYSRES_CONST_GROUP_SERVER_NAME_REQUISITE_CODE SYSRES_CONST_GROUP_SERVICE_CATEGORY_FIELD_VALUE SYSRES_CONST_GROUP_USER_REQUISITE_CODE SYSRES_CONST_GROUPS_REFERENCE_CODE SYSRES_CONST_GROUPS_REQUISITE_CODE SYSRES_CONST_HIDDEN_MODE_NAME SYSRES_CONST_HIGH_LVL_REQUISITE_CODE SYSRES_CONST_HISTORY_ACTION_CREATE_CODE SYSRES_CONST_HISTORY_ACTION_DELETE_CODE SYSRES_CONST_HISTORY_ACTION_EDIT_CODE SYSRES_CONST_HOUR_CHAR SYSRES_CONST_ID_REQUISITE_CODE SYSRES_CONST_IDSPS_REQUISITE_CODE SYSRES_CONST_IMAGE_MODE_COLOR SYSRES_CONST_IMAGE_MODE_GREYSCALE SYSRES_CONST_IMAGE_MODE_MONOCHROME SYSRES_CONST_IMPORTANCE_HIGH SYSRES_CONST_IMPORTANCE_LOW SYSRES_CONST_IMPORTANCE_NORMAL SYSRES_CONST_IN_DESIGN_VERSION_STATE_PICK_VALUE SYSRES_CONST_INCOMING_WORK_RULE_TYPE_CODE SYSRES_CONST_INT_REQUISITE SYSRES_CONST_INT_REQUISITE_TYPE SYSRES_CONST_INTEGER_NUMBER_FORMAT_CHAR SYSRES_CONST_INTEGER_TYPE_CHAR SYSRES_CONST_IS_GENERATED_REQUISITE_NEGATIVE_VALUE SYSRES_CONST_IS_PUBLIC_ROLE_REQUISITE_CODE SYSRES_CONST_IS_REMOTE_USER_NEGATIVE_VALUE SYSRES_CONST_IS_REMOTE_USER_POSITIVE_VALUE SYSRES_CONST_IS_STORED_REQUISITE_NEGATIVE_VALUE SYSRES_CONST_IS_STORED_REQUISITE_STORED_VALUE SYSRES_CONST_ITALIC_LIFE_CYCLE_STAGE_DRAW_STYLE SYSRES_CONST_JOB_BLOCK_DESCRIPTION SYSRES_CONST_JOB_KIND_CONTROL_JOB SYSRES_CONST_JOB_KIND_JOB SYSRES_CONST_JOB_KIND_NOTICE SYSRES_CONST_JOB_STATE_ABORTED SYSRES_CONST_JOB_STATE_COMPLETE SYSRES_CONST_JOB_STATE_WORKING SYSRES_CONST_KIND_REQUISITE_CODE SYSRES_CONST_KIND_REQUISITE_NAME SYSRES_CONST_KINDS_CREATE_SHADOW_COPIES_REQUISITE_CODE SYSRES_CONST_KINDS_DEFAULT_EDOC_LIFE_STAGE_REQUISITE_CODE SYSRES_CONST_KINDS_EDOC_ALL_TEPLATES_ALLOWED_REQUISITE_CODE SYSRES_CONST_KINDS_EDOC_ALLOW_LIFE_CYCLE_STAGE_CHANGING_REQUISITE_CODE SYSRES_CONST_KINDS_EDOC_ALLOW_MULTIPLE_ACTIVE_VERSIONS_REQUISITE_CODE SYSRES_CONST_KINDS_EDOC_SHARE_ACCES_RIGHTS_BY_DEFAULT_CODE SYSRES_CONST_KINDS_EDOC_TEMPLATE_REQUISITE_CODE SYSRES_CONST_KINDS_EDOC_TYPE_REQUISITE_CODE SYSRES_CONST_KINDS_SIGNERS_REQUISITES_CODE SYSRES_CONST_KOD_INPUT_TYPE SYSRES_CONST_LAST_UPDATE_DATE_REQUISITE_CODE SYSRES_CONST_LIFE_CYCLE_START_STAGE_REQUISITE_CODE SYSRES_CONST_LILAC_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_LINK_OBJECT_KIND_COMPONENT SYSRES_CONST_LINK_OBJECT_KIND_DOCUMENT SYSRES_CONST_LINK_OBJECT_KIND_EDOC SYSRES_CONST_LINK_OBJECT_KIND_FOLDER SYSRES_CONST_LINK_OBJECT_KIND_JOB SYSRES_CONST_LINK_OBJECT_KIND_REFERENCE SYSRES_CONST_LINK_OBJECT_KIND_TASK SYSRES_CONST_LINK_REF_TYPE_REQUISITE_CODE SYSRES_CONST_LIST_REFERENCE_MODE_NAME SYSRES_CONST_LOCALIZATION_DICTIONARY_MAIN_VIEW_CODE SYSRES_CONST_MAIN_VIEW_CODE SYSRES_CONST_MANUAL_ENUM_METHOD_FLAG SYSRES_CONST_MASTER_COMP_TYPE_REQUISITE_CODE SYSRES_CONST_MASTER_TABLE_REC_ID_REQUISITE_CODE SYSRES_CONST_MAXIMIZED_MODE_NAME SYSRES_CONST_ME_VALUE SYSRES_CONST_MESSAGE_ATTENTION_CAPTION SYSRES_CONST_MESSAGE_CONFIRMATION_CAPTION SYSRES_CONST_MESSAGE_ERROR_CAPTION SYSRES_CONST_MESSAGE_INFORMATION_CAPTION SYSRES_CONST_MINIMIZED_MODE_NAME SYSRES_CONST_MINUTE_CHAR SYSRES_CONST_MODULE_REQUISITE_CODE SYSRES_CONST_MONITORING_BLOCK_DESCRIPTION SYSRES_CONST_MONTH_FORMAT_VALUE SYSRES_CONST_NAME_LOCALIZE_ID_REQUISITE_CODE SYSRES_CONST_NAME_REQUISITE_CODE SYSRES_CONST_NAME_SINGULAR_REQUISITE_CODE SYSRES_CONST_NAMEAN_INPUT_TYPE SYSRES_CONST_NEGATIVE_PICK_VALUE SYSRES_CONST_NEGATIVE_VALUE SYSRES_CONST_NO SYSRES_CONST_NO_PICK_VALUE SYSRES_CONST_NO_SIGNATURE_REQUISITE_CODE SYSRES_CONST_NO_VALUE SYSRES_CONST_NONE_ACCESS_RIGHTS_TYPE_CODE SYSRES_CONST_NONOPERATING_RECORD_FLAG_VALUE SYSRES_CONST_NONOPERATING_RECORD_FLAG_VALUE_MASCULINE SYSRES_CONST_NORMAL_ACCESS_RIGHTS_TYPE_CODE SYSRES_CONST_NORMAL_LIFE_CYCLE_STAGE_DRAW_STYLE SYSRES_CONST_NORMAL_MODE_NAME SYSRES_CONST_NOT_ALLOWED_ACCESS_TYPE_CODE SYSRES_CONST_NOT_ALLOWED_ACCESS_TYPE_NAME SYSRES_CONST_NOTE_REQUISITE_CODE SYSRES_CONST_NOTICE_BLOCK_DESCRIPTION SYSRES_CONST_NUM_REQUISITE SYSRES_CONST_NUM_STR_REQUISITE_CODE SYSRES_CONST_NUMERATION_AUTO_NOT_STRONG SYSRES_CONST_NUMERATION_AUTO_STRONG SYSRES_CONST_NUMERATION_FROM_DICTONARY SYSRES_CONST_NUMERATION_MANUAL SYSRES_CONST_NUMERIC_TYPE_CHAR SYSRES_CONST_NUMREQ_REQUISITE_CODE SYSRES_CONST_OBSOLETE_VERSION_STATE_PICK_VALUE SYSRES_CONST_OPERATING_RECORD_FLAG_VALUE SYSRES_CONST_OPERATING_RECORD_FLAG_VALUE_CODE SYSRES_CONST_OPERATING_RECORD_FLAG_VALUE_FEMININE SYSRES_CONST_OPERATING_RECORD_FLAG_VALUE_MASCULINE SYSRES_CONST_OPTIONAL_FORM_COMP_REQCODE_PREFIX SYSRES_CONST_ORANGE_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_ORIGINALREF_REQUISITE_CODE SYSRES_CONST_OURFIRM_REF_CODE SYSRES_CONST_OURFIRM_REQUISITE_CODE SYSRES_CONST_OURFIRM_VAR SYSRES_CONST_OUTGOING_WORK_RULE_TYPE_CODE SYSRES_CONST_PICK_NEGATIVE_RESULT SYSRES_CONST_PICK_POSITIVE_RESULT SYSRES_CONST_PICK_REQUISITE SYSRES_CONST_PICK_REQUISITE_TYPE SYSRES_CONST_PICK_TYPE_CHAR SYSRES_CONST_PLAN_STATUS_REQUISITE_CODE SYSRES_CONST_PLATFORM_VERSION_COMMENT SYSRES_CONST_PLUGINS_SETTINGS_DESCRIPTION_REQUISITE_CODE SYSRES_CONST_POSITIVE_PICK_VALUE SYSRES_CONST_POWER_TO_CREATE_ACTION_CODE SYSRES_CONST_POWER_TO_SIGN_ACTION_CODE SYSRES_CONST_PRIORITY_REQUISITE_CODE SYSRES_CONST_QUALIFIED_TASK_TYPE SYSRES_CONST_QUALIFIED_TASK_TYPE_CODE SYSRES_CONST_RECSTAT_REQUISITE_CODE SYSRES_CONST_RED_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_REF_ID_T_REF_TYPE_REQUISITE_CODE SYSRES_CONST_REF_REQUISITE SYSRES_CONST_REF_REQUISITE_TYPE SYSRES_CONST_REF_REQUISITES_REFERENCE_CODE_SELECTED_REQUISITE SYSRES_CONST_REFERENCE_RECORD_HISTORY_CREATE_ACTION_CODE SYSRES_CONST_REFERENCE_RECORD_HISTORY_DELETE_ACTION_CODE SYSRES_CONST_REFERENCE_RECORD_HISTORY_MODIFY_ACTION_CODE SYSRES_CONST_REFERENCE_TYPE_CHAR SYSRES_CONST_REFERENCE_TYPE_REQUISITE_NAME SYSRES_CONST_REFERENCES_ADD_PARAMS_REQUISITE_CODE SYSRES_CONST_REFERENCES_DISPLAY_REQUISITE_REQUISITE_CODE SYSRES_CONST_REMOTE_SERVER_STATUS_WORKING SYSRES_CONST_REMOTE_SERVER_TYPE_MAIN SYSRES_CONST_REMOTE_SERVER_TYPE_SECONDARY SYSRES_CONST_REMOTE_USER_FLAG_VALUE_CODE SYSRES_CONST_REPORT_APP_EDITOR_INTERNAL SYSRES_CONST_REPORT_BASE_REPORT_ID_REQUISITE_CODE SYSRES_CONST_REPORT_BASE_REPORT_REQUISITE_CODE SYSRES_CONST_REPORT_SCRIPT_REQUISITE_CODE SYSRES_CONST_REPORT_TEMPLATE_REQUISITE_CODE SYSRES_CONST_REPORT_VIEWER_CODE_REQUISITE_CODE SYSRES_CONST_REQ_ALLOW_COMPONENT_DEFAULT_VALUE SYSRES_CONST_REQ_ALLOW_RECORD_DEFAULT_VALUE SYSRES_CONST_REQ_ALLOW_SERVER_COMPONENT_DEFAULT_VALUE SYSRES_CONST_REQ_MODE_AVAILABLE_CODE SYSRES_CONST_REQ_MODE_EDIT_CODE SYSRES_CONST_REQ_MODE_HIDDEN_CODE SYSRES_CONST_REQ_MODE_NOT_AVAILABLE_CODE SYSRES_CONST_REQ_MODE_VIEW_CODE SYSRES_CONST_REQ_NUMBER_REQUISITE_CODE SYSRES_CONST_REQ_SECTION_VALUE SYSRES_CONST_REQ_TYPE_VALUE SYSRES_CONST_REQUISITE_FORMAT_BY_UNIT SYSRES_CONST_REQUISITE_FORMAT_DATE_FULL SYSRES_CONST_REQUISITE_FORMAT_DATE_TIME SYSRES_CONST_REQUISITE_FORMAT_LEFT SYSRES_CONST_REQUISITE_FORMAT_RIGHT SYSRES_CONST_REQUISITE_FORMAT_WITHOUT_UNIT SYSRES_CONST_REQUISITE_NUMBER_REQUISITE_CODE SYSRES_CONST_REQUISITE_SECTION_ACTIONS SYSRES_CONST_REQUISITE_SECTION_BUTTON SYSRES_CONST_REQUISITE_SECTION_BUTTONS SYSRES_CONST_REQUISITE_SECTION_CARD SYSRES_CONST_REQUISITE_SECTION_TABLE SYSRES_CONST_REQUISITE_SECTION_TABLE10 SYSRES_CONST_REQUISITE_SECTION_TABLE11 SYSRES_CONST_REQUISITE_SECTION_TABLE12 SYSRES_CONST_REQUISITE_SECTION_TABLE13 SYSRES_CONST_REQUISITE_SECTION_TABLE14 SYSRES_CONST_REQUISITE_SECTION_TABLE15 SYSRES_CONST_REQUISITE_SECTION_TABLE16 SYSRES_CONST_REQUISITE_SECTION_TABLE17 SYSRES_CONST_REQUISITE_SECTION_TABLE18 SYSRES_CONST_REQUISITE_SECTION_TABLE19 SYSRES_CONST_REQUISITE_SECTION_TABLE2 SYSRES_CONST_REQUISITE_SECTION_TABLE20 SYSRES_CONST_REQUISITE_SECTION_TABLE21 SYSRES_CONST_REQUISITE_SECTION_TABLE22 SYSRES_CONST_REQUISITE_SECTION_TABLE23 SYSRES_CONST_REQUISITE_SECTION_TABLE24 SYSRES_CONST_REQUISITE_SECTION_TABLE3 SYSRES_CONST_REQUISITE_SECTION_TABLE4 SYSRES_CONST_REQUISITE_SECTION_TABLE5 SYSRES_CONST_REQUISITE_SECTION_TABLE6 SYSRES_CONST_REQUISITE_SECTION_TABLE7 SYSRES_CONST_REQUISITE_SECTION_TABLE8 SYSRES_CONST_REQUISITE_SECTION_TABLE9 SYSRES_CONST_REQUISITES_PSEUDOREFERENCE_REQUISITE_NUMBER_REQUISITE_CODE SYSRES_CONST_RIGHT_ALIGNMENT_CODE SYSRES_CONST_ROLES_REFERENCE_CODE SYSRES_CONST_ROUTE_STEP_AFTER_RUS SYSRES_CONST_ROUTE_STEP_AND_CONDITION_RUS SYSRES_CONST_ROUTE_STEP_OR_CONDITION_RUS SYSRES_CONST_ROUTE_TYPE_COMPLEX SYSRES_CONST_ROUTE_TYPE_PARALLEL SYSRES_CONST_ROUTE_TYPE_SERIAL SYSRES_CONST_SBDATASETDESC_NEGATIVE_VALUE SYSRES_CONST_SBDATASETDESC_POSITIVE_VALUE SYSRES_CONST_SBVIEWSDESC_POSITIVE_VALUE SYSRES_CONST_SCRIPT_BLOCK_DESCRIPTION SYSRES_CONST_SEARCH_BY_TEXT_REQUISITE_CODE SYSRES_CONST_SEARCHES_COMPONENT_CONTENT SYSRES_CONST_SEARCHES_CRITERIA_ACTION_NAME SYSRES_CONST_SEARCHES_EDOC_CONTENT SYSRES_CONST_SEARCHES_FOLDER_CONTENT SYSRES_CONST_SEARCHES_JOB_CONTENT SYSRES_CONST_SEARCHES_REFERENCE_CODE SYSRES_CONST_SEARCHES_TASK_CONTENT SYSRES_CONST_SECOND_CHAR SYSRES_CONST_SECTION_REQUISITE_ACTIONS_VALUE SYSRES_CONST_SECTION_REQUISITE_CARD_VALUE SYSRES_CONST_SECTION_REQUISITE_CODE SYSRES_CONST_SECTION_REQUISITE_DETAIL_1_VALUE SYSRES_CONST_SECTION_REQUISITE_DETAIL_2_VALUE SYSRES_CONST_SECTION_REQUISITE_DETAIL_3_VALUE SYSRES_CONST_SECTION_REQUISITE_DETAIL_4_VALUE SYSRES_CONST_SECTION_REQUISITE_DETAIL_5_VALUE SYSRES_CONST_SECTION_REQUISITE_DETAIL_6_VALUE SYSRES_CONST_SELECT_REFERENCE_MODE_NAME SYSRES_CONST_SELECT_TYPE_SELECTABLE SYSRES_CONST_SELECT_TYPE_SELECTABLE_ONLY_CHILD SYSRES_CONST_SELECT_TYPE_SELECTABLE_WITH_CHILD SYSRES_CONST_SELECT_TYPE_UNSLECTABLE SYSRES_CONST_SERVER_TYPE_MAIN SYSRES_CONST_SERVICE_USER_CATEGORY_FIELD_VALUE SYSRES_CONST_SETTINGS_USER_REQUISITE_CODE SYSRES_CONST_SIGNATURE_AND_ENCODE_CERTIFICATE_TYPE_CODE SYSRES_CONST_SIGNATURE_CERTIFICATE_TYPE_CODE SYSRES_CONST_SINGULAR_TITLE_REQUISITE_CODE SYSRES_CONST_SQL_SERVER_AUTHENTIFICATION_FLAG_VALUE_CODE SYSRES_CONST_SQL_SERVER_ENCODE_AUTHENTIFICATION_FLAG_VALUE_CODE SYSRES_CONST_STANDART_ROUTE_REFERENCE_CODE SYSRES_CONST_STANDART_ROUTE_REFERENCE_COMMENT_REQUISITE_CODE SYSRES_CONST_STANDART_ROUTES_GROUPS_REFERENCE_CODE SYSRES_CONST_STATE_REQ_NAME SYSRES_CONST_STATE_REQUISITE_ACTIVE_VALUE SYSRES_CONST_STATE_REQUISITE_CLOSED_VALUE SYSRES_CONST_STATE_REQUISITE_CODE SYSRES_CONST_STATIC_ROLE_TYPE_CODE SYSRES_CONST_STATUS_PLAN_DEFAULT_VALUE SYSRES_CONST_STATUS_VALUE_AUTOCLEANING SYSRES_CONST_STATUS_VALUE_BLUE_SQUARE SYSRES_CONST_STATUS_VALUE_COMPLETE SYSRES_CONST_STATUS_VALUE_GREEN_SQUARE SYSRES_CONST_STATUS_VALUE_ORANGE_SQUARE SYSRES_CONST_STATUS_VALUE_PURPLE_SQUARE SYSRES_CONST_STATUS_VALUE_RED_SQUARE SYSRES_CONST_STATUS_VALUE_SUSPEND SYSRES_CONST_STATUS_VALUE_YELLOW_SQUARE SYSRES_CONST_STDROUTE_SHOW_TO_USERS_REQUISITE_CODE SYSRES_CONST_STORAGE_TYPE_FILE SYSRES_CONST_STORAGE_TYPE_SQL_SERVER SYSRES_CONST_STR_REQUISITE SYSRES_CONST_STRIKEOUT_LIFE_CYCLE_STAGE_DRAW_STYLE SYSRES_CONST_STRING_FORMAT_LEFT_ALIGN_CHAR SYSRES_CONST_STRING_FORMAT_RIGHT_ALIGN_CHAR SYSRES_CONST_STRING_REQUISITE_CODE SYSRES_CONST_STRING_REQUISITE_TYPE SYSRES_CONST_STRING_TYPE_CHAR SYSRES_CONST_SUBSTITUTES_PSEUDOREFERENCE_CODE SYSRES_CONST_SUBTASK_BLOCK_DESCRIPTION SYSRES_CONST_SYSTEM_SETTING_CURRENT_USER_PARAM_VALUE SYSRES_CONST_SYSTEM_SETTING_EMPTY_VALUE_PARAM_VALUE SYSRES_CONST_SYSTEM_VERSION_COMMENT SYSRES_CONST_TASK_ACCESS_TYPE_ALL SYSRES_CONST_TASK_ACCESS_TYPE_ALL_MEMBERS SYSRES_CONST_TASK_ACCESS_TYPE_MANUAL SYSRES_CONST_TASK_ENCODE_TYPE_CERTIFICATION SYSRES_CONST_TASK_ENCODE_TYPE_CERTIFICATION_AND_PASSWORD SYSRES_CONST_TASK_ENCODE_TYPE_NONE SYSRES_CONST_TASK_ENCODE_TYPE_PASSWORD SYSRES_CONST_TASK_ROUTE_ALL_CONDITION SYSRES_CONST_TASK_ROUTE_AND_CONDITION SYSRES_CONST_TASK_ROUTE_OR_CONDITION SYSRES_CONST_TASK_STATE_ABORTED SYSRES_CONST_TASK_STATE_COMPLETE SYSRES_CONST_TASK_STATE_CONTINUED SYSRES_CONST_TASK_STATE_CONTROL SYSRES_CONST_TASK_STATE_INIT SYSRES_CONST_TASK_STATE_WORKING SYSRES_CONST_TASK_TITLE SYSRES_CONST_TASK_TYPES_GROUPS_REFERENCE_CODE SYSRES_CONST_TASK_TYPES_REFERENCE_CODE SYSRES_CONST_TEMPLATES_REFERENCE_CODE SYSRES_CONST_TEST_DATE_REQUISITE_NAME SYSRES_CONST_TEST_DEV_DATABASE_NAME SYSRES_CONST_TEST_DEV_SYSTEM_CODE SYSRES_CONST_TEST_EDMS_DATABASE_NAME SYSRES_CONST_TEST_EDMS_MAIN_CODE SYSRES_CONST_TEST_EDMS_MAIN_DB_NAME SYSRES_CONST_TEST_EDMS_SECOND_CODE SYSRES_CONST_TEST_EDMS_SECOND_DB_NAME SYSRES_CONST_TEST_EDMS_SYSTEM_CODE SYSRES_CONST_TEST_NUMERIC_REQUISITE_NAME SYSRES_CONST_TEXT_REQUISITE SYSRES_CONST_TEXT_REQUISITE_CODE SYSRES_CONST_TEXT_REQUISITE_TYPE SYSRES_CONST_TEXT_TYPE_CHAR SYSRES_CONST_TYPE_CODE_REQUISITE_CODE SYSRES_CONST_TYPE_REQUISITE_CODE SYSRES_CONST_UNDEFINED_LIFE_CYCLE_STAGE_FONT_COLOR SYSRES_CONST_UNITS_SECTION_ID_REQUISITE_CODE SYSRES_CONST_UNITS_SECTION_REQUISITE_CODE SYSRES_CONST_UNOPERATING_RECORD_FLAG_VALUE_CODE SYSRES_CONST_UNSTORED_DATA_REQUISITE_CODE SYSRES_CONST_UNSTORED_DATA_REQUISITE_NAME SYSRES_CONST_USE_ACCESS_TYPE_CODE SYSRES_CONST_USE_ACCESS_TYPE_NAME SYSRES_CONST_USER_ACCOUNT_TYPE_VALUE_CODE SYSRES_CONST_USER_ADDITIONAL_INFORMATION_REQUISITE_CODE SYSRES_CONST_USER_AND_GROUP_ID_FROM_PSEUDOREFERENCE_REQUISITE_CODE SYSRES_CONST_USER_CATEGORY_NORMAL SYSRES_CONST_USER_CERTIFICATE_REQUISITE_CODE SYSRES_CONST_USER_CERTIFICATE_STATE_REQUISITE_CODE SYSRES_CONST_USER_CERTIFICATE_SUBJECT_NAME_REQUISITE_CODE SYSRES_CONST_USER_CERTIFICATE_THUMBPRINT_REQUISITE_CODE SYSRES_CONST_USER_COMMON_CATEGORY SYSRES_CONST_USER_COMMON_CATEGORY_CODE SYSRES_CONST_USER_FULL_NAME_REQUISITE_CODE SYSRES_CONST_USER_GROUP_TYPE_REQUISITE_CODE SYSRES_CONST_USER_LOGIN_REQUISITE_CODE SYSRES_CONST_USER_REMOTE_CONTROLLER_REQUISITE_CODE SYSRES_CONST_USER_REMOTE_SYSTEM_REQUISITE_CODE SYSRES_CONST_USER_RIGHTS_T_REQUISITE_CODE SYSRES_CONST_USER_SERVER_NAME_REQUISITE_CODE SYSRES_CONST_USER_SERVICE_CATEGORY SYSRES_CONST_USER_SERVICE_CATEGORY_CODE SYSRES_CONST_USER_STATUS_ADMINISTRATOR_CODE SYSRES_CONST_USER_STATUS_ADMINISTRATOR_NAME SYSRES_CONST_USER_STATUS_DEVELOPER_CODE SYSRES_CONST_USER_STATUS_DEVELOPER_NAME SYSRES_CONST_USER_STATUS_DISABLED_CODE SYSRES_CONST_USER_STATUS_DISABLED_NAME SYSRES_CONST_USER_STATUS_SYSTEM_DEVELOPER_CODE SYSRES_CONST_USER_STATUS_USER_CODE SYSRES_CONST_USER_STATUS_USER_NAME SYSRES_CONST_USER_STATUS_USER_NAME_DEPRECATED SYSRES_CONST_USER_TYPE_FIELD_VALUE_USER SYSRES_CONST_USER_TYPE_REQUISITE_CODE SYSRES_CONST_USERS_CONTROLLER_REQUISITE_CODE SYSRES_CONST_USERS_IS_MAIN_SERVER_REQUISITE_CODE SYSRES_CONST_USERS_REFERENCE_CODE SYSRES_CONST_USERS_REGISTRATION_CERTIFICATES_ACTION_NAME SYSRES_CONST_USERS_REQUISITE_CODE SYSRES_CONST_USERS_SYSTEM_REQUISITE_CODE SYSRES_CONST_USERS_USER_ACCESS_RIGHTS_TYPR_REQUISITE_CODE SYSRES_CONST_USERS_USER_AUTHENTICATION_REQUISITE_CODE SYSRES_CONST_USERS_USER_COMPONENT_REQUISITE_CODE SYSRES_CONST_USERS_USER_GROUP_REQUISITE_CODE SYSRES_CONST_USERS_VIEW_CERTIFICATES_ACTION_NAME SYSRES_CONST_VIEW_DEFAULT_CODE SYSRES_CONST_VIEW_DEFAULT_NAME SYSRES_CONST_VIEWER_REQUISITE_CODE SYSRES_CONST_WAITING_BLOCK_DESCRIPTION SYSRES_CONST_WIZARD_FORM_LABEL_TEST_STRING  SYSRES_CONST_WIZARD_QUERY_PARAM_HEIGHT_ETALON_STRING SYSRES_CONST_WIZARD_REFERENCE_COMMENT_REQUISITE_CODE SYSRES_CONST_WORK_RULES_DESCRIPTION_REQUISITE_CODE SYSRES_CONST_WORK_TIME_CALENDAR_REFERENCE_CODE SYSRES_CONST_WORK_WORKFLOW_HARD_ROUTE_TYPE_VALUE SYSRES_CONST_WORK_WORKFLOW_HARD_ROUTE_TYPE_VALUE_CODE SYSRES_CONST_WORK_WORKFLOW_HARD_ROUTE_TYPE_VALUE_CODE_RUS SYSRES_CONST_WORK_WORKFLOW_SOFT_ROUTE_TYPE_VALUE_CODE_RUS SYSRES_CONST_WORKFLOW_ROUTE_TYPR_HARD SYSRES_CONST_WORKFLOW_ROUTE_TYPR_SOFT SYSRES_CONST_XML_ENCODING SYSRES_CONST_XREC_STAT_REQUISITE_CODE SYSRES_CONST_XRECID_FIELD_NAME SYSRES_CONST_YES SYSRES_CONST_YES_NO_2_REQUISITE_CODE SYSRES_CONST_YES_NO_REQUISITE_CODE SYSRES_CONST_YES_NO_T_REF_TYPE_REQUISITE_CODE SYSRES_CONST_YES_PICK_VALUE SYSRES_CONST_YES_VALUE " + "CR FALSE nil NO_VALUE NULL TAB TRUE YES_VALUE " + "ADMINISTRATORS_GROUP_NAME CUSTOMIZERS_GROUP_NAME DEVELOPERS_GROUP_NAME SERVICE_USERS_GROUP_NAME " + "DECISION_BLOCK_FIRST_OPERAND_PROPERTY DECISION_BLOCK_NAME_PROPERTY DECISION_BLOCK_OPERATION_PROPERTY DECISION_BLOCK_RESULT_TYPE_PROPERTY DECISION_BLOCK_SECOND_OPERAND_PROPERTY " + "ANY_FILE_EXTENTION COMPRESSED_DOCUMENT_EXTENSION EXTENDED_DOCUMENT_EXTENSION SHORT_COMPRESSED_DOCUMENT_EXTENSION SHORT_EXTENDED_DOCUMENT_EXTENSION " + "JOB_BLOCK_ABORT_DEADLINE_PROPERTY JOB_BLOCK_AFTER_FINISH_EVENT JOB_BLOCK_AFTER_QUERY_PARAMETERS_EVENT JOB_BLOCK_ATTACHMENT_PROPERTY JOB_BLOCK_ATTACHMENTS_RIGHTS_GROUP_PROPERTY JOB_BLOCK_ATTACHMENTS_RIGHTS_TYPE_PROPERTY JOB_BLOCK_BEFORE_QUERY_PARAMETERS_EVENT JOB_BLOCK_BEFORE_START_EVENT JOB_BLOCK_CREATED_JOBS_PROPERTY JOB_BLOCK_DEADLINE_PROPERTY JOB_BLOCK_EXECUTION_RESULTS_PROPERTY JOB_BLOCK_IS_PARALLEL_PROPERTY JOB_BLOCK_IS_RELATIVE_ABORT_DEADLINE_PROPERTY JOB_BLOCK_IS_RELATIVE_DEADLINE_PROPERTY JOB_BLOCK_JOB_TEXT_PROPERTY JOB_BLOCK_NAME_PROPERTY JOB_BLOCK_NEED_SIGN_ON_PERFORM_PROPERTY JOB_BLOCK_PERFORMER_PROPERTY JOB_BLOCK_RELATIVE_ABORT_DEADLINE_TYPE_PROPERTY JOB_BLOCK_RELATIVE_DEADLINE_TYPE_PROPERTY JOB_BLOCK_SUBJECT_PROPERTY " + "ENGLISH_LANGUAGE_CODE RUSSIAN_LANGUAGE_CODE " + "smHidden smMaximized smMinimized smNormal wmNo wmYes " + "COMPONENT_TOKEN_LINK_KIND DOCUMENT_LINK_KIND EDOCUMENT_LINK_KIND FOLDER_LINK_KIND JOB_LINK_KIND REFERENCE_LINK_KIND TASK_LINK_KIND " + "COMPONENT_TOKEN_LOCK_TYPE EDOCUMENT_VERSION_LOCK_TYPE " + "MONITOR_BLOCK_AFTER_FINISH_EVENT MONITOR_BLOCK_BEFORE_START_EVENT MONITOR_BLOCK_DEADLINE_PROPERTY MONITOR_BLOCK_INTERVAL_PROPERTY MONITOR_BLOCK_INTERVAL_TYPE_PROPERTY MONITOR_BLOCK_IS_RELATIVE_DEADLINE_PROPERTY MONITOR_BLOCK_NAME_PROPERTY MONITOR_BLOCK_RELATIVE_DEADLINE_TYPE_PROPERTY MONITOR_BLOCK_SEARCH_SCRIPT_PROPERTY " + "NOTICE_BLOCK_AFTER_FINISH_EVENT NOTICE_BLOCK_ATTACHMENT_PROPERTY NOTICE_BLOCK_ATTACHMENTS_RIGHTS_GROUP_PROPERTY NOTICE_BLOCK_ATTACHMENTS_RIGHTS_TYPE_PROPERTY NOTICE_BLOCK_BEFORE_START_EVENT NOTICE_BLOCK_CREATED_NOTICES_PROPERTY NOTICE_BLOCK_DEADLINE_PROPERTY NOTICE_BLOCK_IS_RELATIVE_DEADLINE_PROPERTY NOTICE_BLOCK_NAME_PROPERTY NOTICE_BLOCK_NOTICE_TEXT_PROPERTY NOTICE_BLOCK_PERFORMER_PROPERTY NOTICE_BLOCK_RELATIVE_DEADLINE_TYPE_PROPERTY NOTICE_BLOCK_SUBJECT_PROPERTY " + "dseAfterCancel dseAfterClose dseAfterDelete dseAfterDeleteOutOfTransaction dseAfterInsert dseAfterOpen dseAfterScroll dseAfterUpdate dseAfterUpdateOutOfTransaction dseBeforeCancel dseBeforeClose dseBeforeDelete dseBeforeDetailUpdate dseBeforeInsert dseBeforeOpen dseBeforeUpdate dseOnAnyRequisiteChange dseOnCloseRecord dseOnDeleteError dseOnOpenRecord dseOnPrepareUpdate dseOnUpdateError dseOnUpdateRatifiedRecord dseOnValidDelete dseOnValidUpdate reOnChange reOnChangeValues SELECTION_BEGIN_ROUTE_EVENT SELECTION_END_ROUTE_EVENT " + "CURRENT_PERIOD_IS_REQUIRED PREVIOUS_CARD_TYPE_NAME SHOW_RECORD_PROPERTIES_FORM " + "ACCESS_RIGHTS_SETTING_DIALOG_CODE ADMINISTRATOR_USER_CODE ANALYTIC_REPORT_TYPE asrtHideLocal asrtHideRemote CALCULATED_ROLE_TYPE_CODE COMPONENTS_REFERENCE_DEVELOPER_VIEW_CODE DCTS_TEST_PROTOCOLS_FOLDER_PATH E_EDOC_VERSION_ALREADY_APPROVINGLY_SIGNED E_EDOC_VERSION_ALREADY_APPROVINGLY_SIGNED_BY_USER E_EDOC_VERSION_ALREDY_SIGNED E_EDOC_VERSION_ALREDY_SIGNED_BY_USER EDOC_TYPES_CODE_REQUISITE_FIELD_NAME EDOCUMENTS_ALIAS_NAME FILES_FOLDER_PATH FILTER_OPERANDS_DELIMITER FILTER_OPERATIONS_DELIMITER FORMCARD_NAME FORMLIST_NAME GET_EXTENDED_DOCUMENT_EXTENSION_CREATION_MODE GET_EXTENDED_DOCUMENT_EXTENSION_IMPORT_MODE INTEGRATED_REPORT_TYPE IS_BUILDER_APPLICATION_ROLE IS_BUILDER_APPLICATION_ROLE2 IS_BUILDER_USERS ISBSYSDEV LOG_FOLDER_PATH mbCancel mbNo mbNoToAll mbOK mbYes mbYesToAll MEMORY_DATASET_DESRIPTIONS_FILENAME mrNo mrNoToAll mrYes mrYesToAll MULTIPLE_SELECT_DIALOG_CODE NONOPERATING_RECORD_FLAG_FEMININE NONOPERATING_RECORD_FLAG_MASCULINE OPERATING_RECORD_FLAG_FEMININE OPERATING_RECORD_FLAG_MASCULINE PROFILING_SETTINGS_COMMON_SETTINGS_CODE_VALUE PROGRAM_INITIATED_LOOKUP_ACTION ratDelete ratEdit ratInsert REPORT_TYPE REQUIRED_PICK_VALUES_VARIABLE rmCard rmList SBRTE_PROGID_DEV SBRTE_PROGID_RELEASE STATIC_ROLE_TYPE_CODE SUPPRESS_EMPTY_TEMPLATE_CREATION SYSTEM_USER_CODE UPDATE_DIALOG_DATASET USED_IN_OBJECT_HINT_PARAM USER_INITIATED_LOOKUP_ACTION USER_NAME_FORMAT USER_SELECTION_RESTRICTIONS WORKFLOW_TEST_PROTOCOLS_FOLDER_PATH ELS_SUBTYPE_CONTROL_NAME ELS_FOLDER_KIND_CONTROL_NAME REPEAT_PROCESS_CURRENT_OBJECT_EXCEPTION_NAME " + "PRIVILEGE_COMPONENT_FULL_ACCESS PRIVILEGE_DEVELOPMENT_EXPORT PRIVILEGE_DEVELOPMENT_IMPORT PRIVILEGE_DOCUMENT_DELETE PRIVILEGE_ESD PRIVILEGE_FOLDER_DELETE PRIVILEGE_MANAGE_ACCESS_RIGHTS PRIVILEGE_MANAGE_REPLICATION PRIVILEGE_MANAGE_SESSION_SERVER PRIVILEGE_OBJECT_FULL_ACCESS PRIVILEGE_OBJECT_VIEW PRIVILEGE_RESERVE_LICENSE PRIVILEGE_SYSTEM_CUSTOMIZE PRIVILEGE_SYSTEM_DEVELOP PRIVILEGE_SYSTEM_INSTALL PRIVILEGE_TASK_DELETE PRIVILEGE_USER_PLUGIN_SETTINGS_CUSTOMIZE PRIVILEGES_PSEUDOREFERENCE_CODE " + "ACCESS_TYPES_PSEUDOREFERENCE_CODE ALL_AVAILABLE_COMPONENTS_PSEUDOREFERENCE_CODE ALL_AVAILABLE_PRIVILEGES_PSEUDOREFERENCE_CODE ALL_REPLICATE_COMPONENTS_PSEUDOREFERENCE_CODE AVAILABLE_DEVELOPERS_COMPONENTS_PSEUDOREFERENCE_CODE COMPONENTS_PSEUDOREFERENCE_CODE FILTRATER_SETTINGS_CONFLICTS_PSEUDOREFERENCE_CODE GROUPS_PSEUDOREFERENCE_CODE RECEIVE_PROTOCOL_PSEUDOREFERENCE_CODE REFERENCE_REQUISITE_PSEUDOREFERENCE_CODE REFERENCE_REQUISITES_PSEUDOREFERENCE_CODE REFTYPES_PSEUDOREFERENCE_CODE REPLICATION_SEANCES_DIARY_PSEUDOREFERENCE_CODE SEND_PROTOCOL_PSEUDOREFERENCE_CODE SUBSTITUTES_PSEUDOREFERENCE_CODE SYSTEM_SETTINGS_PSEUDOREFERENCE_CODE UNITS_PSEUDOREFERENCE_CODE USERS_PSEUDOREFERENCE_CODE VIEWERS_PSEUDOREFERENCE_CODE " + "CERTIFICATE_TYPE_ENCRYPT CERTIFICATE_TYPE_SIGN CERTIFICATE_TYPE_SIGN_AND_ENCRYPT " + "STORAGE_TYPE_FILE STORAGE_TYPE_NAS_CIFS STORAGE_TYPE_SAPERION STORAGE_TYPE_SQL_SERVER " + "COMPTYPE2_REQUISITE_DOCUMENTS_VALUE COMPTYPE2_REQUISITE_TASKS_VALUE COMPTYPE2_REQUISITE_FOLDERS_VALUE COMPTYPE2_REQUISITE_REFERENCES_VALUE " + "SYSREQ_CODE SYSREQ_COMPTYPE2 SYSREQ_CONST_AVAILABLE_FOR_WEB SYSREQ_CONST_COMMON_CODE SYSREQ_CONST_COMMON_VALUE SYSREQ_CONST_FIRM_CODE SYSREQ_CONST_FIRM_STATUS SYSREQ_CONST_FIRM_VALUE SYSREQ_CONST_SERVER_STATUS SYSREQ_CONTENTS SYSREQ_DATE_OPEN SYSREQ_DATE_CLOSE SYSREQ_DESCRIPTION SYSREQ_DESCRIPTION_LOCALIZE_ID SYSREQ_DOUBLE SYSREQ_EDOC_ACCESS_TYPE SYSREQ_EDOC_AUTHOR SYSREQ_EDOC_CREATED SYSREQ_EDOC_DELEGATE_RIGHTS_REQUISITE_CODE SYSREQ_EDOC_EDITOR SYSREQ_EDOC_ENCODE_TYPE SYSREQ_EDOC_ENCRYPTION_PLUGIN_NAME SYSREQ_EDOC_ENCRYPTION_PLUGIN_VERSION SYSREQ_EDOC_EXPORT_DATE SYSREQ_EDOC_EXPORTER SYSREQ_EDOC_KIND SYSREQ_EDOC_LIFE_STAGE_NAME SYSREQ_EDOC_LOCKED_FOR_SERVER_CODE SYSREQ_EDOC_MODIFIED SYSREQ_EDOC_NAME SYSREQ_EDOC_NOTE SYSREQ_EDOC_QUALIFIED_ID SYSREQ_EDOC_SESSION_KEY SYSREQ_EDOC_SESSION_KEY_ENCRYPTION_PLUGIN_NAME SYSREQ_EDOC_SESSION_KEY_ENCRYPTION_PLUGIN_VERSION SYSREQ_EDOC_SIGNATURE_TYPE SYSREQ_EDOC_SIGNED SYSREQ_EDOC_STORAGE SYSREQ_EDOC_STORAGES_ARCHIVE_STORAGE SYSREQ_EDOC_STORAGES_CHECK_RIGHTS SYSREQ_EDOC_STORAGES_COMPUTER_NAME SYSREQ_EDOC_STORAGES_EDIT_IN_STORAGE SYSREQ_EDOC_STORAGES_EXECUTIVE_STORAGE SYSREQ_EDOC_STORAGES_FUNCTION SYSREQ_EDOC_STORAGES_INITIALIZED SYSREQ_EDOC_STORAGES_LOCAL_PATH SYSREQ_EDOC_STORAGES_SAPERION_DATABASE_NAME SYSREQ_EDOC_STORAGES_SEARCH_BY_TEXT SYSREQ_EDOC_STORAGES_SERVER_NAME SYSREQ_EDOC_STORAGES_SHARED_SOURCE_NAME SYSREQ_EDOC_STORAGES_TYPE SYSREQ_EDOC_TEXT_MODIFIED SYSREQ_EDOC_TYPE_ACT_CODE SYSREQ_EDOC_TYPE_ACT_DESCRIPTION SYSREQ_EDOC_TYPE_ACT_DESCRIPTION_LOCALIZE_ID SYSREQ_EDOC_TYPE_ACT_ON_EXECUTE SYSREQ_EDOC_TYPE_ACT_ON_EXECUTE_EXISTS SYSREQ_EDOC_TYPE_ACT_SECTION SYSREQ_EDOC_TYPE_ADD_PARAMS SYSREQ_EDOC_TYPE_COMMENT SYSREQ_EDOC_TYPE_EVENT_TEXT SYSREQ_EDOC_TYPE_NAME_IN_SINGULAR SYSREQ_EDOC_TYPE_NAME_IN_SINGULAR_LOCALIZE_ID SYSREQ_EDOC_TYPE_NAME_LOCALIZE_ID SYSREQ_EDOC_TYPE_NUMERATION_METHOD SYSREQ_EDOC_TYPE_PSEUDO_REQUISITE_CODE SYSREQ_EDOC_TYPE_REQ_CODE SYSREQ_EDOC_TYPE_REQ_DESCRIPTION SYSREQ_EDOC_TYPE_REQ_DESCRIPTION_LOCALIZE_ID SYSREQ_EDOC_TYPE_REQ_IS_LEADING SYSREQ_EDOC_TYPE_REQ_IS_REQUIRED SYSREQ_EDOC_TYPE_REQ_NUMBER SYSREQ_EDOC_TYPE_REQ_ON_CHANGE SYSREQ_EDOC_TYPE_REQ_ON_CHANGE_EXISTS SYSREQ_EDOC_TYPE_REQ_ON_SELECT SYSREQ_EDOC_TYPE_REQ_ON_SELECT_KIND SYSREQ_EDOC_TYPE_REQ_SECTION SYSREQ_EDOC_TYPE_VIEW_CARD SYSREQ_EDOC_TYPE_VIEW_CODE SYSREQ_EDOC_TYPE_VIEW_COMMENT SYSREQ_EDOC_TYPE_VIEW_IS_MAIN SYSREQ_EDOC_TYPE_VIEW_NAME SYSREQ_EDOC_TYPE_VIEW_NAME_LOCALIZE_ID SYSREQ_EDOC_VERSION_AUTHOR SYSREQ_EDOC_VERSION_CRC SYSREQ_EDOC_VERSION_DATA SYSREQ_EDOC_VERSION_EDITOR SYSREQ_EDOC_VERSION_EXPORT_DATE SYSREQ_EDOC_VERSION_EXPORTER SYSREQ_EDOC_VERSION_HIDDEN SYSREQ_EDOC_VERSION_LIFE_STAGE SYSREQ_EDOC_VERSION_MODIFIED SYSREQ_EDOC_VERSION_NOTE SYSREQ_EDOC_VERSION_SIGNATURE_TYPE SYSREQ_EDOC_VERSION_SIGNED SYSREQ_EDOC_VERSION_SIZE SYSREQ_EDOC_VERSION_SOURCE SYSREQ_EDOC_VERSION_TEXT_MODIFIED SYSREQ_EDOCKIND_DEFAULT_VERSION_STATE_CODE SYSREQ_FOLDER_KIND SYSREQ_FUNC_CATEGORY SYSREQ_FUNC_COMMENT SYSREQ_FUNC_GROUP SYSREQ_FUNC_GROUP_COMMENT SYSREQ_FUNC_GROUP_NUMBER SYSREQ_FUNC_HELP SYSREQ_FUNC_PARAM_DEF_VALUE SYSREQ_FUNC_PARAM_IDENT SYSREQ_FUNC_PARAM_NUMBER SYSREQ_FUNC_PARAM_TYPE SYSREQ_FUNC_TEXT SYSREQ_GROUP_CATEGORY SYSREQ_ID SYSREQ_LAST_UPDATE SYSREQ_LEADER_REFERENCE SYSREQ_LINE_NUMBER SYSREQ_MAIN_RECORD_ID SYSREQ_NAME SYSREQ_NAME_LOCALIZE_ID SYSREQ_NOTE SYSREQ_ORIGINAL_RECORD SYSREQ_OUR_FIRM SYSREQ_PROFILING_SETTINGS_BATCH_LOGING SYSREQ_PROFILING_SETTINGS_BATCH_SIZE SYSREQ_PROFILING_SETTINGS_PROFILING_ENABLED SYSREQ_PROFILING_SETTINGS_SQL_PROFILING_ENABLED SYSREQ_PROFILING_SETTINGS_START_LOGGED SYSREQ_RECORD_STATUS SYSREQ_REF_REQ_FIELD_NAME SYSREQ_REF_REQ_FORMAT SYSREQ_REF_REQ_GENERATED SYSREQ_REF_REQ_LENGTH SYSREQ_REF_REQ_PRECISION SYSREQ_REF_REQ_REFERENCE SYSREQ_REF_REQ_SECTION SYSREQ_REF_REQ_STORED SYSREQ_REF_REQ_TOKENS SYSREQ_REF_REQ_TYPE SYSREQ_REF_REQ_VIEW SYSREQ_REF_TYPE_ACT_CODE SYSREQ_REF_TYPE_ACT_DESCRIPTION SYSREQ_REF_TYPE_ACT_DESCRIPTION_LOCALIZE_ID SYSREQ_REF_TYPE_ACT_ON_EXECUTE SYSREQ_REF_TYPE_ACT_ON_EXECUTE_EXISTS SYSREQ_REF_TYPE_ACT_SECTION SYSREQ_REF_TYPE_ADD_PARAMS SYSREQ_REF_TYPE_COMMENT SYSREQ_REF_TYPE_COMMON_SETTINGS SYSREQ_REF_TYPE_DISPLAY_REQUISITE_NAME SYSREQ_REF_TYPE_EVENT_TEXT SYSREQ_REF_TYPE_MAIN_LEADING_REF SYSREQ_REF_TYPE_NAME_IN_SINGULAR SYSREQ_REF_TYPE_NAME_IN_SINGULAR_LOCALIZE_ID SYSREQ_REF_TYPE_NAME_LOCALIZE_ID SYSREQ_REF_TYPE_NUMERATION_METHOD SYSREQ_REF_TYPE_REQ_CODE SYSREQ_REF_TYPE_REQ_DESCRIPTION SYSREQ_REF_TYPE_REQ_DESCRIPTION_LOCALIZE_ID SYSREQ_REF_TYPE_REQ_IS_CONTROL SYSREQ_REF_TYPE_REQ_IS_FILTER SYSREQ_REF_TYPE_REQ_IS_LEADING SYSREQ_REF_TYPE_REQ_IS_REQUIRED SYSREQ_REF_TYPE_REQ_NUMBER SYSREQ_REF_TYPE_REQ_ON_CHANGE SYSREQ_REF_TYPE_REQ_ON_CHANGE_EXISTS SYSREQ_REF_TYPE_REQ_ON_SELECT SYSREQ_REF_TYPE_REQ_ON_SELECT_KIND SYSREQ_REF_TYPE_REQ_SECTION SYSREQ_REF_TYPE_VIEW_CARD SYSREQ_REF_TYPE_VIEW_CODE SYSREQ_REF_TYPE_VIEW_COMMENT SYSREQ_REF_TYPE_VIEW_IS_MAIN SYSREQ_REF_TYPE_VIEW_NAME SYSREQ_REF_TYPE_VIEW_NAME_LOCALIZE_ID SYSREQ_REFERENCE_TYPE_ID SYSREQ_STATE SYSREQ_STATЕ SYSREQ_SYSTEM_SETTINGS_VALUE SYSREQ_TYPE SYSREQ_UNIT SYSREQ_UNIT_ID SYSREQ_USER_GROUPS_GROUP_FULL_NAME SYSREQ_USER_GROUPS_GROUP_NAME SYSREQ_USER_GROUPS_GROUP_SERVER_NAME SYSREQ_USERS_ACCESS_RIGHTS SYSREQ_USERS_AUTHENTICATION SYSREQ_USERS_CATEGORY SYSREQ_USERS_COMPONENT SYSREQ_USERS_COMPONENT_USER_IS_PUBLIC SYSREQ_USERS_DOMAIN SYSREQ_USERS_FULL_USER_NAME SYSREQ_USERS_GROUP SYSREQ_USERS_IS_MAIN_SERVER SYSREQ_USERS_LOGIN SYSREQ_USERS_REFERENCE_USER_IS_PUBLIC SYSREQ_USERS_STATUS SYSREQ_USERS_USER_CERTIFICATE SYSREQ_USERS_USER_CERTIFICATE_INFO SYSREQ_USERS_USER_CERTIFICATE_PLUGIN_NAME SYSREQ_USERS_USER_CERTIFICATE_PLUGIN_VERSION SYSREQ_USERS_USER_CERTIFICATE_STATE SYSREQ_USERS_USER_CERTIFICATE_SUBJECT_NAME SYSREQ_USERS_USER_CERTIFICATE_THUMBPRINT SYSREQ_USERS_USER_DEFAULT_CERTIFICATE SYSREQ_USERS_USER_DESCRIPTION SYSREQ_USERS_USER_GLOBAL_NAME SYSREQ_USERS_USER_LOGIN SYSREQ_USERS_USER_MAIN_SERVER SYSREQ_USERS_USER_TYPE SYSREQ_WORK_RULES_FOLDER_ID " + "RESULT_VAR_NAME RESULT_VAR_NAME_ENG " + "AUTO_NUMERATION_RULE_ID CANT_CHANGE_ID_REQUISITE_RULE_ID CANT_CHANGE_OURFIRM_REQUISITE_RULE_ID CHECK_CHANGING_REFERENCE_RECORD_USE_RULE_ID CHECK_CODE_REQUISITE_RULE_ID CHECK_DELETING_REFERENCE_RECORD_USE_RULE_ID CHECK_FILTRATER_CHANGES_RULE_ID CHECK_RECORD_INTERVAL_RULE_ID CHECK_REFERENCE_INTERVAL_RULE_ID CHECK_REQUIRED_DATA_FULLNESS_RULE_ID CHECK_REQUIRED_REQUISITES_FULLNESS_RULE_ID MAKE_RECORD_UNRATIFIED_RULE_ID RESTORE_AUTO_NUMERATION_RULE_ID SET_FIRM_CONTEXT_FROM_RECORD_RULE_ID SET_FIRST_RECORD_IN_LIST_FORM_RULE_ID SET_IDSPS_VALUE_RULE_ID SET_NEXT_CODE_VALUE_RULE_ID SET_OURFIRM_BOUNDS_RULE_ID SET_OURFIRM_REQUISITE_RULE_ID " + "SCRIPT_BLOCK_AFTER_FINISH_EVENT SCRIPT_BLOCK_BEFORE_START_EVENT SCRIPT_BLOCK_EXECUTION_RESULTS_PROPERTY SCRIPT_BLOCK_NAME_PROPERTY SCRIPT_BLOCK_SCRIPT_PROPERTY " + "SUBTASK_BLOCK_ABORT_DEADLINE_PROPERTY SUBTASK_BLOCK_AFTER_FINISH_EVENT SUBTASK_BLOCK_ASSIGN_PARAMS_EVENT SUBTASK_BLOCK_ATTACHMENTS_PROPERTY SUBTASK_BLOCK_ATTACHMENTS_RIGHTS_GROUP_PROPERTY SUBTASK_BLOCK_ATTACHMENTS_RIGHTS_TYPE_PROPERTY SUBTASK_BLOCK_BEFORE_START_EVENT SUBTASK_BLOCK_CREATED_TASK_PROPERTY SUBTASK_BLOCK_CREATION_EVENT SUBTASK_BLOCK_DEADLINE_PROPERTY SUBTASK_BLOCK_IMPORTANCE_PROPERTY SUBTASK_BLOCK_INITIATOR_PROPERTY SUBTASK_BLOCK_IS_RELATIVE_ABORT_DEADLINE_PROPERTY SUBTASK_BLOCK_IS_RELATIVE_DEADLINE_PROPERTY SUBTASK_BLOCK_JOBS_TYPE_PROPERTY SUBTASK_BLOCK_NAME_PROPERTY SUBTASK_BLOCK_PARALLEL_ROUTE_PROPERTY SUBTASK_BLOCK_PERFORMERS_PROPERTY SUBTASK_BLOCK_RELATIVE_ABORT_DEADLINE_TYPE_PROPERTY SUBTASK_BLOCK_RELATIVE_DEADLINE_TYPE_PROPERTY SUBTASK_BLOCK_REQUIRE_SIGN_PROPERTY SUBTASK_BLOCK_STANDARD_ROUTE_PROPERTY SUBTASK_BLOCK_START_EVENT SUBTASK_BLOCK_STEP_CONTROL_PROPERTY SUBTASK_BLOCK_SUBJECT_PROPERTY SUBTASK_BLOCK_TASK_CONTROL_PROPERTY SUBTASK_BLOCK_TEXT_PROPERTY SUBTASK_BLOCK_UNLOCK_ATTACHMENTS_ON_STOP_PROPERTY SUBTASK_BLOCK_USE_STANDARD_ROUTE_PROPERTY SUBTASK_BLOCK_WAIT_FOR_TASK_COMPLETE_PROPERTY " + "SYSCOMP_CONTROL_JOBS SYSCOMP_FOLDERS SYSCOMP_JOBS SYSCOMP_NOTICES SYSCOMP_TASKS " + "SYSDLG_CREATE_EDOCUMENT SYSDLG_CREATE_EDOCUMENT_VERSION SYSDLG_CURRENT_PERIOD SYSDLG_EDIT_FUNCTION_HELP SYSDLG_EDOCUMENT_KINDS_FOR_TEMPLATE SYSDLG_EXPORT_MULTIPLE_EDOCUMENTS SYSDLG_EXPORT_SINGLE_EDOCUMENT SYSDLG_IMPORT_EDOCUMENT SYSDLG_MULTIPLE_SELECT SYSDLG_SETUP_ACCESS_RIGHTS SYSDLG_SETUP_DEFAULT_RIGHTS SYSDLG_SETUP_FILTER_CONDITION SYSDLG_SETUP_SIGN_RIGHTS SYSDLG_SETUP_TASK_OBSERVERS SYSDLG_SETUP_TASK_ROUTE SYSDLG_SETUP_USERS_LIST SYSDLG_SIGN_EDOCUMENT SYSDLG_SIGN_MULTIPLE_EDOCUMENTS " + "SYSREF_ACCESS_RIGHTS_TYPES SYSREF_ADMINISTRATION_HISTORY SYSREF_ALL_AVAILABLE_COMPONENTS SYSREF_ALL_AVAILABLE_PRIVILEGES SYSREF_ALL_REPLICATING_COMPONENTS SYSREF_AVAILABLE_DEVELOPERS_COMPONENTS SYSREF_CALENDAR_EVENTS SYSREF_COMPONENT_TOKEN_HISTORY SYSREF_COMPONENT_TOKENS SYSREF_COMPONENTS SYSREF_CONSTANTS SYSREF_DATA_RECEIVE_PROTOCOL SYSREF_DATA_SEND_PROTOCOL SYSREF_DIALOGS SYSREF_DIALOGS_REQUISITES SYSREF_EDITORS SYSREF_EDOC_CARDS SYSREF_EDOC_TYPES SYSREF_EDOCUMENT_CARD_REQUISITES SYSREF_EDOCUMENT_CARD_TYPES SYSREF_EDOCUMENT_CARD_TYPES_REFERENCE SYSREF_EDOCUMENT_CARDS SYSREF_EDOCUMENT_HISTORY SYSREF_EDOCUMENT_KINDS SYSREF_EDOCUMENT_REQUISITES SYSREF_EDOCUMENT_SIGNATURES SYSREF_EDOCUMENT_TEMPLATES SYSREF_EDOCUMENT_TEXT_STORAGES SYSREF_EDOCUMENT_VIEWS SYSREF_FILTERER_SETUP_CONFLICTS SYSREF_FILTRATER_SETTING_CONFLICTS SYSREF_FOLDER_HISTORY SYSREF_FOLDERS SYSREF_FUNCTION_GROUPS SYSREF_FUNCTION_PARAMS SYSREF_FUNCTIONS SYSREF_JOB_HISTORY SYSREF_LINKS SYSREF_LOCALIZATION_DICTIONARY SYSREF_LOCALIZATION_LANGUAGES SYSREF_MODULES SYSREF_PRIVILEGES SYSREF_RECORD_HISTORY SYSREF_REFERENCE_REQUISITES SYSREF_REFERENCE_TYPE_VIEWS SYSREF_REFERENCE_TYPES SYSREF_REFERENCES SYSREF_REFERENCES_REQUISITES SYSREF_REMOTE_SERVERS SYSREF_REPLICATION_SESSIONS_LOG SYSREF_REPLICATION_SESSIONS_PROTOCOL SYSREF_REPORTS SYSREF_ROLES SYSREF_ROUTE_BLOCK_GROUPS SYSREF_ROUTE_BLOCKS SYSREF_SCRIPTS SYSREF_SEARCHES SYSREF_SERVER_EVENTS SYSREF_SERVER_EVENTS_HISTORY SYSREF_STANDARD_ROUTE_GROUPS SYSREF_STANDARD_ROUTES SYSREF_STATUSES SYSREF_SYSTEM_SETTINGS SYSREF_TASK_HISTORY SYSREF_TASK_KIND_GROUPS SYSREF_TASK_KINDS SYSREF_TASK_RIGHTS SYSREF_TASK_SIGNATURES SYSREF_TASKS SYSREF_UNITS SYSREF_USER_GROUPS SYSREF_USER_GROUPS_REFERENCE SYSREF_USER_SUBSTITUTION SYSREF_USERS SYSREF_USERS_REFERENCE SYSREF_VIEWERS SYSREF_WORKING_TIME_CALENDARS " + "ACCESS_RIGHTS_TABLE_NAME EDMS_ACCESS_TABLE_NAME EDOC_TYPES_TABLE_NAME " + "TEST_DEV_DB_NAME TEST_DEV_SYSTEM_CODE TEST_EDMS_DB_NAME TEST_EDMS_MAIN_CODE TEST_EDMS_MAIN_DB_NAME TEST_EDMS_SECOND_CODE TEST_EDMS_SECOND_DB_NAME TEST_EDMS_SYSTEM_CODE TEST_ISB5_MAIN_CODE TEST_ISB5_SECOND_CODE TEST_SQL_SERVER_2005_NAME TEST_SQL_SERVER_NAME " + "ATTENTION_CAPTION cbsCommandLinks cbsDefault CONFIRMATION_CAPTION ERROR_CAPTION INFORMATION_CAPTION mrCancel mrOk " + "EDOC_VERSION_ACTIVE_STAGE_CODE EDOC_VERSION_DESIGN_STAGE_CODE EDOC_VERSION_OBSOLETE_STAGE_CODE " + "cpDataEnciphermentEnabled cpDigitalSignatureEnabled cpID cpIssuer cpPluginVersion cpSerial cpSubjectName cpSubjSimpleName cpValidFromDate cpValidToDate " + "ISBL_SYNTAX NO_SYNTAX XML_SYNTAX " + "WAIT_BLOCK_AFTER_FINISH_EVENT WAIT_BLOCK_BEFORE_START_EVENT WAIT_BLOCK_DEADLINE_PROPERTY WAIT_BLOCK_IS_RELATIVE_DEADLINE_PROPERTY WAIT_BLOCK_NAME_PROPERTY WAIT_BLOCK_RELATIVE_DEADLINE_TYPE_PROPERTY " + "SYSRES_COMMON SYSRES_CONST SYSRES_MBFUNC SYSRES_SBDATA SYSRES_SBGUI SYSRES_SBINTF SYSRES_SBREFDSC SYSRES_SQLERRORS SYSRES_SYSCOMP ", $t = "atUser atGroup atRole " + "aemEnabledAlways aemDisabledAlways aemEnabledOnBrowse aemEnabledOnEdit aemDisabledOnBrowseEmpty " + "apBegin apEnd " + "alLeft alRight " + "asmNever asmNoButCustomize asmAsLastTime asmYesButCustomize asmAlways " + "cirCommon cirRevoked " + "ctSignature ctEncode ctSignatureEncode " + "clbUnchecked clbChecked clbGrayed " + "ceISB ceAlways ceNever " + "ctDocument ctReference ctScript ctUnknown ctReport ctDialog ctFunction ctFolder ctEDocument ctTask ctJob ctNotice ctControlJob " + "cfInternal cfDisplay " + "ciUnspecified ciWrite ciRead " + "ckFolder ckEDocument ckTask ckJob ckComponentToken ckAny ckReference ckScript ckReport ckDialog " + "ctISBLEditor ctBevel ctButton ctCheckListBox ctComboBox ctComboEdit ctGrid ctDBCheckBox ctDBComboBox ctDBEdit ctDBEllipsis ctDBMemo ctDBNavigator ctDBRadioGroup ctDBStatusLabel ctEdit ctGroupBox ctInplaceHint ctMemo ctPanel ctListBox ctRadioButton ctRichEdit ctTabSheet ctWebBrowser ctImage ctHyperLink ctLabel ctDBMultiEllipsis ctRibbon ctRichView ctInnerPanel ctPanelGroup ctBitButton " + "cctDate cctInteger cctNumeric cctPick cctReference cctString cctText " + "cltInternal cltPrimary cltGUI " + "dseBeforeOpen dseAfterOpen dseBeforeClose dseAfterClose dseOnValidDelete dseBeforeDelete dseAfterDelete dseAfterDeleteOutOfTransaction dseOnDeleteError dseBeforeInsert dseAfterInsert dseOnValidUpdate dseBeforeUpdate dseOnUpdateRatifiedRecord dseAfterUpdate dseAfterUpdateOutOfTransaction dseOnUpdateError dseAfterScroll dseOnOpenRecord dseOnCloseRecord dseBeforeCancel dseAfterCancel dseOnUpdateDeadlockError dseBeforeDetailUpdate dseOnPrepareUpdate dseOnAnyRequisiteChange " + "dssEdit dssInsert dssBrowse dssInActive " + "dftDate dftShortDate dftDateTime dftTimeStamp " + "dotDays dotHours dotMinutes dotSeconds " + "dtkndLocal dtkndUTC " + "arNone arView arEdit arFull " + "ddaView ddaEdit " + "emLock emEdit emSign emExportWithLock emImportWithUnlock emChangeVersionNote emOpenForModify emChangeLifeStage emDelete emCreateVersion emImport emUnlockExportedWithLock emStart emAbort emReInit emMarkAsReaded emMarkAsUnreaded emPerform emAccept emResume emChangeRights emEditRoute emEditObserver emRecoveryFromLocalCopy emChangeWorkAccessType emChangeEncodeTypeToCertificate emChangeEncodeTypeToPassword emChangeEncodeTypeToNone emChangeEncodeTypeToCertificatePassword emChangeStandardRoute emGetText emOpenForView emMoveToStorage emCreateObject emChangeVersionHidden emDeleteVersion emChangeLifeCycleStage emApprovingSign emExport emContinue emLockFromEdit emUnLockForEdit emLockForServer emUnlockFromServer emDelegateAccessRights emReEncode " + "ecotFile ecotProcess " + "eaGet eaCopy eaCreate eaCreateStandardRoute " + "edltAll edltNothing edltQuery " + "essmText essmCard " + "esvtLast esvtLastActive esvtSpecified " + "edsfExecutive edsfArchive " + "edstSQLServer edstFile " + "edvstNone edvstEDocumentVersionCopy edvstFile edvstTemplate edvstScannedFile " + "vsDefault vsDesign vsActive vsObsolete " + "etNone etCertificate etPassword etCertificatePassword " + "ecException ecWarning ecInformation " + "estAll estApprovingOnly " + "evtLast evtLastActive evtQuery " + "fdtString fdtNumeric fdtInteger fdtDate fdtText fdtUnknown fdtWideString fdtLargeInteger " + "ftInbox ftOutbox ftFavorites ftCommonFolder ftUserFolder ftComponents ftQuickLaunch ftShortcuts ftSearch " + "grhAuto grhX1 grhX2 grhX3 " + "hltText hltRTF hltHTML " + "iffBMP iffJPEG iffMultiPageTIFF iffSinglePageTIFF iffTIFF iffPNG " + "im8bGrayscale im24bRGB im1bMonochrome " + "itBMP itJPEG itWMF itPNG " + "ikhInformation ikhWarning ikhError ikhNoIcon " + "icUnknown icScript icFunction icIntegratedReport icAnalyticReport icDataSetEventHandler icActionHandler icFormEventHandler icLookUpEventHandler icRequisiteChangeEventHandler icBeforeSearchEventHandler icRoleCalculation icSelectRouteEventHandler icBlockPropertyCalculation icBlockQueryParamsEventHandler icChangeSearchResultEventHandler icBlockEventHandler icSubTaskInitEventHandler icEDocDataSetEventHandler icEDocLookUpEventHandler icEDocActionHandler icEDocFormEventHandler icEDocRequisiteChangeEventHandler icStructuredConversionRule icStructuredConversionEventBefore icStructuredConversionEventAfter icWizardEventHandler icWizardFinishEventHandler icWizardStepEventHandler icWizardStepFinishEventHandler icWizardActionEnableEventHandler icWizardActionExecuteEventHandler icCreateJobsHandler icCreateNoticesHandler icBeforeLookUpEventHandler icAfterLookUpEventHandler icTaskAbortEventHandler icWorkflowBlockActionHandler icDialogDataSetEventHandler icDialogActionHandler icDialogLookUpEventHandler icDialogRequisiteChangeEventHandler icDialogFormEventHandler icDialogValidCloseEventHandler icBlockFormEventHandler icTaskFormEventHandler icReferenceMethod icEDocMethod icDialogMethod icProcessMessageHandler " + "isShow isHide isByUserSettings " + "jkJob jkNotice jkControlJob " + "jtInner jtLeft jtRight jtFull jtCross " + "lbpAbove lbpBelow lbpLeft lbpRight " + "eltPerConnection eltPerUser " + "sfcUndefined sfcBlack sfcGreen sfcRed sfcBlue sfcOrange sfcLilac " + "sfsItalic sfsStrikeout sfsNormal " + "ldctStandardRoute ldctWizard ldctScript ldctFunction ldctRouteBlock ldctIntegratedReport ldctAnalyticReport ldctReferenceType ldctEDocumentType ldctDialog ldctServerEvents " + "mrcrtNone mrcrtUser mrcrtMaximal mrcrtCustom " + "vtEqual vtGreaterOrEqual vtLessOrEqual vtRange " + "rdYesterday rdToday rdTomorrow rdThisWeek rdThisMonth rdThisYear rdNextMonth rdNextWeek rdLastWeek rdLastMonth " + "rdWindow rdFile rdPrinter " + "rdtString rdtNumeric rdtInteger rdtDate rdtReference rdtAccount rdtText rdtPick rdtUnknown rdtLargeInteger rdtDocument " + "reOnChange reOnChangeValues " + "ttGlobal ttLocal ttUser ttSystem " + "ssmBrowse ssmSelect ssmMultiSelect ssmBrowseModal " + "smSelect smLike smCard " + "stNone stAuthenticating stApproving " + "sctString sctStream " + "sstAnsiSort sstNaturalSort " + "svtEqual svtContain " + "soatString soatNumeric soatInteger soatDatetime soatReferenceRecord soatText soatPick soatBoolean soatEDocument soatAccount soatIntegerCollection soatNumericCollection soatStringCollection soatPickCollection soatDatetimeCollection soatBooleanCollection soatReferenceRecordCollection soatEDocumentCollection soatAccountCollection soatContents soatUnknown " + "tarAbortByUser tarAbortByWorkflowException " + "tvtAllWords tvtExactPhrase tvtAnyWord " + "usNone usCompleted usRedSquare usBlueSquare usYellowSquare usGreenSquare usOrangeSquare usPurpleSquare usFollowUp " + "utUnknown utUser utDeveloper utAdministrator utSystemDeveloper utDisconnected " + "btAnd btDetailAnd btOr btNotOr btOnly " + "vmView vmSelect vmNavigation " + "vsmSingle vsmMultiple vsmMultipleCheck vsmNoSelection " + "wfatPrevious wfatNext wfatCancel wfatFinish " + "wfepUndefined wfepText3 wfepText6 wfepText9 wfepSpinEdit wfepDropDown wfepRadioGroup wfepFlag wfepText12 wfepText15 wfepText18 wfepText21 wfepText24 wfepText27 wfepText30 wfepRadioGroupColumn1 wfepRadioGroupColumn2 wfepRadioGroupColumn3 " + "wfetQueryParameter wfetText wfetDelimiter wfetLabel " + "wptString wptInteger wptNumeric wptBoolean wptDateTime wptPick wptText wptUser wptUserList wptEDocumentInfo wptEDocumentInfoList wptReferenceRecordInfo wptReferenceRecordInfoList wptFolderInfo wptTaskInfo wptContents wptFileName wptDate " + "wsrComplete wsrGoNext wsrGoPrevious wsrCustom wsrCancel wsrGoFinal " + "wstForm wstEDocument wstTaskCard wstReferenceRecordCard wstFinal " + "waAll waPerformers waManual " + "wsbStart wsbFinish wsbNotice wsbStep wsbDecision wsbWait wsbMonitor wsbScript wsbConnector wsbSubTask wsbLifeCycleStage wsbPause " + "wdtInteger wdtFloat wdtString wdtPick wdtDateTime wdtBoolean wdtTask wdtJob wdtFolder wdtEDocument wdtReferenceRecord wdtUser wdtGroup wdtRole wdtIntegerCollection wdtFloatCollection wdtStringCollection wdtPickCollection wdtDateTimeCollection wdtBooleanCollection wdtTaskCollection wdtJobCollection wdtFolderCollection wdtEDocumentCollection wdtReferenceRecordCollection wdtUserCollection wdtGroupCollection wdtRoleCollection wdtContents wdtUserList wdtSearchDescription wdtDeadLine wdtPickSet wdtAccountCollection " + "wiLow wiNormal wiHigh " + "wrtSoft wrtHard " + "wsInit wsRunning wsDone wsControlled wsAborted wsContinued " + "wtmFull wtmFromCurrent wtmOnlyCurrent ", ye = "AddSubString AdjustLineBreaks AmountInWords Analysis ArrayDimCount ArrayHighBound ArrayLowBound ArrayOf ArrayReDim Assert Assigned BeginOfMonth BeginOfPeriod BuildProfilingOperationAnalysis CallProcedure CanReadFile CArrayElement CDataSetRequisite ChangeDate ChangeReferenceDataset Char CharPos CheckParam CheckParamValue CompareStrings ConstantExists ControlState ConvertDateStr Copy CopyFile CreateArray CreateCachedReference CreateConnection CreateDialog CreateDualListDialog CreateEditor CreateException CreateFile CreateFolderDialog CreateInputDialog CreateLinkFile CreateList CreateLock CreateMemoryDataSet CreateObject CreateOpenDialog CreateProgress CreateQuery CreateReference CreateReport CreateSaveDialog CreateScript CreateSQLPivotFunction CreateStringList CreateTreeListSelectDialog CSelectSQL CSQL CSubString CurrentUserID CurrentUserName CurrentVersion DataSetLocateEx DateDiff DateTimeDiff DateToStr DayOfWeek DeleteFile DirectoryExists DisableCheckAccessRights DisableCheckFullShowingRestriction DisableMassTaskSendingRestrictions DropTable DupeString EditText EnableCheckAccessRights EnableCheckFullShowingRestriction EnableMassTaskSendingRestrictions EndOfMonth EndOfPeriod ExceptionExists ExceptionsOff ExceptionsOn Execute ExecuteProcess Exit ExpandEnvironmentVariables ExtractFileDrive ExtractFileExt ExtractFileName ExtractFilePath ExtractParams FileExists FileSize FindFile FindSubString FirmContext ForceDirectories Format FormatDate FormatNumeric FormatSQLDate FormatString FreeException GetComponent GetComponentLaunchParam GetConstant GetLastException GetReferenceRecord GetRefTypeByRefID GetTableID GetTempFolder IfThen In IndexOf InputDialog InputDialogEx InteractiveMode IsFileLocked IsGraphicFile IsNumeric Length LoadString LoadStringFmt LocalTimeToUTC LowerCase Max MessageBox MessageBoxEx MimeDecodeBinary MimeDecodeString MimeEncodeBinary MimeEncodeString Min MoneyInWords MoveFile NewID Now OpenFile Ord Precision Raise ReadCertificateFromFile ReadFile ReferenceCodeByID ReferenceNumber ReferenceRequisiteMode ReferenceRequisiteValue RegionDateSettings RegionNumberSettings RegionTimeSettings RegRead RegWrite RenameFile Replace Round SelectServerCode SelectSQL ServerDateTime SetConstant SetManagedFolderFieldsState ShowConstantsInputDialog ShowMessage Sleep Split SQL SQL2XLSTAB SQLProfilingSendReport StrToDate SubString SubStringCount SystemSetting Time TimeDiff Today Transliterate Trim UpperCase UserStatus UTCToLocalTime ValidateXML VarIsClear VarIsEmpty VarIsNull WorkTimeDiff WriteFile WriteFileEx WriteObjectHistory Анализ БазаДанных БлокЕсть БлокЕстьРасш БлокИнфо БлокСнять БлокСнятьРасш БлокУстановить Ввод ВводМеню ВедС ВедСпр ВерхняяГраницаМассива ВнешПрогр Восст ВременнаяПапка Время ВыборSQL ВыбратьЗапись ВыделитьСтр Вызвать Выполнить ВыпПрогр ГрафическийФайл ГруппаДополнительно ДатаВремяСерв ДеньНедели ДиалогДаНет ДлинаСтр ДобПодстр ЕПусто ЕслиТо ЕЧисло ЗамПодстр ЗаписьСправочника ЗначПоляСпр ИДТипСпр ИзвлечьДиск ИзвлечьИмяФайла ИзвлечьПуть ИзвлечьРасширение ИзмДат ИзменитьРазмерМассива ИзмеренийМассива ИмяОрг ИмяПоляСпр Индекс ИндикаторЗакрыть ИндикаторОткрыть ИндикаторШаг ИнтерактивныйРежим ИтогТблСпр КодВидВедСпр КодВидСпрПоИД КодПоAnalit КодСимвола КодСпр КолПодстр КолПроп КонМес Конст КонстЕсть КонстЗнач КонТран КопироватьФайл КопияСтр КПериод КСтрТблСпр Макс МаксСтрТблСпр Массив Меню МенюРасш Мин НаборДанныхНайтиРасш НаимВидСпр НаимПоAnalit НаимСпр НастроитьПереводыСтрок НачМес НачТран НижняяГраницаМассива НомерСпр НПериод Окно Окр Окружение ОтлИнфДобавить ОтлИнфУдалить Отчет ОтчетАнал ОтчетИнт ПапкаСуществует Пауза ПВыборSQL ПереименоватьФайл Переменные ПереместитьФайл Подстр ПоискПодстр ПоискСтр ПолучитьИДТаблицы ПользовательДополнительно ПользовательИД ПользовательИмя ПользовательСтатус Прервать ПроверитьПараметр ПроверитьПараметрЗнач ПроверитьУсловие РазбСтр РазнВремя РазнДат РазнДатаВремя РазнРабВремя РегУстВрем РегУстДат РегУстЧсл РедТекст РеестрЗапись РеестрСписокИменПарам РеестрЧтение РеквСпр РеквСпрПр Сегодня Сейчас Сервер СерверПроцессИД СертификатФайлСчитать СжПроб Символ СистемаДиректумКод СистемаИнформация СистемаКод Содержит СоединениеЗакрыть СоединениеОткрыть СоздатьДиалог СоздатьДиалогВыбораИзДвухСписков СоздатьДиалогВыбораПапки СоздатьДиалогОткрытияФайла СоздатьДиалогСохраненияФайла СоздатьЗапрос СоздатьИндикатор СоздатьИсключение СоздатьКэшированныйСправочник СоздатьМассив СоздатьНаборДанных СоздатьОбъект СоздатьОтчет СоздатьПапку СоздатьРедактор СоздатьСоединение СоздатьСписок СоздатьСписокСтрок СоздатьСправочник СоздатьСценарий СоздСпр СостСпр Сохр СохрСпр СписокСистем Спр Справочник СпрБлокЕсть СпрБлокСнять СпрБлокСнятьРасш СпрБлокУстановить СпрИзмНабДан СпрКод СпрНомер СпрОбновить СпрОткрыть СпрОтменить СпрПарам СпрПолеЗнач СпрПолеИмя СпрРекв СпрРеквВведЗн СпрРеквНовые СпрРеквПр СпрРеквПредЗн СпрРеквРежим СпрРеквТипТекст СпрСоздать СпрСост СпрСохранить СпрТблИтог СпрТблСтр СпрТблСтрКол СпрТблСтрМакс СпрТблСтрМин СпрТблСтрПред СпрТблСтрСлед СпрТблСтрСозд СпрТблСтрУд СпрТекПредст СпрУдалить СравнитьСтр СтрВерхРегистр СтрНижнРегистр СтрТблСпр СумПроп Сценарий СценарийПарам ТекВерсия ТекОрг Точн Тран Транслитерация УдалитьТаблицу УдалитьФайл УдСпр УдСтрТблСпр Уст УстановкиКонстант ФайлАтрибутСчитать ФайлАтрибутУстановить ФайлВремя ФайлВремяУстановить ФайлВыбрать ФайлЗанят ФайлЗаписать ФайлИскать ФайлКопировать ФайлМожноЧитать ФайлОткрыть ФайлПереименовать ФайлПерекодировать ФайлПереместить ФайлПросмотреть ФайлРазмер ФайлСоздать ФайлСсылкаСоздать ФайлСуществует ФайлСчитать ФайлУдалить ФмтSQLДат ФмтДат ФмтСтр ФмтЧсл Формат ЦМассивЭлемент ЦНаборДанныхРеквизит ЦПодстр ", un = "AltState Application CallType ComponentTokens CreatedJobs CreatedNotices ControlState DialogResult Dialogs EDocuments EDocumentVersionSource Folders GlobalIDs Job Jobs InputValue LookUpReference LookUpRequisiteNames LookUpSearch Object ParentComponent Processes References Requisite ReportName Reports Result Scripts Searches SelectedAttachments SelectedItems SelectMode Sender ServerEvents ServiceFactory ShiftState SubTask SystemDialogs Tasks Wizard Wizards Work ВызовСпособ ИмяОтчета РеквЗнач ", Rt = "IApplication IAccessRights IAccountRepository IAccountSelectionRestrictions IAction IActionList IAdministrationHistoryDescription IAnchors IApplication IArchiveInfo IAttachment IAttachmentList ICheckListBox ICheckPointedList IColumn IComponent IComponentDescription IComponentToken IComponentTokenFactory IComponentTokenInfo ICompRecordInfo IConnection IContents IControl IControlJob IControlJobInfo IControlList ICrypto ICrypto2 ICustomJob ICustomJobInfo ICustomListBox ICustomObjectWizardStep ICustomWork ICustomWorkInfo IDataSet IDataSetAccessInfo IDataSigner IDateCriterion IDateRequisite IDateRequisiteDescription IDateValue IDeaAccessRights IDeaObjectInfo IDevelopmentComponentLock IDialog IDialogFactory IDialogPickRequisiteItems IDialogsFactory IDICSFactory IDocRequisite IDocumentInfo IDualListDialog IECertificate IECertificateInfo IECertificates IEditControl IEditorForm IEdmsExplorer IEdmsObject IEdmsObjectDescription IEdmsObjectFactory IEdmsObjectInfo IEDocument IEDocumentAccessRights IEDocumentDescription IEDocumentEditor IEDocumentFactory IEDocumentInfo IEDocumentStorage IEDocumentVersion IEDocumentVersionListDialog IEDocumentVersionSource IEDocumentWizardStep IEDocVerSignature IEDocVersionState IEnabledMode IEncodeProvider IEncrypter IEvent IEventList IException IExternalEvents IExternalHandler IFactory IField IFileDialog IFolder IFolderDescription IFolderDialog IFolderFactory IFolderInfo IForEach IForm IFormTitle IFormWizardStep IGlobalIDFactory IGlobalIDInfo IGrid IHasher IHistoryDescription IHyperLinkControl IImageButton IImageControl IInnerPanel IInplaceHint IIntegerCriterion IIntegerList IIntegerRequisite IIntegerValue IISBLEditorForm IJob IJobDescription IJobFactory IJobForm IJobInfo ILabelControl ILargeIntegerCriterion ILargeIntegerRequisite ILargeIntegerValue ILicenseInfo ILifeCycleStage IList IListBox ILocalIDInfo ILocalization ILock IMemoryDataSet IMessagingFactory IMetadataRepository INotice INoticeInfo INumericCriterion INumericRequisite INumericValue IObject IObjectDescription IObjectImporter IObjectInfo IObserver IPanelGroup IPickCriterion IPickProperty IPickRequisite IPickRequisiteDescription IPickRequisiteItem IPickRequisiteItems IPickValue IPrivilege IPrivilegeList IProcess IProcessFactory IProcessMessage IProgress IProperty IPropertyChangeEvent IQuery IReference IReferenceCriterion IReferenceEnabledMode IReferenceFactory IReferenceHistoryDescription IReferenceInfo IReferenceRecordCardWizardStep IReferenceRequisiteDescription IReferencesFactory IReferenceValue IRefRequisite IReport IReportFactory IRequisite IRequisiteDescription IRequisiteDescriptionList IRequisiteFactory IRichEdit IRouteStep IRule IRuleList ISchemeBlock IScript IScriptFactory ISearchCriteria ISearchCriterion ISearchDescription ISearchFactory ISearchFolderInfo ISearchForObjectDescription ISearchResultRestrictions ISecuredContext ISelectDialog IServerEvent IServerEventFactory IServiceDialog IServiceFactory ISignature ISignProvider ISignProvider2 ISignProvider3 ISimpleCriterion IStringCriterion IStringList IStringRequisite IStringRequisiteDescription IStringValue ISystemDialogsFactory ISystemInfo ITabSheet ITask ITaskAbortReasonInfo ITaskCardWizardStep ITaskDescription ITaskFactory ITaskInfo ITaskRoute ITextCriterion ITextRequisite ITextValue ITreeListSelectDialog IUser IUserList IValue IView IWebBrowserControl IWizard IWizardAction IWizardFactory IWizardFormElement IWizardParam IWizardPickParam IWizardReferenceParam IWizardStep IWorkAccessRights IWorkDescription IWorkflowAskableParam IWorkflowAskableParams IWorkflowBlock IWorkflowBlockResult IWorkflowEnabledMode IWorkflowParam IWorkflowPickParam IWorkflowReferenceParam IWorkState IWorkTreeCustomNode IWorkTreeJobNode IWorkTreeTaskNode IXMLEditorForm SBCrypto ", F = _e + $t, zt = un, Ee = "null true false nil ", X = {
       className: "number",
       begin: e.NUMBER_RE,
       relevance: 0
@@ -20886,7 +20886,7 @@ function Xp() {
       keyword: a,
       built_in: F,
       class: zt,
-      literal: me
+      literal: Ee
     }, B = {
       begin: "\\.\\s*" + e.UNDERSCORE_IDENT_RE,
       keywords: D,
@@ -20896,7 +20896,7 @@ function Xp() {
       begin: ":[ \\t]*(" + Rt.trim().replace(/\s/g, "|") + ")",
       end: "[ \\t]*=",
       excludeEnd: !0
-    }, Ee = {
+    }, ge = {
       className: "variable",
       keywords: D,
       begin: t,
@@ -20932,7 +20932,7 @@ function Xp() {
               excludeEnd: !0
             },
             B,
-            Ee,
+            ge,
             $e,
             X,
             A
@@ -20940,19 +20940,19 @@ function Xp() {
         },
         H,
         B,
-        Ee,
+        ge,
         $e,
         X,
         A
       ]
     };
   }
-  return zr = n, zr;
+  return Wr = n, Wr;
 }
-var Wr, xl;
+var Kr, wl;
 function Zp() {
-  if (xl) return Wr;
-  xl = 1;
+  if (wl) return Kr;
+  wl = 1;
   var n = "[0-9](_*[0-9])*", e = `\\.(${n})`, t = "[0-9a-fA-F](_*[0-9a-fA-F])*", r = {
     className: "number",
     variants: [
@@ -21190,12 +21190,12 @@ function Zp() {
       ]
     };
   }
-  return Wr = i, Wr;
+  return Kr = i, Kr;
 }
-var Kr, wl;
+var Qr, Pl;
 function Jp() {
-  if (wl) return Kr;
-  wl = 1;
+  if (Pl) return Qr;
+  Pl = 1;
   const n = "[A-Za-z$_][0-9A-Za-z$_]*", e = [
     "as",
     // for exports
@@ -21343,9 +21343,9 @@ function Jp() {
     a
   );
   function l(_) {
-    const c = _.regex, d = (Z, { after: W }) => {
-      const re = "</" + Z[0].slice(1);
-      return Z.input.indexOf(re, W) !== -1;
+    const c = _.regex, d = (J, { after: W }) => {
+      const re = "</" + J[0].slice(1);
+      return J.input.indexOf(re, W) !== -1;
     }, u = n, E = {
       begin: "<>",
       end: "</>"
@@ -21356,8 +21356,8 @@ function Jp() {
        * @param {RegExpMatchArray} match
        * @param {CallbackResponse} response
        */
-      isTrulyOpeningTag: (Z, W) => {
-        const re = Z[0].length + Z.index, ae = Z.input[re];
+      isTrulyOpeningTag: (J, W) => {
+        const re = J[0].length + J.index, ae = J.input[re];
         if (
           // HTML should not include another raw `<` inside a tag
           // nested type?
@@ -21369,14 +21369,14 @@ function Jp() {
           W.ignoreMatch();
           return;
         }
-        ae === ">" && (d(Z, { after: re }) || W.ignoreMatch());
-        let _e;
-        const Te = Z.input.substring(re);
-        if (_e = Te.match(/^\s*=/)) {
+        ae === ">" && (d(J, { after: re }) || W.ignoreMatch());
+        let de;
+        const Te = J.input.substring(re);
+        if (de = Te.match(/^\s*=/)) {
           W.ignoreMatch();
           return;
         }
-        if ((_e = Te.match(/^\s+extends\s+/)) && _e.index === 0) {
+        if ((de = Te.match(/^\s+extends\s+/)) && de.index === 0) {
           W.ignoreMatch();
           return;
         }
@@ -21634,8 +21634,8 @@ function Jp() {
       match: /\b[A-Z][A-Z_0-9]+\b/,
       className: "variable.constant"
     };
-    function Ce(Z) {
-      return c.concat("(?!", Z.join("|"), ")");
+    function Ce(J) {
+      return c.concat("(?!", J.join("|"), ")");
     }
     const Ae = {
       match: c.concat(
@@ -21644,7 +21644,7 @@ function Jp() {
           ...i,
           "super",
           "import"
-        ].map((Z) => `${Z}\\s*\\(`)),
+        ].map((J) => `${J}\\s*\\(`)),
         u,
         c.lookahead(/\s*\(/)
       ),
@@ -21677,7 +21677,7 @@ function Jp() {
         },
         z
       ]
-    }, ce = "(\\([^()]*(\\([^()]*(\\([^()]*\\)[^()]*)*\\)[^()]*)*\\)|" + _.UNDERSCORE_IDENT_RE + ")\\s*=>", ue = {
+    }, _e = "(\\([^()]*(\\([^()]*(\\([^()]*\\)[^()]*)*\\)[^()]*)*\\)|" + _.UNDERSCORE_IDENT_RE + ")\\s*=>", pe = {
       match: [
         /const|var|let/,
         /\s+/,
@@ -21686,7 +21686,7 @@ function Jp() {
         /=\s*/,
         /(async\s*)?/,
         // async is optional
-        c.lookahead(ce)
+        c.lookahead(_e)
       ],
       keywords: "async",
       className: {
@@ -21727,7 +21727,7 @@ function Jp() {
           match: u + c.lookahead(":"),
           relevance: 0
         },
-        ue,
+        pe,
         {
           // "value" container
           begin: "(" + _.RE_STARTERS_RE + "|\\b(case|return|throw)\\b)\\s*",
@@ -21741,7 +21741,7 @@ function Jp() {
               // we have to count the parens to make sure we actually have the
               // correct bounding ( ) before the =>.  There could be any number of
               // sub-expressions inside also surrounded by parens.
-              begin: ce,
+              begin: _e,
               returnBegin: !0,
               end: "\\s*=>",
               contains: [
@@ -21851,12 +21851,12 @@ function Jp() {
       ]
     };
   }
-  return Kr = l, Kr;
+  return Qr = l, Qr;
 }
-var Qr, Pl;
+var Xr, kl;
 function jp() {
-  if (Pl) return Qr;
-  Pl = 1;
+  if (kl) return Xr;
+  kl = 1;
   function n(e) {
     const r = {
       className: "params",
@@ -21904,12 +21904,12 @@ function jp() {
       ]
     };
   }
-  return Qr = n, Qr;
+  return Xr = n, Xr;
 }
-var Xr, kl;
+var Zr, Ul;
 function em() {
-  if (kl) return Xr;
-  kl = 1;
+  if (Ul) return Zr;
+  Ul = 1;
   function n(e) {
     const t = {
       className: "attr",
@@ -21945,12 +21945,12 @@ function em() {
       illegal: "\\S"
     };
   }
-  return Xr = n, Xr;
+  return Zr = n, Zr;
 }
-var Zr, Ul;
+var Jr, Fl;
 function tm() {
-  if (Ul) return Zr;
-  Ul = 1;
+  if (Fl) return Jr;
+  Fl = 1;
   function n(e) {
     const t = "[A-Za-z_\\u00A1-\\uFFFF][A-Za-z_0-9\\u00A1-\\uFFFF]*", o = {
       $pattern: t,
@@ -22302,12 +22302,12 @@ function tm() {
       // relevance booster
     ], c.contains = s.contains, s;
   }
-  return Zr = n, Zr;
+  return Jr = n, Jr;
 }
-var Jr, Fl;
+var jr, Bl;
 function nm() {
-  if (Fl) return Jr;
-  Fl = 1;
+  if (Bl) return jr;
+  Bl = 1;
   function n(e) {
     return {
       name: "Julia REPL",
@@ -22332,12 +22332,12 @@ function nm() {
       aliases: ["jldoctest"]
     };
   }
-  return Jr = n, Jr;
+  return jr = n, jr;
 }
-var jr, Bl;
+var ea, Gl;
 function rm() {
-  if (Bl) return jr;
-  Bl = 1;
+  if (Gl) return ea;
+  Gl = 1;
   var n = "[0-9](_*[0-9])*", e = `\\.(${n})`, t = "[0-9a-fA-F](_*[0-9a-fA-F])*", r = {
     className: "number",
     variants: [
@@ -22577,12 +22577,12 @@ function rm() {
       ]
     };
   }
-  return jr = a, jr;
+  return ea = a, ea;
 }
-var ea, Gl;
+var ta, Yl;
 function am() {
-  if (Gl) return ea;
-  Gl = 1;
+  if (Yl) return ta;
+  Yl = 1;
   function n(e) {
     const t = "[a-zA-Z_][\\w.]*", r = "<\\?(lasso(script)?|=)", a = "\\]|\\?>", i = {
       $pattern: t + "|&[lg]t;",
@@ -22718,12 +22718,12 @@ function am() {
       ].concat(c)
     };
   }
-  return ea = n, ea;
+  return ta = n, ta;
 }
-var ta, Yl;
+var na, ql;
 function im() {
-  if (Yl) return ta;
-  Yl = 1;
+  if (ql) return na;
+  ql = 1;
   function n(e) {
     const r = e.regex.either(...[
       "(?:NeedsTeXFormat|RequirePackage|GetIdInfo)",
@@ -22965,12 +22965,12 @@ function im() {
       ]
     };
   }
-  return ta = n, ta;
+  return na = n, na;
 }
-var na, ql;
+var ra, Hl;
 function om() {
-  if (ql) return na;
-  ql = 1;
+  if (Hl) return ra;
+  Hl = 1;
   function n(e) {
     return {
       name: "LDIF",
@@ -22992,12 +22992,12 @@ function om() {
       ]
     };
   }
-  return na = n, na;
+  return ra = n, ra;
 }
-var ra, Hl;
+var aa, Vl;
 function sm() {
-  if (Hl) return ra;
-  Hl = 1;
+  if (Vl) return aa;
+  Vl = 1;
   function n(e) {
     const t = /([A-Za-z_][A-Za-z_0-9]*)?/, a = {
       scope: "params",
@@ -23082,12 +23082,12 @@ function sm() {
       ]
     };
   }
-  return ra = n, ra;
+  return aa = n, aa;
 }
-var aa, Vl;
+var ia, $l;
 function lm() {
-  if (Vl) return aa;
-  Vl = 1;
+  if ($l) return ia;
+  $l = 1;
   const n = (c) => ({
     IMPORTANT: {
       scope: "meta",
@@ -24077,12 +24077,12 @@ function lm() {
       contains: S
     };
   }
-  return aa = _, aa;
+  return ia = _, ia;
 }
-var ia, $l;
+var oa, zl;
 function cm() {
-  if ($l) return ia;
-  $l = 1;
+  if (zl) return oa;
+  zl = 1;
   function n(e) {
     const t = "[a-zA-Z_\\-+\\*\\/<=>&#][a-zA-Z0-9_\\-+*\\/<=>&#!]*", r = "\\|[^]*?\\|", a = "(-|\\+)?\\d+(\\.\\d+|\\/\\d+)?((d|e|f|l|s|D|E|F|L|S)(\\+|-)?\\d+)?", i = {
       className: "literal",
@@ -24196,12 +24196,12 @@ function cm() {
       ]
     };
   }
-  return ia = n, ia;
+  return oa = n, oa;
 }
-var oa, zl;
+var sa, Wl;
 function _m() {
-  if (zl) return oa;
-  zl = 1;
+  if (Wl) return sa;
+  Wl = 1;
   function n(e) {
     const t = {
       className: "variable",
@@ -24291,12 +24291,12 @@ function _m() {
       illegal: ";$|^\\[|^=|&|\\{"
     };
   }
-  return oa = n, oa;
+  return sa = n, sa;
 }
-var sa, Wl;
+var la, Kl;
 function dm() {
-  if (Wl) return sa;
-  Wl = 1;
+  if (Kl) return la;
+  Kl = 1;
   const n = [
     "as",
     // for exports
@@ -24641,12 +24641,12 @@ function dm() {
       ])
     };
   }
-  return sa = o, sa;
+  return la = o, la;
 }
-var la, Kl;
+var ca, Ql;
 function um() {
-  if (Kl) return la;
-  Kl = 1;
+  if (Ql) return ca;
+  Ql = 1;
   function n(e) {
     const t = e.regex, r = /([-a-zA-Z$._][\w$.-]*)/, a = {
       className: "type",
@@ -24726,12 +24726,12 @@ function um() {
       ]
     };
   }
-  return la = n, la;
+  return ca = n, ca;
 }
-var ca, Ql;
+var _a, Xl;
 function pm() {
-  if (Ql) return ca;
-  Ql = 1;
+  if (Xl) return _a;
+  Xl = 1;
   function n(e) {
     const r = {
       className: "string",
@@ -24789,12 +24789,12 @@ function pm() {
       ]
     };
   }
-  return ca = n, ca;
+  return _a = n, _a;
 }
-var _a, Xl;
+var da, Zl;
 function mm() {
-  if (Xl) return _a;
-  Xl = 1;
+  if (Zl) return da;
+  Zl = 1;
   function n(e) {
     const t = "\\[=*\\[", r = "\\]=*\\]", a = {
       begin: t,
@@ -24851,12 +24851,12 @@ function mm() {
       ])
     };
   }
-  return _a = n, _a;
+  return da = n, da;
 }
-var da, Zl;
+var ua, Jl;
 function Em() {
-  if (Zl) return da;
-  Zl = 1;
+  if (Jl) return ua;
+  Jl = 1;
   function n(e) {
     const t = {
       className: "variable",
@@ -24921,12 +24921,12 @@ function Em() {
       ]
     };
   }
-  return da = n, da;
+  return ua = n, ua;
 }
-var ua, Jl;
+var pa, jl;
 function gm() {
-  if (Jl) return ua;
-  Jl = 1;
+  if (jl) return pa;
+  jl = 1;
   const n = [
     "AASTriangle",
     "AbelianGroup",
@@ -32238,12 +32238,12 @@ function gm() {
       ]
     };
   }
-  return ua = e, ua;
+  return pa = e, pa;
 }
-var pa, jl;
+var ma, ec;
 function Sm() {
-  if (jl) return pa;
-  jl = 1;
+  if (ec) return ma;
+  ec = 1;
   function n(e) {
     const t = "('|\\.')+", r = {
       relevance: 0,
@@ -32317,12 +32317,12 @@ function Sm() {
       ]
     };
   }
-  return pa = n, pa;
+  return ma = n, ma;
 }
-var ma, ec;
+var Ea, tc;
 function Tm() {
-  if (ec) return ma;
-  ec = 1;
+  if (tc) return Ea;
+  tc = 1;
   function n(e) {
     return {
       name: "Maxima",
@@ -32371,12 +32371,12 @@ function Tm() {
       illegal: /@/
     };
   }
-  return ma = n, ma;
+  return Ea = n, Ea;
 }
-var Ea, tc;
+var ga, nc;
 function bm() {
-  if (tc) return Ea;
-  tc = 1;
+  if (nc) return ga;
+  nc = 1;
   function n(e) {
     return {
       name: "MEL",
@@ -32401,12 +32401,12 @@ function bm() {
       ]
     };
   }
-  return Ea = n, Ea;
+  return ga = n, ga;
 }
-var ga, nc;
+var Sa, rc;
 function fm() {
-  if (nc) return ga;
-  nc = 1;
+  if (rc) return Sa;
+  rc = 1;
   function n(e) {
     const t = {
       keyword: "module use_module import_module include_module end_module initialise mutable initialize finalize finalise interface implementation pred mode func type inst solver any_pred any_func is semidet det nondet multi erroneous failure cc_nondet cc_multi typeclass instance where pragma promise external trace atomic or_else require_complete_switch require_det require_semidet require_multi require_nondet require_cc_multi require_cc_nondet require_erroneous require_failure",
@@ -32474,12 +32474,12 @@ function fm() {
       ]
     };
   }
-  return ga = n, ga;
+  return Sa = n, Sa;
 }
-var Sa, rc;
+var Ta, ac;
 function Rm() {
-  if (rc) return Sa;
-  rc = 1;
+  if (ac) return Ta;
+  ac = 1;
   function n(e) {
     return {
       name: "MIPS Assembly",
@@ -32554,12 +32554,12 @@ function Rm() {
       illegal: /\//
     };
   }
-  return Sa = n, Sa;
+  return Ta = n, Ta;
 }
-var Ta, ac;
+var ba, ic;
 function Cm() {
-  if (ac) return Ta;
-  ac = 1;
+  if (ic) return ba;
+  ic = 1;
   function n(e) {
     return {
       name: "Mizar",
@@ -32567,12 +32567,12 @@ function Cm() {
       contains: [e.COMMENT("::", "$")]
     };
   }
-  return Ta = n, Ta;
+  return ba = n, ba;
 }
-var ba, ic;
+var fa, oc;
 function Nm() {
-  if (ic) return ba;
-  ic = 1;
+  if (oc) return fa;
+  oc = 1;
   function n(e) {
     const t = e.regex, r = [
       "abs",
@@ -33039,12 +33039,12 @@ function Nm() {
       contains: g
     };
   }
-  return ba = n, ba;
+  return fa = n, fa;
 }
-var fa, oc;
+var Ra, sc;
 function hm() {
-  if (oc) return fa;
-  oc = 1;
+  if (sc) return Ra;
+  sc = 1;
   function n(e) {
     return {
       name: "Mojolicious",
@@ -33071,12 +33071,12 @@ function hm() {
       ]
     };
   }
-  return fa = n, fa;
+  return Ra = n, Ra;
 }
-var Ra, sc;
+var Ca, lc;
 function Om() {
-  if (sc) return Ra;
-  sc = 1;
+  if (lc) return Ca;
+  lc = 1;
   function n(e) {
     const t = {
       className: "number",
@@ -33245,12 +33245,12 @@ function Om() {
       ]
     };
   }
-  return Ra = n, Ra;
+  return Ca = n, Ca;
 }
-var Ca, lc;
+var Na, cc;
 function Am() {
-  if (lc) return Ca;
-  lc = 1;
+  if (cc) return Na;
+  cc = 1;
   function n(e) {
     const t = {
       keyword: (
@@ -33379,12 +33379,12 @@ function Am() {
       ])
     };
   }
-  return Ca = n, Ca;
+  return Na = n, Na;
 }
-var Na, cc;
+var ha, _c;
 function Im() {
-  if (cc) return Na;
-  cc = 1;
+  if (_c) return ha;
+  _c = 1;
   function n(e) {
     return {
       name: "N1QL",
@@ -33731,12 +33731,12 @@ function Im() {
       ]
     };
   }
-  return Na = n, Na;
+  return ha = n, ha;
 }
-var ha, _c;
+var Oa, dc;
 function vm() {
-  if (_c) return ha;
-  _c = 1;
+  if (dc) return Oa;
+  dc = 1;
   function n(e) {
     const t = {
       match: [
@@ -33808,12 +33808,12 @@ function vm() {
       ]
     };
   }
-  return ha = n, ha;
+  return Oa = n, Oa;
 }
-var Oa, dc;
+var Aa, uc;
 function ym() {
-  if (dc) return Oa;
-  dc = 1;
+  if (uc) return Aa;
+  uc = 1;
   function n(e) {
     const t = e.regex, r = {
       className: "variable",
@@ -33952,12 +33952,12 @@ function ym() {
       illegal: "[^\\s\\}\\{]"
     };
   }
-  return Oa = n, Oa;
+  return Aa = n, Aa;
 }
-var Aa, uc;
+var Ia, pc;
 function Dm() {
-  if (uc) return Aa;
-  uc = 1;
+  if (pc) return Ia;
+  pc = 1;
   function n(e) {
     return {
       name: "Nim",
@@ -34133,12 +34133,12 @@ function Dm() {
       ]
     };
   }
-  return Aa = n, Aa;
+  return Ia = n, Ia;
 }
-var Ia, pc;
+var va, mc;
 function Mm() {
-  if (pc) return Ia;
-  pc = 1;
+  if (mc) return va;
+  mc = 1;
   function n(e) {
     const t = e.regex, r = {
       keyword: [
@@ -34445,12 +34445,12 @@ function Mm() {
       contains: h.concat(C)
     };
   }
-  return Ia = n, Ia;
+  return va = n, va;
 }
-var va, mc;
+var ya, Ec;
 function Lm() {
-  if (mc) return va;
-  mc = 1;
+  if (Ec) return ya;
+  Ec = 1;
   function n(e) {
     return {
       name: "Node REPL",
@@ -34474,12 +34474,12 @@ function Lm() {
       ]
     };
   }
-  return va = n, va;
+  return ya = n, ya;
 }
-var ya, Ec;
+var Da, gc;
 function xm() {
-  if (Ec) return ya;
-  Ec = 1;
+  if (gc) return Da;
+  gc = 1;
   function n(e) {
     const t = e.regex, r = [
       "ADMINTOOLS",
@@ -34991,12 +34991,12 @@ function xm() {
       ]
     };
   }
-  return ya = n, ya;
+  return Da = n, Da;
 }
-var Da, gc;
+var Ma, Sc;
 function wm() {
-  if (gc) return Da;
-  gc = 1;
+  if (Sc) return Ma;
+  Sc = 1;
   function n(e) {
     const t = {
       className: "built_in",
@@ -35231,12 +35231,12 @@ function wm() {
       ]
     };
   }
-  return Da = n, Da;
+  return Ma = n, Ma;
 }
-var Ma, Sc;
+var La, Tc;
 function Pm() {
-  if (Sc) return Ma;
-  Sc = 1;
+  if (Tc) return La;
+  Tc = 1;
   function n(e) {
     return {
       name: "OCaml",
@@ -35301,12 +35301,12 @@ function Pm() {
       ]
     };
   }
-  return Ma = n, Ma;
+  return La = n, La;
 }
-var La, Tc;
+var xa, bc;
 function km() {
-  if (Tc) return La;
-  Tc = 1;
+  if (bc) return xa;
+  bc = 1;
   function n(e) {
     const t = {
       className: "keyword",
@@ -35367,12 +35367,12 @@ function km() {
       ]
     };
   }
-  return La = n, La;
+  return xa = n, xa;
 }
-var xa, bc;
+var wa, fc;
 function Um() {
-  if (bc) return xa;
-  bc = 1;
+  if (fc) return wa;
+  fc = 1;
   function n(e) {
     const t = {
       $pattern: /\.?\w+/,
@@ -35434,12 +35434,12 @@ function Um() {
       ]
     };
   }
-  return xa = n, xa;
+  return wa = n, wa;
 }
-var wa, fc;
+var Pa, Rc;
 function Fm() {
-  if (fc) return wa;
-  fc = 1;
+  if (Rc) return Pa;
+  Rc = 1;
   function n(e) {
     const t = e.COMMENT(
       /\{/,
@@ -35485,12 +35485,12 @@ function Fm() {
       ]
     };
   }
-  return wa = n, wa;
+  return Pa = n, Pa;
 }
-var Pa, Rc;
+var ka, Cc;
 function Bm() {
-  if (Rc) return Pa;
-  Rc = 1;
+  if (Cc) return ka;
+  Cc = 1;
   function n(e) {
     const t = {
       className: "variable",
@@ -35524,12 +35524,12 @@ function Bm() {
       ]
     };
   }
-  return Pa = n, Pa;
+  return ka = n, ka;
 }
-var ka, Cc;
+var Ua, Nc;
 function Gm() {
-  if (Cc) return ka;
-  Cc = 1;
+  if (Nc) return Ua;
+  Nc = 1;
   function n(e) {
     const t = e.COMMENT("--", "$"), r = "[a-zA-Z_][a-zA-Z_0-9$]*", a = "\\$([a-zA-Z_]?|[a-zA-Z_][a-zA-Z_0-9]*)\\$", i = "<<\\s*" + r + "\\s*>>", o = (
       // https://www.postgresql.org/docs/11/static/sql-keywords-appendix.html
@@ -35792,12 +35792,12 @@ function Gm() {
       ]
     };
   }
-  return ka = n, ka;
+  return Ua = n, Ua;
 }
-var Ua, Nc;
+var Fa, hc;
 function Ym() {
-  if (Nc) return Ua;
-  Nc = 1;
+  if (hc) return Fa;
+  hc = 1;
   function n(e) {
     const t = e.regex, r = /(?![A-Za-z0-9])(?![$])/, a = t.concat(
       /[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*/,
@@ -36361,12 +36361,12 @@ function Ym() {
       ]
     };
   }
-  return Ua = n, Ua;
+  return Fa = n, Fa;
 }
-var Fa, hc;
+var Ba, Oc;
 function qm() {
-  if (hc) return Fa;
-  hc = 1;
+  if (Oc) return Ba;
+  Oc = 1;
   function n(e) {
     return {
       name: "PHP template",
@@ -36411,12 +36411,12 @@ function qm() {
       ]
     };
   }
-  return Fa = n, Fa;
+  return Ba = n, Ba;
 }
-var Ba, Oc;
+var Ga, Ac;
 function Hm() {
-  if (Oc) return Ba;
-  Oc = 1;
+  if (Ac) return Ga;
+  Ac = 1;
   function n(e) {
     return {
       name: "Plain text",
@@ -36427,12 +36427,12 @@ function Hm() {
       disableAutodetect: !0
     };
   }
-  return Ba = n, Ba;
+  return Ga = n, Ga;
 }
-var Ga, Ac;
+var Ya, Ic;
 function Vm() {
-  if (Ac) return Ga;
-  Ac = 1;
+  if (Ic) return Ya;
+  Ic = 1;
   function n(e) {
     const t = {
       keyword: "actor addressof and as be break class compile_error compile_intrinsic consume continue delegate digestof do else elseif embed end error for fun if ifdef in interface is isnt lambda let match new not object or primitive recover repeat return struct then trait try type until use var where while with xor",
@@ -36481,12 +36481,12 @@ function Vm() {
       ]
     };
   }
-  return Ga = n, Ga;
+  return Ya = n, Ya;
 }
-var Ya, Ic;
+var qa, vc;
 function $m() {
-  if (Ic) return Ya;
-  Ic = 1;
+  if (vc) return qa;
+  vc = 1;
   function n(e) {
     const t = [
       "string",
@@ -36720,12 +36720,12 @@ function $m() {
       )
     };
   }
-  return Ya = n, Ya;
+  return qa = n, qa;
 }
-var qa, vc;
+var Ha, yc;
 function zm() {
-  if (vc) return qa;
-  vc = 1;
+  if (yc) return Ha;
+  yc = 1;
   function n(e) {
     const t = e.regex, r = [
       "displayHeight",
@@ -37141,12 +37141,12 @@ function zm() {
       ]
     };
   }
-  return qa = n, qa;
+  return Ha = n, Ha;
 }
-var Ha, yc;
+var Va, Dc;
 function Wm() {
-  if (yc) return Ha;
-  yc = 1;
+  if (Dc) return Va;
+  Dc = 1;
   function n(e) {
     return {
       name: "Python profiler",
@@ -37182,12 +37182,12 @@ function Wm() {
       ]
     };
   }
-  return Ha = n, Ha;
+  return Va = n, Va;
 }
-var Va, Dc;
+var $a, Mc;
 function Km() {
-  if (Dc) return Va;
-  Dc = 1;
+  if (Mc) return $a;
+  Mc = 1;
   function n(e) {
     const t = {
       begin: /[a-z][A-Za-z0-9_]*/,
@@ -37252,12 +37252,12 @@ function Km() {
       ])
     };
   }
-  return Va = n, Va;
+  return $a = n, $a;
 }
-var $a, Mc;
+var za, Lc;
 function Qm() {
-  if (Mc) return $a;
-  Mc = 1;
+  if (Lc) return za;
+  Lc = 1;
   function n(e) {
     const t = "[ \\t\\f]*", r = "[ \\t\\f]+", a = t + "[:=]" + t, i = r, o = "(" + a + "|" + i + ")", s = "([^\\\\:= \\t\\f\\n]|\\\\.)+", l = {
       // skip DELIM
@@ -37306,12 +37306,12 @@ function Qm() {
       ]
     };
   }
-  return $a = n, $a;
+  return za = n, za;
 }
-var za, Lc;
+var Wa, xc;
 function Xm() {
-  if (Lc) return za;
-  Lc = 1;
+  if (xc) return Wa;
+  xc = 1;
   function n(e) {
     const t = [
       "package",
@@ -37380,12 +37380,12 @@ function Xm() {
       ]
     };
   }
-  return za = n, za;
+  return Wa = n, Wa;
 }
-var Wa, xc;
+var Ka, wc;
 function Zm() {
-  if (xc) return Wa;
-  xc = 1;
+  if (wc) return Ka;
+  wc = 1;
   function n(e) {
     const t = {
       keyword: (
@@ -37490,12 +37490,12 @@ function Zm() {
       ]
     };
   }
-  return Wa = n, Wa;
+  return Ka = n, Ka;
 }
-var Ka, wc;
+var Qa, Pc;
 function Jm() {
-  if (wc) return Ka;
-  wc = 1;
+  if (Pc) return Qa;
+  Pc = 1;
   function n(e) {
     const t = {
       // PB IDE color: #0080FF (Azure Radiance)
@@ -37552,12 +37552,12 @@ function Jm() {
       ]
     };
   }
-  return Ka = n, Ka;
+  return Qa = n, Qa;
 }
-var Qa, Pc;
+var Xa, kc;
 function jm() {
-  if (Pc) return Qa;
-  Pc = 1;
+  if (kc) return Xa;
+  kc = 1;
   function n(e) {
     const t = e.regex, r = new RegExp("[\\p{XID_Start}_]\\p{XID_Continue}*", "u"), a = [
       "and",
@@ -37954,12 +37954,12 @@ function jm() {
       ]
     };
   }
-  return Qa = n, Qa;
+  return Xa = n, Xa;
 }
-var Xa, kc;
+var Za, Uc;
 function eE() {
-  if (kc) return Xa;
-  kc = 1;
+  if (Uc) return Za;
+  Uc = 1;
   function n(e) {
     return {
       aliases: ["pycon"],
@@ -37983,12 +37983,12 @@ function eE() {
       ]
     };
   }
-  return Xa = n, Xa;
+  return Za = n, Za;
 }
-var Za, Uc;
+var Ja, Fc;
 function tE() {
-  if (Uc) return Za;
-  Uc = 1;
+  if (Fc) return Ja;
+  Fc = 1;
   function n(e) {
     return {
       name: "Q",
@@ -38010,12 +38010,12 @@ function tE() {
       ]
     };
   }
-  return Za = n, Za;
+  return Ja = n, Ja;
 }
-var Ja, Fc;
+var ja, Bc;
 function nE() {
-  if (Fc) return Ja;
-  Fc = 1;
+  if (Bc) return ja;
+  Bc = 1;
   function n(e) {
     const t = e.regex, r = {
       keyword: "in of on if for while finally var new function do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const export super debugger as async await import",
@@ -38155,12 +38155,12 @@ function nE() {
       illegal: /#/
     };
   }
-  return Ja = n, Ja;
+  return ja = n, ja;
 }
-var ja, Bc;
+var ei, Gc;
 function rE() {
-  if (Bc) return ja;
-  Bc = 1;
+  if (Gc) return ei;
+  Gc = 1;
   function n(e) {
     const t = e.regex, r = /(?:(?:[a-zA-Z]|\.[._a-zA-Z])[._a-zA-Z0-9]*)|\.(?!\d)/, a = t.either(
       // Special case: only hexadecimal binary powers can contain fractions
@@ -38365,12 +38365,12 @@ function rE() {
       ]
     };
   }
-  return ja = n, ja;
+  return ei = n, ei;
 }
-var ei, Gc;
+var ti, Yc;
 function aE() {
-  if (Gc) return ei;
-  Gc = 1;
+  if (Yc) return ti;
+  Yc = 1;
   function n(e) {
     return {
       name: "ReasonML",
@@ -38507,12 +38507,12 @@ function aE() {
       ]
     };
   }
-  return ei = n, ei;
+  return ti = n, ti;
 }
-var ti, Yc;
+var ni, qc;
 function iE() {
-  if (Yc) return ti;
-  Yc = 1;
+  if (qc) return ni;
+  qc = 1;
   function n(e) {
     return {
       name: "RenderMan RIB",
@@ -38526,12 +38526,12 @@ function iE() {
       ]
     };
   }
-  return ti = n, ti;
+  return ni = n, ni;
 }
-var ni, qc;
+var ri, Hc;
 function oE() {
-  if (qc) return ni;
-  qc = 1;
+  if (Hc) return ri;
+  Hc = 1;
   function n(e) {
     const t = "[a-zA-Z-_][^\\n{]+\\{", r = {
       className: "attribute",
@@ -38598,12 +38598,12 @@ function oE() {
       ]
     };
   }
-  return ni = n, ni;
+  return ri = n, ri;
 }
-var ri, Hc;
+var ai, Vc;
 function sE() {
-  if (Hc) return ri;
-  Hc = 1;
+  if (Vc) return ai;
+  Vc = 1;
   function n(e) {
     const t = "foreach do while for if from to step else on-error and or not in", r = "global local beep delay put len typeof pick log time set find environment terminal error execute parse resolve toarray tobool toid toip toip6 tonum tostr totime", a = "add remove enable disable set get print export edit find run debug error info warning", i = "true false yes no nothing nil null", o = "traffic-flow traffic-generator firewall scheduler aaa accounting address-list address align area bandwidth-server bfd bgp bridge client clock community config connection console customer default dhcp-client dhcp-server discovery dns e-mail ethernet filter firmware gps graphing group hardware health hotspot identity igmp-proxy incoming instance interface ip ipsec ipv6 irq l2tp-server lcd ldp logging mac-server mac-winbox mangle manual mirror mme mpls nat nd neighbor network note ntp ospf ospf-v3 ovpn-server page peer pim ping policy pool port ppp pppoe-client pptp-server prefix profile proposal proxy queue radius resource rip ripng route routing screen script security-profiles server service service-port settings shares smb sms sniffer snmp snooper socks sstp-server system tool tracking type upgrade upnp user-manager users user vlan secret vrrp watchdog web-access wireless pptp pppoe lan wan layer7-protocol lease simple raw", s = {
       className: "variable",
@@ -38741,12 +38741,12 @@ function sE() {
       ]
     };
   }
-  return ri = n, ri;
+  return ai = n, ai;
 }
-var ai, Vc;
+var ii, $c;
 function lE() {
-  if (Vc) return ai;
-  Vc = 1;
+  if ($c) return ii;
+  $c = 1;
   function n(e) {
     const t = [
       "abs",
@@ -38879,12 +38879,12 @@ function lE() {
       ]
     };
   }
-  return ai = n, ai;
+  return ii = n, ii;
 }
-var ii, $c;
+var oi, zc;
 function cE() {
-  if ($c) return ii;
-  $c = 1;
+  if (zc) return oi;
+  zc = 1;
   function n(e) {
     return {
       name: "Oracle Rules Language",
@@ -38912,12 +38912,12 @@ function cE() {
       ]
     };
   }
-  return ii = n, ii;
+  return oi = n, oi;
 }
-var oi, zc;
+var si, Wc;
 function _E() {
-  if (zc) return oi;
-  zc = 1;
+  if (Wc) return si;
+  Wc = 1;
   function n(e) {
     const t = e.regex, r = /(r#)?/, a = t.concat(r, e.UNDERSCORE_IDENT_RE), i = t.concat(r, e.IDENT_RE), o = {
       className: "title.function.invoke",
@@ -39220,12 +39220,12 @@ function _E() {
       ]
     };
   }
-  return oi = n, oi;
+  return si = n, si;
 }
-var si, Wc;
+var li, Kc;
 function dE() {
-  if (Wc) return si;
-  Wc = 1;
+  if (Kc) return li;
+  Kc = 1;
   function n(e) {
     const t = e.regex, r = [
       "do",
@@ -39763,12 +39763,12 @@ function dE() {
       ]
     };
   }
-  return si = n, si;
+  return li = n, li;
 }
-var li, Kc;
+var ci, Qc;
 function uE() {
-  if (Kc) return li;
-  Kc = 1;
+  if (Qc) return ci;
+  Qc = 1;
   function n(e) {
     const t = e.regex, r = {
       className: "meta",
@@ -39945,12 +39945,12 @@ function uE() {
       ]
     };
   }
-  return li = n, li;
+  return ci = n, ci;
 }
-var ci, Qc;
+var _i, Xc;
 function pE() {
-  if (Qc) return ci;
-  Qc = 1;
+  if (Xc) return _i;
+  Xc = 1;
   function n(e) {
     const t = "[^\\(\\)\\[\\]\\{\\}\",'`;#|\\\\\\s]+", r = "(-|\\+)?\\d+([./]\\d+)?", a = r + "[+\\-]" + r + "i", i = {
       $pattern: t,
@@ -40073,12 +40073,12 @@ function pE() {
       ].concat(_)
     };
   }
-  return ci = n, ci;
+  return _i = n, _i;
 }
-var _i, Xc;
+var di, Zc;
 function mE() {
-  if (Xc) return _i;
-  Xc = 1;
+  if (Zc) return di;
+  Zc = 1;
   function n(e) {
     const t = [
       e.C_NUMBER_MODE,
@@ -40135,12 +40135,12 @@ function mE() {
       ].concat(t)
     };
   }
-  return _i = n, _i;
+  return di = n, di;
 }
-var di, Zc;
+var ui, Jc;
 function EE() {
-  if (Zc) return di;
-  Zc = 1;
+  if (Jc) return ui;
+  Jc = 1;
   const n = (_) => ({
     IMPORTANT: {
       scope: "meta",
@@ -41046,12 +41046,12 @@ function EE() {
       ]
     };
   }
-  return di = l, di;
+  return ui = l, ui;
 }
-var ui, Jc;
+var pi, jc;
 function gE() {
-  if (Jc) return ui;
-  Jc = 1;
+  if (jc) return pi;
+  jc = 1;
   function n(e) {
     return {
       name: "Shell Session",
@@ -41074,12 +41074,12 @@ function gE() {
       ]
     };
   }
-  return ui = n, ui;
+  return pi = n, pi;
 }
-var pi, jc;
+var mi, e_;
 function SE() {
-  if (jc) return pi;
-  jc = 1;
+  if (e_) return mi;
+  e_ = 1;
   function n(e) {
     const t = [
       "add",
@@ -41195,12 +41195,12 @@ function SE() {
       ]
     };
   }
-  return pi = n, pi;
+  return mi = n, mi;
 }
-var mi, e_;
+var Ei, t_;
 function TE() {
-  if (e_) return mi;
-  e_ = 1;
+  if (t_) return Ei;
+  t_ = 1;
   function n(e) {
     const t = "[a-z][a-zA-Z0-9_]*", r = {
       className: "string",
@@ -41258,12 +41258,12 @@ function TE() {
       ]
     };
   }
-  return mi = n, mi;
+  return Ei = n, Ei;
 }
-var Ei, t_;
+var gi, n_;
 function bE() {
-  if (t_) return Ei;
-  t_ = 1;
+  if (n_) return gi;
+  n_ = 1;
   function n(e) {
     return {
       name: "SML (Standard ML)",
@@ -41330,12 +41330,12 @@ function bE() {
       ]
     };
   }
-  return Ei = n, Ei;
+  return gi = n, gi;
 }
-var gi, n_;
+var Si, r_;
 function fE() {
-  if (n_) return gi;
-  n_ = 1;
+  if (r_) return Si;
+  r_ = 1;
   function n(e) {
     const t = {
       className: "variable",
@@ -43938,12 +43938,12 @@ function fE() {
       ]
     };
   }
-  return gi = n, gi;
+  return Si = n, Si;
 }
-var Si, r_;
+var Ti, a_;
 function RE() {
-  if (r_) return Si;
-  r_ = 1;
+  if (a_) return Ti;
+  a_ = 1;
   function n(e) {
     const t = e.regex, r = e.COMMENT("--", "$"), a = {
       scope: "string",
@@ -44556,12 +44556,12 @@ function RE() {
       ]
     };
   }
-  return Si = n, Si;
+  return Ti = n, Ti;
 }
-var Ti, a_;
+var bi, i_;
 function CE() {
-  if (a_) return Ti;
-  a_ = 1;
+  if (i_) return bi;
+  i_ = 1;
   function n(e) {
     const t = e.regex, r = [
       "functions",
@@ -45047,12 +45047,12 @@ function CE() {
       ]
     };
   }
-  return Ti = n, Ti;
+  return bi = n, bi;
 }
-var bi, i_;
+var fi, o_;
 function NE() {
-  if (i_) return bi;
-  i_ = 1;
+  if (o_) return fi;
+  o_ = 1;
   function n(e) {
     return {
       name: "Stata",
@@ -45091,12 +45091,12 @@ function NE() {
       ]
     };
   }
-  return bi = n, bi;
+  return fi = n, fi;
 }
-var fi, o_;
+var Ri, s_;
 function hE() {
-  if (o_) return fi;
-  o_ = 1;
+  if (s_) return Ri;
+  s_ = 1;
   function n(e) {
     return {
       name: "STEP Part 21",
@@ -45150,12 +45150,12 @@ function hE() {
       ]
     };
   }
-  return fi = n, fi;
+  return Ri = n, Ri;
 }
-var Ri, s_;
+var Ci, l_;
 function OE() {
-  if (s_) return Ri;
-  s_ = 1;
+  if (l_) return Ci;
+  l_ = 1;
   const n = (_) => ({
     IMPORTANT: {
       scope: "meta",
@@ -46111,12 +46111,12 @@ function OE() {
       ]
     };
   }
-  return Ri = l, Ri;
+  return Ci = l, Ci;
 }
-var Ci, l_;
+var Ni, c_;
 function AE() {
-  if (l_) return Ci;
-  l_ = 1;
+  if (c_) return Ni;
+  c_ = 1;
   function n(e) {
     return {
       name: "SubUnit",
@@ -46150,12 +46150,12 @@ function AE() {
       ]
     };
   }
-  return Ci = n, Ci;
+  return Ni = n, Ni;
 }
-var Ni, c_;
+var hi, __;
 function IE() {
-  if (c_) return Ni;
-  c_ = 1;
+  if (__) return hi;
+  __ = 1;
   function n(y) {
     return y ? typeof y == "string" ? y : y.source : null;
   }
@@ -46556,14 +46556,14 @@ function IE() {
     }, Se = [
       Ae,
       Ne
-    ], ce = "([0-9]_*)+", ue = "([0-9a-fA-F]_*)+", Z = {
+    ], _e = "([0-9]_*)+", pe = "([0-9a-fA-F]_*)+", J = {
       className: "number",
       relevance: 0,
       variants: [
         // decimal floating-point-literal (subsumes decimal-literal)
-        { match: `\\b(${ce})(\\.(${ce}))?([eE][+-]?(${ce}))?\\b` },
+        { match: `\\b(${_e})(\\.(${_e}))?([eE][+-]?(${_e}))?\\b` },
         // hexadecimal floating-point-literal (subsumes hexadecimal-literal)
-        { match: `\\b0x(${ue})(\\.(${ue}))?([pP][+-]?(${ce}))?\\b` },
+        { match: `\\b0x(${pe})(\\.(${pe}))?([pP][+-]?(${_e}))?\\b` },
         // octal-literal
         { match: /\b0o([0-7]_*)+\b/ },
         // binary-literal
@@ -46583,7 +46583,7 @@ function IE() {
       label: "interpol",
       begin: t(/\\/, K, /\(/),
       end: /\)/
-    }), _e = (K = "") => ({
+    }), de = (K = "") => ({
       begin: t(K, /"""/),
       end: t(/"""/, K),
       contains: [
@@ -46601,10 +46601,10 @@ function IE() {
     }), Ie = {
       className: "string",
       variants: [
-        _e(),
-        _e("#"),
-        _e("##"),
-        _e("###"),
+        de(),
+        de("#"),
+        de("##"),
+        de("###"),
         Te(),
         Te("#"),
         Te("##"),
@@ -46664,7 +46664,7 @@ function IE() {
           keywords: C,
           contains: [
             ...Se,
-            Z,
+            J,
             Ie
           ]
         }
@@ -46740,7 +46740,7 @@ function IE() {
         ...ie,
         ...Ce,
         ...Se,
-        Z,
+        J,
         Ie,
         ...et,
         ...Ye,
@@ -46780,7 +46780,7 @@ function IE() {
         ...x,
         ...ie,
         ...Se,
-        Z,
+        J,
         Ie,
         ...Ye,
         be,
@@ -46905,7 +46905,7 @@ function IE() {
         ...ie,
         ...Ce,
         ...Se,
-        Z,
+        J,
         Ie,
         ...et
       ];
@@ -46943,7 +46943,7 @@ function IE() {
         ...ie,
         ...Ce,
         ...Se,
-        Z,
+        J,
         Ie,
         ...et,
         ...Ye,
@@ -46952,12 +46952,12 @@ function IE() {
       ]
     };
   }
-  return Ni = L, Ni;
+  return hi = L, hi;
 }
-var hi, __;
+var Oi, d_;
 function vE() {
-  if (__) return hi;
-  __ = 1;
+  if (d_) return Oi;
+  d_ = 1;
   function n(e) {
     return {
       name: "Tagger Script",
@@ -46998,12 +46998,12 @@ function vE() {
       ]
     };
   }
-  return hi = n, hi;
+  return Oi = n, Oi;
 }
-var Oi, d_;
+var Ai, u_;
 function yE() {
-  if (d_) return Oi;
-  d_ = 1;
+  if (u_) return Ai;
+  u_ = 1;
   function n(e) {
     const t = "true false yes no null", r = "[\\w#;/?:@&=+$,.~*'()[\\]]+", a = {
       className: "attr",
@@ -47184,12 +47184,12 @@ function yE() {
       contains: T
     };
   }
-  return Oi = n, Oi;
+  return Ai = n, Ai;
 }
-var Ai, u_;
+var Ii, p_;
 function DE() {
-  if (u_) return Ai;
-  u_ = 1;
+  if (p_) return Ii;
+  p_ = 1;
   function n(e) {
     return {
       name: "Test Anything Protocol",
@@ -47227,12 +47227,12 @@ function DE() {
       ]
     };
   }
-  return Ai = n, Ai;
+  return Ii = n, Ii;
 }
-var Ii, p_;
+var vi, m_;
 function ME() {
-  if (p_) return Ii;
-  p_ = 1;
+  if (m_) return vi;
+  m_ = 1;
   function n(e) {
     const t = e.regex, r = /[a-zA-Z_][a-zA-Z0-9_]*/, a = {
       className: "number",
@@ -47408,12 +47408,12 @@ function ME() {
       ]
     };
   }
-  return Ii = n, Ii;
+  return vi = n, vi;
 }
-var vi, m_;
+var yi, E_;
 function LE() {
-  if (m_) return vi;
-  m_ = 1;
+  if (E_) return yi;
+  E_ = 1;
   function n(e) {
     const t = [
       "bool",
@@ -47481,12 +47481,12 @@ function LE() {
       ]
     };
   }
-  return vi = n, vi;
+  return yi = n, yi;
 }
-var yi, E_;
+var Di, g_;
 function xE() {
-  if (E_) return yi;
-  E_ = 1;
+  if (g_) return Di;
+  g_ = 1;
   function n(e) {
     const t = {
       className: "number",
@@ -47644,12 +47644,12 @@ function xE() {
       ]
     };
   }
-  return yi = n, yi;
+  return Di = n, Di;
 }
-var Di, g_;
+var Mi, S_;
 function wE() {
-  if (g_) return Di;
-  g_ = 1;
+  if (S_) return Mi;
+  S_ = 1;
   function n(e) {
     const t = e.regex, r = [
       "absolute_url",
@@ -47875,12 +47875,12 @@ function wE() {
       ]
     };
   }
-  return Di = n, Di;
+  return Mi = n, Mi;
 }
-var Mi, S_;
+var Li, T_;
 function PE() {
-  if (S_) return Mi;
-  S_ = 1;
+  if (T_) return Li;
+  T_ = 1;
   const n = "[A-Za-z$_][0-9A-Za-z$_]*", e = [
     "as",
     // for exports
@@ -48042,19 +48042,19 @@ function PE() {
        * @param {CallbackResponse} response
        */
       isTrulyOpeningTag: (W, re) => {
-        const ae = W[0].length + W.index, _e = W.input[ae];
+        const ae = W[0].length + W.index, de = W.input[ae];
         if (
           // HTML should not include another raw `<` inside a tag
           // nested type?
           // `<Array<Array<number>>`, etc.
-          _e === "<" || // the , gives away that this is not HTML
+          de === "<" || // the , gives away that this is not HTML
           // `<T, A extends keyof T, V>`
-          _e === ","
+          de === ","
         ) {
           re.ignoreMatch();
           return;
         }
-        _e === ">" && (u(W, { after: ae }) || re.ignoreMatch());
+        de === ">" && (u(W, { after: ae }) || re.ignoreMatch());
         let Te;
         const Ie = W.input.substring(ae);
         if (Te = Ie.match(/^\s*=/)) {
@@ -48344,7 +48344,7 @@ function PE() {
       keywords: "prototype",
       className: "property",
       relevance: 0
-    }, ce = {
+    }, _e = {
       match: [
         /get|set/,
         /\s+/,
@@ -48362,7 +48362,7 @@ function PE() {
         },
         Q
       ]
-    }, ue = "(\\([^()]*(\\([^()]*(\\([^()]*\\)[^()]*)*\\)[^()]*)*\\)|" + c.UNDERSCORE_IDENT_RE + ")\\s*=>", Z = {
+    }, pe = "(\\([^()]*(\\([^()]*(\\([^()]*\\)[^()]*)*\\)[^()]*)*\\)|" + c.UNDERSCORE_IDENT_RE + ")\\s*=>", J = {
       match: [
         /const|var|let/,
         /\s+/,
@@ -48371,7 +48371,7 @@ function PE() {
         /=\s*/,
         /(async\s*)?/,
         // async is optional
-        d.lookahead(ue)
+        d.lookahead(pe)
       ],
       keywords: "async",
       className: {
@@ -48412,7 +48412,7 @@ function PE() {
           match: E + d.lookahead(":"),
           relevance: 0
         },
-        Z,
+        J,
         {
           // "value" container
           begin: "(" + c.RE_STARTERS_RE + "|\\b(case|return|throw)\\b)\\s*",
@@ -48426,7 +48426,7 @@ function PE() {
               // we have to count the parens to make sure we actually have the
               // correct bounding ( ) before the =>.  There could be any number of
               // sub-expressions inside also surrounded by parens.
-              begin: ue,
+              begin: pe,
               returnBegin: !0,
               end: "\\s*=>",
               contains: [
@@ -48528,7 +48528,7 @@ function PE() {
         Ne,
         Ce,
         ee,
-        ce,
+        _e,
         {
           match: /\$[(.]/
           // relevance booster for a pattern common to JS libs: `$(something)` and `$.something`
@@ -48631,12 +48631,12 @@ function PE() {
       ]
     }), u;
   }
-  return Mi = _, Mi;
+  return Li = _, Li;
 }
-var Li, T_;
+var xi, b_;
 function kE() {
-  if (T_) return Li;
-  T_ = 1;
+  if (b_) return xi;
+  b_ = 1;
   function n(e) {
     return {
       name: "Vala",
@@ -48676,12 +48676,12 @@ function kE() {
       ]
     };
   }
-  return Li = n, Li;
+  return xi = n, xi;
 }
-var xi, b_;
+var wi, f_;
 function UE() {
-  if (b_) return xi;
-  b_ = 1;
+  if (f_) return wi;
+  f_ = 1;
   function n(e) {
     const t = e.regex, r = {
       className: "string",
@@ -48801,12 +48801,12 @@ function UE() {
       ]
     };
   }
-  return xi = n, xi;
+  return wi = n, wi;
 }
-var wi, f_;
+var Pi, R_;
 function FE() {
-  if (f_) return wi;
-  f_ = 1;
+  if (R_) return Pi;
+  R_ = 1;
   function n(e) {
     const t = e.regex, r = [
       "lcase",
@@ -49006,12 +49006,12 @@ function FE() {
       ]
     };
   }
-  return wi = n, wi;
+  return Pi = n, Pi;
 }
-var Pi, R_;
+var ki, C_;
 function BE() {
-  if (R_) return Pi;
-  R_ = 1;
+  if (C_) return ki;
+  C_ = 1;
   function n(e) {
     return {
       name: "VBScript in HTML",
@@ -49025,12 +49025,12 @@ function BE() {
       ]
     };
   }
-  return Pi = n, Pi;
+  return ki = n, ki;
 }
-var ki, C_;
+var Ui, N_;
 function GE() {
-  if (C_) return ki;
-  C_ = 1;
+  if (N_) return Ui;
+  N_ = 1;
   function n(e) {
     const t = e.regex, r = {
       $pattern: /\$?[\w]+(\$[\w]+)*/,
@@ -49567,12 +49567,12 @@ function GE() {
       ]
     };
   }
-  return ki = n, ki;
+  return Ui = n, Ui;
 }
-var Ui, N_;
+var Fi, h_;
 function YE() {
-  if (N_) return Ui;
-  N_ = 1;
+  if (h_) return Fi;
+  h_ = 1;
   function n(e) {
     const t = "\\d(_|\\d)*", r = "[eE][-+]?" + t, a = t + "(\\." + t + ")?(" + r + ")?", i = "\\w+", s = "\\b(" + (t + "#" + i + "(\\." + i + ")?#(" + r + ")?") + "|" + a + ")";
     return {
@@ -49764,12 +49764,12 @@ function YE() {
       ]
     };
   }
-  return Ui = n, Ui;
+  return Fi = n, Fi;
 }
-var Fi, h_;
+var Bi, O_;
 function qE() {
-  if (h_) return Fi;
-  h_ = 1;
+  if (O_) return Bi;
+  O_ = 1;
   function n(e) {
     return {
       name: "Vim Script",
@@ -49839,12 +49839,12 @@ function qE() {
       ]
     };
   }
-  return Fi = n, Fi;
+  return Bi = n, Bi;
 }
-var Bi, O_;
+var Gi, A_;
 function HE() {
-  if (O_) return Bi;
-  O_ = 1;
+  if (A_) return Gi;
+  A_ = 1;
   function n(e) {
     e.regex;
     const t = e.COMMENT(/\(;/, /;\)/);
@@ -49956,12 +49956,12 @@ function HE() {
       ]
     };
   }
-  return Bi = n, Bi;
+  return Gi = n, Gi;
 }
-var Gi, A_;
+var Yi, I_;
 function VE() {
-  if (A_) return Gi;
-  A_ = 1;
+  if (I_) return Yi;
+  I_ = 1;
   function n(e) {
     const t = e.regex, r = /[a-zA-Z]\w*/, a = [
       "as",
@@ -50218,12 +50218,12 @@ function VE() {
       ]
     };
   }
-  return Gi = n, Gi;
+  return Yi = n, Yi;
 }
-var Yi, I_;
+var qi, v_;
 function $E() {
-  if (I_) return Yi;
-  I_ = 1;
+  if (v_) return qi;
+  v_ = 1;
   function n(e) {
     return {
       name: "Intel x86 Assembly",
@@ -50309,12 +50309,12 @@ function $E() {
       ]
     };
   }
-  return Yi = n, Yi;
+  return qi = n, qi;
 }
-var qi, v_;
+var Hi, y_;
 function zE() {
-  if (v_) return qi;
-  v_ = 1;
+  if (y_) return Hi;
+  y_ = 1;
   function n(e) {
     const t = [
       "if",
@@ -50500,12 +50500,12 @@ function zE() {
       ]
     };
   }
-  return qi = n, qi;
+  return Hi = n, Hi;
 }
-var Hi, y_;
+var Vi, D_;
 function WE() {
-  if (y_) return Hi;
-  y_ = 1;
+  if (D_) return Vi;
+  D_ = 1;
   function n(e) {
     return {
       name: "XQuery",
@@ -50818,12 +50818,12 @@ function WE() {
       ]
     };
   }
-  return Hi = n, Hi;
+  return Vi = n, Vi;
 }
-var Vi, D_;
+var $i, M_;
 function KE() {
-  if (D_) return Vi;
-  D_ = 1;
+  if (M_) return $i;
+  M_ = 1;
   function n(e) {
     const t = {
       className: "string",
@@ -50918,14 +50918,14 @@ function KE() {
       ]
     };
   }
-  return Vi = n, Vi;
+  return $i = n, $i;
 }
-var $i, M_;
+var zi, L_;
 function QE() {
-  if (M_) return $i;
-  M_ = 1;
+  if (L_) return zi;
+  L_ = 1;
   var n = /* @__PURE__ */ Tu();
-  return n.registerLanguage("1c", /* @__PURE__ */ bu()), n.registerLanguage("abnf", /* @__PURE__ */ fu()), n.registerLanguage("accesslog", /* @__PURE__ */ Ru()), n.registerLanguage("actionscript", /* @__PURE__ */ Cu()), n.registerLanguage("ada", /* @__PURE__ */ Nu()), n.registerLanguage("angelscript", /* @__PURE__ */ hu()), n.registerLanguage("apache", /* @__PURE__ */ Ou()), n.registerLanguage("applescript", /* @__PURE__ */ Au()), n.registerLanguage("arcade", /* @__PURE__ */ Iu()), n.registerLanguage("arduino", /* @__PURE__ */ vu()), n.registerLanguage("armasm", /* @__PURE__ */ yu()), n.registerLanguage("xml", /* @__PURE__ */ Du()), n.registerLanguage("asciidoc", /* @__PURE__ */ Mu()), n.registerLanguage("aspectj", /* @__PURE__ */ Lu()), n.registerLanguage("autohotkey", /* @__PURE__ */ xu()), n.registerLanguage("autoit", /* @__PURE__ */ wu()), n.registerLanguage("avrasm", /* @__PURE__ */ Pu()), n.registerLanguage("awk", /* @__PURE__ */ ku()), n.registerLanguage("axapta", /* @__PURE__ */ Uu()), n.registerLanguage("bash", /* @__PURE__ */ Fu()), n.registerLanguage("basic", /* @__PURE__ */ Bu()), n.registerLanguage("bnf", /* @__PURE__ */ Gu()), n.registerLanguage("brainfuck", /* @__PURE__ */ Yu()), n.registerLanguage("c", /* @__PURE__ */ qu()), n.registerLanguage("cal", /* @__PURE__ */ Hu()), n.registerLanguage("capnproto", /* @__PURE__ */ Vu()), n.registerLanguage("ceylon", /* @__PURE__ */ $u()), n.registerLanguage("clean", /* @__PURE__ */ zu()), n.registerLanguage("clojure", /* @__PURE__ */ Wu()), n.registerLanguage("clojure-repl", /* @__PURE__ */ Ku()), n.registerLanguage("cmake", /* @__PURE__ */ Qu()), n.registerLanguage("coffeescript", /* @__PURE__ */ Xu()), n.registerLanguage("coq", /* @__PURE__ */ Zu()), n.registerLanguage("cos", /* @__PURE__ */ Ju()), n.registerLanguage("cpp", /* @__PURE__ */ ju()), n.registerLanguage("crmsh", /* @__PURE__ */ ep()), n.registerLanguage("crystal", /* @__PURE__ */ tp()), n.registerLanguage("csharp", /* @__PURE__ */ np()), n.registerLanguage("csp", /* @__PURE__ */ rp()), n.registerLanguage("css", /* @__PURE__ */ ap()), n.registerLanguage("d", /* @__PURE__ */ ip()), n.registerLanguage("markdown", /* @__PURE__ */ op()), n.registerLanguage("dart", /* @__PURE__ */ sp()), n.registerLanguage("delphi", /* @__PURE__ */ lp()), n.registerLanguage("diff", /* @__PURE__ */ cp()), n.registerLanguage("django", /* @__PURE__ */ _p()), n.registerLanguage("dns", /* @__PURE__ */ dp()), n.registerLanguage("dockerfile", /* @__PURE__ */ up()), n.registerLanguage("dos", /* @__PURE__ */ pp()), n.registerLanguage("dsconfig", /* @__PURE__ */ mp()), n.registerLanguage("dts", /* @__PURE__ */ Ep()), n.registerLanguage("dust", /* @__PURE__ */ gp()), n.registerLanguage("ebnf", /* @__PURE__ */ Sp()), n.registerLanguage("elixir", /* @__PURE__ */ Tp()), n.registerLanguage("elm", /* @__PURE__ */ bp()), n.registerLanguage("ruby", /* @__PURE__ */ fp()), n.registerLanguage("erb", /* @__PURE__ */ Rp()), n.registerLanguage("erlang-repl", /* @__PURE__ */ Cp()), n.registerLanguage("erlang", /* @__PURE__ */ Np()), n.registerLanguage("excel", /* @__PURE__ */ hp()), n.registerLanguage("fix", /* @__PURE__ */ Op()), n.registerLanguage("flix", /* @__PURE__ */ Ap()), n.registerLanguage("fortran", /* @__PURE__ */ Ip()), n.registerLanguage("fsharp", /* @__PURE__ */ vp()), n.registerLanguage("gams", /* @__PURE__ */ yp()), n.registerLanguage("gauss", /* @__PURE__ */ Dp()), n.registerLanguage("gcode", /* @__PURE__ */ Mp()), n.registerLanguage("gherkin", /* @__PURE__ */ Lp()), n.registerLanguage("glsl", /* @__PURE__ */ xp()), n.registerLanguage("gml", /* @__PURE__ */ wp()), n.registerLanguage("go", /* @__PURE__ */ Pp()), n.registerLanguage("golo", /* @__PURE__ */ kp()), n.registerLanguage("gradle", /* @__PURE__ */ Up()), n.registerLanguage("graphql", /* @__PURE__ */ Fp()), n.registerLanguage("groovy", /* @__PURE__ */ Bp()), n.registerLanguage("haml", /* @__PURE__ */ Gp()), n.registerLanguage("handlebars", /* @__PURE__ */ Yp()), n.registerLanguage("haskell", /* @__PURE__ */ qp()), n.registerLanguage("haxe", /* @__PURE__ */ Hp()), n.registerLanguage("hsp", /* @__PURE__ */ Vp()), n.registerLanguage("http", /* @__PURE__ */ $p()), n.registerLanguage("hy", /* @__PURE__ */ zp()), n.registerLanguage("inform7", /* @__PURE__ */ Wp()), n.registerLanguage("ini", /* @__PURE__ */ Kp()), n.registerLanguage("irpf90", /* @__PURE__ */ Qp()), n.registerLanguage("isbl", /* @__PURE__ */ Xp()), n.registerLanguage("java", /* @__PURE__ */ Zp()), n.registerLanguage("javascript", /* @__PURE__ */ Jp()), n.registerLanguage("jboss-cli", /* @__PURE__ */ jp()), n.registerLanguage("json", /* @__PURE__ */ em()), n.registerLanguage("julia", /* @__PURE__ */ tm()), n.registerLanguage("julia-repl", /* @__PURE__ */ nm()), n.registerLanguage("kotlin", /* @__PURE__ */ rm()), n.registerLanguage("lasso", /* @__PURE__ */ am()), n.registerLanguage("latex", /* @__PURE__ */ im()), n.registerLanguage("ldif", /* @__PURE__ */ om()), n.registerLanguage("leaf", /* @__PURE__ */ sm()), n.registerLanguage("less", /* @__PURE__ */ lm()), n.registerLanguage("lisp", /* @__PURE__ */ cm()), n.registerLanguage("livecodeserver", /* @__PURE__ */ _m()), n.registerLanguage("livescript", /* @__PURE__ */ dm()), n.registerLanguage("llvm", /* @__PURE__ */ um()), n.registerLanguage("lsl", /* @__PURE__ */ pm()), n.registerLanguage("lua", /* @__PURE__ */ mm()), n.registerLanguage("makefile", /* @__PURE__ */ Em()), n.registerLanguage("mathematica", /* @__PURE__ */ gm()), n.registerLanguage("matlab", /* @__PURE__ */ Sm()), n.registerLanguage("maxima", /* @__PURE__ */ Tm()), n.registerLanguage("mel", /* @__PURE__ */ bm()), n.registerLanguage("mercury", /* @__PURE__ */ fm()), n.registerLanguage("mipsasm", /* @__PURE__ */ Rm()), n.registerLanguage("mizar", /* @__PURE__ */ Cm()), n.registerLanguage("perl", /* @__PURE__ */ Nm()), n.registerLanguage("mojolicious", /* @__PURE__ */ hm()), n.registerLanguage("monkey", /* @__PURE__ */ Om()), n.registerLanguage("moonscript", /* @__PURE__ */ Am()), n.registerLanguage("n1ql", /* @__PURE__ */ Im()), n.registerLanguage("nestedtext", /* @__PURE__ */ vm()), n.registerLanguage("nginx", /* @__PURE__ */ ym()), n.registerLanguage("nim", /* @__PURE__ */ Dm()), n.registerLanguage("nix", /* @__PURE__ */ Mm()), n.registerLanguage("node-repl", /* @__PURE__ */ Lm()), n.registerLanguage("nsis", /* @__PURE__ */ xm()), n.registerLanguage("objectivec", /* @__PURE__ */ wm()), n.registerLanguage("ocaml", /* @__PURE__ */ Pm()), n.registerLanguage("openscad", /* @__PURE__ */ km()), n.registerLanguage("oxygene", /* @__PURE__ */ Um()), n.registerLanguage("parser3", /* @__PURE__ */ Fm()), n.registerLanguage("pf", /* @__PURE__ */ Bm()), n.registerLanguage("pgsql", /* @__PURE__ */ Gm()), n.registerLanguage("php", /* @__PURE__ */ Ym()), n.registerLanguage("php-template", /* @__PURE__ */ qm()), n.registerLanguage("plaintext", /* @__PURE__ */ Hm()), n.registerLanguage("pony", /* @__PURE__ */ Vm()), n.registerLanguage("powershell", /* @__PURE__ */ $m()), n.registerLanguage("processing", /* @__PURE__ */ zm()), n.registerLanguage("profile", /* @__PURE__ */ Wm()), n.registerLanguage("prolog", /* @__PURE__ */ Km()), n.registerLanguage("properties", /* @__PURE__ */ Qm()), n.registerLanguage("protobuf", /* @__PURE__ */ Xm()), n.registerLanguage("puppet", /* @__PURE__ */ Zm()), n.registerLanguage("purebasic", /* @__PURE__ */ Jm()), n.registerLanguage("python", /* @__PURE__ */ jm()), n.registerLanguage("python-repl", /* @__PURE__ */ eE()), n.registerLanguage("q", /* @__PURE__ */ tE()), n.registerLanguage("qml", /* @__PURE__ */ nE()), n.registerLanguage("r", /* @__PURE__ */ rE()), n.registerLanguage("reasonml", /* @__PURE__ */ aE()), n.registerLanguage("rib", /* @__PURE__ */ iE()), n.registerLanguage("roboconf", /* @__PURE__ */ oE()), n.registerLanguage("routeros", /* @__PURE__ */ sE()), n.registerLanguage("rsl", /* @__PURE__ */ lE()), n.registerLanguage("ruleslanguage", /* @__PURE__ */ cE()), n.registerLanguage("rust", /* @__PURE__ */ _E()), n.registerLanguage("sas", /* @__PURE__ */ dE()), n.registerLanguage("scala", /* @__PURE__ */ uE()), n.registerLanguage("scheme", /* @__PURE__ */ pE()), n.registerLanguage("scilab", /* @__PURE__ */ mE()), n.registerLanguage("scss", /* @__PURE__ */ EE()), n.registerLanguage("shell", /* @__PURE__ */ gE()), n.registerLanguage("smali", /* @__PURE__ */ SE()), n.registerLanguage("smalltalk", /* @__PURE__ */ TE()), n.registerLanguage("sml", /* @__PURE__ */ bE()), n.registerLanguage("sqf", /* @__PURE__ */ fE()), n.registerLanguage("sql", /* @__PURE__ */ RE()), n.registerLanguage("stan", /* @__PURE__ */ CE()), n.registerLanguage("stata", /* @__PURE__ */ NE()), n.registerLanguage("step21", /* @__PURE__ */ hE()), n.registerLanguage("stylus", /* @__PURE__ */ OE()), n.registerLanguage("subunit", /* @__PURE__ */ AE()), n.registerLanguage("swift", /* @__PURE__ */ IE()), n.registerLanguage("taggerscript", /* @__PURE__ */ vE()), n.registerLanguage("yaml", /* @__PURE__ */ yE()), n.registerLanguage("tap", /* @__PURE__ */ DE()), n.registerLanguage("tcl", /* @__PURE__ */ ME()), n.registerLanguage("thrift", /* @__PURE__ */ LE()), n.registerLanguage("tp", /* @__PURE__ */ xE()), n.registerLanguage("twig", /* @__PURE__ */ wE()), n.registerLanguage("typescript", /* @__PURE__ */ PE()), n.registerLanguage("vala", /* @__PURE__ */ kE()), n.registerLanguage("vbnet", /* @__PURE__ */ UE()), n.registerLanguage("vbscript", /* @__PURE__ */ FE()), n.registerLanguage("vbscript-html", /* @__PURE__ */ BE()), n.registerLanguage("verilog", /* @__PURE__ */ GE()), n.registerLanguage("vhdl", /* @__PURE__ */ YE()), n.registerLanguage("vim", /* @__PURE__ */ qE()), n.registerLanguage("wasm", /* @__PURE__ */ HE()), n.registerLanguage("wren", /* @__PURE__ */ VE()), n.registerLanguage("x86asm", /* @__PURE__ */ $E()), n.registerLanguage("xl", /* @__PURE__ */ zE()), n.registerLanguage("xquery", /* @__PURE__ */ WE()), n.registerLanguage("zephir", /* @__PURE__ */ KE()), n.HighlightJS = n, n.default = n, $i = n, $i;
+  return n.registerLanguage("1c", /* @__PURE__ */ bu()), n.registerLanguage("abnf", /* @__PURE__ */ fu()), n.registerLanguage("accesslog", /* @__PURE__ */ Ru()), n.registerLanguage("actionscript", /* @__PURE__ */ Cu()), n.registerLanguage("ada", /* @__PURE__ */ Nu()), n.registerLanguage("angelscript", /* @__PURE__ */ hu()), n.registerLanguage("apache", /* @__PURE__ */ Ou()), n.registerLanguage("applescript", /* @__PURE__ */ Au()), n.registerLanguage("arcade", /* @__PURE__ */ Iu()), n.registerLanguage("arduino", /* @__PURE__ */ vu()), n.registerLanguage("armasm", /* @__PURE__ */ yu()), n.registerLanguage("xml", /* @__PURE__ */ Du()), n.registerLanguage("asciidoc", /* @__PURE__ */ Mu()), n.registerLanguage("aspectj", /* @__PURE__ */ Lu()), n.registerLanguage("autohotkey", /* @__PURE__ */ xu()), n.registerLanguage("autoit", /* @__PURE__ */ wu()), n.registerLanguage("avrasm", /* @__PURE__ */ Pu()), n.registerLanguage("awk", /* @__PURE__ */ ku()), n.registerLanguage("axapta", /* @__PURE__ */ Uu()), n.registerLanguage("bash", /* @__PURE__ */ Fu()), n.registerLanguage("basic", /* @__PURE__ */ Bu()), n.registerLanguage("bnf", /* @__PURE__ */ Gu()), n.registerLanguage("brainfuck", /* @__PURE__ */ Yu()), n.registerLanguage("c", /* @__PURE__ */ qu()), n.registerLanguage("cal", /* @__PURE__ */ Hu()), n.registerLanguage("capnproto", /* @__PURE__ */ Vu()), n.registerLanguage("ceylon", /* @__PURE__ */ $u()), n.registerLanguage("clean", /* @__PURE__ */ zu()), n.registerLanguage("clojure", /* @__PURE__ */ Wu()), n.registerLanguage("clojure-repl", /* @__PURE__ */ Ku()), n.registerLanguage("cmake", /* @__PURE__ */ Qu()), n.registerLanguage("coffeescript", /* @__PURE__ */ Xu()), n.registerLanguage("coq", /* @__PURE__ */ Zu()), n.registerLanguage("cos", /* @__PURE__ */ Ju()), n.registerLanguage("cpp", /* @__PURE__ */ ju()), n.registerLanguage("crmsh", /* @__PURE__ */ ep()), n.registerLanguage("crystal", /* @__PURE__ */ tp()), n.registerLanguage("csharp", /* @__PURE__ */ np()), n.registerLanguage("csp", /* @__PURE__ */ rp()), n.registerLanguage("css", /* @__PURE__ */ ap()), n.registerLanguage("d", /* @__PURE__ */ ip()), n.registerLanguage("markdown", /* @__PURE__ */ op()), n.registerLanguage("dart", /* @__PURE__ */ sp()), n.registerLanguage("delphi", /* @__PURE__ */ lp()), n.registerLanguage("diff", /* @__PURE__ */ cp()), n.registerLanguage("django", /* @__PURE__ */ _p()), n.registerLanguage("dns", /* @__PURE__ */ dp()), n.registerLanguage("dockerfile", /* @__PURE__ */ up()), n.registerLanguage("dos", /* @__PURE__ */ pp()), n.registerLanguage("dsconfig", /* @__PURE__ */ mp()), n.registerLanguage("dts", /* @__PURE__ */ Ep()), n.registerLanguage("dust", /* @__PURE__ */ gp()), n.registerLanguage("ebnf", /* @__PURE__ */ Sp()), n.registerLanguage("elixir", /* @__PURE__ */ Tp()), n.registerLanguage("elm", /* @__PURE__ */ bp()), n.registerLanguage("ruby", /* @__PURE__ */ fp()), n.registerLanguage("erb", /* @__PURE__ */ Rp()), n.registerLanguage("erlang-repl", /* @__PURE__ */ Cp()), n.registerLanguage("erlang", /* @__PURE__ */ Np()), n.registerLanguage("excel", /* @__PURE__ */ hp()), n.registerLanguage("fix", /* @__PURE__ */ Op()), n.registerLanguage("flix", /* @__PURE__ */ Ap()), n.registerLanguage("fortran", /* @__PURE__ */ Ip()), n.registerLanguage("fsharp", /* @__PURE__ */ vp()), n.registerLanguage("gams", /* @__PURE__ */ yp()), n.registerLanguage("gauss", /* @__PURE__ */ Dp()), n.registerLanguage("gcode", /* @__PURE__ */ Mp()), n.registerLanguage("gherkin", /* @__PURE__ */ Lp()), n.registerLanguage("glsl", /* @__PURE__ */ xp()), n.registerLanguage("gml", /* @__PURE__ */ wp()), n.registerLanguage("go", /* @__PURE__ */ Pp()), n.registerLanguage("golo", /* @__PURE__ */ kp()), n.registerLanguage("gradle", /* @__PURE__ */ Up()), n.registerLanguage("graphql", /* @__PURE__ */ Fp()), n.registerLanguage("groovy", /* @__PURE__ */ Bp()), n.registerLanguage("haml", /* @__PURE__ */ Gp()), n.registerLanguage("handlebars", /* @__PURE__ */ Yp()), n.registerLanguage("haskell", /* @__PURE__ */ qp()), n.registerLanguage("haxe", /* @__PURE__ */ Hp()), n.registerLanguage("hsp", /* @__PURE__ */ Vp()), n.registerLanguage("http", /* @__PURE__ */ $p()), n.registerLanguage("hy", /* @__PURE__ */ zp()), n.registerLanguage("inform7", /* @__PURE__ */ Wp()), n.registerLanguage("ini", /* @__PURE__ */ Kp()), n.registerLanguage("irpf90", /* @__PURE__ */ Qp()), n.registerLanguage("isbl", /* @__PURE__ */ Xp()), n.registerLanguage("java", /* @__PURE__ */ Zp()), n.registerLanguage("javascript", /* @__PURE__ */ Jp()), n.registerLanguage("jboss-cli", /* @__PURE__ */ jp()), n.registerLanguage("json", /* @__PURE__ */ em()), n.registerLanguage("julia", /* @__PURE__ */ tm()), n.registerLanguage("julia-repl", /* @__PURE__ */ nm()), n.registerLanguage("kotlin", /* @__PURE__ */ rm()), n.registerLanguage("lasso", /* @__PURE__ */ am()), n.registerLanguage("latex", /* @__PURE__ */ im()), n.registerLanguage("ldif", /* @__PURE__ */ om()), n.registerLanguage("leaf", /* @__PURE__ */ sm()), n.registerLanguage("less", /* @__PURE__ */ lm()), n.registerLanguage("lisp", /* @__PURE__ */ cm()), n.registerLanguage("livecodeserver", /* @__PURE__ */ _m()), n.registerLanguage("livescript", /* @__PURE__ */ dm()), n.registerLanguage("llvm", /* @__PURE__ */ um()), n.registerLanguage("lsl", /* @__PURE__ */ pm()), n.registerLanguage("lua", /* @__PURE__ */ mm()), n.registerLanguage("makefile", /* @__PURE__ */ Em()), n.registerLanguage("mathematica", /* @__PURE__ */ gm()), n.registerLanguage("matlab", /* @__PURE__ */ Sm()), n.registerLanguage("maxima", /* @__PURE__ */ Tm()), n.registerLanguage("mel", /* @__PURE__ */ bm()), n.registerLanguage("mercury", /* @__PURE__ */ fm()), n.registerLanguage("mipsasm", /* @__PURE__ */ Rm()), n.registerLanguage("mizar", /* @__PURE__ */ Cm()), n.registerLanguage("perl", /* @__PURE__ */ Nm()), n.registerLanguage("mojolicious", /* @__PURE__ */ hm()), n.registerLanguage("monkey", /* @__PURE__ */ Om()), n.registerLanguage("moonscript", /* @__PURE__ */ Am()), n.registerLanguage("n1ql", /* @__PURE__ */ Im()), n.registerLanguage("nestedtext", /* @__PURE__ */ vm()), n.registerLanguage("nginx", /* @__PURE__ */ ym()), n.registerLanguage("nim", /* @__PURE__ */ Dm()), n.registerLanguage("nix", /* @__PURE__ */ Mm()), n.registerLanguage("node-repl", /* @__PURE__ */ Lm()), n.registerLanguage("nsis", /* @__PURE__ */ xm()), n.registerLanguage("objectivec", /* @__PURE__ */ wm()), n.registerLanguage("ocaml", /* @__PURE__ */ Pm()), n.registerLanguage("openscad", /* @__PURE__ */ km()), n.registerLanguage("oxygene", /* @__PURE__ */ Um()), n.registerLanguage("parser3", /* @__PURE__ */ Fm()), n.registerLanguage("pf", /* @__PURE__ */ Bm()), n.registerLanguage("pgsql", /* @__PURE__ */ Gm()), n.registerLanguage("php", /* @__PURE__ */ Ym()), n.registerLanguage("php-template", /* @__PURE__ */ qm()), n.registerLanguage("plaintext", /* @__PURE__ */ Hm()), n.registerLanguage("pony", /* @__PURE__ */ Vm()), n.registerLanguage("powershell", /* @__PURE__ */ $m()), n.registerLanguage("processing", /* @__PURE__ */ zm()), n.registerLanguage("profile", /* @__PURE__ */ Wm()), n.registerLanguage("prolog", /* @__PURE__ */ Km()), n.registerLanguage("properties", /* @__PURE__ */ Qm()), n.registerLanguage("protobuf", /* @__PURE__ */ Xm()), n.registerLanguage("puppet", /* @__PURE__ */ Zm()), n.registerLanguage("purebasic", /* @__PURE__ */ Jm()), n.registerLanguage("python", /* @__PURE__ */ jm()), n.registerLanguage("python-repl", /* @__PURE__ */ eE()), n.registerLanguage("q", /* @__PURE__ */ tE()), n.registerLanguage("qml", /* @__PURE__ */ nE()), n.registerLanguage("r", /* @__PURE__ */ rE()), n.registerLanguage("reasonml", /* @__PURE__ */ aE()), n.registerLanguage("rib", /* @__PURE__ */ iE()), n.registerLanguage("roboconf", /* @__PURE__ */ oE()), n.registerLanguage("routeros", /* @__PURE__ */ sE()), n.registerLanguage("rsl", /* @__PURE__ */ lE()), n.registerLanguage("ruleslanguage", /* @__PURE__ */ cE()), n.registerLanguage("rust", /* @__PURE__ */ _E()), n.registerLanguage("sas", /* @__PURE__ */ dE()), n.registerLanguage("scala", /* @__PURE__ */ uE()), n.registerLanguage("scheme", /* @__PURE__ */ pE()), n.registerLanguage("scilab", /* @__PURE__ */ mE()), n.registerLanguage("scss", /* @__PURE__ */ EE()), n.registerLanguage("shell", /* @__PURE__ */ gE()), n.registerLanguage("smali", /* @__PURE__ */ SE()), n.registerLanguage("smalltalk", /* @__PURE__ */ TE()), n.registerLanguage("sml", /* @__PURE__ */ bE()), n.registerLanguage("sqf", /* @__PURE__ */ fE()), n.registerLanguage("sql", /* @__PURE__ */ RE()), n.registerLanguage("stan", /* @__PURE__ */ CE()), n.registerLanguage("stata", /* @__PURE__ */ NE()), n.registerLanguage("step21", /* @__PURE__ */ hE()), n.registerLanguage("stylus", /* @__PURE__ */ OE()), n.registerLanguage("subunit", /* @__PURE__ */ AE()), n.registerLanguage("swift", /* @__PURE__ */ IE()), n.registerLanguage("taggerscript", /* @__PURE__ */ vE()), n.registerLanguage("yaml", /* @__PURE__ */ yE()), n.registerLanguage("tap", /* @__PURE__ */ DE()), n.registerLanguage("tcl", /* @__PURE__ */ ME()), n.registerLanguage("thrift", /* @__PURE__ */ LE()), n.registerLanguage("tp", /* @__PURE__ */ xE()), n.registerLanguage("twig", /* @__PURE__ */ wE()), n.registerLanguage("typescript", /* @__PURE__ */ PE()), n.registerLanguage("vala", /* @__PURE__ */ kE()), n.registerLanguage("vbnet", /* @__PURE__ */ UE()), n.registerLanguage("vbscript", /* @__PURE__ */ FE()), n.registerLanguage("vbscript-html", /* @__PURE__ */ BE()), n.registerLanguage("verilog", /* @__PURE__ */ GE()), n.registerLanguage("vhdl", /* @__PURE__ */ YE()), n.registerLanguage("vim", /* @__PURE__ */ qE()), n.registerLanguage("wasm", /* @__PURE__ */ HE()), n.registerLanguage("wren", /* @__PURE__ */ VE()), n.registerLanguage("x86asm", /* @__PURE__ */ $E()), n.registerLanguage("xl", /* @__PURE__ */ zE()), n.registerLanguage("xquery", /* @__PURE__ */ WE()), n.registerLanguage("zephir", /* @__PURE__ */ KE()), n.HighlightJS = n, n.default = n, zi = n, zi;
 }
 var XE = /* @__PURE__ */ QE();
 const Kt = /* @__PURE__ */ Su(XE), ZE = {
@@ -50948,7 +50948,7 @@ $.setOptions({
   gfm: !0
 });
 $.use({ renderer: ZE });
-function L_(n) {
+function Wi(n) {
   return $.parse(n);
 }
 function JE(n) {
@@ -51454,6 +51454,20 @@ const pg = j_`
     margin-top: 6px;
   }
 
+  .message-tool-group-item + .message-tool-group-item {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 34%, transparent);
+  }
+
+  .message-tool-group-item-summary {
+    margin-bottom: 6px;
+    color: var(--secondary-text-color, #64748b);
+    font-size: 0.8rem;
+    font-weight: 600;
+    word-break: break-word;
+  }
+
   .message-tool-detail pre {
     margin: 8px 0 0;
     padding: 10px 12px;
@@ -51761,7 +51775,7 @@ const pg = j_`
   { key: "idle", label: "空闲" }
 ], Eg = 50, gg = 3e4, Sg = 5e3, x_ = 3e3, en = class en extends yt {
   constructor() {
-    super(...arguments), this.boardRealtimeConnected = !1, this.realtimeConnected = !1, this.collapsedSections = /* @__PURE__ */ new Set(), this.messageDraft = "", this.actionFeedback = "", this.queuedItems = [], this.apiWorkspaces = [], this.boardLoading = !1, this.boardError = "", this.dialogLoading = !1, this.dialogError = "", this.dialogMessagesByWorkspace = {}, this.expandedToolMessageKeys = /* @__PURE__ */ new Set(), this.closeWorkspaceDialog = () => {
+    super(...arguments), this.boardRealtimeConnected = !1, this.realtimeConnected = !1, this.collapsedSections = /* @__PURE__ */ new Set(), this.messageDraft = "", this.actionFeedback = "", this.queuedItems = [], this.apiWorkspaces = [], this.boardLoading = !1, this.boardError = "", this.dialogLoading = !1, this.dialogError = "", this.dialogMessagesByWorkspace = {}, this.dialogMessageVersionsByWorkspace = {}, this.expandedToolMessageKeys = /* @__PURE__ */ new Set(), this.closeWorkspaceDialog = () => {
       this.selectedWorkspaceId = void 0, this.messageDraft = "", this.actionFeedback = "", this.dialogError = "", this.dialogLoading = !1, this.expandedToolMessageKeys = /* @__PURE__ */ new Set();
     }, this.handleMessageInput = (e) => {
       this.messageDraft = e.target.value;
@@ -51785,7 +51799,7 @@ const pg = j_`
   }
   render() {
     const e = this.visibleSections;
-    return ge`
+    return le`
       <ha-card>
         <div class="board">
           ${this.renderBoardState(e)}
@@ -51798,13 +51812,13 @@ const pg = j_`
     e.has("selectedWorkspaceId") && this.selectedWorkspaceId && this.scrollMessagesToBottom(), e.has("selectedWorkspaceId") && this.isApiMode && (this.restartRealtimeConnection(), this.updateDialogPolling());
   }
   renderBoardState(e) {
-    return this.boardLoading && e.length === 0 ? ge`<div class="empty-state">正在加载工作区...</div>` : this.boardError && e.length === 0 ? ge`<div class="empty-state">${this.boardError}</div>` : e.length === 0 ? ge`<div class="empty-state">当前没有任务</div>` : e.map(
+    return this.boardLoading && e.length === 0 ? le`<div class="empty-state">正在加载工作区...</div>` : this.boardError && e.length === 0 ? le`<div class="empty-state">${this.boardError}</div>` : e.length === 0 ? le`<div class="empty-state">当前没有任务</div>` : e.map(
       ({ key: t, label: r, workspaces: a }) => this.renderSection(t, r, a)
     );
   }
   renderSection(e, t, r) {
     const a = this.collapsedSections.has(e);
-    return ge`
+    return le`
       <section class="section" ?collapsed=${a}>
         <button
           class="section-toggle"
@@ -51817,7 +51831,7 @@ const pg = j_`
           </span>
           <span class="chevron" aria-hidden="true">▾</span>
         </button>
-        ${a ? j : ge`
+        ${a ? Z : le`
               <div class="section-body">
                 ${r.map((i) => this.renderWorkspace(i))}
               </div>
@@ -51827,7 +51841,7 @@ const pg = j_`
   }
   renderWorkspace(e) {
     const t = rg(e), { relativeTime: r, filesChanged: a, linesAdded: i, linesRemoved: o } = this.getWorkspaceDisplayMeta(e);
-    return ge`
+    return le`
       <button
         class="task-card ${t.accentClass}"
         type="button"
@@ -51837,7 +51851,7 @@ const pg = j_`
         <div class="task-meta">
           <span class="meta-status">
             ${t.icons.map(
-      (s) => ge`<span class="status-icon tone-${s.tone} kind-${s.kind}"
+      (s) => le`<span class="status-icon tone-${s.tone} kind-${s.kind}"
                 >${s.symbol}</span
               >`
     )}
@@ -51857,9 +51871,9 @@ const pg = j_`
   renderDialog() {
     const e = this.selectedWorkspace;
     if (!e)
-      return j;
+      return Z;
     const t = this.getDialogMessages(e), r = e.status === "running", a = this.getQueueItems(e.id);
-    return ge`
+    return le`
       <div class="dialog-shell" role="presentation">
         <button
           class="dialog-overlay"
@@ -51895,10 +51909,10 @@ const pg = j_`
           </section>
 
           <div class="dialog-composer">
-            ${a.length > 0 ? ge`
+            ${a.length > 0 ? le`
                   <div class="queue-list">
                     ${a.map(
-      (i, o) => ge`
+      (i, o) => le`
                         <div class="queue-item">
                           <span class="queue-index">队列 ${o + 1}</span>
                           <span class="queue-content">${i.content}</span>
@@ -51906,7 +51920,7 @@ const pg = j_`
                       `
     )}
                   </div>
-                ` : j}
+                ` : Z}
             <textarea
               class="message-input"
               rows="2"
@@ -51922,12 +51936,12 @@ const pg = j_`
       this.handleActionClick(r ? "stop" : "send");
     }}
               >
-                ${r ? ge`
+                ${r ? le`
                       <span class="action-spinner" aria-hidden="true"></span>
                       <span>停止</span>
                     ` : "发送消息"}
               </button>
-              ${r ? ge`
+              ${r ? le`
                     <button
                       class="dialog-action dialog-action-secondary"
                       type="button"
@@ -51937,7 +51951,7 @@ const pg = j_`
                     >
                       加入队列
                     </button>
-                  ` : j}
+                  ` : Z}
             </div>
             <div class="dialog-feedback" aria-live="polite">
               ${this.currentFeedback}
@@ -51955,20 +51969,20 @@ const pg = j_`
     t.has(e) ? t.delete(e) : t.add(e), this.collapsedSections = t;
   }
   openWorkspaceDialog(e) {
-    this.selectedWorkspaceId = e.id, this.messageDraft = "", this.actionFeedback = "", this.dialogError = "", this.isApiMode && this.loadWorkspaceMessages(e.id, !0);
+    this.selectedWorkspaceId = e.id, this.messageDraft = "", this.actionFeedback = "", this.dialogError = "", this.isApiMode && this.loadWorkspaceMessages(e.id, this.shouldRefreshWorkspaceMessages(e));
   }
   renderDialogEntry(e) {
-    return e.kind === "tool" ? this.renderToolMessage(e) : ge`
+    return e.kind === "tool" ? this.renderToolMessage(e) : e.kind === "tool-group" ? this.renderToolGroupMessage(e) : le`
       <div class="message-row">
         <div class="message-bubble ${e.sender === "user" ? "is-user" : "is-ai"}">
-          ${$o(L_(this.compactMessageText(e.text)))}
+          ${mn(Wi(this.compactMessageText(e.text)))}
         </div>
       </div>
     `;
   }
   renderToolMessage(e) {
     const t = this.getDialogMessageIdentity(e), r = this.expandedToolMessageKeys.has(t);
-    return ge`
+    return le`
       <div class="message-tool">
         <button
           class="message-tool-button is-${e.status}"
@@ -51982,12 +51996,46 @@ const pg = j_`
           </span>
           <span class="message-tool-status">${e.statusLabel}</span>
         </button>
-        ${r ? ge`
+        ${r ? le`
               <div class="message-tool-detail">
-                ${e.command ? ge`<div class="message-tool-command">${e.command}</div>` : j}
-                ${e.detail ? ge`${$o(L_(e.detail))}` : j}
+                ${e.command ? le`<div class="message-tool-command">${e.command}</div>` : Z}
+                ${e.detail ? le`${mn(Wi(e.detail))}` : Z}
               </div>
-            ` : j}
+            ` : Z}
+      </div>
+    `;
+  }
+  renderToolGroupMessage(e) {
+    const t = this.getDialogMessageIdentity(e), r = this.expandedToolMessageKeys.has(t);
+    return le`
+      <div class="message-tool">
+        <button
+          class="message-tool-button is-${e.status}"
+          type="button"
+          @click=${() => this.toggleToolMessage(t)}
+        >
+          <span class="message-tool-icon" aria-hidden="true">${e.icon}</span>
+          <span class="message-tool-summary">
+            <span class="message-tool-name">${e.toolName}</span>
+            <span class="message-tool-text">${e.summary}</span>
+          </span>
+          <span class="message-tool-status">${e.statusLabel}</span>
+        </button>
+        ${r ? le`
+              <div class="message-tool-detail">
+                ${e.items.map((a) => this.renderGroupedToolDetail(a))}
+              </div>
+            ` : Z}
+      </div>
+    `;
+  }
+  renderGroupedToolDetail(e) {
+    return le`
+      <div class="message-tool-group-item">
+        <div class="message-tool-group-item-summary">
+          ${e.command ?? e.summary}
+        </div>
+        ${e.detail ? le`${mn(Wi(e.detail))}` : Z}
       </div>
     `;
   }
@@ -52033,7 +52081,7 @@ const pg = j_`
   getWorkspaceDisplayMeta(e) {
     const t = e.relative_time || e.updated_at || e.last_message_at || (e.status === "completed" ? e.completed_at ?? this.entityAttributes?.updated_at : this.entityAttributes?.updated_at);
     return {
-      relativeTime: e.relative_time || Wo(t),
+      relativeTime: e.relative_time || Ko(t),
       filesChanged: e.files_changed ?? 0,
       linesAdded: e.lines_added ?? 0,
       linesRemoved: e.lines_removed ?? 0
@@ -52125,7 +52173,8 @@ const pg = j_`
       return {
         kind: "message",
         sender: e.role === "user" ? "user" : "ai",
-        text: this.compactMessageText(t)
+        text: this.compactMessageText(t),
+        timestamp: e.timestamp
       };
   }
   compactMessageText(e) {
@@ -52192,7 +52241,7 @@ const pg = j_`
   connectBoardRealtimeIfNeeded() {
     if (!this.config?.base_url || typeof WebSocket > "u")
       return;
-    const e = zo({
+    const e = Wo({
       baseUrl: this.config.base_url,
       apiKey: this.config.api_key,
       onOpen: () => {
@@ -52215,7 +52264,7 @@ const pg = j_`
       this.realtimeConnected = !1;
       return;
     }
-    const t = zo({
+    const t = Wo({
       baseUrl: this.config.base_url,
       apiKey: this.config.api_key,
       sessionId: e,
@@ -52265,30 +52314,32 @@ const pg = j_`
   }
   appendRealtimeMessages(e, t) {
     const r = this.apiWorkspaces.find(
-      (s) => s.latest_session_id === e || s.last_session_id === e
+      (d) => d.latest_session_id === e || d.last_session_id === e
     );
     if (!r)
       return;
-    const a = this.dialogMessagesByWorkspace[r.id] ?? [], i = [...a], o = new Map(
-      a.map((s, l) => [this.getDialogMessageIdentity(s), l])
-    );
-    for (const s of this.normalizeApiMessages(t)) {
-      const l = this.getDialogMessageIdentity(s), _ = this.findMatchingOptimisticUserMessageIndex(i, s);
-      if (typeof _ == "number") {
-        i[_] = s, o.set(l, _);
+    const a = this.dialogMessagesByWorkspace[r.id] ?? [], i = this.flattenDialogMessages(a), o = [...i], s = new Map(
+      i.map((d, u) => [this.getDialogMessageIdentity(d), u])
+    ), l = this.getLatestDialogTimestamp(i);
+    let _ = !1;
+    for (const d of this.normalizeApiMessagesFlat(t)) {
+      const u = this.getDialogMessageIdentity(d), E = this.findMatchingOptimisticUserMessageIndex(o, d);
+      if (typeof E == "number") {
+        o[E] = d, s.set(u, E), _ = _ || this.isMessageAtOrAfter(d.timestamp, l);
         continue;
       }
-      const c = o.get(l);
-      if (typeof c == "number") {
-        i[c] = s;
+      const m = s.get(u);
+      if (typeof m == "number") {
+        o[m] = d, _ = _ || this.isMessageAtOrAfter(d.timestamp, l);
         continue;
       }
-      o.set(l, i.length), i.push(s);
+      this.isMessageStrictlyAfter(d.timestamp, l) && (s.set(u, o.length), o.push(d), _ = _ || this.isMessageAtOrAfter(d.timestamp, l));
     }
-    this.dialogMessagesByWorkspace = {
+    const c = this.sortDialogMessagesByTimestamp(o);
+    this.areFlatMessagesEqual(i, c) || (this.dialogMessagesByWorkspace = {
       ...this.dialogMessagesByWorkspace,
-      [r.id]: i
-    }, this.requestUpdate(), this.updateComplete.then(() => this.scrollMessagesToBottom());
+      [r.id]: this.groupConsecutiveToolMessages(c)
+    }, this.requestUpdate(), _ && this.updateComplete.then(() => this.scrollMessagesToBottom()));
   }
   async loadActiveWorkspaces() {
     if (this.config?.base_url) {
@@ -52320,7 +52371,7 @@ const pg = j_`
       has_unseen_turns: e.has_unseen_turns,
       has_running_dev_server: e.has_running_dev_server,
       updated_at: t,
-      relative_time: Wo(t),
+      relative_time: Ko(t),
       files_changed: e.files_changed ?? 0,
       lines_added: e.lines_added ?? 0,
       lines_removed: e.lines_removed ?? 0
@@ -52332,6 +52383,12 @@ const pg = j_`
       return r ? -1 : 1;
     const i = (e.name || e.id).trim().toLocaleLowerCase("zh-CN"), o = (t.name || t.id).trim().toLocaleLowerCase("zh-CN");
     return i !== o ? i.localeCompare(o, "zh-CN") : e.id.localeCompare(t.id, "zh-CN");
+  }
+  shouldRefreshWorkspaceMessages(e) {
+    return this.dialogMessagesByWorkspace[e.id]?.length ? this.getWorkspaceMessageVersion(e) !== this.dialogMessageVersionsByWorkspace[e.id] : !0;
+  }
+  getWorkspaceMessageVersion(e) {
+    return e.last_message_at || e.updated_at || e.latest_session_id || "";
   }
   async loadWorkspaceMessages(e, t = !1) {
     if (this.config?.base_url && !(!t && this.dialogMessagesByWorkspace[e])) {
@@ -52349,7 +52406,12 @@ const pg = j_`
             this.dialogMessagesByWorkspace[e] ?? [],
             a
           )
-        }, this.emitPreviewStatus(), this.requestUpdate(), await this.updateComplete, this.scrollMessagesToBottom();
+        };
+        const i = this.allWorkspaces.find((o) => o.id === e);
+        i && (this.dialogMessageVersionsByWorkspace = {
+          ...this.dialogMessageVersionsByWorkspace,
+          [e]: this.getWorkspaceMessageVersion(i)
+        }), this.emitPreviewStatus(), this.requestUpdate(), await this.updateComplete, this.scrollMessagesToBottom();
       } catch (r) {
         this.dialogError = this.toErrorMessage(r, "加载消息失败"), this.emitPreviewStatus(this.dialogError);
       } finally {
@@ -52358,6 +52420,9 @@ const pg = j_`
     }
   }
   normalizeApiMessages(e) {
+    return this.groupConsecutiveToolMessages(this.normalizeApiMessagesFlat(e));
+  }
+  normalizeApiMessagesFlat(e) {
     return (Array.isArray(e) ? e : []).map((t) => {
       if (t.entry_type === "tool_use")
         return this.normalizeApiToolMessage(t);
@@ -52366,7 +52431,8 @@ const pg = j_`
           key: this.buildMessageKey(t),
           kind: "message",
           sender: t.role === "user" ? "user" : "ai",
-          text: this.compactMessageText(t.content)
+          text: this.compactMessageText(t.content),
+          timestamp: t.timestamp
         };
     }).filter((t) => !!t);
   }
@@ -52382,11 +52448,78 @@ const pg = j_`
         status: t.status,
         statusLabel: t.statusLabel,
         icon: t.icon,
-        command: t.command
+        command: t.command,
+        timestamp: e.timestamp
       };
   }
   getDialogMessageIdentity(e) {
-    return e.key ? e.key : e.kind === "tool" ? `tool:${e.toolName}:${e.summary}:${e.status}` : `${e.sender}:${e.text}`;
+    return e.key ? e.key : e.kind === "tool-group" ? `tool-group:${e.toolName}:${e.summary}:${e.status}` : e.kind === "tool" ? `tool:${e.toolName}:${e.summary}:${e.status}` : `${e.sender}:${e.text}`;
+  }
+  groupConsecutiveToolMessages(e) {
+    const t = [];
+    for (const r of e) {
+      const a = t.at(-1);
+      if (r.kind === "tool" && a?.kind === "tool-group" && a.toolName === r.toolName) {
+        a.items = [...a.items, r], a.summary = `${a.items.length} commands`, a.status = this.getGroupedToolStatus(a.items), a.statusLabel = a.items.length > 1 ? `${a.items.length} 条` : a.statusLabel, a.timestamp = this.getLatestDialogTimestamp(a.items);
+        continue;
+      }
+      if (r.kind === "tool" && a?.kind === "tool" && a.toolName === r.toolName) {
+        t[t.length - 1] = {
+          kind: "tool-group",
+          toolName: r.toolName,
+          summary: "2 commands",
+          status: this.getGroupedToolStatus([a, r]),
+          statusLabel: "2 条",
+          icon: r.icon,
+          items: [a, r],
+          timestamp: this.getLatestDialogTimestamp([a, r])
+        };
+        continue;
+      }
+      t.push(r);
+    }
+    return t;
+  }
+  getGroupedToolStatus(e) {
+    return e.some((t) => t.status === "error") ? "error" : e.some((t) => t.status === "pending") ? "pending" : e.some((t) => t.status === "running") ? "running" : e.some((t) => t.status === "denied") ? "denied" : e.every((t) => t.status === "success") ? "success" : "idle";
+  }
+  flattenDialogMessages(e) {
+    return e.flatMap((t) => t.kind === "tool-group" ? t.items : [t]);
+  }
+  sortDialogMessagesByTimestamp(e) {
+    return [...e].sort((t, r) => {
+      const a = t.timestamp ?? "", i = r.timestamp ?? "";
+      return a && i && a !== i ? a.localeCompare(i) : this.getDialogMessageIdentity(t).localeCompare(this.getDialogMessageIdentity(r), "zh-CN");
+    });
+  }
+  getLatestDialogTimestamp(e) {
+    return e.reduce((t, r) => r.timestamp && (!t || r.timestamp.localeCompare(t) > 0) ? r.timestamp : t, void 0);
+  }
+  isMessageAtOrAfter(e, t) {
+    return e ? t ? e.localeCompare(t) >= 0 : !0 : !t;
+  }
+  isMessageStrictlyAfter(e, t) {
+    return e ? t ? e.localeCompare(t) > 0 : !0 : !t;
+  }
+  areFlatMessagesEqual(e, t) {
+    return e.length !== t.length ? !1 : e.every((r, a) => this.getFlatMessageSignature(r) === this.getFlatMessageSignature(t[a]));
+  }
+  getFlatMessageSignature(e) {
+    return e.kind === "tool" ? [
+      "tool",
+      this.getDialogMessageIdentity(e),
+      e.timestamp ?? "",
+      e.status,
+      e.summary,
+      e.detail,
+      e.command ?? ""
+    ].join("::") : [
+      "message",
+      this.getDialogMessageIdentity(e),
+      e.timestamp ?? "",
+      e.sender,
+      e.text
+    ].join("::");
   }
   appendOptimisticUserMessage(e, t) {
     const r = {
@@ -52441,8 +52574,8 @@ en.styles = pg, en.properties = {
   dialogError: { state: !0 },
   dialogMessagesByWorkspace: { state: !0 }
 };
-let Zi = en;
-customElements.get("kanban-watcher-card") || customElements.define("kanban-watcher-card", Zi);
+let ji = en;
+customElements.get("kanban-watcher-card") || customElements.define("kanban-watcher-card", ji);
 window.customCards = window.customCards ?? [];
 window.customCards.some((n) => n.type === "kanban-watcher-card") || window.customCards.push({
   type: "kanban-watcher-card",
@@ -52450,5 +52583,5 @@ window.customCards.some((n) => n.type === "kanban-watcher-card") || window.custo
   description: "Compact Home Assistant card for Kanban Watcher workspaces."
 });
 export {
-  Zi as KanbanWatcherCard
+  ji as KanbanWatcherCard
 };
