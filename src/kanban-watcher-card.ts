@@ -487,6 +487,7 @@ export class KanbanWatcherCard extends LitElement {
         workspaceId: this.selectedWorkspaceId,
         message,
       });
+      this.appendOptimisticUserMessage(this.selectedWorkspaceId, message);
       this.messageDraft = "";
       this.actionFeedback = response.message?.trim()
         ? `发送成功：${response.message.trim()}`
@@ -971,6 +972,12 @@ export class KanbanWatcherCard extends LitElement {
 
     for (const message of this.normalizeApiMessages(messages)) {
       const key = this.getDialogMessageIdentity(message);
+      const optimisticIndex = this.findMatchingOptimisticUserMessageIndex(merged, message);
+      if (typeof optimisticIndex === "number") {
+        merged[optimisticIndex] = message;
+        indexByKey.set(key, optimisticIndex);
+        continue;
+      }
       const existingIndex = indexByKey.get(key);
       if (typeof existingIndex === "number") {
         merged[existingIndex] = message;
@@ -1072,9 +1079,13 @@ export class KanbanWatcherCard extends LitElement {
         workspaceId,
         limit: this.config.messages_limit ?? DEFAULT_MESSAGES_LIMIT,
       });
+      const normalizedMessages = this.normalizeApiMessages(response.messages);
       this.dialogMessagesByWorkspace = {
         ...this.dialogMessagesByWorkspace,
-        [workspaceId]: this.normalizeApiMessages(response.messages),
+        [workspaceId]: this.mergeOptimisticMessages(
+          this.dialogMessagesByWorkspace[workspaceId] ?? [],
+          normalizedMessages,
+        ),
       };
       this.emitPreviewStatus();
       this.requestUpdate();
@@ -1135,6 +1146,61 @@ export class KanbanWatcherCard extends LitElement {
       return `tool:${message.toolName}:${message.summary}:${message.status}`;
     }
     return `${message.sender}:${message.text}`;
+  }
+
+  private appendOptimisticUserMessage(workspaceId: string, text: string) {
+    const optimisticMessage: DialogTextMessage = {
+      key: `local:${Date.now()}:${text}`,
+      kind: "message",
+      sender: "user",
+      text: this.compactMessageText(text),
+    };
+    const existing = this.dialogMessagesByWorkspace[workspaceId] ?? [];
+    this.dialogMessagesByWorkspace = {
+      ...this.dialogMessagesByWorkspace,
+      [workspaceId]: [...existing, optimisticMessage],
+    };
+    this.requestUpdate();
+  }
+
+  private mergeOptimisticMessages(existing: DialogMessage[], incoming: DialogMessage[]) {
+    const merged = [...incoming];
+    const optimisticMessages = existing.filter(
+      (message): message is DialogTextMessage =>
+        message.kind === "message" &&
+        message.sender === "user" &&
+        typeof message.key === "string" &&
+        message.key.startsWith("local:"),
+    );
+
+    for (const optimisticMessage of optimisticMessages) {
+      const alreadyPersisted = incoming.some(
+        (message) =>
+          message.kind === "message" &&
+          message.sender === "user" &&
+          message.text === optimisticMessage.text,
+      );
+      if (!alreadyPersisted) {
+        merged.push(optimisticMessage);
+      }
+    }
+
+    return merged;
+  }
+
+  private findMatchingOptimisticUserMessageIndex(messages: DialogMessage[], incoming: DialogMessage) {
+    if (incoming.kind !== "message" || incoming.sender !== "user") {
+      return undefined;
+    }
+
+    return messages.findIndex(
+      (message) =>
+        message.kind === "message" &&
+        message.sender === "user" &&
+        typeof message.key === "string" &&
+        message.key.startsWith("local:") &&
+        message.text === incoming.text,
+    );
   }
 
   private buildMessageKey(message: SessionMessageResponse) {

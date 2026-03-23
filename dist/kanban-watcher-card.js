@@ -52025,7 +52025,7 @@ const pg = j_`
         workspaceId: this.selectedWorkspaceId,
         message: t
       });
-      this.messageDraft = "", this.actionFeedback = r.message?.trim() ? `发送成功：${r.message.trim()}` : "发送成功。", this.emitPreviewStatus(), await this.loadWorkspaceMessages(this.selectedWorkspaceId, !0);
+      this.appendOptimisticUserMessage(this.selectedWorkspaceId, t), this.messageDraft = "", this.actionFeedback = r.message?.trim() ? `发送成功：${r.message.trim()}` : "发送成功。", this.emitPreviewStatus(), await this.loadWorkspaceMessages(this.selectedWorkspaceId, !0);
     } catch (r) {
       this.actionFeedback = this.toErrorMessage(r, "发送消息失败"), this.emitPreviewStatus(this.actionFeedback);
     }
@@ -52273,9 +52273,14 @@ const pg = j_`
       a.map((s, l) => [this.getDialogMessageIdentity(s), l])
     );
     for (const s of this.normalizeApiMessages(t)) {
-      const l = this.getDialogMessageIdentity(s), _ = o.get(l);
+      const l = this.getDialogMessageIdentity(s), _ = this.findMatchingOptimisticUserMessageIndex(i, s);
       if (typeof _ == "number") {
-        i[_] = s;
+        i[_] = s, o.set(l, _);
+        continue;
+      }
+      const c = o.get(l);
+      if (typeof c == "number") {
+        i[c] = s;
         continue;
       }
       o.set(l, i.length), i.push(s);
@@ -52337,10 +52342,13 @@ const pg = j_`
           apiKey: this.config.api_key,
           workspaceId: e,
           limit: this.config.messages_limit ?? Eg
-        });
+        }), a = this.normalizeApiMessages(r.messages);
         this.dialogMessagesByWorkspace = {
           ...this.dialogMessagesByWorkspace,
-          [e]: this.normalizeApiMessages(r.messages)
+          [e]: this.mergeOptimisticMessages(
+            this.dialogMessagesByWorkspace[e] ?? [],
+            a
+          )
         }, this.emitPreviewStatus(), this.requestUpdate(), await this.updateComplete, this.scrollMessagesToBottom();
       } catch (r) {
         this.dialogError = this.toErrorMessage(r, "加载消息失败"), this.emitPreviewStatus(this.dialogError);
@@ -52379,6 +52387,34 @@ const pg = j_`
   }
   getDialogMessageIdentity(e) {
     return e.key ? e.key : e.kind === "tool" ? `tool:${e.toolName}:${e.summary}:${e.status}` : `${e.sender}:${e.text}`;
+  }
+  appendOptimisticUserMessage(e, t) {
+    const r = {
+      key: `local:${Date.now()}:${t}`,
+      kind: "message",
+      sender: "user",
+      text: this.compactMessageText(t)
+    }, a = this.dialogMessagesByWorkspace[e] ?? [];
+    this.dialogMessagesByWorkspace = {
+      ...this.dialogMessagesByWorkspace,
+      [e]: [...a, r]
+    }, this.requestUpdate();
+  }
+  mergeOptimisticMessages(e, t) {
+    const r = [...t], a = e.filter(
+      (i) => i.kind === "message" && i.sender === "user" && typeof i.key == "string" && i.key.startsWith("local:")
+    );
+    for (const i of a)
+      t.some(
+        (s) => s.kind === "message" && s.sender === "user" && s.text === i.text
+      ) || r.push(i);
+    return r;
+  }
+  findMatchingOptimisticUserMessageIndex(e, t) {
+    if (!(t.kind !== "message" || t.sender !== "user"))
+      return e.findIndex(
+        (r) => r.kind === "message" && r.sender === "user" && typeof r.key == "string" && r.key.startsWith("local:") && r.text === t.text
+      );
   }
   buildMessageKey(e) {
     if (typeof e.process_id == "string" && typeof e.entry_index == "number")

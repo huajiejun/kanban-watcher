@@ -1312,6 +1312,14 @@ describe("kanban-watcher-card", () => {
           success: true,
           message: "Follow-up sent successfully",
         }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-send",
+          workspace_name: "API Send Workspace",
+          messages: [],
+          has_more: false,
+        }),
       );
 
     const card = await renderApiCard();
@@ -1344,6 +1352,9 @@ describe("kanban-watcher-card", () => {
     );
     expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
       "发送成功",
+    );
+    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+      "继续推进这个任务",
     );
   });
 
