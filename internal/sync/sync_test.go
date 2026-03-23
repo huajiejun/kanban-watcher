@@ -119,3 +119,60 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldPersistProcessEntryUpdate(t *testing.T) {
+	baseTime := time.Date(2026, 3, 24, 0, 30, 0, 0, time.UTC)
+
+	tests := []struct {
+		name     string
+		existing *store.ProcessEntry
+		next     *store.ProcessEntry
+		want     bool
+	}{
+		{
+			name: "persists new entry",
+			next: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime,
+			},
+			want: true,
+		},
+		{
+			name: "skips older replay for same entry",
+			existing: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime.Add(2 * time.Second),
+			},
+			next: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime,
+			},
+			want: false,
+		},
+		{
+			name: "keeps same timestamp updates",
+			existing: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime,
+			},
+			next: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime,
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldPersistProcessEntryUpdate(tt.existing, tt.next); got != tt.want {
+				t.Fatalf("shouldPersistProcessEntryUpdate(%+v, %+v) = %v, want %v", tt.existing, tt.next, got, tt.want)
+			}
+		})
+	}
+}

@@ -510,6 +510,9 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 					fmt.Fprintf(os.Stderr, "读取已有 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
 					continue
 				}
+				if !shouldPersistProcessEntryUpdate(existingEntry, entry) {
+					continue
+				}
 				shouldBroadcast := shouldBroadcastRealtimeEntry(existingEntry, entry)
 				if err := s.store.UpsertProcessEntry(ctx, entry); err != nil {
 					fmt.Fprintf(os.Stderr, "保存 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
@@ -752,6 +755,16 @@ func derefString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func shouldPersistProcessEntryUpdate(existing, next *store.ProcessEntry) bool {
+	if next == nil {
+		return false
+	}
+	if existing == nil {
+		return true
+	}
+	return !next.EntryTimestamp.Before(existing.EntryTimestamp)
 }
 
 func resolveProcessSubscriptionStatus(processStatus string, receivedEntries bool, stopping bool, err error) (string, string) {
