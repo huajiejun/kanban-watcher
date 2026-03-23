@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -13,14 +12,14 @@ import (
 
 // MessageResponse 消息响应结构
 type MessageResponse struct {
-	ID         int64  `json:"id"`
-	SessionID  string `json:"session_id"`
-	ProcessID  string `json:"process_id,omitempty"`
-	EntryType  string `json:"entry_type"`
-	Role       string `json:"role"`
-	Content    string `json:"content"`
-	ToolInfo   string `json:"tool_info,omitempty"`
-	Timestamp  string `json:"timestamp"`
+	ID        int64                  `json:"id"`
+	SessionID string                 `json:"session_id"`
+	ProcessID string                 `json:"process_id,omitempty"`
+	EntryType string                 `json:"entry_type"`
+	Role      string                 `json:"role"`
+	Content   string                 `json:"content"`
+	ToolInfo  map[string]interface{} `json:"tool_info,omitempty"`
+	Timestamp string                 `json:"timestamp"`
 }
 
 // SessionMessagesResponse 会话消息响应
@@ -43,12 +42,12 @@ type LocalWorkspaceSummary struct {
 	Branch          string `json:"branch"`
 	LatestSessionID string `json:"latest_session_id,omitempty"`
 	Status          string `json:"status"`
-	UpdatedAt       string `json:"updated_at"`
+	UpdatedAt       string `json:"updated_at,omitempty"`
 	MessageCount    int    `json:"message_count"`
+	LastMessageAt   string `json:"last_message_at,omitempty"`
 }
 
 // GetMessageRoutes 注册消息 API 路由
-// 返回路由模式和处理函数的列表，供 server 注册
 func GetMessageRoutes(dbStore *store.Store) map[string]http.HandlerFunc {
 	return map[string]http.HandlerFunc{
 		"/api/sessions/": func(w http.ResponseWriter, r *http.Request) {
@@ -63,57 +62,59 @@ func GetMessageRoutes(dbStore *store.Store) map[string]http.HandlerFunc {
 	}
 }
 
-// handleActiveWorkspaces 获取活跃工作区列表
 func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if dbStore == nil {
+		http.Error(w, "数据库未初始化", http.StatusInternalServerError)
+		return
+	}
 
-	ctx := r.Context()
-
-	workspaces, err := dbStore.GetActiveWorkspaces(ctx)
+	summaries, err := dbStore.GetActiveWorkspaceSummaries(r.Context())
 	if err != nil {
 		http.Error(w, "获取工作区失败", http.StatusInternalServerError)
 		return
 	}
 
-	response := ActiveWorkspaceResponse{
-		Workspaces: make([]LocalWorkspaceSummary, len(workspaces)),
+	resp := ActiveWorkspaceResponse{
+		Workspaces: make([]LocalWorkspaceSummary, 0, len(summaries)),
 	}
 
-	for i := range workspaces {
-		// 获取每个工作区的消息数量
-		count, _ := getMessageCount(ctx, dbStore, workspaces[i].ID)
-
-		latestSessionID := ""
-		if workspaces[i].LatestSessionID != nil {
-			latestSessionID = *workspaces[i].LatestSessionID
+	for _, summary := range summaries {
+		item := LocalWorkspaceSummary{
+			ID:           summary.ID,
+			Name:         summary.Name,
+			Branch:       summary.Branch,
+			Status:       summary.Status,
+			MessageCount: summary.MessageCount,
 		}
-
-		response.Workspaces[i] = LocalWorkspaceSummary{
-			ID:              workspaces[i].ID,
-			Name:            workspaces[i].Name,
-			Branch:          workspaces[i].Branch,
-			LatestSessionID: latestSessionID,
-			Status:          "active",
-			UpdatedAt:       workspaces[i].UpdatedAt.Format(time.RFC3339),
-			MessageCount:    count,
+		if summary.LatestSessionID != nil {
+			item.LatestSessionID = *summary.LatestSessionID
 		}
+		if summary.UpdatedAt != nil {
+			item.UpdatedAt = summary.UpdatedAt.Format(time.RFC3339)
+		}
+		if summary.LastMessageAt != nil {
+			item.LastMessageAt = summary.LastMessageAt.Format(time.RFC3339)
+		}
+		resp.Workspaces = append(resp.Workspaces, item)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, resp)
 }
 
-// handleWorkspaceLatestMessages 获取工作区最新消息
 func handleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if dbStore == nil {
+		http.Error(w, "数据库未初始化", http.StatusInternalServerError)
+		return
+	}
 
-	// 解析 URL: /api/workspaces/{workspace_id}/latest-messages
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
 	parts := strings.Split(path, "/")
 	if len(parts) != 2 || parts[1] != "latest-messages" {
@@ -121,34 +122,29 @@ func handleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbSto
 		return
 	}
 
-	workspaceID := parts[0]
-
-	ctx := r.Context()
-
-	// 获取工作区信息
-	workspace, err := dbStore.GetWorkspaceByID(ctx, workspaceID)
-	if err != nil || workspace == nil {
-		http.Error(w, "工作区不存在", http.StatusNotFound)
+	workspace, err := dbStore.GetWorkspaceByID(r.Context(), parts[0])
+	if err != nil {
+		http.Error(w, "获取工作区失败", http.StatusInternalServerError)
 		return
 	}
-
-	// 获取最新 session
-	if workspace.LatestSessionID == nil || *workspace.LatestSessionID == "" {
-		http.Error(w, "工作区没有活跃的 session", http.StatusNotFound)
+	if workspace == nil || workspace.LatestSessionID == nil || *workspace.LatestSessionID == "" {
+		http.Error(w, "工作区没有可用 session", http.StatusNotFound)
 		return
 	}
 
 	getSessionMessagesInternal(w, r, dbStore, *workspace.LatestSessionID, workspace.Name)
 }
 
-// handleSessionMessages 获取会话消息
 func handleSessionMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if dbStore == nil {
+		http.Error(w, "数据库未初始化", http.StatusInternalServerError)
+		return
+	}
 
-	// 解析 URL: /api/sessions/{session_id}/messages
 	path := strings.TrimPrefix(r.URL.Path, "/api/sessions/")
 	parts := strings.Split(path, "/")
 	if len(parts) != 2 || parts[1] != "messages" {
@@ -156,77 +152,114 @@ func handleSessionMessages(w http.ResponseWriter, r *http.Request, dbStore *stor
 		return
 	}
 
-	sessionID := parts[0]
-
-	ctx := r.Context()
-
-	// 可选：获取 workspace 名称
 	var workspaceName string
-	if ws, _ := dbStore.GetWorkspaceBySessionID(ctx, sessionID); ws != nil {
+	if ws, _ := dbStore.GetWorkspaceBySessionID(r.Context(), parts[0]); ws != nil {
 		workspaceName = ws.Name
 	}
 
-	getSessionMessagesInternal(w, r, dbStore, sessionID, workspaceName)
+	getSessionMessagesInternal(w, r, dbStore, parts[0], workspaceName)
 }
 
-// getSessionMessagesInternal 获取会话消息的内部实现
 func getSessionMessagesInternal(w http.ResponseWriter, r *http.Request, dbStore *store.Store, sessionID, workspaceName string) {
-	ctx := r.Context()
-
-	// 解析查询参数
 	limit := 50
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			if parsed > 200 {
+				parsed = 200
+			}
 			limit = parsed
 		}
 	}
 
 	var before time.Time
-	if b := r.URL.Query().Get("before"); b != "" {
-		if parsed, err := time.Parse(time.RFC3339, b); err == nil {
+	if raw := r.URL.Query().Get("before"); raw != "" {
+		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
 			before = parsed
 		}
 	}
 
-	// 获取消息
-	messages, err := dbStore.GetSessionMessages(ctx, sessionID, limit, before)
+	types := parseTypesFilter(r.URL.Query().Get("types"))
+	entries, err := dbStore.GetSessionMessages(r.Context(), sessionID, limit, before, types)
 	if err != nil {
 		http.Error(w, "获取消息失败", http.StatusInternalServerError)
 		return
 	}
 
-	// 转换为响应格式
-	response := SessionMessagesResponse{
+	hasMore := len(entries) == limit
+	reverseMessages(entries)
+
+	resp := SessionMessagesResponse{
 		SessionID:     sessionID,
 		WorkspaceName: workspaceName,
-		Messages:      make([]MessageResponse, len(messages)),
-		HasMore:       len(messages) == limit,
+		Messages:      make([]MessageResponse, 0, len(entries)),
+		HasMore:       hasMore,
 	}
 
-	for i := range messages {
-		response.Messages[i] = MessageResponse{
-			ID:         messages[i].ID,
-			SessionID:  messages[i].SessionID,
-			EntryType:  messages[i].EntryType,
-			Role:       store.ToRole(messages[i].EntryType),
-			Content:    messages[i].Content,
-			Timestamp:  messages[i].Timestamp.Format(time.RFC3339),
+	for _, entry := range entries {
+		item := MessageResponse{
+			ID:        entry.ID,
+			SessionID: entry.SessionID,
+			ProcessID: entry.ProcessID,
+			EntryType: entry.EntryType,
+			Role:      entry.Role,
+			Content:   entry.Content,
+			Timestamp: entry.EntryTimestamp.Format(time.RFC3339Nano),
 		}
-		if messages[i].ProcessID != nil {
-			response.Messages[i].ProcessID = *messages[i].ProcessID
+		if info := buildToolInfo(entry); len(info) > 0 {
+			item.ToolInfo = info
 		}
-		if messages[i].ToolInfo != "" {
-			response.Messages[i].ToolInfo = messages[i].ToolInfo
-		}
+		resp.Messages = append(resp.Messages, item)
 	}
 
+	writeJSON(w, resp)
+}
+
+func buildToolInfo(entry store.ProcessEntry) map[string]interface{} {
+	info := map[string]interface{}{}
+	if entry.ToolName != nil && *entry.ToolName != "" {
+		info["tool_name"] = *entry.ToolName
+	}
+	if entry.ActionTypeJSON != nil && *entry.ActionTypeJSON != "" {
+		var action interface{}
+		if json.Unmarshal([]byte(*entry.ActionTypeJSON), &action) == nil {
+			info["action_type"] = action
+		}
+	}
+	if entry.StatusJSON != nil && *entry.StatusJSON != "" {
+		var status interface{}
+		if json.Unmarshal([]byte(*entry.StatusJSON), &status) == nil {
+			info["status"] = status
+		}
+	}
+	if len(info) == 0 {
+		return nil
+	}
+	return info
+}
+
+func parseTypesFilter(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+
+func reverseMessages(entries []store.ProcessEntry) {
+	for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
+		entries[i], entries[j] = entries[j], entries[i]
+	}
+}
+
+func writeJSON(w http.ResponseWriter, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(payload)
 }
 
-// getMessageCount 获取工作区的消息数量
-func getMessageCount(ctx context.Context, dbStore *store.Store, workspaceID string) (int, error) {
-	// 这里需要实现获取工作区消息数量的逻辑
-	// 由于 store 没有这个方法，暂时返回 0
-	return 0, nil
-}

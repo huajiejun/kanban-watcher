@@ -2,77 +2,96 @@ package store
 
 import "time"
 
-// Workspace 工作区
+// Workspace 工作区镜像
 type Workspace struct {
-	ID              string    `db:"id"`
-	Name            string    `db:"name"`
-	Branch          string    `db:"branch"`
-	Archived        bool      `db:"archived"`
-	Pinned          bool      `db:"pinned"`
-	LatestSessionID *string   `db:"latest_session_id"`
-	CreatedAt       time.Time `db:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at"`
-	SyncedAt        time.Time `db:"synced_at"`
+	ID                  string     `db:"id"`
+	Name                string     `db:"name"`
+	Branch              string     `db:"branch"`
+	Archived            bool       `db:"archived"`
+	Pinned              bool       `db:"pinned"`
+	LatestSessionID     *string    `db:"latest_session_id"`
+	IsRunning           bool       `db:"is_running"`
+	LatestProcessStatus *string    `db:"latest_process_status"`
+	LastSeenAt          time.Time  `db:"last_seen_at"`
+	CreatedAt           *time.Time `db:"created_at"`
+	UpdatedAt           *time.Time `db:"updated_at"`
+	SyncedAt            time.Time  `db:"synced_at"`
 }
 
-// Session 会话
+// Session 会话镜像
 type Session struct {
-	ID          string    `db:"id"`
-	WorkspaceID string    `db:"workspace_id"`
-	Executor    string    `db:"executor"`
-	Variant     string    `db:"variant"`
-	Name        string    `db:"name"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
-	SyncedAt    time.Time `db:"synced_at"`
+	ID          string     `db:"id"`
+	WorkspaceID string     `db:"workspace_id"`
+	CreatedAt   *time.Time `db:"created_at"`
+	UpdatedAt   *time.Time `db:"updated_at"`
+	SyncedAt    time.Time  `db:"synced_at"`
 }
 
-// ExecutionProcess 执行进程
+// ExecutionProcess 执行进程镜像
 type ExecutionProcess struct {
-	ID           string    `db:"id"`
-	SessionID    string    `db:"session_id"`
-	RunReason    string    `db:"run_reason"`
-	Status        string    `db:"status"`
-	StartedAt     time.Time `db:"started_at"`
-	CompletedAt   *time.Time `db:"completed_at"`
-	CreatedAt     time.Time `db:"created_at"`
-	SyncedAt      time.Time `db:"synced_at"`
+	ID                 string     `db:"id"`
+	SessionID          string     `db:"session_id"`
+	WorkspaceID        string     `db:"workspace_id"`
+	RunReason          string     `db:"run_reason"`
+	Status             string     `db:"status"`
+	Executor           *string    `db:"executor"`
+	ExecutorActionType *string    `db:"executor_action_type"`
+	Dropped            bool       `db:"dropped"`
+	CreatedAt          *time.Time `db:"created_at"`
+	CompletedAt        *time.Time `db:"completed_at"`
+	SyncedAt           time.Time  `db:"synced_at"`
 }
 
-// SessionMessage 对话消息
-type SessionMessage struct {
-	ID          int64     `db:"id"`
-	SessionID    string   `db:"session_id"`
-	ProcessID    *string  `db:"process_id"`
-	EntryType   string   `db:"entry_type"`
-	Content     string   `db:"content"`
-	ToolInfo    string   `db:"tool_info"` // JSON string
-	Timestamp   time.Time `db:"timestamp"`
-	CreatedAt    time.Time `db:"created_at"`
+// ProcessEntry 对话消息
+type ProcessEntry struct {
+	ID             int64      `db:"id"`
+	ProcessID      string     `db:"process_id"`
+	SessionID      string     `db:"session_id"`
+	WorkspaceID    string     `db:"workspace_id"`
+	EntryIndex     int        `db:"entry_index"`
+	EntryType      string     `db:"entry_type"`
+	Role           string     `db:"role"`
+	Content        string     `db:"content"`
+	ToolName       *string    `db:"tool_name"`
+	ActionTypeJSON *string    `db:"action_type_json"`
+	StatusJSON     *string    `db:"status_json"`
+	ErrorType      *string    `db:"error_type"`
+	EntryTimestamp time.Time  `db:"entry_timestamp"`
+	ContentHash    string     `db:"content_hash"`
+	CreatedAt      time.Time  `db:"created_at"`
 }
 
-// NormalizedEntry 从 vibe-kanban WebSocket 接收的消息格式
+// ActiveWorkspaceSummary 活跃工作区摘要
+type ActiveWorkspaceSummary struct {
+	ID              string     `db:"id"`
+	Name            string     `db:"name"`
+	Branch          string     `db:"branch"`
+	LatestSessionID *string    `db:"latest_session_id"`
+	Status          string     `db:"status"`
+	UpdatedAt       *time.Time `db:"updated_at"`
+	MessageCount    int        `db:"message_count"`
+	LastMessageAt   *time.Time `db:"last_message_at"`
+}
+
+// NormalizedEntry 从 vibe-kanban normalized logs 提取的消息
 type NormalizedEntry struct {
-	Timestamp string            `json:"timestamp"`
-	EntryType  NormalizedEntryType `json:"entry_type"`
-	Content   string             `json:"content"`
+	Timestamp string              `json:"timestamp"`
+	EntryType NormalizedEntryType `json:"entry_type"`
+	Content   string              `json:"content"`
 }
 
 // NormalizedEntryType 消息类型详情
 type NormalizedEntryType struct {
-	Type        string      `json:"type"`
-	ToolName    *string   `json:"tool_name,omitempty"`
-	ActionType  *string   `json:"action_type,omitempty"`
-	Status      *ToolStatus `json:"status,omitempty"`
+	Type       string      `json:"type"`
+	ToolName   *string     `json:"tool_name,omitempty"`
+	ActionType interface{} `json:"action_type,omitempty"`
+	Status     interface{} `json:"status,omitempty"`
+	ErrorType  *struct {
+		Type string `json:"type"`
+	} `json:"error_type,omitempty"`
 }
 
-// ToolStatus 工具状态
-type ToolStatus struct {
-	Status string  `json:"status"`
-	Reason *string  `json:"reason,omitempty"`
-}
-
-// MessageTypes 需要同步的消息类型
+// MessageTypesToSync 需要同步的消息类型
 var MessageTypesToSync = []string{
 	"user_message",
 	"assistant_message",
@@ -80,7 +99,7 @@ var MessageTypesToSync = []string{
 	"error_message",
 }
 
-// ShouldSync 判断是否需要同步该消息类型
+// ShouldSync 判断是否同步
 func ShouldSync(entryType string) bool {
 	for _, t := range MessageTypesToSync {
 		if t == entryType {
@@ -101,3 +120,8 @@ func ToRole(entryType string) string {
 		return "system"
 	}
 }
+
+func stringPtr(v string) *string {
+	return &v
+}
+

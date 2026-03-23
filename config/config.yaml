@@ -25,3 +25,7 @@ database:
     - assistant_message
     - tool_use
     - error_message
+
+http_api:
+  port: 7778
+  api_key: "change-me"

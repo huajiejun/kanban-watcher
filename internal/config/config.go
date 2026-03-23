@@ -17,6 +17,7 @@ type Config struct {
 	WorkingHours     WorkingHours           `yaml:"working_hours"`         // 工作时间窗口
 	PollIntervalSecs int                    `yaml:"poll_interval_seconds"` // 轮询间隔（秒）
 	Database         DatabaseConfig         `yaml:"database"`              // 数据库配置
+	HTTPAPI          HTTPAPIConfig          `yaml:"http_api"`              // 本地 HTTP API 配置
 }
 
 // DatabaseConfig 数据库连接参数
@@ -29,6 +30,12 @@ type DatabaseConfig struct {
 	SyncIntervalSecs int      `yaml:"sync_interval_seconds"` // 同步间隔（秒）
 	BatchSize        int      `yaml:"batch_size"`           // 批量大小
 	MessageTypes     []string `yaml:"message_types"`       // 同步的消息类型
+}
+
+// HTTPAPIConfig 本地 HTTP API 配置
+type HTTPAPIConfig struct {
+	Port   int    `yaml:"port"`
+	APIKey string `yaml:"api_key"`
 }
 
 // IsEnabled 检查数据库配置是否启用
@@ -161,6 +168,10 @@ func defaultConfig() *Config {
 			End:   "01:00", // 跨午夜：08:00 到次日 01:00
 		},
 		PollIntervalSecs: 15, // 默认 15 秒轮询一次
+		HTTPAPI: HTTPAPIConfig{
+			Port:   7778,
+			APIKey: "change-me",
+		},
 	}
 }
 
@@ -205,6 +216,12 @@ func applyDefaults(cfg *Config) {
 	if cfg.PollIntervalSecs <= 0 {
 		cfg.PollIntervalSecs = 15
 	}
+	if cfg.HTTPAPI.Port <= 0 {
+		cfg.HTTPAPI.Port = 7778
+	}
+	if cfg.HTTPAPI.APIKey == "" {
+		cfg.HTTPAPI.APIKey = "change-me"
+	}
 }
 
 func (c ConversationSyncConfig) IsEnabled() bool {
@@ -225,6 +242,7 @@ func writeExampleConfig(path string) error {
 	example.WeChat.AgentID = "1000001"
 	example.WeChat.Secret = "YOUR_SECRET"
 	example.WeChat.ToUser = "@all"
+	example.HTTPAPI.APIKey = "YOUR_API_KEY"
 	data, err := yaml.Marshal(example)
 	if err != nil {
 		return err

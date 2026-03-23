@@ -3,458 +3,159 @@ package store
 import (
 	"context"
 	"database/sql"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 )
 
-func TestNewStore(t *testing.T) {
+func newMockStore(t *testing.T) (*Store, sqlmock.Sqlmock, func()) {
+	t.Helper()
+
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("创建 mock 失败: %v", err)
 	}
-	defer db.Close()
 
-	// 设置 Ping 期望
-	mock.ExpectPing()
-
-	store := &Store{db: db}
-
-	if store == nil {
-		t.Error("Store 不应为 nil")
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
+	return &Store{db: db}, mock, func() {
+		_ = db.Close()
 	}
 }
 
-func TestClose(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
+func TestGetSessionMessagesUsesLatestFirstQuery(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
 
-	mock.ExpectClose()
+	rows := sqlmock.NewRows([]string{
+		"id", "process_id", "session_id", "workspace_id", "entry_index", "entry_type",
+		"role", "content", "tool_name", "action_type_json", "status_json", "error_type",
+		"entry_timestamp", "content_hash", "created_at",
+	}).AddRow(
+		2, "proc-2", "session-1", "ws-1", 2, "assistant_message", "assistant", "world",
+		nil, nil, nil, nil, time.Now(), "hash-2", time.Now(),
+	).AddRow(
+		1, "proc-1", "session-1", "ws-1", 1, "user_message", "user", "hello",
+		nil, nil, nil, nil, time.Now().Add(-time.Minute), "hash-1", time.Now(),
+	)
 
-	store := &Store{db: db}
-	if err := store.Close(); err != nil {
-		t.Errorf("Close 失败: %v", err)
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
-	}
-}
-
-func TestUpsertSession(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-
-	sess := &Session{
-		ID:          "test-session-id",
-        WorkspaceID: "test-workspace-id",
-        Executor:    "claude",
-        Variant:     "opus",
-        Name:        "Test Session",
-        CreatedAt:   time.Now(),
-        UpdatedAt:   time.Now(),
-    }
-
-    // 设置期望
-    mock.ExpectExec("INSERT INTO sessions").
-        WithArgs(sess.ID, sess.WorkspaceID, sess.Executor, sess.Variant, sess.Name, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-        WillReturnResult(sqlmock.NewResult(1, 1))
-
-    err = store.UpsertSession(ctx, sess)
-    if err != nil {
-        t.Errorf("UpsertSession 失败: %v", err)
-    }
-
-    if err := mock.ExpectationsWereMet(); err != nil {
-        t.Errorf("未满足的期望: %v", err)
-    }
-}
-
-func TestUpsertSession(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-
-	sess := &Session{
-		ID:          "test-session-id",
-		WorkspaceID: "test-workspace-id",
-		Executor:    "claude",
-		Variant:     "opus",
-		Name:        "Test Session",
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
-
-	mock.ExpectExec("INSERT INTO sessions").
-		WithArgs(sess.ID, sess.WorkspaceID, sess.Executor, sess.Variant, sess.Name, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-
-	err = store.UpsertSession(ctx, sess)
-	if err != nil {
-		t.Errorf("UpsertSession 失败: %v", err)
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
-	}
-}
-
-func TestUpsertExecutionProcess(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-
-	ep := &ExecutionProcess{
-		ID:         "ep-1",
-		SessionID:  "session-1",
-		RunReason:  "codingagent",
-		Status:     "running",
-		StartedAt:  time.Now(),
-	}
-
-	mock.ExpectExec("INSERT INTO execution_processes").
-		WithArgs(ep.ID, ep.SessionID, ep.RunReason, ep.Status, ep.StartedAt, ep.CompletedAt, sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-
-	err = store.UpsertExecutionProcess(ctx, ep)
-	if err != nil {
-		t.Errorf("UpsertExecutionProcess 失败: %v", err)
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
-	}
-}
-
-func TestInsertMessage(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-
-	processID := "ep-1"
-	msg := &SessionMessage{
-		SessionID:  "session-1",
-		ProcessID:  &processID,
-		EntryType:  "user_message",
-		Content:    "Hello, World!",
-		ToolInfo:   "",
-		Timestamp:  time.Now(),
-	}
-
-	mock.ExpectExec("INSERT INTO session_messages").
-		WithArgs(msg.SessionID, msg.ProcessID, msg.EntryType, msg.Content, msg.ToolInfo, msg.Timestamp).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-
-	err = store.InsertMessage(ctx, msg)
-	if err != nil {
-		t.Errorf("InsertMessage 失败: %v", err)
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
-	}
-}
-
-func TestGetWorkspaceByID(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-	workspaceID := "ws-1"
-	latestSessionID := "session-1"
-
-	rows := sqlmock.NewRows([]string{"id", "name", "branch", "archived", "pinned", "latest_session_id", "created_at", "updated_at"}).
-		AddRow(workspaceID, "Test Workspace", "main", false, true, latestSessionID, time.Now(), time.Now())
-
-	mock.ExpectQuery("SELECT id, name, branch, archived, pinned, latest_session_id, created_at, updated_at FROM workspaces").
-		WithArgs(workspaceID).
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
+		FROM kw_process_entries
+		WHERE session_id = ?
+		ORDER BY entry_timestamp DESC, id DESC
+		LIMIT ?
+	`)).
+		WithArgs("session-1", 2).
 		WillReturnRows(rows)
 
-	ws, err := store.GetWorkspaceByID(ctx, workspaceID)
+	got, err := store.GetSessionMessages(context.Background(), "session-1", 2, time.Time{}, nil)
 	if err != nil {
-		t.Errorf("GetWorkspaceByID 失败: %v", err)
+		t.Fatalf("GetSessionMessages 返回错误: %v", err)
 	}
 
-	if ws == nil {
-		t.Error("工作区不应为 nil")
-		return
+	if len(got) != 2 {
+		t.Fatalf("消息数 = %d, want 2", len(got))
 	}
-
-	if ws.ID != workspaceID {
-		t.Errorf("期望 ID %s, 得到 %s", workspaceID, ws.ID)
+	if got[0].ID != 2 {
+		t.Fatalf("第一条消息 ID = %d, want 2", got[0].ID)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
+		t.Fatalf("mock 期望未满足: %v", err)
 	}
 }
 
-func TestGetWorkspaceByID_NotFound(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
+func TestUpsertProcessEntryUsesProcessIndexUniqueKey(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	entryTime := time.Now()
+	entry := &ProcessEntry{
+		ProcessID:      "proc-1",
+		SessionID:      "session-1",
+		WorkspaceID:    "ws-1",
+		EntryIndex:     5,
+		EntryType:      "tool_use",
+		Role:           "assistant",
+		Content:        "Read file",
+		ToolName:       stringPtr("Read"),
+		ActionTypeJSON: stringPtr(`{"action":"file_read","path":"main.go"}`),
+		StatusJSON:     stringPtr(`{"status":"success"}`),
+		EntryTimestamp: entryTime,
+		ContentHash:    "hash-5",
 	}
-	defer db.Close()
 
-	store := &Store{db: db}
-	ctx := context.Background()
-	workspaceID := "non-existent"
+	mock.ExpectExec("INSERT INTO kw_process_entries").
+		WithArgs(
+			entry.ProcessID, entry.SessionID, entry.WorkspaceID, entry.EntryIndex,
+			entry.EntryType, entry.Role, entry.Content, entry.ToolName, entry.ActionTypeJSON,
+			entry.StatusJSON, entry.ErrorType, entry.EntryTimestamp, entry.ContentHash,
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	mock.ExpectQuery("SELECT id, name, branch, archived, pinned, latest_session_id, created_at, updated_at FROM workspaces").
-		WithArgs(workspaceID).
+	if err := store.UpsertProcessEntry(context.Background(), entry); err != nil {
+		t.Fatalf("UpsertProcessEntry 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestGetWorkspaceBySessionIDReturnsNilOnNotFound(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	mock.ExpectQuery("SELECT w.id, w.name, w.branch, w.archived, w.pinned, w.latest_session_id, w.is_running, w.latest_process_status, w.last_seen_at, w.created_at, w.updated_at, w.synced_at FROM kw_workspaces w").
+		WithArgs("missing-session").
 		WillReturnError(sql.ErrNoRows)
 
-	ws, err := store.GetWorkspaceByID(ctx, workspaceID)
+	got, err := store.GetWorkspaceBySessionID(context.Background(), "missing-session")
 	if err != nil {
-		t.Errorf("GetWorkspaceByID 失败: %v", err)
+		t.Fatalf("GetWorkspaceBySessionID 返回错误: %v", err)
 	}
-
-	if ws != nil {
-		t.Error("工作区应为 nil")
+	if got != nil {
+		t.Fatalf("workspace = %#v, want nil", got)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
+		t.Fatalf("mock 期望未满足: %v", err)
 	}
 }
 
-func TestGetWorkspaceBySessionID(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-	sessionID := "session-1"
-	workspaceID := "ws-1"
-	latestSessionID := "session-1"
-
-	rows := sqlmock.NewRows([]string{"id", "name", "branch", "archived", "pinned", "latest_session_id", "created_at", "updated_at"}).
-		AddRow(workspaceID, "Test Workspace", "main", false, true, latestSessionID, time.Now(), time.Now())
-
-	mock.ExpectQuery("SELECT w.id, w.name, w.branch, w.archived, w.pinned, w.latest_session_id, w.created_at, w.updated_at FROM workspaces w").
-		WithArgs(sessionID).
-		WillReturnRows(rows)
-
-	ws, err := store.GetWorkspaceBySessionID(ctx, sessionID)
-	if err != nil {
-		t.Errorf("GetWorkspaceBySessionID 失败: %v", err)
+func TestShouldRetryExec(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil, want: false},
+		{name: "invalid connection", err: sql.ErrConnDone, want: true},
+		{name: "wrapped broken pipe", err: wrapErr("write: broken pipe"), want: true},
+		{name: "wrapped eof", err: wrapErr("unexpected EOF"), want: true},
+		{name: "syntax error", err: wrapErr("syntax error"), want: false},
 	}
 
-	if ws == nil {
-		t.Error("工作区不应为 nil")
-		return
-	}
-
-	if ws.ID != workspaceID {
-		t.Errorf("期望 ID %s, 得到 %s", workspaceID, ws.ID)
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldRetryExec(tt.err)
+			if got != tt.want {
+				t.Fatalf("shouldRetryExec(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
 	}
 }
 
-func TestMessageExists(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-	sessionID := "session-1"
-	content := "Hello"
-	timestamp := time.Now()
-
-	rows := sqlmock.NewRows([]string{"count"}).AddRow(1)
-
-	mock.ExpectQuery("SELECT COUNT").
-		WithArgs(sessionID, content, timestamp).
-		WillReturnRows(rows)
-
-	exists, err := store.MessageExists(ctx, sessionID, content, timestamp)
-	if err != nil {
-		t.Errorf("MessageExists 失败: %v", err)
-	}
-
-	if !exists {
-		t.Error("消息应存在")
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
-	}
+func wrapErr(msg string) error {
+	return &wrappedErr{msg: msg}
 }
 
-func TestMessageExists_NotExists(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-	sessionID := "session-1"
-	content := "Non-existent"
-	timestamp := time.Now()
-
-	rows := sqlmock.NewRows([]string{"count"}).AddRow(0)
-
-	mock.ExpectQuery("SELECT COUNT").
-		WithArgs(sessionID, content, timestamp).
-		WillReturnRows(rows)
-
-	exists, err := store.MessageExists(ctx, sessionID, content, timestamp)
-	if err != nil {
-		t.Errorf("MessageExists 失败: %v", err)
-	}
-
-	if exists {
-		t.Error("消息不应存在")
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
-	}
+type wrappedErr struct {
+	msg string
 }
 
-func TestGetSessionByID(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-	sessionID := "session-1"
-	workspaceID := "ws-1"
-
-	rows := sqlmock.NewRows([]string{"id", "workspace_id", "executor", "variant", "name", "created_at", "updated_at"}).
-		AddRow(sessionID, workspaceID, "claude", "opus", "Test Session", time.Now(), time.Now())
-
-	mock.ExpectQuery("SELECT id, workspace_id, executor, variant, name, created_at, updated_at FROM sessions").
-		WithArgs(sessionID).
-		WillReturnRows(rows)
-
-	sess, err := store.GetSessionByID(ctx, sessionID)
-	if err != nil {
-		t.Errorf("GetSessionByID 失败: %v", err)
-	}
-
-	if sess == nil {
-		t.Error("会话不应为 nil")
-		return
-	}
-
-	if sess.ID != sessionID {
-		t.Errorf("期望 ID %s, 得到 %s", sessionID, sess.ID)
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
-	}
-}
-
-func TestGetActiveWorkspaces(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-
-	latestSessionID := "session-1"
-	rows := sqlmock.NewRows([]string{"id", "name", "branch", "archived", "pinned", "latest_session_id", "created_at", "updated_at"}).
-		AddRow("ws-1", "Workspace 1", "main", false, false, latestSessionID, time.Now(), time.Now()).
-		AddRow("ws-2", "Workspace 2", "feature", false, true, latestSessionID, time.Now(), time.Now())
-
-	mock.ExpectQuery("SELECT id, name, branch, archived, pinned, latest_session_id, created_at, updated_at FROM workspaces").
-		WillReturnRows(rows)
-
-	workspaces, err := store.GetActiveWorkspaces(ctx)
-	if err != nil {
-		t.Errorf("GetActiveWorkspaces 失败: %v", err)
-	}
-
-	if len(workspaces) != 2 {
-		t.Errorf("期望 2 个工作区, 得到 %d", len(workspaces))
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
-	}
-}
-
-func TestGetSessionMessages(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("创建 mock 失败: %v", err)
-	}
-	defer db.Close()
-
-	store := &Store{db: db}
-	ctx := context.Background()
-	sessionID := "session-1"
-	processID := "ep-1"
-
-	rows := sqlmock.NewRows([]string{"id", "session_id", "process_id", "entry_type", "content", "tool_info", "timestamp", "created_at"}).
-		AddRow(int64(1), sessionID, processID, "user_message", "Hello", "", time.Now(), time.Now()).
-		AddRow(int64(2), sessionID, processID, "assistant_message", "Hi there!", "", time.Now(), time.Now())
-
-	mock.ExpectQuery("SELECT id, session_id, process_id, entry_type, content, tool_info, timestamp, created_at FROM session_messages").
-		WithArgs(sessionID, 50).
-		WillReturnRows(rows)
-
-	messages, err := store.GetSessionMessages(ctx, sessionID, 50, time.Time{})
-	if err != nil {
-		t.Errorf("GetSessionMessages 失败: %v", err)
-	}
-
-	if len(messages) != 2 {
-		t.Errorf("期望 2 条消息, 得到 %d", len(messages))
-	}
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("未满足的期望: %v", err)
-	}
+func (e *wrappedErr) Error() string {
+	return e.msg
 }

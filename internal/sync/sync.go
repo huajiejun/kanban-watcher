@@ -1,13 +1,15 @@
 package sync
 
 import (
-	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,28 +21,31 @@ import (
 
 // SyncService 同步服务
 type SyncService struct {
-	cfg       *config.Config
+	cfg      *config.Config
 	store    *store.Store
-	client   *http.Client
-	wsConns   map[string]*websocket.Conn // session_id -> conn
-	wsMutex   sync.RWMutex
-	stopCh    chan struct{}
-	wg        sync.WaitGroup
+	apiClient *api.Client
+	dialer   *websocket.Dialer
+
+	wsMutex          sync.Mutex
+	sessionStreams   map[string]*websocket.Conn
+	processLogStreams map[string]*websocket.Conn
+
+	stopCh chan struct{}
+	wg     sync.WaitGroup
 }
 
 // NewSyncService 创建同步服务实例
 func NewSyncService(cfg *config.Config, store *store.Store) *SyncService {
-	// 创建跳过 SSL 验证的 HTTP 客户端（用于自签名证书）
-	insecureTransport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-
 	return &SyncService{
-		cfg:     cfg,
-		store:   store,
-		client:  &http.Client{Timeout: 30 * time.Second, Transport: insecureTransport},
-		wsConns: make(map[string]*websocket.Conn),
-		stopCh:  make(chan struct{}),
+		cfg:       cfg,
+		store:     store,
+		apiClient: api.NewClient(cfg.KanbanAPIURL),
+		dialer: &websocket.Dialer{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+		sessionStreams:    make(map[string]*websocket.Conn),
+		processLogStreams: make(map[string]*websocket.Conn),
+		stopCh:            make(chan struct{}),
 	}
 }
 
@@ -50,44 +55,46 @@ func (s *SyncService) Start(ctx context.Context) error {
 		fmt.Println("数据库同步未启用，跳过启动")
 		return nil
 	}
-
-	// 初始化数据库表结构
 	if err := s.store.InitSchema(ctx); err != nil {
 		return fmt.Errorf("初始化数据库 schema: %w", err)
 	}
 
-	// 启动工作区轮询
+	if err := s.syncActiveWorkspaces(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "首轮同步失败: %v\n", err)
+	}
+
 	s.wg.Add(1)
-	go s.pollWorkspaces(ctx)
+	go s.pollActiveWorkspaces(ctx)
 
 	fmt.Println("同步服务已启动")
 	return nil
 }
 
-// Stop 停止同步服务
+// Stop 停止服务
 func (s *SyncService) Stop() {
 	close(s.stopCh)
-	s.wg.Wait()
 
-	// 关闭所有 WebSocket 连接
 	s.wsMutex.Lock()
-	for _, conn := range s.wsConns {
-		conn.Close()
+	for _, conn := range s.sessionStreams {
+		_ = conn.Close()
+	}
+	for _, conn := range s.processLogStreams {
+		_ = conn.Close()
 	}
 	s.wsMutex.Unlock()
+
+	s.wg.Wait()
 }
 
-// pollWorkspaces 轮询活跃的工作区
-func (s *SyncService) pollWorkspaces(ctx context.Context) {
+func (s *SyncService) pollActiveWorkspaces(ctx context.Context) {
 	defer s.wg.Done()
 
-	syncInterval := s.cfg.Database.SyncIntervalSecs
-	if syncInterval <= 0 {
-		syncInterval = 30
+	intervalSecs := s.cfg.Database.SyncIntervalSecs
+	if intervalSecs <= 0 {
+		intervalSecs = 30
 	}
-	interval := time.Duration(syncInterval) * time.Second
 
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(time.Duration(intervalSecs) * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -97,140 +104,103 @@ func (s *SyncService) pollWorkspaces(ctx context.Context) {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			s.syncActiveWorkspaces(ctx)
+			if err := s.syncActiveWorkspaces(ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "同步活跃工作区失败: %v\n", err)
+			}
 		}
 	}
 }
 
-// syncActiveWorkspaces 同步活跃的工作区
-func (s *SyncService) syncActiveWorkspaces(ctx context.Context) {
-	// 获取活跃工作区列表 - 使用 POST 请求
-	url := fmt.Sprintf("%s/api/workspaces/summaries", s.cfg.KanbanAPIURL)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader([]byte(`{"archived":false}`)))
+func (s *SyncService) syncActiveWorkspaces(ctx context.Context) error {
+	workspaces, err := s.apiClient.FetchAll(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "构建请求失败: %v\n", err)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "获取工作区列表失败: %v\n", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(os.Stderr, "获取工作区列表返回状态码: %d\n", resp.StatusCode)
-		return
+		return fmt.Errorf("获取工作区列表: %w", err)
 	}
 
-	// 解析 API 响应结构 - API 返回的是 WorkspaceSummary 列表
-	var apiResp struct {
-		Success bool `json:"success"`
-		Data    struct {
-			Summaries []api.WorkspaceSummary `json:"summaries"`
-		} `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
-		fmt.Fprintf(os.Stderr, "解析工作区列表失败: %v\n", err)
-		return
-	}
+	for _, ws := range workspaces {
+		dbWS := &store.Workspace{
+			ID:              ws.ID,
+			Name:            ws.DisplayName,
+			Branch:          ws.Branch,
+			Archived:        ws.Archived,
+			Pinned:          ws.Pinned,
+			LatestSessionID: ws.Summary.LatestSessionID,
+			IsRunning:       ws.StatusText() == "running",
+			LastSeenAt:      time.Now(),
+		}
+		if ws.Summary.LatestProcessStatus != nil {
+			dbWS.LatestProcessStatus = ws.Summary.LatestProcessStatus
+		}
+		if parsed := parseTimePtr(ws.CreatedAt); parsed != nil {
+			dbWS.CreatedAt = parsed
+		}
+		if parsed := parseTimePtr(ws.UpdatedAt); parsed != nil {
+			dbWS.UpdatedAt = parsed
+		}
+		if err := s.store.UpsertWorkspace(ctx, dbWS); err != nil {
+			fmt.Fprintf(os.Stderr, "upsert workspace 失败 [%s]: %v\n", ws.ID, err)
+			continue
+		}
 
-	if !apiResp.Success {
-		fmt.Fprintf(os.Stderr, "API 返回失败\n")
-		return
-	}
+		if ws.Summary.LatestSessionID == nil || *ws.Summary.LatestSessionID == "" {
+			continue
+		}
 
-	summaries := apiResp.Data.Summaries
-	fmt.Printf("获取到 %d 个活跃工作区\n", len(summaries))
+		session := &store.Session{
+			ID:          *ws.Summary.LatestSessionID,
+			WorkspaceID: ws.ID,
+		}
+		if err := s.store.UpsertSession(ctx, session); err != nil {
+			fmt.Fprintf(os.Stderr, "upsert session 失败 [%s]: %v\n", session.ID, err)
+			continue
+		}
 
-	// 处理每个工作区
-	for _, summary := range summaries {
-		s.syncWorkspaceSummary(ctx, summary)
+		s.subscribeSessionProcesses(ctx, ws.ID, session.ID)
 	}
+	return nil
 }
 
-// syncWorkspaceSummary 同步单个工作区摘要
-func (s *SyncService) syncWorkspaceSummary(ctx context.Context, summary api.WorkspaceSummary) {
-	// 获取最新的 session ID
-	sessionID := summary.LatestSessionID
-	if sessionID == nil || *sessionID == "" {
+func (s *SyncService) subscribeSessionProcesses(ctx context.Context, workspaceID, sessionID string) {
+	s.wsMutex.Lock()
+	if _, exists := s.sessionStreams[sessionID]; exists {
+		s.wsMutex.Unlock()
 		return
 	}
+	s.wsMutex.Unlock()
 
-	// 保存工作区到数据库（只保存基本信息）
-	if err := s.upsertWorkspaceFromSummary(ctx, summary); err != nil {
-		fmt.Fprintf(os.Stderr, "保存工作区 %s 失败: %v\n", summary.WorkspaceID, err)
-		return
-	}
-
-	fmt.Printf("同步工作区 %s, session: %s\n", summary.WorkspaceID, *sessionID)
-
-	// 订阅 session 的消息
-	s.subscribeSession(ctx, summary.WorkspaceID, *sessionID)
-}
-
-// upsertWorkspaceFromSummary 从 WorkspaceSummary 保存工作区信息
-func (s *SyncService) upsertWorkspaceFromSummary(ctx context.Context, summary api.WorkspaceSummary) error {
-	now := time.Now()
-	dbWS := &store.Workspace{
-		ID:              summary.WorkspaceID,
-		Name:            summary.WorkspaceID[:8], // 使用 ID 前 8 位作为临时名称
-		Branch:          "unknown",               // 暂时未知
-		Archived:        false,
-		Pinned:          false,
-		LatestSessionID: summary.LatestSessionID,
-		CreatedAt:       now,
-		UpdatedAt:       now,
-	}
-	return s.store.UpsertWorkspace(ctx, dbWS)
-}
-
-// subscribeSession 订阅 session 的 WebSocket 消息
-func (s *SyncService) subscribeSession(ctx context.Context, workspaceID, sessionID string) {
-	s.wsMutex.RLock()
-	_, exists := s.wsConns[sessionID]
-	s.wsMutex.RUnlock()
-
-	if exists {
-		return // 已经订阅
-	}
-
-	// 构建 WebSocket URL
-	wsURL := fmt.Sprintf("wss://%s/api/execution-processes/stream/session/ws?session_id=%s",
-		extractHost(s.cfg.KanbanAPIURL), sessionID)
-
-	fmt.Printf("订阅 session: %s\n", wsURL)
-
-	// 创建跳过 SSL 验证的 WebSocket Dialer
-	dialer := &websocket.Dialer{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-
-	conn, _, err := dialer.Dial(wsURL, nil)
+	wsURL, err := buildWSURL(s.cfg.KanbanAPIURL, "/api/execution-processes/stream/session/ws", map[string]string{
+		"session_id": sessionID,
+	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WebSocket 连接失败 [%s]: %v\n", sessionID, err)
+		fmt.Fprintf(os.Stderr, "构造 session ws URL 失败 [%s]: %v\n", sessionID, err)
+		return
+	}
+
+	conn, _, err := s.dialer.Dial(wsURL, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "连接 session ws 失败 [%s]: %v\n", sessionID, err)
 		return
 	}
 
 	s.wsMutex.Lock()
-	s.wsConns[sessionID] = conn
+	s.sessionStreams[sessionID] = conn
 	s.wsMutex.Unlock()
 
 	s.wg.Add(1)
-	go s.handleSessionMessages(ctx, workspaceID, sessionID, conn)
+	go s.consumeSessionProcesses(ctx, workspaceID, sessionID, conn)
 }
 
-// handleSessionMessages 处理 session 的 WebSocket 消息
-func (s *SyncService) handleSessionMessages(ctx context.Context, workspaceID, sessionID string, conn *websocket.Conn) {
+func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, sessionID string, conn *websocket.Conn) {
 	defer s.wg.Done()
+	var lastErr error
 	defer func() {
 		s.wsMutex.Lock()
-		delete(s.wsConns, sessionID)
+		delete(s.sessionStreams, sessionID)
 		s.wsMutex.Unlock()
-		conn.Close()
+		_ = conn.Close()
+		if shouldReconnectStream(lastErr) && !s.isStopping() {
+			s.scheduleSessionReconnect(ctx, workspaceID, sessionID)
+		}
 	}()
 
 	for {
@@ -242,75 +212,283 @@ func (s *SyncService) handleSessionMessages(ctx context.Context, workspaceID, se
 		default:
 			_, message, err := conn.ReadMessage()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "读取 WebSocket 消息失败 [%s]: %v\n", sessionID, err)
+				lastErr = err
+				fmt.Fprintf(os.Stderr, "读取 session ws 失败 [%s]: %v\n", sessionID, err)
 				return
 			}
 
-			s.processMessage(ctx, workspaceID, sessionID, message)
+			processes, err := extractExecutionProcesses(message)
+			if err != nil {
+				continue
+			}
+			for _, process := range processes {
+				ep := toStoreExecutionProcess(workspaceID, process)
+				if err := s.store.UpsertExecutionProcess(ctx, ep); err != nil {
+					fmt.Fprintf(os.Stderr, "保存 execution process 失败 [%s]: %v\n", ep.ID, err)
+					continue
+				}
+				if ep.RunReason == "codingagent" && !ep.Dropped {
+					s.subscribeProcessLogs(ctx, workspaceID, ep.SessionID, ep.ID, ep.Status)
+				}
+			}
 		}
 	}
 }
 
-// processMessage 处理单条消息
-func (s *SyncService) processMessage(ctx context.Context, workspaceID, sessionID string, message []byte) {
-	var entry store.NormalizedEntry
-	if err := json.Unmarshal(message, &entry); err != nil {
-		return // 忽略无法解析的消息
+func (s *SyncService) subscribeProcessLogs(ctx context.Context, workspaceID, sessionID, processID, processStatus string) {
+	s.wsMutex.Lock()
+	if _, exists := s.processLogStreams[processID]; exists {
+		s.wsMutex.Unlock()
+		return
 	}
+	s.wsMutex.Unlock()
 
-	// 检查是否需要同步该消息类型
-	entryType := entry.EntryType.Type
-	if !store.ShouldSync(entryType) {
+	wsURL, err := buildWSURL(s.cfg.KanbanAPIURL, fmt.Sprintf("/api/execution-processes/%s/normalized-logs/ws", processID), nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "构造 process log ws URL 失败 [%s]: %v\n", processID, err)
 		return
 	}
 
-	// 解析时间戳
-	timestamp, err := time.Parse(time.RFC3339, entry.Timestamp)
+	conn, _, err := s.dialer.Dial(wsURL, nil)
 	if err != nil {
-		timestamp = time.Now()
+		fmt.Fprintf(os.Stderr, "连接 process log ws 失败 [%s]: %v\n", processID, err)
+		return
 	}
 
-	// 构建 tool_info JSON
-	toolInfo := ""
-	if entryType == "tool_use" {
-		info := map[string]interface{}{
-			"tool_name":   entry.EntryType.ToolName,
-			"action_type": entry.EntryType.ActionType,
-			"status":       entry.EntryType.Status,
+	s.wsMutex.Lock()
+	s.processLogStreams[processID] = conn
+	s.wsMutex.Unlock()
+
+	s.wg.Add(1)
+	go s.consumeProcessLogs(ctx, workspaceID, sessionID, processID, processStatus, conn)
+}
+
+func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessionID, processID, processStatus string, conn *websocket.Conn) {
+	defer s.wg.Done()
+	var lastErr error
+	receivedEntries := false
+	defer func() {
+		s.wsMutex.Lock()
+		delete(s.processLogStreams, processID)
+		s.wsMutex.Unlock()
+		_ = conn.Close()
+		if shouldReconnectProcessLog(processStatus, receivedEntries, lastErr) && !s.isStopping() {
+			s.scheduleProcessReconnect(ctx, workspaceID, sessionID, processID, processStatus)
 		}
-		if data, err := json.Marshal(info); err == nil {
-			toolInfo = string(data)
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.stopCh:
+			return
+		default:
+			_, message, err := conn.ReadMessage()
+			if err != nil {
+				lastErr = err
+				if processStatus == "running" || !strings.Contains(err.Error(), "close 1006") {
+					fmt.Fprintf(os.Stderr, "读取 normalized logs ws 失败 [%s]: %v\n", processID, err)
+				}
+				return
+			}
+
+			patches, err := extractEntryPatches(message)
+			if err != nil {
+				continue
+			}
+			if len(patches) > 0 {
+				receivedEntries = true
+			}
+			for _, patch := range patches {
+				if !store.ShouldSync(patch.Entry.EntryType.Type) {
+					continue
+				}
+
+				entry, err := s.buildProcessEntry(workspaceID, sessionID, processID, patch)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "构建 process entry 失败 [%s]: %v\n", processID, err)
+					continue
+				}
+				if err := s.store.UpsertProcessEntry(ctx, entry); err != nil {
+					fmt.Fprintf(os.Stderr, "保存 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
+				}
+			}
 		}
-	}
-
-	// 检查消息是否已存在
-	contentHash := fmt.Sprintf("%x", len(entry.Content))
-	if exists, _ := s.store.MessageExists(ctx, sessionID, contentHash, timestamp); exists {
-		return // 消息已存在，跳过
-	}
-
-	// 保存消息
-	msg := &store.SessionMessage{
-		SessionID: sessionID,
-		EntryType:  entryType,
-		Content:    entry.Content,
-		ToolInfo:   toolInfo,
-		Timestamp:  timestamp,
-	}
-
-	if err := s.store.InsertMessage(ctx, msg); err != nil {
-		fmt.Fprintf(os.Stderr, "保存消息失败 [%s]: %v\n", sessionID, err)
 	}
 }
 
-// extractHost 从 URL 中提取主机地址
-func extractHost(apiURL string) string {
-	// 移除 http:// 或 https:// 前缀
-	host := apiURL
-	if len(host) > 8 && host[:8] == "https://" {
-		host = host[8:]
-	} else if len(host) > 7 && host[:7] == "http://" {
-		host = host[7:]
+func (s *SyncService) scheduleSessionReconnect(ctx context.Context, workspaceID, sessionID string) {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		timer := time.NewTimer(2 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.stopCh:
+			return
+		case <-timer.C:
+			s.subscribeSessionProcesses(ctx, workspaceID, sessionID)
+		}
+	}()
+}
+
+func (s *SyncService) scheduleProcessReconnect(ctx context.Context, workspaceID, sessionID, processID, processStatus string) {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		timer := time.NewTimer(2 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.stopCh:
+			return
+		case <-timer.C:
+			s.subscribeProcessLogs(ctx, workspaceID, sessionID, processID, processStatus)
+		}
+	}()
+}
+
+func (s *SyncService) buildProcessEntry(workspaceID, sessionID, processID string, patch entryPatch) (*store.ProcessEntry, error) {
+	entryTime, err := parseEntryTimestamp(patch.Entry.Timestamp)
+	if err != nil {
+		entryTime = time.Now()
 	}
-	return host
+
+	var actionTypeJSON, statusJSON, errorType *string
+	if patch.Entry.EntryType.ActionType != nil {
+		if raw, err := json.Marshal(patch.Entry.EntryType.ActionType); err == nil {
+			actionTypeJSON = stringPtr(string(raw))
+		}
+	}
+	if patch.Entry.EntryType.Status != nil {
+		if raw, err := json.Marshal(patch.Entry.EntryType.Status); err == nil {
+			statusJSON = stringPtr(string(raw))
+		}
+	}
+	if patch.Entry.EntryType.ErrorType != nil && patch.Entry.EntryType.ErrorType.Type != "" {
+		errorType = stringPtr(patch.Entry.EntryType.ErrorType.Type)
+	}
+
+	hash := sha256.Sum256([]byte(patch.Entry.Content))
+
+	return &store.ProcessEntry{
+		ProcessID:      processID,
+		SessionID:      sessionID,
+		WorkspaceID:    workspaceID,
+		EntryIndex:     patch.EntryIndex,
+		EntryType:      patch.Entry.EntryType.Type,
+		Role:           store.ToRole(patch.Entry.EntryType.Type),
+		Content:        patch.Entry.Content,
+		ToolName:       patch.Entry.EntryType.ToolName,
+		ActionTypeJSON: actionTypeJSON,
+		StatusJSON:     statusJSON,
+		ErrorType:      errorType,
+		EntryTimestamp: entryTime,
+		ContentHash:    hex.EncodeToString(hash[:]),
+	}, nil
+}
+
+func toStoreExecutionProcess(workspaceID string, process remoteExecutionProcess) *store.ExecutionProcess {
+	return &store.ExecutionProcess{
+		ID:                 process.ID,
+		SessionID:          process.SessionID,
+		WorkspaceID:        workspaceID,
+		RunReason:          process.RunReason,
+		Status:             process.Status,
+		Executor:           process.Executor,
+		ExecutorActionType: optionalString(process.ExecutorAction.Typ.Type),
+		Dropped:            process.Dropped,
+		CreatedAt:          parseTimePtrValue(process.CreatedAt),
+		CompletedAt:        parseTimePtrValue(process.CompletedAt),
+	}
+}
+
+func buildWSURL(baseURL, path string, query map[string]string) (string, error) {
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+
+	switch parsed.Scheme {
+	case "https":
+		parsed.Scheme = "wss"
+	default:
+		parsed.Scheme = "ws"
+	}
+	parsed.Path = path
+	values := parsed.Query()
+	for key, value := range query {
+		values.Set(key, value)
+	}
+	parsed.RawQuery = values.Encode()
+	return parsed.String(), nil
+}
+
+func parseEntryTimestamp(raw string) (time.Time, error) {
+	layouts := []string{time.RFC3339Nano, time.RFC3339}
+	for _, layout := range layouts {
+		if parsed, err := time.Parse(layout, raw); err == nil {
+			return parsed, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unsupported time format: %s", raw)
+}
+
+func parseTimePtr(raw string) *time.Time {
+	parsed, err := parseEntryTimestamp(raw)
+	if err != nil {
+		return nil
+	}
+	return &parsed
+}
+
+func parseTimePtrValue(raw *string) *time.Time {
+	if raw == nil || *raw == "" {
+		return nil
+	}
+	return parseTimePtr(*raw)
+}
+
+func optionalString(v string) *string {
+	if v == "" {
+		return nil
+	}
+	return &v
+}
+
+func stringPtr(v string) *string {
+	return &v
+}
+
+func shouldReconnectStream(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "close 1000") {
+		return false
+	}
+	return strings.Contains(msg, "unexpected EOF") ||
+		strings.Contains(msg, "bad handshake") ||
+		strings.Contains(msg, "close 1006")
+}
+
+func shouldReconnectProcessLog(processStatus string, receivedEntries bool, err error) bool {
+	if !shouldReconnectStream(err) {
+		return false
+	}
+	return processStatus == "running"
+}
+
+func (s *SyncService) isStopping() bool {
+	select {
+	case <-s.stopCh:
+		return true
+	default:
+		return false
+	}
 }
