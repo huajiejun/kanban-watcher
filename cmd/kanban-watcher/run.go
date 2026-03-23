@@ -19,6 +19,8 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 	"github.com/huajiejun/kanban-watcher/internal/singleton"
 	"github.com/huajiejun/kanban-watcher/internal/state"
+	"github.com/huajiejun/kanban-watcher/internal/store"
+	"github.com/huajiejun/kanban-watcher/internal/sync"
 	"github.com/huajiejun/kanban-watcher/internal/tray"
 	"github.com/huajiejun/kanban-watcher/internal/wechat"
 )
@@ -221,8 +223,40 @@ func runDaemon() error {
 	tracker := wechat.NewTracker(persistedState, cfg.WeChat.NotifyThresholdMinutes)
 	trayApp := tray.New()
 
+	// 初始化数据库 Store（如果配置了）
+	var dbStore *store.Store
+	if cfg.Database.IsEnabled() {
+		var err error
+		dbStore, err = store.NewStore(cfg.Database.DSN())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "数据库连接失败: %v\n", err)
+		} else {
+			// 初始化数据库表结构
+			if err := dbStore.InitSchema(context.Background()); err != nil {
+				fmt.Fprintf(os.Stderr, "数据库表初始化失败: %v\n", err)
+				dbStore.Close()
+				dbStore = nil
+			} else {
+				fmt.Fprintf(os.Stdout, "数据库连接成功\n")
+
+				// 启动同步服务
+				syncService := sync.NewSyncService(cfg, dbStore)
+				go syncService.Start(context.Background())
+			}
+		}
+	}
+
 	proxyClient := api.NewProxyClient(cfg.KanbanAPIURL)
 	httpServer := server.NewServer(proxyClient, 7778, "your-api-key-here")
+
+	// 注册消息 API 路由（如果数据库已连接）
+	if dbStore != nil {
+		routes := api.GetMessageRoutes(dbStore)
+		for pattern, handler := range routes {
+			httpServer.RegisterRoute(pattern, handler)
+		}
+	}
+
 	if err := httpServer.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "HTTP 服务器启动失败: %v\n", err)
 	}
@@ -243,6 +277,9 @@ func runDaemon() error {
 
 	if httpServer != nil {
 		httpServer.Stop(context.Background())
+	}
+	if dbStore != nil {
+		dbStore.Close()
 	}
 	mqttPub.Disconnect()
 	if err := state.SaveState(tracker.GetState()); err != nil {

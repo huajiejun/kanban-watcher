@@ -321,3 +321,28 @@ func (s *Store) GetWorkspaceByID(ctx context.Context, workspaceID string) (*Work
 	}
 	return &ws, nil
 }
+
+// GetWorkspaceBySessionID 根据 session ID 获取工作区
+func (s *Store) GetWorkspaceBySessionID(ctx context.Context, sessionID string) (*Workspace, error) {
+	query := `
+		SELECT w.id, w.name, w.branch, w.archived, w.pinned, w.latest_session_id, w.created_at, w.updated_at
+		FROM workspaces w
+		INNER JOIN sessions s ON w.id = s.workspace_id
+		WHERE s.id = ?
+	`
+	var ws Workspace
+	var latestSessionID sql.NullString
+	err := s.db.QueryRowContext(ctx, query, sessionID).Scan(
+		&ws.ID, &ws.Name, &ws.Branch, &ws.Archived, &ws.Pinned, &latestSessionID, &ws.CreatedAt, &ws.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get workspace by session: %w", err)
+	}
+	if latestSessionID.Valid {
+		ws.LatestSessionID = &latestSessionID.String
+	}
+	return &ws, nil
+}

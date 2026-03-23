@@ -15,10 +15,17 @@ import (
 
 // Server HTTP 服务器
 type Server struct {
-	proxy      *api.ProxyClient
-	port       int
-	apiKey     string
-	httpServer *http.Server
+	proxy       *api.ProxyClient
+	port        int
+	apiKey      string
+	httpServer  *http.Server
+	extraRoutes []routeRegistration
+}
+
+// routeRegistration 路由注册信息
+type routeRegistration struct {
+	pattern string
+	handler http.HandlerFunc
 }
 
 // NewServer 创建 HTTP 服务器
@@ -31,6 +38,14 @@ func NewServer(proxy *api.ProxyClient, port int, apiKey string) *Server {
 	}
 }
 
+// RegisterRoute 注册额外的路由
+func (s *Server) RegisterRoute(pattern string, handler http.HandlerFunc) {
+	s.extraRoutes = append(s.extraRoutes, routeRegistration{
+		pattern: pattern,
+		handler: handler,
+	})
+}
+
 // Start 启动 HTTP 服务器（非阻塞，在 goroutine 中运行）
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
@@ -40,6 +55,11 @@ func (s *Server) Start() error {
 
 	// Follow-up 代理接口
 	mux.HandleFunc("/api/workspace/", s.handleFollowUp)
+
+	// 注册额外的路由
+	for _, route := range s.extraRoutes {
+		mux.HandleFunc(route.pattern, route.handler)
+	}
 
 	s.httpServer = &http.Server{
 		Addr:    fmt.Sprintf(":%d", s.port),
