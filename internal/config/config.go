@@ -21,11 +21,19 @@ type Config struct {
 
 // DatabaseConfig 数据库连接参数
 type DatabaseConfig struct {
-	Host     string `yaml:"host"`     // 数据库主机地址
-	Port     int    `yaml:"port"`     // 数据库端口
-	User     string `yaml:"user"`     // 用户名
-	Password string `yaml:"password"` // 密码
-	Database string `yaml:"database"` // 数据库名
+	Host             string   `yaml:"host"`                // 数据库主机地址
+	Port             int      `yaml:"port"`                // 数据库端口
+	User             string   `yaml:"user"`                // 用户名
+	Password         string   `yaml:"password"`            // 密码
+	Database         string   `yaml:"database"`            // 数据库名
+	SyncIntervalSecs int      `yaml:"sync_interval_seconds"` // 同步间隔（秒）
+	BatchSize        int      `yaml:"batch_size"`           // 批量大小
+	MessageTypes     []string `yaml:"message_types"`       // 同步的消息类型
+}
+
+// IsEnabled 检查数据库配置是否启用
+func (c DatabaseConfig) IsEnabled() bool {
+	return c.Host != "" && c.Database != "" && c.User != ""
 }
 
 // DSN 生成数据库连接字符串
