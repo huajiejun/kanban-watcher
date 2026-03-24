@@ -125,22 +125,27 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 }
 
 func buildLocalMenuSummary(summary store.ActiveWorkspaceSummary) string {
+	text, _ := BuildLocalMenuSummary(summary)
+	return text
+}
+
+func BuildLocalMenuSummary(summary store.ActiveWorkspaceSummary) (string, string) {
 	switch {
 	case summary.HasPendingApproval:
-		return "待审批：等待你确认下一步"
+		return "待审批：等待你确认下一步", "reason"
 	case summary.Status == "failed":
-		return "运行失败：请检查最新日志"
+		return "运行失败：请检查最新日志", "reason"
 	}
 
 	if summary.LastMessage != nil {
 		if cleaned := cleanMenuSummary(*summary.LastMessage); cleaned != "" {
-			return cleaned
+			return cleaned, "last_message"
 		}
 	}
 	if summary.HasUnseenTurns {
-		return "未读消息：请查看最新回复"
+		return "未读消息：请查看最新回复", "reason"
 	}
-	return ""
+	return "", "empty"
 }
 
 func handleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
