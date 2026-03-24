@@ -285,16 +285,16 @@ export async function analyzeButtonsWithLLM(
       // 根据消息类型返回不同格式
       if (messageType === 'proposal') {
         const extracted: string[] = Array.isArray(parsed.extracted)
-          ? parsed.extracted
-              .filter((item): item is string => typeof item === "string")
+          ? (parsed.extracted as unknown[])
+              .filter((item: unknown): item is string => typeof item === "string")
               .map((item: string) => item.trim())
               .filter((item: string) => isValidButtonText(item))
               .slice(0, 3)
           : [];
 
         const suggested: ButtonWithReason[] = Array.isArray(parsed.suggested)
-          ? parsed.suggested
-              .filter((item): item is Record<string, unknown> =>
+          ? (parsed.suggested as unknown[])
+              .filter((item: unknown): item is Record<string, unknown> =>
                 typeof item === "object" && item !== null
               )
               .map((item: Record<string, unknown>) => ({
@@ -312,8 +312,8 @@ export async function analyzeButtonsWithLLM(
         };
       } else {
         const actions: ButtonWithReason[] = Array.isArray(parsed.actions)
-          ? parsed.actions
-              .filter((item): item is Record<string, unknown> =>
+          ? (parsed.actions as unknown[])
+              .filter((item: unknown): item is Record<string, unknown> =>
                 typeof item === "object" && item !== null
               )
               .map((item: Record<string, unknown>) => ({

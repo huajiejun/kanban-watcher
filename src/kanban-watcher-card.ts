@@ -20,6 +20,7 @@ import {
   isValidButtonText,
   STATIC_BUTTONS,
 } from "./lib/quick-buttons";
+import type { ButtonWithReason } from "./types";
 import {
   detectLanguageFromPath,
   renderDiffWithHighlight,
@@ -161,8 +162,8 @@ export class KanbanWatcherCard extends LitElement {
   private dynamicButtonsByWorkspace: Record<string, string[]> = {};
   /** 从消息中提取的选项按钮 */
   private extractedButtonsByWorkspace: Record<string, string[]> = {};
-  /** LLM 语义联想推荐的操作按钮 */
-  private suggestedButtonsByWorkspace: Record<string, string[]> = {};
+  /** LLM 语义联想推荐的操作按钮（带理由） */
+  private suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   /** 缓存每个工作区最后分析的消息 hash，避免重复调用 LLM */
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
 
@@ -314,9 +315,8 @@ export class KanbanWatcherCard extends LitElement {
     // 合并所有按钮：静态 + 提取 + 推荐
     const staticBtns = STATIC_BUTTONS.filter(isValidButtonText);
     const extractedBtns = extractedButtons.filter(isValidButtonText);
-    const suggestedBtns = suggestedButtons.filter(isValidButtonText);
 
-    if (staticBtns.length === 0 && extractedBtns.length === 0 && suggestedBtns.length === 0) {
+    if (staticBtns.length === 0 && extractedBtns.length === 0 && suggestedButtons.length === 0) {
       return nothing;
     }
 
@@ -340,13 +340,14 @@ export class KanbanWatcherCard extends LitElement {
             ${text}
           </button>
         `)}
-        ${suggestedBtns.map((text) => html`
+        ${suggestedButtons.map((item) => html`
           <button
             class="quick-button is-suggested"
             type="button"
-            @click=${() => void this.handleQuickButtonClick(text)}
+            title="${item.reason}"
+            @click=${() => void this.handleQuickButtonClick(item.button)}
           >
-            ${text}
+            ${item.button}
           </button>
         `)}
       </div>
