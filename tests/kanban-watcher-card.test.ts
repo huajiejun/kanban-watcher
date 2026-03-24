@@ -889,6 +889,7 @@ describe("kanban-watcher-card", () => {
 
   it("declares a large dialog with its own scrollable full-width message flow", () => {
     const cssText = cardStyles.cssText;
+    const messageBubbleRule = cssText.match(/\.message-bubble\s*\{[^}]+\}/)?.[0] ?? "";
 
     expect(cssText).toContain(".message-list");
     expect(cssText).toContain("overflow-y: auto");
@@ -897,10 +898,21 @@ describe("kanban-watcher-card", () => {
     expect(cssText).toContain("width: min(900px, calc(100vw - 24px))");
     expect(cssText).toContain(".message-bubble.is-user");
     expect(cssText).toContain(".message-bubble.is-ai");
-    expect(cssText).not.toContain("justify-content: flex-end");
-    expect(cssText).not.toContain("text-align: right");
-    expect(cssText).toContain("white-space: normal");
-    expect(cssText).not.toContain("white-space: pre-wrap");
+    expect(messageBubbleRule).not.toContain("justify-content: flex-end");
+    expect(messageBubbleRule).not.toContain("text-align: right");
+    expect(messageBubbleRule).toContain("white-space: normal");
+    expect(messageBubbleRule).not.toContain("white-space: pre-wrap");
+  });
+
+  it("declares explicit dialog theme colors for Home Assistant dark mode", () => {
+    const cssText = cardStyles.cssText;
+    const dialogRule = cssText.match(/\.workspace-dialog\s*\{[^}]+\}/)?.[0] ?? "";
+
+    expect(dialogRule).toContain("background: var(");
+    expect(dialogRule).toContain("--card-background-color");
+    expect(dialogRule).toContain("--ha-card-background");
+    expect(dialogRule).toContain("--secondary-background-color, #1f2937");
+    expect(dialogRule).toContain("color: var(--primary-text-color, #e5e7eb)");
   });
 
   it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {
