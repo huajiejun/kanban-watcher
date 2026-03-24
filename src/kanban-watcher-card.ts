@@ -6,6 +6,7 @@ import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
 import { renderMessageMarkdown } from "./lib/render-message-markdown";
 import { getStatusMeta } from "./lib/status-meta";
+import { summarizeToolCall, type DialogToolStatus } from "./lib/tool-call";
 import { cardStyles } from "./styles";
 import type {
   ActiveWorkspacesResponse,
@@ -36,11 +37,37 @@ type CardConfig = {
 };
 
 type DialogAction = "send" | "queue" | "stop";
-type DialogMessage = {
+type DialogTextMessage = {
   key?: string;
+  kind: "message";
   sender: "user" | "ai";
   text: string;
+  timestamp?: string;
 };
+type DialogToolMessage = {
+  key?: string;
+  kind: "tool";
+  toolName: string;
+  summary: string;
+  detail: string;
+  status: DialogToolStatus;
+  statusLabel: string;
+  icon: string;
+  command?: string;
+  timestamp?: string;
+};
+type DialogToolGroupMessage = {
+  key?: string;
+  kind: "tool-group";
+  toolName: string;
+  summary: string;
+  status: DialogToolStatus;
+  statusLabel: string;
+  icon: string;
+  items: DialogToolMessage[];
+  timestamp?: string;
+};
+type DialogMessage = DialogTextMessage | DialogToolMessage | DialogToolGroupMessage;
 type QueueItem = {
   workspaceId: string;
   content: string;
@@ -100,6 +127,8 @@ export class KanbanWatcherCard extends LitElement {
   private dialogMessagesByWorkspace: Record<string, DialogMessage[]> = {};
   private autoScrollEnabled = true;  // 默认启用自动滚动
   private messageListScrollHandler?: () => void;  // 滚动事件处理器
+  private dialogMessageVersionsByWorkspace: Record<string, string> = {};
+  private expandedToolMessageKeys = new Set<string>();
 
   connectedCallback() {
     super.connectedCallback();
@@ -276,13 +305,7 @@ export class KanbanWatcherCard extends LitElement {
           <section class="dialog-messages">
             <div class="dialog-panel-title">对话消息</div>
             <div class="message-list">
-              ${messages.map(
-                (message) => html`
-                  <div class="message-row">
-                    <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">${unsafeHTML(renderMessageMarkdown(this.compactMessageText(message.text)))}</div>
-                  </div>
-                `,
-              )}
+              ${messages.map((message) => this.renderDialogEntry(message))}
             </div>
           </section>
 
@@ -371,7 +394,7 @@ export class KanbanWatcherCard extends LitElement {
     this.actionFeedback = "";
     this.dialogError = "";
     if (this.isApiMode) {
-      void this.loadWorkspaceMessages(workspace.id, true);
+      void this.loadWorkspaceMessages(workspace.id, this.shouldRefreshWorkspaceMessages(workspace));
     }
   }
 
@@ -381,7 +404,112 @@ export class KanbanWatcherCard extends LitElement {
     this.actionFeedback = "";
     this.dialogError = "";
     this.dialogLoading = false;
+    this.expandedToolMessageKeys = new Set();
   };
+
+  private renderDialogEntry(message: DialogMessage) {
+    if (message.kind === "tool") {
+      return this.renderToolMessage(message);
+    }
+    if (message.kind === "tool-group") {
+      return this.renderToolGroupMessage(message);
+    }
+
+    return html`
+      <div class="message-row">
+        <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">
+          ${unsafeHTML(renderMessageMarkdown(this.compactMessageText(message.text)))}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderToolMessage(message: DialogToolMessage) {
+    const toolKey = this.getDialogMessageIdentity(message);
+    const expanded = this.expandedToolMessageKeys.has(toolKey);
+
+    return html`
+      <div class="message-tool">
+        <button
+          class="message-tool-button is-${message.status}"
+          type="button"
+          @click=${() => this.toggleToolMessage(toolKey)}
+        >
+          <span class="message-tool-icon" aria-hidden="true">${message.icon}</span>
+          <span class="message-tool-summary">
+            <span class="message-tool-name">${message.toolName}</span>
+            <span class="message-tool-text">${message.summary}</span>
+          </span>
+          <span class="message-tool-status">${message.statusLabel}</span>
+        </button>
+        ${expanded
+          ? html`
+              <div class="message-tool-detail">
+                ${message.command
+                  ? html`<div class="message-tool-command">${message.command}</div>`
+                  : nothing}
+                ${message.detail
+                  ? html`${unsafeHTML(renderMessageMarkdown(message.detail))}`
+                  : nothing}
+              </div>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
+  private renderToolGroupMessage(message: DialogToolGroupMessage) {
+    const toolKey = this.getDialogMessageIdentity(message);
+    const expanded = this.expandedToolMessageKeys.has(toolKey);
+
+    return html`
+      <div class="message-tool">
+        <button
+          class="message-tool-button is-${message.status}"
+          type="button"
+          @click=${() => this.toggleToolMessage(toolKey)}
+        >
+          <span class="message-tool-icon" aria-hidden="true">${message.icon}</span>
+          <span class="message-tool-summary">
+            <span class="message-tool-name">${message.toolName}</span>
+            <span class="message-tool-text">${message.summary}</span>
+          </span>
+          <span class="message-tool-status">${message.statusLabel}</span>
+        </button>
+        ${expanded
+          ? html`
+              <div class="message-tool-detail">
+                ${message.items.map((item) => this.renderGroupedToolDetail(item))}
+              </div>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
+  private renderGroupedToolDetail(message: DialogToolMessage) {
+    return html`
+      <div class="message-tool-group-item">
+        <div class="message-tool-group-item-summary">
+          ${message.command ?? message.summary}
+        </div>
+        ${message.detail
+          ? html`${unsafeHTML(renderMessageMarkdown(message.detail))}`
+          : nothing}
+      </div>
+    `;
+  }
+
+  private toggleToolMessage(toolKey: string) {
+    const next = new Set(this.expandedToolMessageKeys);
+    if (next.has(toolKey)) {
+      next.delete(toolKey);
+    } else {
+      next.add(toolKey);
+    }
+    this.expandedToolMessageKeys = next;
+    this.requestUpdate();
+  }
 
   private handleMessageInput = (event: Event) => {
     this.messageDraft = (event.target as HTMLTextAreaElement).value;
@@ -422,6 +550,7 @@ export class KanbanWatcherCard extends LitElement {
         workspaceId: this.selectedWorkspaceId,
         message,
       });
+      this.appendOptimisticUserMessage(this.selectedWorkspaceId, message);
       this.messageDraft = "";
       this.actionFeedback = response.message?.trim()
         ? `发送成功：${response.message.trim()}`
@@ -528,10 +657,10 @@ export class KanbanWatcherCard extends LitElement {
         return apiMessages;
       }
       if (this.dialogLoading) {
-        return [{ sender: "ai", text: "正在加载消息..." }];
+        return [{ kind: "message", sender: "ai", text: "正在加载消息..." }];
       }
       if (this.dialogError) {
-        return [{ sender: "ai", text: this.dialogError }];
+        return [{ kind: "message", sender: "ai", text: this.dialogError }];
       }
     }
 
@@ -545,6 +674,7 @@ export class KanbanWatcherCard extends LitElement {
 
     return [
       {
+        kind: "message",
         sender: "ai",
         text: sessionId
           ? "暂无同步的对话消息。"
@@ -578,7 +708,7 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     return typeof attributes?.last_message === "string" && attributes.last_message.trim()
-      ? [{ sender: "ai", text: attributes.last_message.trim() }]
+      ? [{ kind: "message", sender: "ai", text: attributes.last_message.trim() }]
       : [];
   }
 
@@ -619,8 +749,10 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     return {
+      kind: "message",
       sender: message.role === "user" ? "user" : "ai",
       text: this.compactMessageText(text),
+      timestamp: message.timestamp,
     };
   }
 
@@ -937,24 +1069,50 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     const existing = this.dialogMessagesByWorkspace[workspace.id] ?? [];
-    const merged = [...existing];
-    const seenKeys = new Set(existing.map((item) => item.key ?? `${item.sender}:${item.text}`));
+    const existingFlat = this.flattenDialogMessages(existing);
+    const merged = [...existingFlat];
+    const indexByKey = new Map(
+      existingFlat.map((item, index) => [this.getDialogMessageIdentity(item), index]),
+    );
+    const previousLatestTimestamp = this.getLatestDialogTimestamp(existingFlat);
+    let hasNewLatestMessage = false;
 
-    for (const message of this.normalizeApiMessages(messages)) {
-      const key = message.key ?? `${message.sender}:${message.text}`;
-      if (seenKeys.has(key)) {
+    for (const message of this.normalizeApiMessagesFlat(messages)) {
+      const key = this.getDialogMessageIdentity(message);
+      const optimisticIndex = this.findMatchingOptimisticUserMessageIndex(merged, message);
+      if (typeof optimisticIndex === "number") {
+        merged[optimisticIndex] = message;
+        indexByKey.set(key, optimisticIndex);
+        hasNewLatestMessage = hasNewLatestMessage || this.isMessageAtOrAfter(message.timestamp, previousLatestTimestamp);
         continue;
       }
-      seenKeys.add(key);
+      const existingIndex = indexByKey.get(key);
+      if (typeof existingIndex === "number") {
+        merged[existingIndex] = message;
+        hasNewLatestMessage = hasNewLatestMessage || this.isMessageAtOrAfter(message.timestamp, previousLatestTimestamp);
+        continue;
+      }
+      if (!this.isMessageStrictlyAfter(message.timestamp, previousLatestTimestamp)) {
+        continue;
+      }
+      indexByKey.set(key, merged.length);
       merged.push(message);
+      hasNewLatestMessage = hasNewLatestMessage || this.isMessageAtOrAfter(message.timestamp, previousLatestTimestamp);
+    }
+
+    const sortedMerged = this.sortDialogMessagesByTimestamp(merged);
+    if (this.areFlatMessagesEqual(existingFlat, sortedMerged)) {
+      return;
     }
 
     this.dialogMessagesByWorkspace = {
       ...this.dialogMessagesByWorkspace,
-      [workspace.id]: merged,
+      [workspace.id]: this.groupConsecutiveToolMessages(sortedMerged),
     };
     this.requestUpdate();
-    void this.updateComplete.then(() => this.scrollMessagesToBottom());
+    if (hasNewLatestMessage) {
+      void this.updateComplete.then(() => this.scrollMessagesToBottom());
+    }
   }
 
   private async loadActiveWorkspaces() {
@@ -1030,6 +1188,19 @@ export class KanbanWatcherCard extends LitElement {
     return left.id.localeCompare(right.id, "zh-CN");
   }
 
+  private shouldRefreshWorkspaceMessages(workspace: KanbanWorkspace) {
+    const cachedMessages = this.dialogMessagesByWorkspace[workspace.id];
+    if (!cachedMessages?.length) {
+      return true;
+    }
+
+    return this.getWorkspaceMessageVersion(workspace) !== this.dialogMessageVersionsByWorkspace[workspace.id];
+  }
+
+  private getWorkspaceMessageVersion(workspace: KanbanWorkspace) {
+    return workspace.last_message_at || workspace.updated_at || workspace.latest_session_id || "";
+  }
+
   private async loadWorkspaceMessages(workspaceId: string, forceRefresh = false) {
     if (!this.config?.base_url) {
       return;
@@ -1048,10 +1219,21 @@ export class KanbanWatcherCard extends LitElement {
         workspaceId,
         limit: this.config.messages_limit ?? DEFAULT_MESSAGES_LIMIT,
       });
+      const normalizedMessages = this.normalizeApiMessages(response.messages);
       this.dialogMessagesByWorkspace = {
         ...this.dialogMessagesByWorkspace,
-        [workspaceId]: this.normalizeApiMessages(response.messages),
+        [workspaceId]: this.mergeOptimisticMessages(
+          this.dialogMessagesByWorkspace[workspaceId] ?? [],
+          normalizedMessages,
+        ),
       };
+      const workspace = this.allWorkspaces.find((item) => item.id === workspaceId);
+      if (workspace) {
+        this.dialogMessageVersionsByWorkspace = {
+          ...this.dialogMessageVersionsByWorkspace,
+          [workspaceId]: this.getWorkspaceMessageVersion(workspace),
+        };
+      }
       this.emitPreviewStatus();
       this.requestUpdate();
       await this.updateComplete;
@@ -1066,18 +1248,261 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private normalizeApiMessages(messages: SessionMessageResponse[] | undefined) {
+    return this.groupConsecutiveToolMessages(this.normalizeApiMessagesFlat(messages));
+  }
+
+  private normalizeApiMessagesFlat(messages: SessionMessageResponse[] | undefined) {
     return (Array.isArray(messages) ? messages : [])
       .map((message) => {
+        if (message.entry_type === "tool_use") {
+          return this.normalizeApiToolMessage(message);
+        }
         if (typeof message.content !== "string" || !message.content.trim()) {
           return undefined;
         }
         return {
           key: this.buildMessageKey(message),
+          kind: "message",
           sender: message.role === "user" ? "user" : "ai",
           text: this.compactMessageText(message.content),
+          timestamp: message.timestamp,
         } satisfies DialogMessage;
       })
-      .filter((message): message is DialogMessage => Boolean(message));
+      .filter((message): message is DialogTextMessage | DialogToolMessage => Boolean(message));
+  }
+
+  private normalizeApiToolMessage(message: SessionMessageResponse) {
+    const summary = summarizeToolCall(message);
+    if (!summary) {
+      return undefined;
+    }
+
+    return {
+      key: this.buildMessageKey(message),
+      kind: "tool",
+      toolName: summary.toolName,
+      summary: summary.summary,
+      detail: summary.detail,
+      status: summary.status,
+      statusLabel: summary.statusLabel,
+      icon: summary.icon,
+      command: summary.command,
+      timestamp: message.timestamp,
+    } satisfies DialogMessage;
+  }
+
+  private getDialogMessageIdentity(message: DialogMessage) {
+    if (message.key) {
+      return message.key;
+    }
+    if (message.kind === "tool-group") {
+      return `tool-group:${message.toolName}:${message.summary}:${message.status}`;
+    }
+    if (message.kind === "tool") {
+      return `tool:${message.toolName}:${message.summary}:${message.status}`;
+    }
+    return `${message.sender}:${message.text}`;
+  }
+
+  private groupConsecutiveToolMessages(messages: DialogMessage[]) {
+    const grouped: DialogMessage[] = [];
+
+    for (const message of messages) {
+      const previous = grouped.at(-1);
+      if (
+        message.kind === "tool" &&
+        previous?.kind === "tool-group" &&
+        previous.toolName === message.toolName
+      ) {
+        previous.items = [...previous.items, message];
+        previous.summary = `${previous.items.length} commands`;
+        previous.status = this.getGroupedToolStatus(previous.items);
+        previous.statusLabel = previous.items.length > 1 ? `${previous.items.length} 条` : previous.statusLabel;
+        previous.timestamp = this.getLatestDialogTimestamp(previous.items);
+        continue;
+      }
+
+      if (
+        message.kind === "tool" &&
+        previous?.kind === "tool" &&
+        previous.toolName === message.toolName
+      ) {
+        grouped[grouped.length - 1] = {
+          kind: "tool-group",
+          toolName: message.toolName,
+          summary: "2 commands",
+          status: this.getGroupedToolStatus([previous, message]),
+          statusLabel: "2 条",
+          icon: message.icon,
+          items: [previous, message],
+          timestamp: this.getLatestDialogTimestamp([previous, message]),
+        } satisfies DialogToolGroupMessage;
+        continue;
+      }
+
+      grouped.push(message);
+    }
+
+    return grouped;
+  }
+
+  private getGroupedToolStatus(items: DialogToolMessage[]): DialogToolStatus {
+    if (items.some((item) => item.status === "error")) {
+      return "error";
+    }
+    if (items.some((item) => item.status === "pending")) {
+      return "pending";
+    }
+    if (items.some((item) => item.status === "running")) {
+      return "running";
+    }
+    if (items.some((item) => item.status === "denied")) {
+      return "denied";
+    }
+    if (items.every((item) => item.status === "success")) {
+      return "success";
+    }
+    return "idle";
+  }
+
+  private flattenDialogMessages(messages: DialogMessage[]) {
+    return messages.flatMap((message) => {
+      if (message.kind === "tool-group") {
+        return message.items;
+      }
+      return [message];
+    });
+  }
+
+  private sortDialogMessagesByTimestamp(messages: Array<DialogTextMessage | DialogToolMessage>) {
+    return [...messages].sort((left, right) => {
+      const leftTimestamp = left.timestamp ?? "";
+      const rightTimestamp = right.timestamp ?? "";
+      if (leftTimestamp && rightTimestamp && leftTimestamp !== rightTimestamp) {
+        return leftTimestamp.localeCompare(rightTimestamp);
+      }
+      return this.getDialogMessageIdentity(left).localeCompare(this.getDialogMessageIdentity(right), "zh-CN");
+    });
+  }
+
+  private getLatestDialogTimestamp(messages: Array<{ timestamp?: string }>) {
+    return messages.reduce<string | undefined>((latest, message) => {
+      if (!message.timestamp) {
+        return latest;
+      }
+      if (!latest || message.timestamp.localeCompare(latest) > 0) {
+        return message.timestamp;
+      }
+      return latest;
+    }, undefined);
+  }
+
+  private isMessageAtOrAfter(timestamp: string | undefined, baseline: string | undefined) {
+    if (!timestamp) {
+      return !baseline;
+    }
+    if (!baseline) {
+      return true;
+    }
+    return timestamp.localeCompare(baseline) >= 0;
+  }
+
+  private isMessageStrictlyAfter(timestamp: string | undefined, baseline: string | undefined) {
+    if (!timestamp) {
+      return !baseline;
+    }
+    if (!baseline) {
+      return true;
+    }
+    return timestamp.localeCompare(baseline) > 0;
+  }
+
+  private areFlatMessagesEqual(
+    left: Array<DialogTextMessage | DialogToolMessage>,
+    right: Array<DialogTextMessage | DialogToolMessage>,
+  ) {
+    if (left.length !== right.length) {
+      return false;
+    }
+
+    return left.every((message, index) => this.getFlatMessageSignature(message) === this.getFlatMessageSignature(right[index]!));
+  }
+
+  private getFlatMessageSignature(message: DialogTextMessage | DialogToolMessage) {
+    if (message.kind === "tool") {
+      return [
+        "tool",
+        this.getDialogMessageIdentity(message),
+        message.timestamp ?? "",
+        message.status,
+        message.summary,
+        message.detail,
+        message.command ?? "",
+      ].join("::");
+    }
+
+    return [
+      "message",
+      this.getDialogMessageIdentity(message),
+      message.timestamp ?? "",
+      message.sender,
+      message.text,
+    ].join("::");
+  }
+
+  private appendOptimisticUserMessage(workspaceId: string, text: string) {
+    const optimisticMessage: DialogTextMessage = {
+      key: `local:${Date.now()}:${text}`,
+      kind: "message",
+      sender: "user",
+      text: this.compactMessageText(text),
+    };
+    const existing = this.dialogMessagesByWorkspace[workspaceId] ?? [];
+    this.dialogMessagesByWorkspace = {
+      ...this.dialogMessagesByWorkspace,
+      [workspaceId]: [...existing, optimisticMessage],
+    };
+    this.requestUpdate();
+  }
+
+  private mergeOptimisticMessages(existing: DialogMessage[], incoming: DialogMessage[]) {
+    const merged = [...incoming];
+    const optimisticMessages = existing.filter(
+      (message): message is DialogTextMessage =>
+        message.kind === "message" &&
+        message.sender === "user" &&
+        typeof message.key === "string" &&
+        message.key.startsWith("local:"),
+    );
+
+    for (const optimisticMessage of optimisticMessages) {
+      const alreadyPersisted = incoming.some(
+        (message) =>
+          message.kind === "message" &&
+          message.sender === "user" &&
+          message.text === optimisticMessage.text,
+      );
+      if (!alreadyPersisted) {
+        merged.push(optimisticMessage);
+      }
+    }
+
+    return merged;
+  }
+
+  private findMatchingOptimisticUserMessageIndex(messages: DialogMessage[], incoming: DialogMessage) {
+    if (incoming.kind !== "message" || incoming.sender !== "user") {
+      return undefined;
+    }
+
+    return messages.findIndex(
+      (message) =>
+        message.kind === "message" &&
+        message.sender === "user" &&
+        typeof message.key === "string" &&
+        message.key.startsWith("local:") &&
+        message.text === incoming.text,
+    );
   }
 
   private buildMessageKey(message: SessionMessageResponse) {

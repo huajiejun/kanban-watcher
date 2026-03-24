@@ -82,6 +82,7 @@ export interface SessionMessageResponse {
   entry_type?: string;
   role?: string;
   content?: string;
+  tool_info?: ToolInfo;
   timestamp?: string;
 }
 
@@ -97,4 +98,29 @@ export interface RealtimeEvent {
   workspaces?: LocalWorkspaceSummary[];
   session_id?: string;
   messages?: SessionMessageResponse[];
+}
+
+export interface ToolActionInfo {
+  action?: string;
+  command?: string;
+  path?: string;
+  q?: string;
+  query?: string;
+  url?: string;
+  description?: string;
+  operation?: string;
+  [key: string]: unknown;
+}
+
+export type ToolStatusInfo =
+  | string
+  | {
+      status?: string;
+      [key: string]: unknown;
+    };
+
+export interface ToolInfo {
+  tool_name?: string;
+  action_type?: ToolActionInfo;
+  status?: ToolStatusInfo;
 }

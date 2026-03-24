@@ -10,11 +10,11 @@ import { previewEntityId } from "../src/dev/preview-fixture";
 describe("playground preview config", () => {
   it("reads base_url, api_key and messages_limit from URL params", () => {
     const options = readPreviewApiOptions(
-      new URL("http://localhost:5173/?base_url=http://127.0.0.1:7778&api_key=test-key&messages_limit=30"),
+      new URL("http://localhost:5173/?base_url=https://watcher.huajiejun.cn&api_key=test-key&messages_limit=30"),
     );
 
     expect(options).toEqual({
-      baseUrl: "http://127.0.0.1:7778",
+      baseUrl: "https://watcher.huajiejun.cn",
       apiKey: "test-key",
       messagesLimit: 30,
     });
@@ -35,13 +35,13 @@ describe("playground preview config", () => {
   it("builds API card config when base_url is provided", () => {
     expect(
       buildPreviewCardConfig({
-        baseUrl: "http://127.0.0.1:7778",
+        baseUrl: "https://watcher.huajiejun.cn",
         apiKey: "test-key",
         messagesLimit: 30,
       }),
     ).toEqual({
       entity: previewEntityId,
-      base_url: "http://127.0.0.1:7778",
+      base_url: "https://watcher.huajiejun.cn",
       api_key: "test-key",
       messages_limit: 30,
     });
@@ -63,12 +63,12 @@ describe("playground preview config", () => {
   it("describes real API preview mode when base_url is provided", () => {
     expect(
       describePreviewMode({
-        baseUrl: "http://127.0.0.1:7778",
+        baseUrl: "https://watcher.huajiejun.cn",
         messagesLimit: 30,
       }),
     ).toEqual({
       title: "当前模式：真实 API",
-      detail: "正在直连 http://127.0.0.1:7778，弹窗首次加载 30 条消息。",
+      detail: "正在直连 https://watcher.huajiejun.cn，弹窗首次加载 30 条消息。",
     });
   });
 

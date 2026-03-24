@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -235,6 +236,25 @@ func (s *Store) UpsertExecutionProcess(ctx context.Context, ep *ExecutionProcess
 	return nil
 }
 
+// GetExecutionProcessStatus 获取 execution process 当前状态
+func (s *Store) GetExecutionProcessStatus(ctx context.Context, processID string) (*string, error) {
+	query := `
+		SELECT status
+		FROM kw_execution_processes
+		WHERE id = ?
+		LIMIT 1
+	`
+
+	var status string
+	if err := s.db.QueryRowContext(ctx, query, processID).Scan(&status); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get execution process status: %w", err)
+	}
+	return &status, nil
+}
+
 // RefreshWorkspaceRuntimeState 根据最新 execution process 刷新工作区运行态
 func (s *Store) RefreshWorkspaceRuntimeState(ctx context.Context, workspaceID string) error {
 	query := `
@@ -313,6 +333,27 @@ func (s *Store) UpsertProcessEntry(ctx context.Context, entry *ProcessEntry) err
 		return fmt.Errorf("upsert process entry: %w", err)
 	}
 	return nil
+}
+
+// GetProcessEntry 获取指定 process 和 entry_index 的消息
+func (s *Store) GetProcessEntry(ctx context.Context, processID string, entryIndex int) (*ProcessEntry, error) {
+	query := `
+		SELECT id, process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
+		FROM kw_process_entries
+		WHERE process_id = ? AND entry_index = ?
+		LIMIT 1
+	`
+
+	row := s.db.QueryRowContext(ctx, query, processID, entryIndex)
+	entry, err := scanProcessEntry(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get process entry: %w", err)
+	}
+	return &entry, nil
 }
 
 // MarkMissingWorkspacesArchived 将本轮未出现在上游非归档列表中的工作区标记为 archived
