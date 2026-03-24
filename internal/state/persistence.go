@@ -15,9 +15,10 @@ const stateVersion = 1
 // persistedEntry 磁盘上存储的 AttentionEntry 表示（扁平化结构）
 // 使用 workspace_id + completed_at 替代复合 Key，便于 JSON 序列化
 type persistedEntry struct {
-	WorkspaceID string     `json:"workspace_id"`         // 工作区标识
-	CompletedAt string     `json:"completed_at"`         // 完成时间或空字符串
-	FirstSeenAt time.Time  `json:"first_seen_at"`        // 首次发现时间
+	WorkspaceID  string     `json:"workspace_id"`          // 工作区标识
+	CompletedAt string     `json:"completed_at"`          // 完成时间或空字符串
+	FirstSeenAt time.Time  `json:"first_seen_at"`         // 首次发现时间
+	ConfirmedAt *time.Time `json:"confirmed_at,omitempty"` // 确认时间（可选）
 	NotifiedAt  *time.Time `json:"notified_at,omitempty"` // 通知时间（可选）
 }
 
@@ -70,6 +71,7 @@ func LoadState() (AppState, error) {
 		s = s.WithEntry(key, AttentionEntry{
 			Key:         key,
 			FirstSeenAt: e.FirstSeenAt,
+			ConfirmedAt: e.ConfirmedAt,
 			NotifiedAt:  e.NotifiedAt,
 		})
 	}
@@ -113,6 +115,7 @@ func SaveState(s AppState) error {
 			WorkspaceID: e.Key.WorkspaceID,
 			CompletedAt: e.Key.CompletedAt,
 			FirstSeenAt: e.FirstSeenAt,
+			ConfirmedAt: e.ConfirmedAt,
 			NotifiedAt:  e.NotifiedAt,
 		})
 	}

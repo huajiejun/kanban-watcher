@@ -21,9 +21,10 @@ type NotificationKey struct {
 // AttentionEntry 记录某个 NotificationKey 的跟踪状态
 // 用于实现"持续需要关注超过阈值才通知"的逻辑
 type AttentionEntry struct {
-	Key         NotificationKey // 去重键
-	FirstSeenAt time.Time       // 首次发现需要关注的时间（开始计时）
-	NotifiedAt  *time.Time      // 实际发送通知的时间（nil 表示尚未通知）
+	Key          NotificationKey // 去重键
+	FirstSeenAt  time.Time       // 首次发现需要关注的时间（开始计时）
+	ConfirmedAt  *time.Time      // 确认需要关注的时间（连续第二个周期）
+	NotifiedAt   *time.Time      // 实际发送通知的时间（nil 表示尚未通知）
 }
 
 // AppState 应用持久化状态，包含所有正在跟踪的 AttentionEntry
