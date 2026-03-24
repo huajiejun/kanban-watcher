@@ -12,7 +12,6 @@ import { connectRealtime } from "./lib/realtime-api";
 import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
 import { renderMessageMarkdown } from "./lib/render-message-markdown";
-import { getStatusMeta } from "./lib/status-meta";
 import { summarizeToolCall, type DialogToolStatus } from "./lib/tool-call";
 import {
   extractDynamicButtons,
@@ -26,6 +25,9 @@ import {
   renderDiffWithHighlight,
   renderCodeWithHighlight,
 } from "./lib/highlight-code";
+import {
+  type WorkspaceSectionKey,
+} from "./components/workspace-section-list";
 import { cardStyles } from "./styles";
 import type {
   ActiveWorkspacesResponse,
@@ -39,7 +41,7 @@ import type {
   WorkspaceQueueStatusResponse,
 } from "./types";
 
-type SectionKey = "attention" | "running" | "idle";
+type SectionKey = WorkspaceSectionKey;
 
 type HomeAssistantState = {
   attributes?: KanbanEntityAttributes | KanbanSessionAttributes;
@@ -231,72 +233,18 @@ export class KanbanWatcherCard extends LitElement {
       return html`<div class="empty-state">当前没有任务</div>`;
     }
 
-    return sections.map(({ key, label, workspaces }) =>
-      this.renderSection(key, label, workspaces),
-    );
-  }
-
-  private renderSection(
-    key: SectionKey,
-    label: string,
-    workspaces: KanbanWorkspace[],
-  ) {
-    const collapsed = this.collapsedSections.has(key);
-
     return html`
-      <section class="section" ?collapsed=${collapsed}>
-        <button
-          class="section-toggle"
-          type="button"
-          @click=${() => this.toggleSection(key)}
-        >
-          <span class="section-title-row">
-            <span class="section-title">${label}</span>
-            <span class="section-count">${workspaces.length}</span>
-          </span>
-          <span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        ${collapsed
-          ? nothing
-          : html`
-              <div class="section-body">
-                ${workspaces.map((workspace) => this.renderWorkspace(workspace))}
-              </div>
-            `}
-      </section>
-    `;
-  }
-
-  private renderWorkspace(workspace: KanbanWorkspace) {
-    const statusMeta = getStatusMeta(workspace);
-    const { relativeTime, filesChanged, linesAdded, linesRemoved } =
-      this.getWorkspaceDisplayMeta(workspace);
-
-    return html`
-      <button
-        class="task-card ${statusMeta.accentClass}"
-        type="button"
-        @click=${() => this.openWorkspaceDialog(workspace)}
-      >
-        <div class="workspace-name">${workspace.name}</div>
-        <div class="task-meta">
-          <span class="meta-status">
-            ${statusMeta.icons.map(
-              (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
-                >${icon.symbol}</span
-              >`,
-            )}
-          </span>
-          <span class="relative-time">${relativeTime}</span>
-          <span class="meta-files"
-            ><span class="file-count">📄 ${filesChanged}</span> <span
-              class="lines-added"
-              >+${linesAdded}</span
-            >
-            <span class="lines-removed">-${linesRemoved}</span></span
-          >
-        </div>
-      </button>
+      <workspace-section-list
+        .sections=${sections}
+        .collapsedSections=${this.collapsedSections}
+        .selectedWorkspaceId=${this.selectedWorkspaceId}
+        .getWorkspaceDisplayMeta=${(workspace: KanbanWorkspace) =>
+          this.getWorkspaceDisplayMeta(workspace)}
+        @workspace-section-toggle=${(event: CustomEvent<SectionKey>) =>
+          this.toggleSection(event.detail)}
+        @workspace-select=${(event: CustomEvent<KanbanWorkspace>) =>
+          this.openWorkspaceDialog(event.detail)}
+      ></workspace-section-list>
     `;
   }
 
