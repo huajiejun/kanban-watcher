@@ -26,8 +26,10 @@ import {
   renderDiffWithHighlight,
   renderCodeWithHighlight,
 } from "./lib/highlight-code";
-import "./components/workspace-section-list";
-import type { WorkspaceSectionKey } from "./components/workspace-section-list";
+import {
+  renderWorkspaceSectionList,
+  type WorkspaceSectionKey,
+} from "./components/workspace-section-list";
 import { cardStyles } from "./styles";
 import type {
   ActiveWorkspacesResponse,
@@ -233,19 +235,14 @@ export class KanbanWatcherCard extends LitElement {
       return html`<div class="empty-state">当前没有任务</div>`;
     }
 
-    return html`
-      <workspace-section-list
-        .sections=${sections}
-        .collapsedSections=${this.collapsedSections}
-        .selectedWorkspaceId=${this.selectedWorkspaceId}
-        .getWorkspaceDisplayMeta=${(workspace: KanbanWorkspace) =>
-          this.getWorkspaceDisplayMeta(workspace)}
-        @workspace-section-toggle=${(event: CustomEvent<SectionKey>) =>
-          this.toggleSection(event.detail)}
-        @workspace-select=${(event: CustomEvent<KanbanWorkspace>) =>
-          this.openWorkspaceDialog(event.detail)}
-      ></workspace-section-list>
-    `;
+    return renderWorkspaceSectionList({
+      sections,
+      collapsedSections: this.collapsedSections,
+      selectedWorkspaceId: this.selectedWorkspaceId,
+      getWorkspaceDisplayMeta: (workspace) => this.getWorkspaceDisplayMeta(workspace),
+      onToggleSection: (key) => this.toggleSection(key),
+      onSelectWorkspace: (workspace) => this.openWorkspaceDialog(workspace),
+    });
   }
 
   private renderQuickButtons(workspace: KanbanWorkspace) {
