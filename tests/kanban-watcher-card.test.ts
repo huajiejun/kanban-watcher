@@ -1591,6 +1591,94 @@ describe("kanban-watcher-card", () => {
     ]);
   });
 
+  it("replaces persisted local-send user messages when the real user message arrives", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-local-send",
+              name: "API Local Send Workspace",
+              status: "completed",
+              latest_session_id: "session-api-local-send",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-local-send",
+          workspace_name: "API Local Send Workspace",
+          messages: [
+            {
+              id: 1,
+              process_id: "proc-history",
+              entry_index: 1,
+              session_id: "session-api-local-send",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "历史助手消息",
+              timestamp: "2026-03-21T11:58:00Z",
+            },
+            {
+              id: 2,
+              process_id: "local-send:session-api-local-send:1",
+              entry_index: 0,
+              session_id: "session-api-local-send",
+              entry_type: "user_message",
+              role: "user",
+              content: "刚发送的用户消息",
+              timestamp: "2026-03-21T11:58:30Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const realtimeReplyTimestamp = new Date(Date.now() + 1_000).toISOString();
+    (card as unknown as {
+      appendRealtimeMessages(sessionId: string, messages: Array<Record<string, unknown>>): void;
+    }).appendRealtimeMessages("session-api-local-send", [
+      {
+        id: 3,
+        process_id: "proc-real",
+        entry_index: 1,
+        session_id: "session-api-local-send",
+        entry_type: "user_message",
+        role: "user",
+        content: "刚发送的用户消息",
+        timestamp: new Date(Date.now() + 500).toISOString(),
+      },
+      {
+        id: 4,
+        process_id: "proc-real",
+        entry_index: 2,
+        session_id: "session-api-local-send",
+        entry_type: "assistant_message",
+        role: "assistant",
+        content: "后续助手回复",
+        timestamp: realtimeReplyTimestamp,
+      },
+    ]);
+    await settleCard(card);
+
+    const messageTexts = Array.from(
+      card.shadowRoot?.querySelectorAll(".message-bubble") ?? [],
+    ).map((element) => normalizeText(element.textContent));
+
+    expect(messageTexts).toEqual([
+      "历史助手消息",
+      "刚发送的用户消息",
+      "后续助手回复",
+    ]);
+  });
+
   it("allows queueing immediately after sending from an idle workspace", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(

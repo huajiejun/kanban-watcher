@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +18,7 @@ type messageContextStore interface {
 	GetMessageContextByWorkspaceID(context.Context, string) (*store.MessageContext, error)
 	GetLatestCodingAgentProcessByWorkspaceID(context.Context, string) (*store.ExecutionProcess, error)
 	UpsertMessageContext(context.Context, *store.MessageContext) error
+	UpsertProcessEntry(context.Context, *store.ProcessEntry) error
 }
 
 type messageSender interface {
@@ -84,6 +87,9 @@ func (d *MessageDispatcher) DispatchWorkspaceMessage(ctx context.Context, worksp
 	case "send":
 		if err := d.sender.SendFollowUpWithContext(ctx, msgCtx.SessionID, trimmed, msgCtx); err != nil {
 			return nil, err
+		}
+		if err := d.store.UpsertProcessEntry(ctx, buildLocalUserMessageEntry(workspaceID, msgCtx.SessionID, trimmed)); err != nil {
+			return nil, fmt.Errorf("消息已发送，但写入本地会话失败: %w", err)
 		}
 		return &DispatchResult{
 			WorkspaceID: workspaceID,
@@ -213,6 +219,23 @@ func (d *MessageDispatcher) hydrateMessageContext(ctx context.Context, workspace
 
 func stringPtr(v string) *string {
 	return &v
+}
+
+func buildLocalUserMessageEntry(workspaceID, sessionID, message string) *store.ProcessEntry {
+	now := time.Now()
+	hash := sha256.Sum256([]byte(message))
+
+	return &store.ProcessEntry{
+		ProcessID:      fmt.Sprintf("local-send:%s:%d", sessionID, now.UnixNano()),
+		SessionID:      sessionID,
+		WorkspaceID:    workspaceID,
+		EntryIndex:     0,
+		EntryType:      "user_message",
+		Role:           "user",
+		Content:        message,
+		EntryTimestamp: now,
+		ContentHash:    hex.EncodeToString(hash[:]),
+	}
 }
 
 func queueStatusMessage(status *api.QueueStatusResponse) string {

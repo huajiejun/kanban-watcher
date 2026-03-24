@@ -13,6 +13,7 @@ type fakeMessageContextStore struct {
 	ctx           *store.MessageContext
 	latestProcess *store.ExecutionProcess
 	upsertedCtx   *store.MessageContext
+	upsertedEntry *store.ProcessEntry
 }
 
 func (f *fakeMessageContextStore) GetMessageContextByWorkspaceID(_ context.Context, workspaceID string) (*store.MessageContext, error) {
@@ -32,6 +33,11 @@ func (f *fakeMessageContextStore) GetLatestCodingAgentProcessByWorkspaceID(_ con
 func (f *fakeMessageContextStore) UpsertMessageContext(_ context.Context, msgCtx *store.MessageContext) error {
 	f.upsertedCtx = msgCtx
 	f.ctx = msgCtx
+	return nil
+}
+
+func (f *fakeMessageContextStore) UpsertProcessEntry(_ context.Context, entry *store.ProcessEntry) error {
+	f.upsertedEntry = entry
 	return nil
 }
 
@@ -86,17 +92,18 @@ func (f *fakeMessageSender) CancelQueue(_ context.Context, sessionID string) (*a
 }
 
 func TestDispatchWorkspaceMessageUsesStoredContextForSend(t *testing.T) {
-	dispatcher := NewMessageDispatcher(
-		&fakeMessageContextStore{
-			ctx: &store.MessageContext{
-				WorkspaceID:        "ws-1",
-				SessionID:          "session-1",
-				ExecutorConfigJSON: `{"executor":"CLAUDE_CODE","variant":"ZHIPU"}`,
-				DefaultSendMode:    "send",
-				Source:             "sync",
-				UpdatedAt:          time.Now(),
-			},
+	storeStub := &fakeMessageContextStore{
+		ctx: &store.MessageContext{
+			WorkspaceID:        "ws-1",
+			SessionID:          "session-1",
+			ExecutorConfigJSON: `{"executor":"CLAUDE_CODE","variant":"ZHIPU"}`,
+			DefaultSendMode:    "send",
+			Source:             "sync",
+			UpdatedAt:          time.Now(),
 		},
+	}
+	dispatcher := NewMessageDispatcher(
+		storeStub,
 		&fakeMessageSender{},
 		nil,
 	)
@@ -118,6 +125,21 @@ func TestDispatchWorkspaceMessageUsesStoredContextForSend(t *testing.T) {
 	}
 	if sender.sendCall.message != "继续处理" {
 		t.Fatalf("message = %q, want 继续处理", sender.sendCall.message)
+	}
+	if storeStub.upsertedEntry == nil {
+		t.Fatal("upsertedEntry = nil, want persisted user message")
+	}
+	if storeStub.upsertedEntry.SessionID != "session-1" {
+		t.Fatalf("persisted session_id = %q, want session-1", storeStub.upsertedEntry.SessionID)
+	}
+	if storeStub.upsertedEntry.EntryType != "user_message" {
+		t.Fatalf("persisted entry_type = %q, want user_message", storeStub.upsertedEntry.EntryType)
+	}
+	if storeStub.upsertedEntry.Content != "继续处理" {
+		t.Fatalf("persisted content = %q, want 继续处理", storeStub.upsertedEntry.Content)
+	}
+	if storeStub.upsertedEntry.ProcessID == "" {
+		t.Fatal("persisted process_id is empty")
 	}
 }
 
