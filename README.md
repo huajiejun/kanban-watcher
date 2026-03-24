@@ -16,6 +16,36 @@ npm run build
 
 The production bundle is written to `dist/kanban-watcher-card.js`.
 
+## Build macOS App
+
+`kanban-watcher` 的托盘程序可以直接打包为 macOS `.app`：
+
+```bash
+chmod +x scripts/build_macos_app.sh
+zsh scripts/build_macos_app.sh
+```
+
+产物会输出到 `dist-macos/Kanban Watcher.app`。
+
+如需做一次本地校验，可运行：
+
+```bash
+chmod +x scripts/test_build_macos_app.sh
+zsh scripts/test_build_macos_app.sh
+```
+
+当前打包内容包含：
+
+- 主程序二进制：`Contents/MacOS/Kanban Watcher`
+- 应用元数据：`Contents/Info.plist`
+- Finder 图标：`Contents/Resources/AppIcon.icns`
+- 示例配置：`Contents/Resources/config.yaml.example`
+
+说明：
+
+- 当前版本只生成未签名 `.app`，适合本机使用或内部分发
+- 当前默认使用 `build/macos/AppIcon.png` 生成 Finder 图标
+
 ## Local Preview
 
 To preview the card UI locally without Home Assistant:

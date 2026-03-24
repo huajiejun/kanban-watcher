@@ -240,9 +240,13 @@ export const cardStyles = css`
     gap: 12px;
     padding: 16px;
     border-radius: 22px;
-    background: var(--ha-card-background, var(--card-background-color, #ffffff));
+    background: var(
+      --card-background-color,
+      var(--ha-card-background, var(--secondary-background-color, #1f2937))
+    );
     border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 72%, transparent);
     box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+    color: var(--primary-text-color, #e5e7eb);
   }
 
   .dialog-header {

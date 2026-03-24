@@ -8,6 +8,7 @@ kanban-watcher-*
 .superpowers/
 node_modules/
 dist/
+dist-macos/
 coverage/
 .idea/
 

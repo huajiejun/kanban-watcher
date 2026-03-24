@@ -83,6 +83,7 @@ func TestActiveWorkspaceResponseJSONIncludesAttentionFields(t *testing.T) {
 				FilesChanged:       5,
 				LinesAdded:         12,
 				LinesRemoved:       3,
+				MenuSummary:        "待审批：等待你确认下一步",
 			},
 		},
 	}
@@ -114,6 +115,9 @@ func TestActiveWorkspaceResponseJSONIncludesAttentionFields(t *testing.T) {
 	}
 	if item["files_changed"] != float64(5) {
 		t.Fatalf("files_changed = %#v, want 5", item["files_changed"])
+	}
+	if item["menu_summary"] != "待审批：等待你确认下一步" {
+		t.Fatalf("menu_summary = %#v, want 待审批：等待你确认下一步", item["menu_summary"])
 	}
 }
 
@@ -156,5 +160,32 @@ func TestFetchExecutionProcessReturnsExecutorConfig(t *testing.T) {
 	}
 	if got := process.ExecutorAction.Typ.ExecutorConfig["executor"]; got != "CLAUDE_CODE" {
 		t.Fatalf("executor = %#v, want CLAUDE_CODE", got)
+	}
+}
+
+func TestBuildLocalMenuSummaryFallsBackToLastMessage(t *testing.T) {
+	lastMessage := "### 结论\n\n```go\nfmt.Println(\"ignore\")\n```\n请先看最后一条用户回复。"
+
+	got := buildLocalMenuSummary(store.ActiveWorkspaceSummary{
+		Status:      "completed",
+		LastMessage: &lastMessage,
+	})
+
+	if got != "结论 请先看最后一条用户回复。" {
+		t.Fatalf("menu summary = %q", got)
+	}
+}
+
+func TestBuildLocalMenuSummaryPrefersLastMessageOverUnreadReason(t *testing.T) {
+	lastMessage := "这里是未读时应展示的最后一条摘要"
+
+	got := buildLocalMenuSummary(store.ActiveWorkspaceSummary{
+		Status:         "completed",
+		HasUnseenTurns: true,
+		LastMessage:    &lastMessage,
+	})
+
+	if got != lastMessage {
+		t.Fatalf("menu summary = %q, want %q", got, lastMessage)
 	}
 }
