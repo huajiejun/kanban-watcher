@@ -2,16 +2,27 @@ import { LitElement, html, nothing } from "lit";
 
 import "../index";
 import "../components/workspace-conversation-pane";
+import type { ConversationPaneAction } from "../components/workspace-conversation-pane";
 import { renderWorkspaceSectionList } from "../components/workspace-section-list";
 import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
 import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
-import { fetchActiveWorkspaces, fetchWorkspaceLatestMessages } from "../lib/http-api";
-import type { KanbanSessionAttributes, KanbanWorkspace, LocalWorkspaceSummary } from "../types";
+import {
+  fetchActiveWorkspaces,
+  fetchWorkspaceLatestMessages,
+  sendWorkspaceMessage,
+  stopWorkspaceExecution,
+} from "../lib/http-api";
+import type {
+  KanbanSessionAttributes,
+  KanbanWorkspace,
+  LocalWorkspaceSummary,
+} from "../types";
 import { workspaceHomeStyles, workspaceSectionListStyles } from "../styles";
 import { getPaneColumns } from "./workspace-home.utils";
 import {
   createWorkspacePageState,
+  dismissWorkspacePane,
   openWorkspacePane,
   reconcileWorkspacePageState,
   type WorkspacePageState,
@@ -39,6 +50,10 @@ export class KanbanWorkspaceHome extends LitElement {
     loading: { type: Boolean },
     error: { attribute: false },
     collapsedSections: { attribute: false },
+    loadingWorkspaceIds: { attribute: false },
+    messageErrorByWorkspace: { attribute: false },
+    messageDraftByWorkspace: { attribute: false },
+    actionFeedbackByWorkspace: { attribute: false },
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
@@ -48,6 +63,10 @@ export class KanbanWorkspaceHome extends LitElement {
   loading = false;
   error = "";
   collapsedSections = new Set<"attention" | "running" | "idle">();
+  loadingWorkspaceIds = new Set<string>();
+  messageErrorByWorkspace: Record<string, string> = {};
+  messageDraftByWorkspace: Record<string, string> = {};
+  actionFeedbackByWorkspace: Record<string, string> = {};
   private refreshTimer?: number;
 
   connectedCallback() {
@@ -131,9 +150,14 @@ export class KanbanWorkspaceHome extends LitElement {
                     <workspace-conversation-pane
                       .workspaceName=${workspace.name}
                       .messages=${this.messagesByWorkspace[workspace.id] ?? []}
-                      .messageDraft=${""}
-                      .currentFeedback=${"桌面端工作区已接入同步刷新基础骨架。"}
+                      .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
+                      .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}
                       .quickButtons=${[]}
+                      @draft-change=${(event: CustomEvent<string>) =>
+                        this.handleDraftChange(workspace.id, event.detail)}
+                      @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
+                        void this.handlePaneAction(workspace, event.detail)}
+                      @pane-close=${() => this.handleCloseWorkspace(workspace)}
                     ></workspace-conversation-pane>
                   `,
                 )}
@@ -160,7 +184,7 @@ export class KanbanWorkspaceHome extends LitElement {
       this.pageState = reconcileWorkspacePageState(this.pageState, workspaces);
       await Promise.all(
         this.pageState.openWorkspaceIds.map((workspaceId) =>
-          this.loadWorkspaceMessages(workspaceId),
+          this.loadWorkspaceMessages(workspaceId, true),
         ),
       );
     } catch (error) {
@@ -203,58 +227,181 @@ export class KanbanWorkspaceHome extends LitElement {
     return Array.isArray(attributes?.workspaces) ? attributes.workspaces : [];
   }
 
-  private async loadWorkspaceMessages(workspaceId: string) {
-    if (this.messagesByWorkspace[workspaceId]) {
+  private async loadWorkspaceMessages(workspaceId: string, forceRefresh = false) {
+    if (!forceRefresh && this.messagesByWorkspace[workspaceId]) {
       return;
     }
 
-    if (!this.isApiMode) {
-      const previewSession = Object.values(createPreviewHass().states).find((state) => {
-        const attributes = state.attributes as KanbanSessionAttributes | undefined;
-        return attributes?.workspace_id === workspaceId;
-      })?.attributes as KanbanSessionAttributes | undefined;
+    this.setWorkspaceLoading(workspaceId, true);
+    this.messageErrorByWorkspace = {
+      ...this.messageErrorByWorkspace,
+      [workspaceId]: "",
+    };
 
-      const recentMessages = Array.isArray(previewSession?.recent_messages)
-        ? previewSession.recent_messages
-        : [];
+    try {
+      if (!this.isApiMode) {
+        const previewSession = Object.values(createPreviewHass().states).find((state) => {
+          const attributes = state.attributes as KanbanSessionAttributes | undefined;
+          return attributes?.workspace_id === workspaceId;
+        })?.attributes as KanbanSessionAttributes | undefined;
+
+        const recentMessages = Array.isArray(previewSession?.recent_messages)
+          ? previewSession.recent_messages
+          : [];
+
+        this.messagesByWorkspace = {
+          ...this.messagesByWorkspace,
+          [workspaceId]: recentMessages
+            .filter((message): message is NonNullable<typeof recentMessages>[number] =>
+              Boolean(message?.content),
+            )
+            .map((message) => ({
+              kind: "message" as const,
+              sender: message.role === "user" ? "user" : "ai",
+              text: message.content!,
+            })),
+        };
+        return;
+      }
+
+      const response = await fetchWorkspaceLatestMessages({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId,
+        limit: this.previewOptions.messagesLimit ?? 50,
+      });
 
       this.messagesByWorkspace = {
         ...this.messagesByWorkspace,
-        [workspaceId]: recentMessages
-          .filter((message): message is NonNullable<typeof recentMessages>[number] =>
-            Boolean(message?.content),
-          )
+        [workspaceId]: (response.messages ?? [])
+          .filter((message): message is typeof message & { content: string } => Boolean(message.content))
           .map((message) => ({
             kind: "message" as const,
             sender: message.role === "user" ? "user" : "ai",
-            text: message.content!,
+            text: message.content,
           })),
       };
-      return;
+    } catch (error) {
+      this.messageErrorByWorkspace = {
+        ...this.messageErrorByWorkspace,
+        [workspaceId]: error instanceof Error ? error.message : "加载消息失败",
+      };
+    } finally {
+      this.setWorkspaceLoading(workspaceId, false);
     }
-
-    const response = await fetchWorkspaceLatestMessages({
-      baseUrl: this.previewOptions.baseUrl!,
-      apiKey: this.previewOptions.apiKey,
-      workspaceId,
-      limit: this.previewOptions.messagesLimit ?? 50,
-    });
-
-    this.messagesByWorkspace = {
-      ...this.messagesByWorkspace,
-      [workspaceId]: (response.messages ?? [])
-        .filter((message): message is typeof message & { content: string } => Boolean(message.content))
-        .map((message) => ({
-          kind: "message" as const,
-          sender: message.role === "user" ? "user" : "ai",
-          text: message.content,
-        })),
-    };
   }
 
   private handleOpenWorkspace(workspace: KanbanWorkspace) {
     this.pageState = openWorkspacePane(this.pageState, workspace.id);
-    void this.loadWorkspaceMessages(workspace.id);
+    void this.loadWorkspaceMessages(workspace.id, true);
+  }
+
+  private handleDraftChange(workspaceId: string, draft: string) {
+    this.messageDraftByWorkspace = {
+      ...this.messageDraftByWorkspace,
+      [workspaceId]: draft,
+    };
+  }
+
+  private handleCloseWorkspace(workspace: KanbanWorkspace) {
+    this.pageState = dismissWorkspacePane(
+      this.pageState,
+      workspace.id,
+      Boolean(workspace.needs_attention || workspace.has_pending_approval || workspace.has_unseen_turns),
+    );
+  }
+
+  private async handlePaneAction(workspace: KanbanWorkspace, action: ConversationPaneAction) {
+    if (action === "stop") {
+      await this.handleStopWorkspace(workspace.id);
+      return;
+    }
+
+    const message = (this.messageDraftByWorkspace[workspace.id] ?? "").trim();
+    if (!message) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: "请输入要发送的消息。",
+      };
+      return;
+    }
+
+    if (!this.isApiMode) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: "预览模式暂不支持发送消息。",
+      };
+      return;
+    }
+
+    this.actionFeedbackByWorkspace = {
+      ...this.actionFeedbackByWorkspace,
+      [workspace.id]: action === "queue" ? "正在加入队列..." : "正在发送消息...",
+    };
+
+    try {
+      const response = await sendWorkspaceMessage({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId: workspace.id,
+        message,
+        mode: action,
+      });
+
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: response.message?.trim()
+          ? `${action === "queue" ? "加入队列成功" : "发送成功"}：${response.message.trim()}`
+          : action === "queue"
+            ? "加入队列成功。"
+            : "发送成功。",
+      };
+      if (action === "send") {
+        this.messageDraftByWorkspace = {
+          ...this.messageDraftByWorkspace,
+          [workspace.id]: "",
+        };
+      }
+      await this.loadWorkspaceMessages(workspace.id, true);
+    } catch (error) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: error instanceof Error ? error.message : "发送消息失败",
+      };
+    }
+  }
+
+  private async handleStopWorkspace(workspaceId: string) {
+    if (!this.isApiMode) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspaceId]: "预览模式暂不支持停止执行。",
+      };
+      return;
+    }
+
+    this.actionFeedbackByWorkspace = {
+      ...this.actionFeedbackByWorkspace,
+      [workspaceId]: "正在发送停止请求...",
+    };
+
+    try {
+      const response = await stopWorkspaceExecution({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId,
+      });
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspaceId]: response.message?.trim() || "已发送停止请求",
+      };
+      await this.loadWorkspaces();
+    } catch (error) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspaceId]: error instanceof Error ? error.message : "停止执行失败",
+      };
+    }
   }
 
   private toggleSection(key: "attention" | "running" | "idle") {
@@ -282,6 +429,29 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private get isApiMode() {
     return Boolean(this.previewOptions.baseUrl);
+  }
+
+  private getWorkspaceFeedback(workspaceId: string) {
+    if (this.actionFeedbackByWorkspace[workspaceId]) {
+      return this.actionFeedbackByWorkspace[workspaceId];
+    }
+    if (this.messageErrorByWorkspace[workspaceId]) {
+      return this.messageErrorByWorkspace[workspaceId];
+    }
+    if (this.loadingWorkspaceIds.has(workspaceId)) {
+      return "正在同步最新消息...";
+    }
+    return "消息已同步。";
+  }
+
+  private setWorkspaceLoading(workspaceId: string, loading: boolean) {
+    const next = new Set(this.loadingWorkspaceIds);
+    if (loading) {
+      next.add(workspaceId);
+    } else {
+      next.delete(workspaceId);
+    }
+    this.loadingWorkspaceIds = next;
   }
 
   private setupMobileCard() {

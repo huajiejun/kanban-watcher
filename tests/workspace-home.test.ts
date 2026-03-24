@@ -1,11 +1,74 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import "../src/web/workspace-home";
 import {
+  KanbanWorkspaceHome,
   getPaneColumns,
   resolveWorkspaceHomeMode,
 } from "../src/web/workspace-home";
 
+function setWindowWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: width,
+  });
+}
+
+function createJsonResponse(body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+function readRequestUrl(input: RequestInfo | URL) {
+  if (typeof input === "string") {
+    return input;
+  }
+  if (input instanceof URL) {
+    return input.toString();
+  }
+  return input.url;
+}
+
+async function flushElement(element: KanbanWorkspaceHome) {
+  await vi.advanceTimersByTimeAsync(0);
+  await Promise.resolve();
+  await element.updateComplete;
+  await vi.advanceTimersByTimeAsync(0);
+  await Promise.resolve();
+  await element.updateComplete;
+}
+
+async function waitForWorkspaceList(element: KanbanWorkspaceHome) {
+  for (let index = 0; index < 5; index += 1) {
+    await flushElement(element);
+    if (element.shadowRoot?.querySelector(".task-card")) {
+      return;
+    }
+  }
+}
+
+function createElement() {
+  const element = document.createElement("kanban-workspace-home") as KanbanWorkspaceHome;
+  document.body.append(element);
+  return element;
+}
+
 describe("workspace home helpers", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setWindowWidth(1440);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    document.body.innerHTML = "";
+  });
+
   it("uses desktop mode for wide screens and mobile-card for narrow screens", () => {
     expect(resolveWorkspaceHomeMode(1440)).toBe("desktop");
     expect(resolveWorkspaceHomeMode(768)).toBe("mobile-card");
@@ -19,5 +82,207 @@ describe("workspace home helpers", () => {
     expect(getPaneColumns(3)).toBe(3);
     expect(getPaneColumns(4)).toBe(4);
     expect(getPaneColumns(5)).toBe(4);
+  });
+
+  it("refreshes latest messages for every opened pane on the desktop interval", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-attention",
+              name: "需要处理的任务",
+              status: "completed",
+              has_pending_approval: true,
+              has_unseen_turns: true,
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "这是最新同步的消息",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+
+    await waitForWorkspaceList(element);
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/workspaces/ws-attention/latest-messages"),
+      expect.any(Object),
+    );
+
+    const latestMessageRequestsBeforeTick = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/ws-attention/latest-messages"),
+    );
+    expect(latestMessageRequestsBeforeTick).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await flushElement(element);
+
+    const latestMessageRequestsAfterTick = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/ws-attention/latest-messages"),
+    );
+    expect(latestMessageRequestsAfterTick).toHaveLength(2);
+  });
+
+  it("keeps a manually closed attention pane closed until attention changes again", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-attention",
+              name: "需要处理的任务",
+              status: "completed",
+              has_pending_approval: true,
+              has_unseen_turns: true,
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "这是最新同步的消息",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+
+    await waitForWorkspaceList(element);
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+
+    expect(pane).not.toBeNull();
+
+    pane.dispatchEvent(new CustomEvent("pane-close", { bubbles: true, composed: true }));
+    await flushElement(element);
+
+    expect(element.shadowRoot?.querySelector("workspace-conversation-pane")).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await flushElement(element);
+
+    expect(element.shadowRoot?.querySelector("workspace-conversation-pane")).toBeNull();
+  });
+
+  it("sends desktop pane messages through the workspace API and refreshes the pane", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-attention",
+              name: "需要处理的任务",
+              status: "completed",
+              has_pending_approval: true,
+              has_unseen_turns: true,
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "这是最新同步的消息",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-attention/message")) {
+        expect(init?.method).toBe("POST");
+        expect(init?.body).toBe(JSON.stringify({ message: "请继续推进", mode: "send" }));
+        return createJsonResponse({
+          success: true,
+          workspace_id: "ws-attention",
+          message: "已发送",
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+
+    await waitForWorkspaceList(element);
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+
+    pane.dispatchEvent(
+      new CustomEvent("draft-change", {
+        detail: "请继续推进",
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await flushElement(element);
+
+    pane.dispatchEvent(
+      new CustomEvent("action-click", {
+        detail: "send",
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await flushElement(element);
+
+    const messageRequests = fetchMock.mock.calls.filter(([url]) =>
+      readRequestUrl(url as RequestInfo | URL).includes("/api/workspace/ws-attention/message"),
+    );
+    const latestMessageRequests = fetchMock.mock.calls.filter(([url]) =>
+      readRequestUrl(url as RequestInfo | URL).includes("/api/workspaces/ws-attention/latest-messages"),
+    );
+
+    expect(messageRequests).toHaveLength(1);
+    expect(latestMessageRequests).toHaveLength(2);
   });
 });
