@@ -125,6 +125,59 @@ func TestGetWorkspaceBySessionIDReturnsNilOnNotFound(t *testing.T) {
 	}
 }
 
+func TestGetProcessEntryReturnsNilOnNotFound(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
+		FROM kw_process_entries
+		WHERE process_id = ? AND entry_index = ?
+		LIMIT 1
+	`)).
+		WithArgs("missing-proc", 33).
+		WillReturnError(sql.ErrNoRows)
+
+	got, err := store.GetProcessEntry(context.Background(), "missing-proc", 33)
+	if err != nil {
+		t.Fatalf("GetProcessEntry 返回错误: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("entry = %#v, want nil", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestGetExecutionProcessStatusReturnsNilOnNotFound(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT status
+		FROM kw_execution_processes
+		WHERE id = ?
+		LIMIT 1
+	`)).
+		WithArgs("missing-proc").
+		WillReturnError(sql.ErrNoRows)
+
+	got, err := store.GetExecutionProcessStatus(context.Background(), "missing-proc")
+	if err != nil {
+		t.Fatalf("GetExecutionProcessStatus 返回错误: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("status = %#v, want nil", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestShouldRetryExec(t *testing.T) {
 	tests := []struct {
 		name string

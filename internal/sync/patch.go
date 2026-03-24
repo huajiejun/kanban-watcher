@@ -24,6 +24,7 @@ type jsonPatchOperation struct {
 type entryPatch struct {
 	EntryIndex int
 	Entry      store.NormalizedEntry
+	IsPartial  bool
 }
 
 type remoteWorkspace struct {
@@ -81,27 +82,84 @@ func extractEntryPatches(message []byte) ([]entryPatch, error) {
 				})
 			}
 		case strings.HasPrefix(op.Path, "/entries/"):
-			idx, err := strconv.Atoi(strings.TrimPrefix(op.Path, "/entries/"))
+			patch, ok, err := parseEntryPatchOperation(op)
 			if err != nil {
+				return nil, err
+			}
+			if !ok {
 				continue
 			}
-			var item struct {
-				Type    string                `json:"type"`
-				Content store.NormalizedEntry `json:"content"`
-			}
-			if err := json.Unmarshal(op.Value, &item); err != nil {
-				return nil, fmt.Errorf("解析 entry patch: %w", err)
-			}
-			if item.Type != "NORMALIZED_ENTRY" {
-				continue
-			}
-			patches = append(patches, entryPatch{
-				EntryIndex: idx,
-				Entry:      item.Content,
-			})
+			patches = append(patches, patch)
 		}
 	}
 	return patches, nil
+}
+
+func parseEntryPatchOperation(op jsonPatchOperation) (entryPatch, bool, error) {
+	pathParts := strings.Split(strings.TrimPrefix(op.Path, "/entries/"), "/")
+	if len(pathParts) == 0 || pathParts[0] == "" {
+		return entryPatch{}, false, nil
+	}
+
+	idx, err := strconv.Atoi(pathParts[0])
+	if err != nil {
+		return entryPatch{}, false, nil
+	}
+
+	if len(pathParts) == 1 {
+		var item struct {
+			Type    string                `json:"type"`
+			Content store.NormalizedEntry `json:"content"`
+		}
+		if err := json.Unmarshal(op.Value, &item); err != nil {
+			return entryPatch{}, false, fmt.Errorf("解析 entry patch: %w", err)
+		}
+		if item.Type != "NORMALIZED_ENTRY" {
+			return entryPatch{}, false, nil
+		}
+		return entryPatch{
+			EntryIndex: idx,
+			Entry:      item.Content,
+		}, true, nil
+	}
+
+	if len(pathParts) == 3 && pathParts[1] == "content" && pathParts[2] == "content" {
+		var content string
+		if err := json.Unmarshal(op.Value, &content); err != nil {
+			return entryPatch{}, false, fmt.Errorf("解析 entry content patch: %w", err)
+		}
+		return entryPatch{
+			EntryIndex: idx,
+			IsPartial:  true,
+			Entry: store.NormalizedEntry{
+				Content: content,
+			},
+		}, true, nil
+	}
+
+	return entryPatch{}, false, nil
+}
+
+func mergeEntryPatch(base store.NormalizedEntry, patch entryPatch) (store.NormalizedEntry, bool) {
+	if !patch.IsPartial {
+		return patch.Entry, true
+	}
+
+	merged := base
+	if patch.Entry.Timestamp != "" {
+		merged.Timestamp = patch.Entry.Timestamp
+	}
+	if patch.Entry.EntryType.Type != "" {
+		merged.EntryType = patch.Entry.EntryType
+	}
+	if patch.Entry.Content != "" {
+		merged.Content = patch.Entry.Content
+	}
+
+	if merged.EntryType.Type == "" || merged.Content == "" {
+		return store.NormalizedEntry{}, false
+	}
+	return merged, true
 }
 
 func extractExecutionProcesses(message []byte) ([]remoteExecutionProcess, error) {
