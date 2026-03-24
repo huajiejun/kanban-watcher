@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"embed"
 	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"os/signal"
@@ -33,6 +35,9 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/tray"
 	"github.com/huajiejun/kanban-watcher/internal/wechat"
 )
+
+//go:embed web
+var webFS embed.FS
 
 type commandDeps struct {
 	runSyncNow  func() error
@@ -266,7 +271,10 @@ func runDaemon() error {
 	}
 	jwtService := auth.NewJWTService(jwtSecret, cfg.Auth.TokenExpireDays)
 
-	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, jwtService)
+	// 获取嵌入的静态文件系统
+	staticFS, _ := fs.Sub(webFS, "web")
+
+	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, jwtService, staticFS)
 
 	// 设置认证处理器
 	authHandler := &server.AuthHandler{
@@ -377,7 +385,10 @@ func runHeadless() error {
 	}
 	jwtService := auth.NewJWTService(jwtSecret, cfg.Auth.TokenExpireDays)
 
-	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, jwtService)
+	// 获取嵌入的静态文件系统
+	staticFS, _ := fs.Sub(webFS, "web")
+
+	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, jwtService, staticFS)
 
 	// 设置认证处理器
 	authHandler := &server.AuthHandler{

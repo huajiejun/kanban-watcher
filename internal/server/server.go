@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"strings"
@@ -26,6 +27,7 @@ type Server struct {
 	authHandler *AuthHandler
 	httpServer  *http.Server
 	extraRoutes []routeRegistration
+	staticFS    fs.FS
 }
 
 type workspaceMessageDispatcher interface {
@@ -44,12 +46,14 @@ type routeRegistration struct {
 // NewServer 创建 HTTP 服务器
 // apiKey 用于简单的安全验证，HA 请求需要携带这个 key
 // jwtService 用于 JWT 认证，可选
-func NewServer(proxy *api.ProxyClient, port int, apiKey string, jwtService *auth.JWTService) *Server {
+// staticFS 静态文件系统，用于提供登录页面等
+func NewServer(proxy *api.ProxyClient, port int, apiKey string, jwtService *auth.JWTService, staticFS fs.FS) *Server {
 	return &Server{
 		proxy:      proxy,
 		port:       port,
 		apiKey:     apiKey,
 		jwtService: jwtService,
+		staticFS:   staticFS,
 	}
 }
 
@@ -85,6 +89,14 @@ func (s *Server) Start() error {
 		mux.HandleFunc("/api/auth/refresh", s.authHandler.HandleRefresh)
 	}
 
+	// 登录页面（不需要认证）
+	mux.HandleFunc("/login", s.handleLoginPage)
+
+	// 静态文件服务（登录页面资源）
+	if s.staticFS != nil {
+		mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(s.staticFS))))
+	}
+
 	// 工作区消息代理接口
 	mux.HandleFunc("/api/workspace/", s.handleWorkspaceMessage)
 
@@ -107,6 +119,42 @@ func (s *Server) Start() error {
 	}()
 
 	return nil
+}
+
+// handleLoginPage 返回登录页面
+func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
+	// 如果已经登录，重定向到主页
+	if s.jwtService != nil {
+		authHeader := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			token := strings.TrimPrefix(authHeader, "Bearer ")
+			if _, err := s.jwtService.ValidateToken(token); err == nil {
+				http.Redirect(w, r, "/", http.StatusFound)
+				return
+			}
+		}
+		// 检查 cookie 中的 token
+		if cookie, err := r.Cookie("auth_token"); err == nil {
+			if _, err := s.jwtService.ValidateToken(cookie.Value); err == nil {
+				http.Redirect(w, r, "/", http.StatusFound)
+				return
+			}
+		}
+	}
+
+	// 尝试从嵌入的静态文件系统读取登录页面
+	if s.staticFS != nil {
+		content, err := fs.ReadFile(s.staticFS, "login.html")
+		if err == nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write(content)
+			return
+		}
+	}
+
+	// 如果没有静态文件系统，返回简单的登录页面
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, `<!DOCTYPE html><html><head><title>Login</title></head><body><h1>Login page not available</h1></body></html>`)
 }
 
 // Stop 优雅停止服务器
@@ -318,7 +366,13 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// 3. 尝试 X-API-Key 认证
+		// 3. 登录页面和静态资源不需要认证
+		if r.URL.Path == "/login" || strings.HasPrefix(r.URL.Path, "/static/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// 4. 尝试 X-API-Key 认证
 		apiKey := r.Header.Get("X-API-Key")
 		if apiKey == "" {
 			apiKey = r.URL.Query().Get("api_key")
@@ -328,7 +382,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// 4. 尝试 JWT Bearer Token 认证
+		// 5. 尝试 JWT Bearer Token 认证（Header）
 		if s.jwtService != nil {
 			authHeader := r.Header.Get("Authorization")
 			if strings.HasPrefix(authHeader, "Bearer ") {
@@ -338,15 +392,29 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 					return
 				}
 			}
+
+			// 6. 尝试从 Cookie 中获取 JWT Token（用于浏览器页面访问）
+			if cookie, err := r.Cookie("auth_token"); err == nil {
+				if _, err := s.jwtService.ValidateToken(cookie.Value); err == nil {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
 		}
 
-		// 5. 认证失败
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"error":   "unauthorized",
-		})
+		// 7. 认证失败
+		// 对于 API 请求返回 JSON，对于页面请求重定向到登录页
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"error":   "unauthorized",
+			})
+		} else {
+			// 页面请求，重定向到登录页
+			http.Redirect(w, r, "/login", http.StatusFound)
+		}
 	})
 }
 

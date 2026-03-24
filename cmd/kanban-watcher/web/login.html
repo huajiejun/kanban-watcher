@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kanban Watcher - 登录</title>
+    <style>
+      :root {
+        --bg-gradient-1: rgba(245, 158, 11, 0.08);
+        --bg-gradient-2: #0f172a;
+        --bg-gradient-3: #1e293b;
+        --text-primary: #e2e8f0;
+        --text-secondary: #94a3b8;
+        --accent-color: #f59e0b;
+        --accent-hover: #d97706;
+        --card-bg: rgba(30, 41, 59, 0.8);
+        --card-border: rgba(51, 65, 85, 0.8);
+        --input-bg: rgba(15, 23, 42, 0.6);
+        --input-border: rgba(71, 85, 105, 0.6);
+        --input-focus-border: #f59e0b;
+        --error-color: #ef4444;
+        --success-color: #22c55e;
+
+        color-scheme: dark;
+        font-family:
+          "SF Pro Display",
+          "PingFang SC",
+          "Microsoft YaHei",
+          sans-serif;
+        background:
+          radial-gradient(circle at top, var(--bg-gradient-1), transparent 35%),
+          linear-gradient(180deg, var(--bg-gradient-2) 0%, var(--bg-gradient-3) 48%, var(--bg-gradient-2) 100%);
+        color: var(--text-primary);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .login-container {
+        width: 100%;
+        max-width: 400px;
+      }
+
+      .login-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 24px;
+        padding: 40px 32px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      .login-header {
+        text-align: center;
+        margin-bottom: 32px;
+      }
+
+      .login-logo {
+        font-size: 2.5rem;
+        margin-bottom: 12px;
+      }
+
+      .login-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .login-subtitle {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+      }
+
+      .login-form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .form-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      .form-input {
+        padding: 14px 16px;
+        background: var(--input-bg);
+        border: 1px solid var(--input-border);
+        border-radius: 12px;
+        color: var(--text-primary);
+        font-size: 1rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        outline: none;
+      }
+
+      .form-input:focus {
+        border-color: var(--input-focus-border);
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+      }
+
+      .form-input::placeholder {
+        color: var(--text-secondary);
+        opacity: 0.6;
+      }
+
+      .login-method-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
+      .method-tab {
+        flex: 1;
+        padding: 10px 16px;
+        background: transparent;
+        border: 1px solid var(--input-border);
+        border-radius: 10px;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .method-tab:hover {
+        border-color: var(--accent-color);
+        color: var(--text-primary);
+      }
+
+      .method-tab.active {
+        background: var(--accent-color);
+        border-color: var(--accent-color);
+        color: #0f172a;
+        font-weight: 500;
+      }
+
+      .login-button {
+        padding: 14px 24px;
+        background: var(--accent-color);
+        border: none;
+        border-radius: 12px;
+        color: #0f172a;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+        margin-top: 8px;
+      }
+
+      .login-button:hover {
+        background: var(--accent-hover);
+      }
+
+      .login-button:active {
+        transform: scale(0.98);
+      }
+
+      .login-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .error-message {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 10px;
+        padding: 12px 16px;
+        color: var(--error-color);
+        font-size: 0.9rem;
+        display: none;
+      }
+
+      .error-message.visible {
+        display: block;
+      }
+
+      .api-key-field {
+        display: none;
+      }
+
+      .api-key-field.visible {
+        display: flex;
+      }
+
+      .password-fields {
+        display: none;
+      }
+
+      .password-fields.visible {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .back-link {
+        text-align: center;
+        margin-top: 24px;
+      }
+
+      .back-link a {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: color 0.2s ease;
+      }
+
+      .back-link a:hover {
+        color: var(--accent-color);
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #0f172a;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-right: 8px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (max-width: 480px) {
+        .login-card {
+          padding: 32px 24px;
+        }
+
+        .login-title {
+          font-size: 1.3rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-header">
+          <div class="login-logo">📋</div>
+          <h1 class="login-title">Kanban Watcher</h1>
+          <p class="login-subtitle">登录以访问管理界面</p>
+        </div>
+
+        <div class="login-method-tabs">
+          <button class="method-tab active" data-method="password">用户名密码</button>
+          <button class="method-tab" data-method="apikey">API Key</button>
+        </div>
+
+        <form class="login-form" id="loginForm">
+          <div class="error-message" id="errorMessage"></div>
+
+          <!-- 用户名密码登录 -->
+          <div class="password-fields visible" id="passwordFields">
+            <div class="form-group">
+              <label class="form-label" for="username">用户名</label>
+              <input
+                type="text"
+                class="form-input"
+                id="username"
+                name="username"
+                placeholder="请输入用户名"
+                autocomplete="username"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="password">密码</label>
+              <input
+                type="password"
+                class="form-input"
+                id="password"
+                name="password"
+                placeholder="请输入密码"
+                autocomplete="current-password"
+              />
+            </div>
+          </div>
+
+          <!-- API Key 登录 -->
+          <div class="form-group api-key-field" id="apiKeyField">
+            <label class="form-label" for="apiKey">API Key</label>
+            <input
+              type="password"
+              class="form-input"
+              id="apiKey"
+              name="apiKey"
+              placeholder="请输入 API Key"
+            />
+          </div>
+
+          <button type="submit" class="login-button" id="loginButton">登录</button>
+        </form>
+
+        <div class="back-link">
+          <a href="/">返回首页</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const form = document.getElementById('loginForm');
+        const errorMessage = document.getElementById('errorMessage');
+        const loginButton = document.getElementById('loginButton');
+        const methodTabs = document.querySelectorAll('.method-tab');
+        const passwordFields = document.getElementById('passwordFields');
+        const apiKeyField = document.getElementById('apiKeyField');
+
+        let currentMethod = 'password';
+
+        // 切换登录方式
+        methodTabs.forEach((tab) => {
+          tab.addEventListener('click', () => {
+            methodTabs.forEach((t) => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentMethod = tab.dataset.method;
+
+            if (currentMethod === 'password') {
+              passwordFields.classList.add('visible');
+              apiKeyField.classList.remove('visible');
+            } else {
+              passwordFields.classList.remove('visible');
+              apiKeyField.classList.add('visible');
+            }
+
+            hideError();
+          });
+        });
+
+        // 显示错误
+        function showError(message) {
+          errorMessage.textContent = message;
+          errorMessage.classList.add('visible');
+        }
+
+        // 隐藏错误
+        function hideError() {
+          errorMessage.classList.remove('visible');
+        }
+
+        // 设置按钮状态
+        function setButtonLoading(loading) {
+          loginButton.disabled = loading;
+          if (loading) {
+            loginButton.innerHTML = '<span class="spinner"></span>登录中...';
+          } else {
+            loginButton.textContent = '登录';
+          }
+        }
+
+        // 检查是否已登录
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          // 验证 token 是否有效
+          fetch('/api/auth/verify', {
+            headers: {
+              Authorization: 'Bearer ' + token,
+            },
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.success) {
+                // Token 有效，跳转到主页
+                window.location.href = '/';
+              }
+            })
+            .catch(() => {
+              // Token 无效，清除
+              localStorage.removeItem('auth_token');
+            });
+        }
+
+        // 表单提交
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          hideError();
+
+          let body;
+          if (currentMethod === 'password') {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+              showError('请输入用户名和密码');
+              return;
+            }
+
+            body = JSON.stringify({ username, password });
+          } else {
+            const apiKey = document.getElementById('apiKey').value.trim();
+
+            if (!apiKey) {
+              showError('请输入 API Key');
+              return;
+            }
+
+            body = JSON.stringify({ api_key: apiKey });
+          }
+
+          setButtonLoading(true);
+
+          try {
+            const response = await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: body,
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.token) {
+              // 保存 token
+              localStorage.setItem('auth_token', data.token);
+
+              // 跳转到主页
+              window.location.href = '/';
+            } else {
+              showError(data.error || '登录失败，请重试');
+            }
+          } catch (err) {
+            showError('网络错误，请稍后重试');
+          } finally {
+            setButtonLoading(false);
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
