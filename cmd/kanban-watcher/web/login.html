@@ -430,8 +430,12 @@
             const data = await response.json();
 
             if (data.success && data.data && data.data.token) {
-              // 保存 token
+              // 保存 token 到 localStorage
               localStorage.setItem('auth_token', data.data.token);
+
+              // 同时设置 cookie（后端中间件需要）
+              const expires = new Date(data.data.expires_at);
+              document.cookie = `auth_token=${data.data.token}; path=/; expires=${expires.toUTCString()}; SameSite=Strict`;
 
               // 跳转到主页
               window.location.href = '/';
