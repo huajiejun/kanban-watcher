@@ -133,6 +133,12 @@ export interface ToolActionInfo {
   url?: string;
   description?: string;
   operation?: string;
+  changes?: Array<{
+    action: "write" | "edit" | "delete" | "rename";
+    content?: string;
+    unified_diff?: string;
+    new_path?: string;
+  }>;
   [key: string]: unknown;
 }
 

@@ -41,6 +41,7 @@ function getToolName(toolInfo: ToolInfo, action?: string) {
   const fallbackMap: Record<string, string> = {
     command_run: "命令",
     file_read: "读取文件",
+    file_edit: "修改文件",
     search: "搜索",
     web_fetch: "抓取网页",
     task_create: "创建任务",
@@ -62,6 +63,10 @@ function getToolSummary(toolInfo: ToolInfo, toolName: string) {
         ? action.command.trim()
         : toolName;
     case "file_read":
+      return typeof action.path === "string" && action.path.trim()
+        ? action.path.trim()
+        : toolName;
+    case "file_edit":
       return typeof action.path === "string" && action.path.trim()
         ? action.path.trim()
         : toolName;
@@ -126,6 +131,7 @@ function getToolStatusLabel(toolInfo: ToolInfo) {
 function getToolIcon(action?: string) {
   const iconMap: Record<string, string> = {
     file_read: "📄",
+    file_edit: "✏️",
     search: "🔎",
     web_fetch: "🌐",
     command_run: ">_",
