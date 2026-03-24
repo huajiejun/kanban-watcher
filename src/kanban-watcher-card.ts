@@ -14,6 +14,11 @@ import { formatRelativeTime } from "./lib/format-relative-time";
 import { renderMessageMarkdown } from "./lib/render-message-markdown";
 import { getStatusMeta } from "./lib/status-meta";
 import { summarizeToolCall, type DialogToolStatus } from "./lib/tool-call";
+import {
+  extractDynamicButtons,
+  isValidButtonText,
+  STATIC_BUTTONS,
+} from "./lib/quick-buttons";
 import { cardStyles } from "./styles";
 import type {
   ActiveWorkspacesResponse,
@@ -270,6 +275,49 @@ export class KanbanWatcherCard extends LitElement {
     `;
   }
 
+  private renderQuickButtons(workspace: KanbanWorkspace) {
+    const isRunning = workspace.status === "running";
+    const messages = this.getDialogMessages(workspace);
+
+    // 获取最后一条 AI 消息
+    const lastAiMessage = [...messages]
+      .reverse()
+      .find((msg) => msg.kind === "message" && msg.sender === "ai");
+
+    // 提取动态按钮
+    const dynamicButtons =
+      lastAiMessage && "text" in lastAiMessage
+        ? extractDynamicButtons(lastAiMessage.text)
+        : [];
+
+    // 合并通用按钮和动态按钮
+    const allButtons = [
+      ...STATIC_BUTTONS,
+      ...(isRunning ? [] : dynamicButtons), // 运行时不显示动态按钮
+    ].filter(isValidButtonText);
+
+    if (allButtons.length === 0) {
+      return nothing;
+    }
+
+    return html`
+      <div class="quick-buttons">
+        ${allButtons.map((text, index) => {
+          const isStatic = index < STATIC_BUTTONS.length;
+          return html`
+            <button
+              class="quick-button ${isStatic ? "is-static" : "is-dynamic"}"
+              type="button"
+              @click=${() => void this.handleQuickButtonClick(text)}
+            >
+              ${text}
+            </button>
+          `;
+        })}
+      </div>
+    `;
+  }
+
   private renderDialog() {
     const workspace = this.selectedWorkspace;
 
@@ -322,6 +370,7 @@ export class KanbanWatcherCard extends LitElement {
             ${isQueued
               ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
               : nothing}
+            ${this.renderQuickButtons(workspace)}
             <textarea
               class="message-input"
               rows="2"
@@ -615,6 +664,49 @@ export class KanbanWatcherCard extends LitElement {
       }
     } catch (error) {
       this.actionFeedback = this.toErrorMessage(error, "发送消息失败");
+      this.emitPreviewStatus(this.actionFeedback);
+    }
+  }
+
+  private async handleQuickButtonClick(text: string) {
+    const workspace = this.selectedWorkspace;
+    if (!workspace) {
+      return;
+    }
+
+    const isRunning = workspace.status === "running";
+    if (isRunning) {
+      this.actionFeedback = "工作区正在运行，无法发送快捷消息。";
+      this.emitPreviewStatus(this.actionFeedback);
+      return;
+    }
+
+    if (!this.isApiMode || !this.selectedWorkspaceId) {
+      this.actionFeedback = "发送消息功能暂未接入，当前仅展示界面。";
+      this.emitPreviewStatus(this.actionFeedback);
+      return;
+    }
+
+    try {
+      this.actionFeedback = "正在发送快捷消息...";
+      this.emitPreviewStatus(this.actionFeedback);
+      const response = await sendWorkspaceMessage({
+        baseUrl: this.config!.base_url!,
+        apiKey: this.config?.api_key,
+        workspaceId: this.selectedWorkspaceId,
+        message: text,
+        mode: "send",
+      });
+
+      this.appendOptimisticUserMessage(this.selectedWorkspaceId, text);
+      this.actionFeedback = response.message?.trim()
+        ? `发送成功：${response.message.trim()}`
+        : "快捷消息已发送";
+      this.messageDraft = "";
+      this.emitPreviewStatus(this.actionFeedback);
+      await this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+    } catch (error) {
+      this.actionFeedback = this.toErrorMessage(error, "发送快捷消息失败");
       this.emitPreviewStatus(this.actionFeedback);
     }
   }

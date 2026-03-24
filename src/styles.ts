@@ -569,6 +569,44 @@ export const cardStyles = css`
     background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
   }
 
+  /* 快捷按钮区域 */
+  .quick-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 0;
+  }
+
+  .quick-button {
+    padding: 5px 10px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 120ms ease, opacity 120ms ease;
+  }
+
+  .quick-button:active {
+    transform: scale(0.96);
+  }
+
+  .quick-button.is-static {
+    border: 0;
+    background: var(--primary-color, #f59e0b);
+    color: #ffffff;
+  }
+
+  .quick-button.is-dynamic {
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 72%, transparent);
+    background: transparent;
+    color: inherit;
+  }
+
+  .quick-button.is-dynamic:hover {
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 50%, transparent);
+  }
+
   .dialog-composer {
     display: grid;
     gap: 8px;
@@ -804,6 +842,16 @@ export const cardStyles = css`
 
     .dialog-feedback {
       font-size: 0.72rem;
+    }
+
+    /* 快捷按钮移动端样式 */
+    .quick-buttons {
+      gap: 5px;
+    }
+
+    .quick-button {
+      padding: 4px 8px;
+      font-size: 0.78rem;
     }
 
     .message-input {
