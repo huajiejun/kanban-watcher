@@ -1,3 +1,11 @@
+import type {
+  MessageType,
+  ButtonWithReason,
+  ProposalButtonsResponse,
+  DecisionButtonsResponse,
+  LLMButtonsResponse
+} from '../types';
+
 /** 通用快捷词（始终显示） */
 export const STATIC_BUTTONS = ["继续", "同意"] as const;
 
@@ -158,14 +166,6 @@ interface LLMAnalysisResult {
   needsAction: boolean;
 }
 
-/** LLM 按钮分析完整结果 */
-export interface LLMButtonsResponse {
-  /** 从消息中提取的选项 */
-  extracted: string[];
-  /** LLM 语义联想推荐的操作（最多2个） */
-  suggested: string[];
-}
-
 /** 方案评价师 Prompt（方案类消息） */
 const PROPOSAL_EVALUATOR_PROMPT = `你是优秀的方案评价师。根据给出的方案给出你的选择和理由（可以推荐多个）。
 
@@ -206,59 +206,37 @@ const DECISION_MAKER_PROMPT = `你是优秀的任务决策者。根据当前项�
 返回：{"actions": [{"button": "继续", "reason": "任务已完成，可继续下一步"}, {"button": "查看改动", "reason": "确认修改内容"}]}`;
 
 /**
- * 使用 LLM 分析消息，提取快捷按钮并联想推荐操作
+ * 使用 LLM 分析消息，根据消息类型返回对应的按钮建议
  * @param message AI 消息文本
  * @param llmBaseUrl LLM API 基础 URL（默认 http://localhost:1234）
  * @param llmModel LLM 模型名称（默认 local-model）
- * @returns 按钮分析结果（提取的选项 + 推荐的操作）
+ * @returns 按钮分析结果
  */
 export async function analyzeButtonsWithLLM(
   message: string,
   llmBaseUrl?: string,
   llmModel?: string
 ): Promise<LLMButtonsResponse> {
-  const emptyResult: LLMButtonsResponse = { extracted: [], suggested: [] };
+  const defaultDecisionResult: DecisionButtonsResponse = {
+    type: 'decision',
+    actions: []
+  };
 
   if (!message || typeof message !== "string" || !message.trim()) {
-    return emptyResult;
+    return defaultDecisionResult;
   }
+
+  // 1. 检测消息类型
+  const messageType = detectMessageType(message);
+
+  // 2. 选择对应的 prompt
+  const systemPrompt = messageType === 'proposal'
+    ? PROPOSAL_EVALUATOR_PROMPT
+    : DECISION_MAKER_PROMPT;
 
   const baseUrl = llmBaseUrl || "http://localhost:1234";
   const model = llmModel || "local-model";
   const url = `${baseUrl}/v1/chat/completions`;
-
-  const systemPrompt = `你是一个快捷按钮分析助手。分析 AI 助手发送给用户的消息，完成两个任务：
-
-任务1 - 提取选项（extracted）：
-- 判断消息是否包含需要用户选择的方案/选项
-- 如果是"注意事项"、"说明"、"已完成"等无需用户操作的内容，返回空数组
-- 如果需要用户选择，提取具体的选项名称（最多3个）
-
-任务2 - 智能推荐（suggested）：
-基于消息内容，提供2个最有价值的下一步操作建议：
-- 如果有多个方案：推荐审核某个方案、询问选择理由、指出潜在问题
-- 如果是完成状态：推荐验证结果、查看详情、继续下一步
-- 如果发现错误：推荐查看错误、自动修复
-- 推荐要有信息量，帮助用户做决策，而不是简单重复选项
-
-返回格式要求（必须是严格JSON）：
-{
-  "extracted": ["选项1", "选项2"],
-  "suggested": ["推荐操作1", "推荐操作2"]
-}
-
-示例：
-消息："请选择方案1或方案2，方案1是快速实现，方案2是完整实现"
-返回：{"extracted": ["方案1", "方案2"], "suggested": ["审核方案1的代码", "方案2有什么风险"]}
-
-消息："发现三种实现方式：A用正则、B用LLM、C用混合"
-返回：{"extracted": ["方案A", "方案B", "方案C"], "suggested": ["对比各方案优劣", "推荐哪个方案"]}
-
-消息："代码修改已完成，测试通过"
-返回：{"extracted": [], "suggested": ["运行测试验证", "查看改动详情"]}
-
-消息："发现3个错误需要修复"
-返回：{"extracted": [], "suggested": ["查看错误详情", "自动修复这些错误"]}`;
 
   try {
     const controller = new AbortController();
@@ -274,7 +252,7 @@ export async function analyzeButtonsWithLLM(
           { role: "user", content: message },
         ],
         temperature: 0.3,
-        max_tokens: 300,
+        max_tokens: 400,
       }),
       signal: controller.signal,
     });
@@ -282,64 +260,93 @@ export async function analyzeButtonsWithLLM(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return emptyResult;
+      return defaultDecisionResult;
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content || typeof content !== "string") {
-      return emptyResult;
+      return defaultDecisionResult;
     }
 
     // 尝试解析 JSON
     try {
-      // 提取 JSON 对象
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        return emptyResult;
+        return defaultDecisionResult;
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
       if (typeof parsed !== "object" || parsed === null) {
-        return emptyResult;
+        return defaultDecisionResult;
       }
 
-      // 提取和验证 extracted
-      const extracted: string[] = Array.isArray(parsed.extracted)
-        ? parsed.extracted
-            .filter((item): item is string => typeof item === "string")
-            .map((item: string) => item.trim())
-            .filter((item: string) => isValidButtonText(item))
-            .slice(0, 3)
-        : [];
+      // 根据消息类型返回不同格式
+      if (messageType === 'proposal') {
+        const extracted: string[] = Array.isArray(parsed.extracted)
+          ? parsed.extracted
+              .filter((item): item is string => typeof item === "string")
+              .map((item: string) => item.trim())
+              .filter((item: string) => isValidButtonText(item))
+              .slice(0, 3)
+          : [];
 
-      // 提取和验证 suggested
-      const suggested: string[] = Array.isArray(parsed.suggested)
-        ? parsed.suggested
-            .filter((item): item is string => typeof item === "string")
-            .map((item: string) => item.trim())
-            .filter((item: string) => isValidButtonText(item))
-            .slice(0, 2)
-        : [];
+        const suggested: ButtonWithReason[] = Array.isArray(parsed.suggested)
+          ? parsed.suggested
+              .filter((item): item is Record<string, unknown> =>
+                typeof item === "object" && item !== null
+              )
+              .map((item: Record<string, unknown>) => ({
+                button: String(item.button || "").trim().slice(0, 20),
+                reason: String(item.reason || "").trim().slice(0, 50)
+              }))
+              .filter((item: ButtonWithReason) => isValidButtonText(item.button))
+              .slice(0, 3)
+          : [];
 
-      return { extracted, suggested };
+        return {
+          type: 'proposal',
+          extracted,
+          suggested
+        };
+      } else {
+        const actions: ButtonWithReason[] = Array.isArray(parsed.actions)
+          ? parsed.actions
+              .filter((item): item is Record<string, unknown> =>
+                typeof item === "object" && item !== null
+              )
+              .map((item: Record<string, unknown>) => ({
+                button: String(item.button || "").trim().slice(0, 20),
+                reason: String(item.reason || "").trim().slice(0, 50)
+              }))
+              .filter((item: ButtonWithReason) => isValidButtonText(item.button))
+              .slice(0, 3)
+          : [];
+
+        return {
+          type: 'decision',
+          actions
+        };
+      }
     } catch {
-      return emptyResult;
+      return defaultDecisionResult;
     }
   } catch {
-    return emptyResult;
+    return defaultDecisionResult;
   }
 }
 
 /** 快捷按钮结果 */
 export interface QuickButtonsResult {
+  /** 消息类型 */
+  type: MessageType;
   /** 静态按钮（继续、同意） */
   staticButtons: string[];
   /** 从消息中提取的选项 */
   extractedButtons: string[];
-  /** LLM 语义联想推荐的操作（最多2个） */
-  suggestedButtons: string[];
+  /** LLM 语义联想推荐的操作（带理由） */
+  suggestedButtons: ButtonWithReason[];
   /** @deprecated 使用 extractedButtons 代替 */
   dynamicButtons: string[];
 }
@@ -357,6 +364,7 @@ export async function getQuickButtonsWithLLM(
   // 运行中只返回静态按钮（隐藏所有动态按钮）
   if (workspaceStatus === "running") {
     return {
+      type: 'decision',
       staticButtons: [...STATIC_BUTTONS],
       extractedButtons: [],
       suggestedButtons: [],
@@ -369,6 +377,7 @@ export async function getQuickButtonsWithLLM(
   if (!llmEnabled) {
     const extractedButtons = extractDynamicButtons(message);
     return {
+      type: 'decision',
       staticButtons: [...STATIC_BUTTONS],
       extractedButtons: extractedButtons.filter(isValidButtonText),
       suggestedButtons: [],
@@ -383,16 +392,32 @@ export async function getQuickButtonsWithLLM(
     llmConfig?.model
   );
 
-  // LLM 返回空提取，回退到正则
-  const extractedButtons =
-    llmResult.extracted.length > 0
-      ? llmResult.extracted
-      : extractDynamicButtons(message);
+  // 根据类型处理结果
+  if (llmResult.type === 'proposal') {
+    // LLM 返回空提取，回退到正则
+    const extractedButtons =
+      llmResult.extracted.length > 0
+        ? llmResult.extracted
+        : extractDynamicButtons(message);
 
-  return {
-    staticButtons: [...STATIC_BUTTONS],
-    extractedButtons: extractedButtons.filter(isValidButtonText),
-    suggestedButtons: llmResult.suggested.filter(isValidButtonText),
-    dynamicButtons: [...extractedButtons, ...llmResult.suggested].filter(isValidButtonText),
-  };
+    return {
+      type: 'proposal',
+      staticButtons: [...STATIC_BUTTONS],
+      extractedButtons: extractedButtons.filter(isValidButtonText),
+      suggestedButtons: llmResult.suggested,
+      dynamicButtons: [
+        ...extractedButtons,
+        ...llmResult.suggested.map(s => s.button)
+      ].filter(isValidButtonText),
+    };
+  } else {
+    // decision 类型
+    return {
+      type: 'decision',
+      staticButtons: [...STATIC_BUTTONS],
+      extractedButtons: [],
+      suggestedButtons: llmResult.actions,
+      dynamicButtons: llmResult.actions.map(a => a.button).filter(isValidButtonText),
+    };
+  }
 }
