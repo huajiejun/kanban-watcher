@@ -13,12 +13,26 @@ type Config struct {
 	KanbanAPIURL     string                 `yaml:"kanban_api_url"`        // vibe-kanban API 地址
 	ConversationSync ConversationSyncConfig `yaml:"conversation_sync"`     // 会话日志同步配置
 	WeChat           WeChatConfig           `yaml:"wechat"`                // 企业微信通知配置
-	Notify           NotifyConfig           `yaml:"notify"`                 // 弹框通知配置
+	Notify           NotifyConfig           `yaml:"notify"`                // 弹框通知配置
 	WorkingHours     WorkingHours           `yaml:"working_hours"`         // 工作时间窗口
 	PollIntervalSecs int                    `yaml:"poll_interval_seconds"` // 轮询间隔（秒）
 	Database         DatabaseConfig         `yaml:"database"`              // 数据库配置
 	HTTPAPI          HTTPAPIConfig          `yaml:"http_api"`              // 本地 HTTP API 配置
 	TokenStats       TokenStatsConfig       `yaml:"token_stats"`           // Token 用量统计配置
+	Auth             AuthConfig             `yaml:"auth"`                  // JWT 认证配置
+}
+
+// AuthConfig JWT 认证配置
+type AuthConfig struct {
+	JWTSecret       string       `yaml:"jwt_secret"`        // JWT 签名密钥，为空则自动生成
+	TokenExpireDays int          `yaml:"token_expire_days"` // Token 有效期（天）
+	Users           []UserConfig `yaml:"users"`             // 用户列表
+}
+
+// UserConfig 用户配置
+type UserConfig struct {
+	Username     string `yaml:"username"`      // 用户名
+	PasswordHash string `yaml:"password_hash"` // bcrypt 密码哈希
 }
 
 // DatabaseConfig 数据库连接参数
@@ -192,6 +206,12 @@ func defaultConfig() *Config {
 			Port:   7778,
 			APIKey: "change-me",
 		},
+		Auth: AuthConfig{
+			TokenExpireDays: 30,
+			Users: []UserConfig{
+				{Username: "admin", PasswordHash: ""},
+			},
+		},
 	}
 }
 
@@ -250,6 +270,15 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.TokenStats.Enabled == nil {
 		cfg.TokenStats.Enabled = boolPtr(true)
+	}
+	// 认证配置默认值
+	if cfg.Auth.TokenExpireDays <= 0 {
+		cfg.Auth.TokenExpireDays = 30
+	}
+	if len(cfg.Auth.Users) == 0 {
+		cfg.Auth.Users = []UserConfig{
+			{Username: "admin", PasswordHash: ""},
+		}
 	}
 }
 
