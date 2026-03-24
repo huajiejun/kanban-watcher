@@ -54,9 +54,13 @@ function readStringParam(params: URLSearchParams, key: string) {
   return value || undefined;
 }
 
+// 默认配置（本地开发预览）
+const DEFAULT_BASE_URL = "http://127.0.0.1:7778";
+const DEFAULT_API_KEY = "wolale1990";
+
 export function readPreviewApiOptions(url = new URL(window.location.href)): PreviewApiOptions {
-  const baseUrl = readStringParam(url.searchParams, "base_url");
-  const apiKey = readStringParam(url.searchParams, "api_key");
+  const baseUrl = readStringParam(url.searchParams, "base_url") || DEFAULT_BASE_URL;
+  const apiKey = readStringParam(url.searchParams, "api_key") || DEFAULT_API_KEY;
   const rawLimit = readStringParam(url.searchParams, "messages_limit");
   const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : Number.NaN;
 

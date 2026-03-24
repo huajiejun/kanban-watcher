@@ -5,9 +5,34 @@ export const cardStyles = css`
     display: block;
   }
 
+  /* 响应式字体大小变量 */
+  :host {
+    --font-size-base: 1rem;
+    --font-size-sm: 0.85rem;
+    --font-size-xs: 0.75rem;
+  }
+
+  /* 平板端 (768px - 1024px) */
+  @media (max-width: 1024px) {
+    :host {
+      --font-size-base: 0.95rem;
+      --font-size-sm: 0.82rem;
+      --font-size-xs: 0.72rem;
+    }
+  }
+
+  /* 手机端 (640px) */
+  @media (max-width: 640px) {
+    :host {
+      --font-size-base: 0.88rem;
+      --font-size-sm: 0.78rem;
+      --font-size-xs: 0.7rem;
+    }
+  }
+
   ha-card {
     background:
-      radial-gradient(circle at top right, color-mix(in srgb, var(--warning-color, #f59e0b) 12%, transparent), transparent 28%),
+      radial-gradient(circle at top right, color-mix(in srgb, var(--warning-color, #f59e0b) 12%, transparent), transparent 25%),
       var(--ha-card-background, var(--card-background-color, #ffffff));
     border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 70%, transparent);
     border-radius: 20px;
@@ -660,11 +685,17 @@ export const cardStyles = css`
   }
 
   @media (max-width: 640px) {
-    .workspace-dialog {
-      width: min(100vw - 12px, 900px);
-      height: min(92vh, 900px);
-      padding: 12px;
-      border-radius: 18px;
+    /* 卡片列表样式 */
+    .section-title {
+      font-size: 0.9rem;
+    }
+
+    .section-count {
+      font-size: 0.78rem;
+    }
+
+    .workspace-name {
+      font-size: 0.88rem;
     }
 
     .message-tool-button {
@@ -696,11 +727,89 @@ export const cardStyles = css`
 
     .task-meta {
       grid-template-columns: 1fr;
-      gap: 8px;
+      gap: 6px;
+      font-size: 0.75rem;
     }
 
     .meta-files {
       justify-self: start;
+    }
+
+    /* 弹窗样式 */
+    .dialog-shell {
+      padding: 8px;
+      align-items: flex-end;
+    }
+
+    .workspace-dialog {
+      width: 100%;
+      max-width: 100%;
+      height: min(85vh, 900px);
+      padding: 10px;
+      border-radius: 18px 18px 0 0;
+      box-sizing: border-box;
+    }
+
+    .dialog-header {
+      gap: 8px;
+    }
+
+    .dialog-title {
+      font-size: 0.92rem;
+    }
+
+    .dialog-close {
+      width: 26px;
+      height: 26px;
+    }
+
+    .dialog-panel-title {
+      font-size: 0.8rem;
+    }
+
+    .message-list {
+      gap: 6px;
+    }
+
+    .message-bubble {
+      padding: 5px 7px;
+      font-size: 0.82rem;
+      line-height: 1.3;
+    }
+
+    .message-bubble pre {
+      padding: 6px 8px;
+      font-size: 0.85em;
+    }
+
+    .message-bubble code {
+      font-size: 0.85em;
+    }
+
+    .queue-index {
+      font-size: 0.7rem;
+    }
+
+    .dialog-actions {
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .dialog-action {
+      flex: none;
+      width: 100%;
+      min-height: 32px;
+      font-size: 0.85rem;
+    }
+
+    .dialog-feedback {
+      font-size: 0.72rem;
+    }
+
+    .message-input {
+      min-height: 38px;
+      padding: 8px 10px;
+      font-size: 0.88rem;
     }
   }
 `;

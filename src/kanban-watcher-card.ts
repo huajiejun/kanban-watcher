@@ -104,6 +104,7 @@ export class KanbanWatcherCard extends LitElement {
     dialogMessagesByWorkspace: { state: true },
     queueStatusByWorkspace: { state: true },
     optimisticQueueWorkspaceIds: { state: true },
+    autoScrollEnabled: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -130,6 +131,8 @@ export class KanbanWatcherCard extends LitElement {
   private dialogMessagesByWorkspace: Record<string, DialogMessage[]> = {};
   private queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
   private optimisticQueueWorkspaceIds = new Set<string>();
+  private autoScrollEnabled = true;
+  private messageListScrollHandler?: () => void;
   private dialogMessageVersionsByWorkspace: Record<string, string> = {};
   private expandedToolMessageKeys = new Set<string>();
 
@@ -174,6 +177,7 @@ export class KanbanWatcherCard extends LitElement {
   protected updated(changedProperties: Map<string, unknown>) {
     if (changedProperties.has("selectedWorkspaceId") && this.selectedWorkspaceId) {
       this.scrollMessagesToBottom();
+      this.setupMessageListScrollListener();
     }
     if (changedProperties.has("selectedWorkspaceId") && this.isApiMode) {
       this.restartRealtimeConnection();
@@ -660,13 +664,11 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private getWorkspaceDisplayMeta(workspace: KanbanWorkspace) {
+    // 与 vibe-kanban 主项目保持一致：优先使用 AI 执行完成时间
     const timeSource =
-      workspace.relative_time ||
-      workspace.updated_at ||
+      workspace.latest_process_completed_at ||
       workspace.last_message_at ||
-      (workspace.status === "completed"
-        ? workspace.completed_at ?? this.entityAttributes?.updated_at
-        : this.entityAttributes?.updated_at);
+      workspace.updated_at;
 
     return {
       relativeTime: workspace.relative_time || formatRelativeTime(timeSource),
@@ -857,6 +859,10 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private scrollMessagesToBottom() {
+    if (!this.autoScrollEnabled) {
+      return;
+    }
+
     const messageList = this.renderRoot.querySelector(".message-list") as
       | HTMLDivElement
       | null;
@@ -866,6 +872,37 @@ export class KanbanWatcherCard extends LitElement {
     }
   }
 
+  private setupMessageListScrollListener() {
+    if (this.messageListScrollHandler) {
+      const oldMessageList = this.renderRoot.querySelector(".message-list");
+      if (oldMessageList) {
+        oldMessageList.removeEventListener("scroll", this.messageListScrollHandler);
+      }
+    }
+
+    this.autoScrollEnabled = true;
+
+    const messageList = this.renderRoot.querySelector(".message-list") as HTMLDivElement | null;
+    if (messageList) {
+      this.messageListScrollHandler = () => this.handleMessageListScroll(messageList);
+      messageList.addEventListener("scroll", this.messageListScrollHandler);
+    }
+  }
+
+  private handleMessageListScroll(messageList: HTMLDivElement) {
+    const isAtBottom =
+      messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight < 50;
+
+    if (isAtBottom) {
+      if (!this.autoScrollEnabled) {
+        this.autoScrollEnabled = true;
+      }
+    } else {
+      if (this.autoScrollEnabled) {
+        this.autoScrollEnabled = false;
+      }
+    }
+  }
   private emitPreviewStatus(message?: string) {
     this.dispatchEvent(
       new CustomEvent("kanban-watcher-preview-status", {
@@ -1192,7 +1229,12 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private mapApiWorkspace(workspace: LocalWorkspaceSummary): KanbanWorkspace {
-    const updatedAt = workspace.last_message_at || workspace.updated_at;
+    // 与 vibe-kanban 主项目保持一致：优先使用 AI 执行完成时间
+    const displayTimeSource =
+      workspace.latest_process_completed_at ||
+      workspace.last_message_at ||
+      workspace.updated_at;
+
     return {
       id: workspace.id,
       name: workspace.name || workspace.id,
@@ -1201,8 +1243,10 @@ export class KanbanWatcherCard extends LitElement {
       has_pending_approval: workspace.has_pending_approval,
       has_unseen_turns: workspace.has_unseen_turns,
       has_running_dev_server: workspace.has_running_dev_server,
-      updated_at: updatedAt,
-      relative_time: formatRelativeTime(updatedAt),
+      latest_process_completed_at: workspace.latest_process_completed_at,
+      updated_at: workspace.updated_at,
+      last_message_at: workspace.last_message_at,
+      relative_time: formatRelativeTime(displayTimeSource),
       files_changed: workspace.files_changed ?? 0,
       lines_added: workspace.lines_added ?? 0,
       lines_removed: workspace.lines_removed ?? 0,

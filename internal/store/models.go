@@ -85,20 +85,21 @@ type ProcessEntry struct {
 
 // ActiveWorkspaceSummary 活跃工作区摘要
 type ActiveWorkspaceSummary struct {
-	ID              string     `db:"id"`
-	Name            string     `db:"name"`
-	Branch          string     `db:"branch"`
-	LatestSessionID *string    `db:"latest_session_id"`
-	Status          string     `db:"status"`
-	HasPendingApproval bool    `db:"has_pending_approval"`
-	HasUnseenTurns   bool      `db:"has_unseen_turns"`
-	HasRunningDevServer bool   `db:"has_running_dev_server"`
-	FilesChanged     int       `db:"files_changed"`
-	LinesAdded       int       `db:"lines_added"`
-	LinesRemoved     int       `db:"lines_removed"`
-	UpdatedAt       *time.Time `db:"updated_at"`
-	MessageCount    int        `db:"message_count"`
-	LastMessageAt   *time.Time `db:"last_message_at"`
+	ID                       string     `db:"id"`
+	Name                     string     `db:"name"`
+	Branch                   string     `db:"branch"`
+	LatestSessionID          *string    `db:"latest_session_id"`
+	Status                   string     `db:"status"`
+	HasPendingApproval       bool       `db:"has_pending_approval"`
+	HasUnseenTurns           bool       `db:"has_unseen_turns"`
+	HasRunningDevServer      bool       `db:"has_running_dev_server"`
+	FilesChanged             int        `db:"files_changed"`
+	LinesAdded               int        `db:"lines_added"`
+	LinesRemoved             int        `db:"lines_removed"`
+	UpdatedAt                *time.Time `db:"updated_at"`
+	MessageCount             int        `db:"message_count"`
+	LastMessageAt            *time.Time `db:"last_message_at"`
+	LatestProcessCompletedAt *time.Time `db:"latest_process_completed_at"`
 }
 
 // SyncSubscription 同步订阅状态
