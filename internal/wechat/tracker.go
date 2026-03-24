@@ -24,6 +24,25 @@ type Tracker struct {
 // NewTracker 使用持久化状态创建跟踪器
 // 启动时从磁盘加载上次保存的状态，确保跨进程去重
 func NewTracker(s state.AppState, thresholdMinutes int) *Tracker {
+	// 兼容性迁移：检查所有 ConfirmedAt 为 nil 的旧记录
+	threshold := time.Duration(thresholdMinutes) * time.Minute
+	now := time.Now()
+
+	for key, entry := range s.Entries {
+		if entry.ConfirmedAt == nil {
+			// 旧记录：检查是否已超时
+			if now.Sub(entry.FirstSeenAt) >= threshold {
+				// 已超时：强制重新确认
+				confirmedAt := now
+				entry.ConfirmedAt = &confirmedAt
+			} else {
+				// 未超时：向后兼容，设置 ConfirmedAt = FirstSeenAt
+				entry.ConfirmedAt = &entry.FirstSeenAt
+			}
+			s = s.WithEntry(key, entry)
+		}
+	}
+
 	return &Tracker{
 		current:          s,
 		thresholdMinutes: thresholdMinutes,
@@ -82,8 +101,21 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 			continue
 		}
 
-		// 未通知过，检查是否达到阈值
-		elapsed := now.Sub(existing.FirstSeenAt)
+		// 检查是否已确认稳定
+		if existing.ConfirmedAt == nil {
+			// 首次确认：设置 ConfirmedAt，从现在开始计算阈值
+			confirmedAt := now
+			updated = updated.WithEntry(key, state.AttentionEntry{
+				Key:         existing.Key,
+				FirstSeenAt: existing.FirstSeenAt,
+				ConfirmedAt: &confirmedAt,
+				NotifiedAt:  existing.NotifiedAt,
+			})
+			continue
+		}
+
+		// 已确认稳定，检查是否达到阈值
+		elapsed := now.Sub(*existing.ConfirmedAt)
 		if elapsed < threshold {
 			// 仍在宽限期内，继续等待
 			continue
@@ -94,6 +126,7 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 		updated = updated.WithEntry(key, state.AttentionEntry{
 			Key:         existing.Key,
 			FirstSeenAt: existing.FirstSeenAt,
+			ConfirmedAt:  existing.ConfirmedAt,
 			NotifiedAt:  &notifiedAt,
 		})
 		toNotify = append(toNotify, TrackedWorkspace{
