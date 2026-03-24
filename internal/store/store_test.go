@@ -178,6 +178,44 @@ func TestGetExecutionProcessStatusReturnsNilOnNotFound(t *testing.T) {
 	}
 }
 
+func TestGetLatestCodingAgentProcessByWorkspaceIDReturnsProcess(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	rows := sqlmock.NewRows([]string{
+		"id", "session_id", "workspace_id", "run_reason", "status", "executor",
+		"executor_action_type", "dropped", "created_at", "completed_at", "synced_at",
+	}).AddRow(
+		"proc-1", "session-1", "ws-1", "codingagent", "running", "CLAUDE_CODE",
+		"CodingAgentInitialRequest", false, time.Now(), nil, time.Now(),
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, session_id, workspace_id, run_reason, status, executor,
+		       executor_action_type, dropped, created_at, completed_at, synced_at
+		FROM kw_execution_processes
+		WHERE workspace_id = ?
+		  AND run_reason = 'codingagent'
+		  AND dropped = FALSE
+		ORDER BY synced_at DESC, created_at DESC, id DESC
+		LIMIT 1
+	`)).
+		WithArgs("ws-1").
+		WillReturnRows(rows)
+
+	got, err := store.GetLatestCodingAgentProcessByWorkspaceID(context.Background(), "ws-1")
+	if err != nil {
+		t.Fatalf("GetLatestCodingAgentProcessByWorkspaceID 返回错误: %v", err)
+	}
+	if got == nil || got.ID != "proc-1" {
+		t.Fatalf("process = %#v, want proc-1", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestShouldRetryExec(t *testing.T) {
 	tests := []struct {
 		name string

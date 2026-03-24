@@ -339,6 +339,42 @@ func (s *Store) GetExecutionProcessStatus(ctx context.Context, processID string)
 	return &status, nil
 }
 
+// GetLatestCodingAgentProcessByWorkspaceID 获取工作区最近的 codingagent execution process
+func (s *Store) GetLatestCodingAgentProcessByWorkspaceID(ctx context.Context, workspaceID string) (*ExecutionProcess, error) {
+	query := `
+		SELECT id, session_id, workspace_id, run_reason, status, executor,
+		       executor_action_type, dropped, created_at, completed_at, synced_at
+		FROM kw_execution_processes
+		WHERE workspace_id = ?
+		  AND run_reason = 'codingagent'
+		  AND dropped = FALSE
+		ORDER BY synced_at DESC, created_at DESC, id DESC
+		LIMIT 1
+	`
+
+	var ep ExecutionProcess
+	if err := s.db.QueryRowContext(ctx, query, workspaceID).Scan(
+		&ep.ID,
+		&ep.SessionID,
+		&ep.WorkspaceID,
+		&ep.RunReason,
+		&ep.Status,
+		&ep.Executor,
+		&ep.ExecutorActionType,
+		&ep.Dropped,
+		&ep.CreatedAt,
+		&ep.CompletedAt,
+		&ep.SyncedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get latest codingagent process by workspace id: %w", err)
+	}
+
+	return &ep, nil
+}
+
 // RefreshWorkspaceRuntimeState 根据最新 execution process 刷新工作区运行态
 func (s *Store) RefreshWorkspaceRuntimeState(ctx context.Context, workspaceID string) error {
 	query := `

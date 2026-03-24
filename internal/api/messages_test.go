@@ -1,7 +1,10 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -71,15 +74,15 @@ func TestActiveWorkspaceResponseJSONIncludesAttentionFields(t *testing.T) {
 	resp := ActiveWorkspaceResponse{
 		Workspaces: []LocalWorkspaceSummary{
 			{
-				ID:                "ws-1",
-				Name:              "Attention Workspace",
-				Branch:            "main",
-				Status:            "completed",
-				HasUnseenTurns:    true,
+				ID:                 "ws-1",
+				Name:               "Attention Workspace",
+				Branch:             "main",
+				Status:             "completed",
+				HasUnseenTurns:     true,
 				HasPendingApproval: true,
-				FilesChanged:      5,
-				LinesAdded:        12,
-				LinesRemoved:      3,
+				FilesChanged:       5,
+				LinesAdded:         12,
+				LinesRemoved:       3,
 			},
 		},
 	}
@@ -111,5 +114,47 @@ func TestActiveWorkspaceResponseJSONIncludesAttentionFields(t *testing.T) {
 	}
 	if item["files_changed"] != float64(5) {
 		t.Fatalf("files_changed = %#v, want 5", item["files_changed"])
+	}
+}
+
+func TestFetchExecutionProcessReturnsExecutorConfig(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/execution-processes/proc-1" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"data": map[string]interface{}{
+				"id":           "proc-1",
+				"session_id":   "session-1",
+				"workspace_id": "ws-1",
+				"run_reason":   "codingagent",
+				"status":       "running",
+				"executor_action": map[string]interface{}{
+					"typ": map[string]interface{}{
+						"type": "CodingAgentInitialRequest",
+						"executor_config": map[string]interface{}{
+							"executor": "CLAUDE_CODE",
+							"variant":  "ZHIPU",
+							"model_id": "glm-4.5",
+						},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL)
+	process, err := client.FetchExecutionProcess(context.Background(), "proc-1")
+	if err != nil {
+		t.Fatalf("FetchExecutionProcess 返回错误: %v", err)
+	}
+	if process == nil {
+		t.Fatal("process = nil, want value")
+	}
+	if got := process.ExecutorAction.Typ.ExecutorConfig["executor"]; got != "CLAUDE_CODE" {
+		t.Fatalf("executor = %#v, want CLAUDE_CODE", got)
 	}
 }

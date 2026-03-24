@@ -141,6 +141,38 @@ func (c *Client) FetchAll(ctx context.Context) ([]EnrichedWorkspace, error) {
 	return result, nil
 }
 
+// FetchExecutionProcess 获取 execution process 详情
+func (c *Client) FetchExecutionProcess(ctx context.Context, processID string) (*ExecutionProcessDetail, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		c.baseURL+"/api/execution-processes/"+processID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build execution process request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch execution process http: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("fetch execution process: HTTP %d", resp.StatusCode)
+	}
+
+	var apiResp executionProcessAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("decode execution process response: %w", err)
+	}
+	if !apiResp.Success || apiResp.Data == nil {
+		msg := ""
+		if apiResp.Message != nil {
+			msg = *apiResp.Message
+		}
+		return nil, fmt.Errorf("fetch execution process: API error: %s", msg)
+	}
+	return apiResp.Data, nil
+}
+
 // displayName 返回工作区的显示名称
 // 优先级：Name（非空时）> Branch
 func displayName(ws Workspace) string {
