@@ -3,7 +3,8 @@ import type {
   ButtonWithReason,
   ProposalButtonsResponse,
   DecisionButtonsResponse,
-  LLMButtonsResponse
+  LLMButtonsResponse,
+  SessionMessageResponse
 } from '../types';
 
 /** 通用快捷词（始终显示） */
@@ -158,6 +159,41 @@ interface QuickButtonsRequest {
   workspaceStatus: "running" | "attention" | "idle" | "completed";
   llmEnabled?: boolean;
   llmConfig?: LLMConfig;
+  recentMessages?: SessionMessageResponse[];
+}
+
+/** 构建 LLM 分析的上下文消息
+ * 如果最后一条消息少于100字符，则取最近5条 assistant_message 作为上下文
+ */
+function buildAnalysisContext(
+  lastMessage: string,
+  recentMessages?: SessionMessageResponse[]
+): string {
+  // 如果消息足够长，直接使用
+  if (lastMessage.length >= 100) {
+    return lastMessage;
+  }
+
+  // 如果提供了历史消息，提取最近5条 assistant_message
+  if (recentMessages && recentMessages.length > 0) {
+    const assistantMessages = recentMessages
+      .filter((msg) => msg.role === "assistant" || msg.role === "ai")
+      .slice(-5);
+
+    if (assistantMessages.length > 0) {
+      const context = assistantMessages
+        .map((msg) => msg.content || "")
+        .filter((content) => content.length > 0)
+        .join("\n\n---\n\n");
+
+      if (context.length > 0) {
+        return context;
+      }
+    }
+  }
+
+  // 回退到单条消息
+  return lastMessage;
 }
 
 /** LLM 分析结果 */
@@ -359,7 +395,10 @@ export interface QuickButtonsResult {
 export async function getQuickButtonsWithLLM(
   request: QuickButtonsRequest
 ): Promise<QuickButtonsResult> {
-  const { message, workspaceStatus, llmEnabled, llmConfig } = request;
+  const { message, workspaceStatus, llmEnabled, llmConfig, recentMessages } = request;
+
+  // 构建分析上下文（短消息时使用历史记录）
+  const analysisContext = buildAnalysisContext(message, recentMessages);
 
   // 运行中只返回静态按钮（隐藏所有动态按钮）
   if (workspaceStatus === "running") {
@@ -373,7 +412,7 @@ export async function getQuickButtonsWithLLM(
   }
 
   // idle / completed / attention 状态都显示动态按钮
-  // LLM 未启用，使用正则匹配
+  // LLM 未启用，使用正则匹配（仍使用原始消息提取按钮）
   if (!llmEnabled) {
     const extractedButtons = extractDynamicButtons(message);
     return {
@@ -385,9 +424,9 @@ export async function getQuickButtonsWithLLM(
     };
   }
 
-  // 使用 LLM 分析
+  // 使用 LLM 分析（使用构建的上下文）
   const llmResult = await analyzeButtonsWithLLM(
-    message,
+    analysisContext,
     llmConfig?.baseUrl,
     llmConfig?.model
   );

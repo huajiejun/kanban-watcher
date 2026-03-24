@@ -1650,6 +1650,18 @@ export class KanbanWatcherCard extends LitElement {
       return;
     }
 
+    // 构建消息历史（用于短消息时的上下文分析）
+    const recentMessages: SessionMessageResponse[] = messages
+      .filter((msg): msg is DialogTextMessage =>
+        msg.kind === "message" && msg.sender === "ai"
+      )
+      .slice(-5)
+      .map((msg) => ({
+        role: "assistant",
+        content: msg.text,
+        timestamp: msg.timestamp,
+      }));
+
     // 使用 LLM 分析
     const result = await getQuickButtonsWithLLM({
       message,
@@ -1659,6 +1671,7 @@ export class KanbanWatcherCard extends LitElement {
         baseUrl: this.config?.llm_base_url,
         model: this.config?.llm_model,
       },
+      recentMessages,
     });
 
     // 更新缓存
