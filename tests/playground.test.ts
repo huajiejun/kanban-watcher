@@ -27,7 +27,7 @@ describe("playground preview config", () => {
 
     expect(options).toEqual({
       baseUrl: "http://127.0.0.1:7778",
-      apiKey: "wolale1990",
+      apiKey: "",
       messagesLimit: undefined,
     });
   });

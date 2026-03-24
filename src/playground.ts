@@ -59,7 +59,8 @@ function readStringParam(params: URLSearchParams, key: string) {
 
 // 默认配置（本地开发预览）
 const DEFAULT_BASE_URL = "http://127.0.0.1:7778";
-const DEFAULT_API_KEY = "wolale1990";
+// API 密钥从 URL 参数读取，无默认值（需在 URL 中指定 api_key 参数）
+const DEFAULT_API_KEY = "";
 
 export function readPreviewApiOptions(url = new URL(window.location.href)): PreviewApiOptions {
   const baseUrl = readStringParam(url.searchParams, "base_url") || DEFAULT_BASE_URL;
