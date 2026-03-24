@@ -21,7 +21,8 @@ The production bundle is written to `dist/kanban-watcher-card.js`.
 `kanban-watcher` 的托盘程序可以直接打包为 macOS `.app`：
 
 ```bash
-./scripts/build_macos_app.sh
+chmod +x scripts/build_macos_app.sh
+zsh scripts/build_macos_app.sh
 ```
 
 产物会输出到 `dist-macos/Kanban Watcher.app`。
@@ -29,7 +30,8 @@ The production bundle is written to `dist/kanban-watcher-card.js`.
 如需做一次本地校验，可运行：
 
 ```bash
-./scripts/test_build_macos_app.sh
+chmod +x scripts/test_build_macos_app.sh
+zsh scripts/test_build_macos_app.sh
 ```
 
 当前打包内容包含：
