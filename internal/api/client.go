@@ -132,10 +132,13 @@ func (c *Client) FetchAll(ctx context.Context) ([]EnrichedWorkspace, error) {
 			// 该工作区没有对应的 summary 记录，使用空 summary
 			summary = WorkspaceSummary{WorkspaceID: ws.ID}
 		}
+		menuSummary, menuSummaryBy := buildMenuSummary(ws, summary)
 		result = append(result, EnrichedWorkspace{
-			Workspace:   ws,
-			Summary:     summary,
-			DisplayName: displayName(ws),
+			Workspace:     ws,
+			Summary:       summary,
+			DisplayName:   displayName(ws),
+			MenuSummary:   menuSummary,
+			MenuSummaryBy: menuSummaryBy,
 		})
 	}
 	return result, nil
