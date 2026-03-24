@@ -21,6 +21,8 @@ type messageContextStore interface {
 type messageSender interface {
 	SendFollowUpWithContext(context.Context, string, string, *store.MessageContext) error
 	QueueMessageWithContext(context.Context, string, string, *store.MessageContext) error
+	GetQueueStatus(context.Context, string) (*api.QueueStatusResponse, error)
+	CancelQueue(context.Context, string) (*api.QueueStatusResponse, error)
 }
 
 type executionProcessFetcher interface {
@@ -32,6 +34,14 @@ type DispatchResult struct {
 	SessionID   string `json:"session_id"`
 	Action      string `json:"action"`
 	Message     string `json:"message"`
+}
+
+type QueueResult struct {
+	WorkspaceID string                  `json:"workspace_id"`
+	SessionID   string                  `json:"session_id"`
+	Status      string                  `json:"status"`
+	Message     string                  `json:"message,omitempty"`
+	Queued      *api.QueuedMessageState `json:"queued,omitempty"`
 }
 
 type MessageDispatcher struct {
@@ -54,18 +64,9 @@ func (d *MessageDispatcher) DispatchWorkspaceMessage(ctx context.Context, worksp
 		return nil, errors.New("message is required")
 	}
 
-	msgCtx, err := d.store.GetMessageContextByWorkspaceID(ctx, workspaceID)
+	msgCtx, err := d.resolveMessageContext(ctx, workspaceID)
 	if err != nil {
-		return nil, fmt.Errorf("获取消息上下文失败: %w", err)
-	}
-	if msgCtx == nil {
-		msgCtx, err = d.hydrateMessageContext(ctx, workspaceID)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if msgCtx.SessionID == "" {
-		return nil, errors.New("工作区缺少可用 session_id")
+		return nil, err
 	}
 	if strings.TrimSpace(msgCtx.ExecutorConfigJSON) == "" {
 		return nil, errors.New("工作区缺少可用 executor_config")
@@ -103,6 +104,63 @@ func (d *MessageDispatcher) DispatchWorkspaceMessage(ctx context.Context, worksp
 	default:
 		return nil, fmt.Errorf("unsupported mode: %s", action)
 	}
+}
+
+func (d *MessageDispatcher) GetWorkspaceQueueStatus(ctx context.Context, workspaceID string) (*QueueResult, error) {
+	msgCtx, err := d.resolveMessageContext(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	status, err := d.sender.GetQueueStatus(ctx, msgCtx.SessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &QueueResult{
+		WorkspaceID: workspaceID,
+		SessionID:   msgCtx.SessionID,
+		Status:      status.Status,
+		Queued:      status.Message,
+		Message:     queueStatusMessage(status),
+	}, nil
+}
+
+func (d *MessageDispatcher) CancelWorkspaceQueue(ctx context.Context, workspaceID string) (*QueueResult, error) {
+	msgCtx, err := d.resolveMessageContext(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	status, err := d.sender.CancelQueue(ctx, msgCtx.SessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &QueueResult{
+		WorkspaceID: workspaceID,
+		SessionID:   msgCtx.SessionID,
+		Status:      status.Status,
+		Queued:      status.Message,
+		Message:     "队列已取消",
+	}, nil
+}
+
+func (d *MessageDispatcher) resolveMessageContext(ctx context.Context, workspaceID string) (*store.MessageContext, error) {
+	msgCtx, err := d.store.GetMessageContextByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("获取消息上下文失败: %w", err)
+	}
+	if msgCtx == nil {
+		msgCtx, err = d.hydrateMessageContext(ctx, workspaceID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if msgCtx.SessionID == "" {
+		return nil, errors.New("工作区缺少可用 session_id")
+	}
+	return msgCtx, nil
 }
 
 func (d *MessageDispatcher) hydrateMessageContext(ctx context.Context, workspaceID string) (*store.MessageContext, error) {
@@ -155,4 +213,14 @@ func (d *MessageDispatcher) hydrateMessageContext(ctx context.Context, workspace
 
 func stringPtr(v string) *string {
 	return &v
+}
+
+func queueStatusMessage(status *api.QueueStatusResponse) string {
+	if status == nil {
+		return ""
+	}
+	if status.Status == "queued" {
+		return "消息已排队 - 将在当前运行完成时执行"
+	}
+	return ""
 }

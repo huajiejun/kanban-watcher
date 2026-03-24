@@ -106,6 +106,22 @@ export interface WorkspaceMessageResponse {
   message?: string;
 }
 
+export interface WorkspaceQueueStatusResponse {
+  success?: boolean;
+  workspace_id?: string;
+  session_id?: string;
+  status?: "empty" | "queued" | string;
+  message?: string;
+  queued?: {
+    session_id?: string;
+    queued_at?: string;
+    data?: {
+      message?: string;
+      executor_config?: Record<string, unknown>;
+    };
+  } | null;
+}
+
 export interface ToolActionInfo {
   action?: string;
   command?: string;

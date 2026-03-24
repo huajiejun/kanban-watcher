@@ -27,6 +27,8 @@ type Server struct {
 
 type workspaceMessageDispatcher interface {
 	DispatchWorkspaceMessage(context.Context, string, string, string) (*dispatchsvc.DispatchResult, error)
+	GetWorkspaceQueueStatus(context.Context, string) (*dispatchsvc.QueueResult, error)
+	CancelWorkspaceQueue(context.Context, string) (*dispatchsvc.QueueResult, error)
 }
 
 // routeRegistration 路由注册信息
@@ -115,20 +117,28 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 // URL 格式:
 //   POST /api/workspace/{workspace_id}/message
 //   POST /api/workspace/{workspace_id}/follow-up
+//   GET /api/workspace/{workspace_id}/queue
+//   DELETE /api/workspace/{workspace_id}/queue
 func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspace/")
 	parts := strings.Split(path, "/")
-	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message") {
-		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up", http.StatusBadRequest)
+	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message" && parts[1] != "queue") {
+		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up or /api/workspace/{id}/queue", http.StatusBadRequest)
 		return
 	}
 
 	workspaceID := parts[0]
+	actionType := parts[1]
+
+	if actionType == "queue" {
+		s.handleWorkspaceQueue(w, r, workspaceID)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
 	var req struct {
 		Message string `json:"message"`
@@ -146,7 +156,7 @@ func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) 
 	}
 
 	mode := req.Mode
-	if parts[1] == "follow-up" {
+	if actionType == "follow-up" {
 		mode = "send"
 	}
 
@@ -187,6 +197,53 @@ func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+func (s *Server) handleWorkspaceQueue(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.dispatcher == nil {
+		http.Error(w, "消息分发器未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	var (
+		result *dispatchsvc.QueueResult
+		err    error
+	)
+
+	switch r.Method {
+	case http.MethodGet:
+		result, err = s.dispatcher.GetWorkspaceQueueStatus(ctx, workspaceID)
+	case http.MethodDelete:
+		result, err = s.dispatcher.CancelWorkspaceQueue(ctx, workspaceID)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err != nil {
+		log.Printf("[HTTP Server] 工作区 %s 队列操作失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		} else if strings.Contains(err.Error(), "缺少可用") || strings.Contains(err.Error(), "等待同步") {
+			statusCode = http.StatusConflict
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"workspace_id": result.WorkspaceID,
+		"session_id":   result.SessionID,
+		"status":       result.Status,
+		"message":      result.Message,
+		"queued":       result.Queued,
+	})
+}
+
 // authMiddleware API Key 验证
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -215,7 +272,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
 
 		if r.Method == "OPTIONS" {

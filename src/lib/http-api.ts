@@ -2,6 +2,7 @@ import type {
   ActiveWorkspacesResponse,
   SessionMessagesResponse,
   WorkspaceMessageResponse,
+  WorkspaceQueueStatusResponse,
 } from "../types";
 
 type RequestOptions = {
@@ -129,6 +130,38 @@ export async function sendWorkspaceLegacyFollowUp({
       method: "POST",
       headers: buildHeaders(apiKey, true),
       body: JSON.stringify({ message }),
+    },
+  );
+}
+
+export async function fetchWorkspaceQueueStatus({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<WorkspaceQueueStatusResponse> {
+  return fetchJSON<WorkspaceQueueStatusResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/queue`,
+    {
+      method: "GET",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function cancelWorkspaceQueue({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<WorkspaceQueueStatusResponse> {
+  return fetchJSON<WorkspaceQueueStatusResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/queue`,
+    {
+      method: "DELETE",
+      headers: buildHeaders(apiKey),
     },
   );
 }

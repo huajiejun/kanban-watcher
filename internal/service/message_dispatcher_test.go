@@ -42,8 +42,10 @@ type dispatchedCall struct {
 }
 
 type fakeMessageSender struct {
-	sendCall  *dispatchedCall
-	queueCall *dispatchedCall
+	sendCall          *dispatchedCall
+	queueCall         *dispatchedCall
+	queueStatusResult *api.QueueStatusResponse
+	cancelQueueResult *api.QueueStatusResponse
 }
 
 func (f *fakeMessageSender) SendFollowUpWithContext(_ context.Context, sessionID, message string, ctx *store.MessageContext) error {
@@ -73,6 +75,14 @@ func (f *fakeMessageSender) QueueMessageWithContext(_ context.Context, sessionID
 		executorConfigJSON: ctx.ExecutorConfigJSON,
 	}
 	return nil
+}
+
+func (f *fakeMessageSender) GetQueueStatus(_ context.Context, sessionID string) (*api.QueueStatusResponse, error) {
+	return f.queueStatusResult, nil
+}
+
+func (f *fakeMessageSender) CancelQueue(_ context.Context, sessionID string) (*api.QueueStatusResponse, error) {
+	return f.cancelQueueResult, nil
 }
 
 func TestDispatchWorkspaceMessageUsesStoredContextForSend(t *testing.T) {
@@ -199,5 +209,46 @@ func TestDispatchWorkspaceMessageFallsBackToRemoteProcessWhenContextMissing(t *t
 	}
 	if sender.sendCall.executorConfigJSON == "" {
 		t.Fatal("executorConfigJSON 为空，want persisted config")
+	}
+}
+
+func TestGetWorkspaceQueueStatusUsesStoredContext(t *testing.T) {
+	dispatcher := NewMessageDispatcher(
+		&fakeMessageContextStore{
+			ctx: &store.MessageContext{
+				WorkspaceID:        "ws-1",
+				SessionID:          "session-1",
+				ExecutorConfigJSON: `{"executor":"CLAUDE_CODE","variant":"ZHIPU"}`,
+				DefaultSendMode:    "send",
+				Source:             "sync",
+				UpdatedAt:          time.Now(),
+			},
+		},
+		&fakeMessageSender{
+			queueStatusResult: &api.QueueStatusResponse{
+				Status: "queued",
+				Message: &api.QueuedMessageState{
+					SessionID: "session-1",
+					Data: api.QueuedMessageData{
+						Message: "当前任务完成后补测试",
+					},
+				},
+			},
+		},
+		nil,
+	)
+
+	result, err := dispatcher.GetWorkspaceQueueStatus(context.Background(), "ws-1")
+	if err != nil {
+		t.Fatalf("GetWorkspaceQueueStatus 返回错误: %v", err)
+	}
+	if result.Status != "queued" {
+		t.Fatalf("status = %q, want queued", result.Status)
+	}
+	if result.Message != "消息已排队 - 将在当前运行完成时执行" {
+		t.Fatalf("message = %q, want queued hint", result.Message)
+	}
+	if result.Queued == nil || result.Queued.Data.Message != "当前任务完成后补测试" {
+		t.Fatalf("queued = %#v, want queued message", result.Queued)
 	}
 }

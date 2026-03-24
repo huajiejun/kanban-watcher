@@ -57,6 +57,28 @@ type QueueRequest struct {
 	ExecutorConfig map[string]interface{} `json:"executor_config"`
 }
 
+type queueAPIResponse struct {
+	Success bool                 `json:"success"`
+	Data    *QueueStatusResponse `json:"data"`
+	Message *string              `json:"message,omitempty"`
+}
+
+type QueueStatusResponse struct {
+	Status  string              `json:"status"`
+	Message *QueuedMessageState `json:"message,omitempty"`
+}
+
+type QueuedMessageState struct {
+	SessionID string            `json:"session_id"`
+	QueuedAt  string            `json:"queued_at,omitempty"`
+	Data      QueuedMessageData `json:"data"`
+}
+
+type QueuedMessageData struct {
+	Message        string                 `json:"message"`
+	ExecutorConfig map[string]interface{} `json:"executor_config,omitempty"`
+}
+
 // SendFollowUp 发送 follow-up 消息到指定工作区的最新 session
 // 流程：
 //   1. 查询 summaries 获取工作区的 latest_session_id
@@ -106,6 +128,27 @@ func (c *ProxyClient) QueueMessageWithContext(ctx context.Context, sessionID, me
 	}
 
 	return c.postJSON(ctx, fmt.Sprintf("%s/api/sessions/%s/queue", c.baseURL, sessionID), reqBody)
+}
+
+// GetQueueStatus 获取 session 当前队列状态
+func (c *ProxyClient) GetQueueStatus(ctx context.Context, sessionID string) (*QueueStatusResponse, error) {
+	return c.getQueueStatus(ctx, fmt.Sprintf("%s/api/sessions/%s/queue", c.baseURL, sessionID))
+}
+
+// CancelQueue 取消 session 当前队列
+func (c *ProxyClient) CancelQueue(ctx context.Context, sessionID string) (*QueueStatusResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("%s/api/sessions/%s/queue", c.baseURL, sessionID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	return decodeQueueStatusResponse(resp)
 }
 
 // getLatestSessionID 查询 summaries 获取工作区的最新 session_id
@@ -217,6 +260,41 @@ func (c *ProxyClient) postJSON(ctx context.Context, url string, payload interfac
 	}
 
 	return nil
+}
+
+func (c *ProxyClient) getQueueStatus(ctx context.Context, url string) (*QueueStatusResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	return decodeQueueStatusResponse(resp)
+}
+
+func decodeQueueStatusResponse(resp *http.Response) (*QueueStatusResponse, error) {
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var apiResp queueAPIResponse
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+	if !apiResp.Success || apiResp.Data == nil {
+		msg := ""
+		if apiResp.Message != nil {
+			msg = *apiResp.Message
+		}
+		return nil, fmt.Errorf("API error: %s", msg)
+	}
+	return apiResp.Data, nil
 }
 
 func decodeExecutorConfig(raw string) (map[string]interface{}, error) {

@@ -1248,6 +1248,12 @@ describe("kanban-watcher-card", () => {
           ],
           has_more: false,
         }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          status: "empty",
+          session_id: "session-api-reopen",
+        }),
       );
 
     const card = await renderApiCard({ messagesLimit: 20 });
@@ -1262,7 +1268,7 @@ describe("kanban-watcher-card", () => {
     taskCard?.click();
     await settleCard(card);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
     expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
       "第一次打开时看到的消息",
     );
@@ -1498,6 +1504,94 @@ describe("kanban-watcher-card", () => {
     expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
       "继续推进这个任务",
     );
+  });
+
+  it("shows queued status and cancels queued messages through the local API in API mode", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-queue",
+              name: "API Queue Workspace",
+              status: "running",
+              latest_session_id: "session-api-queue",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-queue",
+          workspace_name: "API Queue Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          status: "queued",
+          message: "消息已排队 - 将在当前运行完成时执行",
+          session_id: "session-api-queue",
+          queued: {
+            session_id: "session-api-queue",
+            data: {
+              message: "当前任务完成后补测试",
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          status: "empty",
+          session_id: "session-api-queue",
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      3,
+      "http://localhost:7778/api/workspace/api-queue/queue",
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
+    expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "消息已排队",
+    );
+    expect(
+      normalizeText(card.shadowRoot?.querySelector(".queue-banner")?.textContent),
+    ).toContain("消息已排队 - 将在当前运行完成时执行");
+
+    const input = card.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    expect(input?.value).toBe("当前任务完成后补测试");
+
+    const queueButton = card.shadowRoot?.querySelector(
+      ".dialog-action-secondary",
+    ) as HTMLButtonElement | null;
+    expect(normalizeText(queueButton?.textContent)).toBe("取消队列");
+
+    queueButton?.click();
+    await settleCard(card);
+
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      4,
+      "http://localhost:7778/api/workspace/api-queue/queue",
+      expect.objectContaining({
+        method: "DELETE",
+      }),
+    );
+    expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "队列已取消",
+    );
+    expect(input?.value).toBe("当前任务完成后补测试");
+    expect(card.shadowRoot?.querySelector(".queue-banner")).toBeNull();
+    expect(normalizeText(queueButton?.textContent)).toBe("加入队列");
   });
 
   it("appends realtime messages through WebSocket in API mode", async () => {

@@ -1,6 +1,12 @@
 import { LitElement, html, nothing } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { fetchActiveWorkspaces, fetchWorkspaceLatestMessages, sendWorkspaceMessage } from "./lib/http-api";
+import {
+  cancelWorkspaceQueue,
+  fetchActiveWorkspaces,
+  fetchWorkspaceLatestMessages,
+  fetchWorkspaceQueueStatus,
+  sendWorkspaceMessage,
+} from "./lib/http-api";
 import { connectRealtime } from "./lib/realtime-api";
 import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
@@ -17,6 +23,7 @@ import type {
   LocalWorkspaceSummary,
   RealtimeEvent,
   SessionMessageResponse,
+  WorkspaceQueueStatusResponse,
 } from "./types";
 
 type SectionKey = "attention" | "running" | "idle";
@@ -95,6 +102,7 @@ export class KanbanWatcherCard extends LitElement {
     dialogLoading: { state: true },
     dialogError: { state: true },
     dialogMessagesByWorkspace: { state: true },
+    queueStatusByWorkspace: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -119,6 +127,7 @@ export class KanbanWatcherCard extends LitElement {
   private dialogLoading = false;
   private dialogError = "";
   private dialogMessagesByWorkspace: Record<string, DialogMessage[]> = {};
+  private queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
   private dialogMessageVersionsByWorkspace: Record<string, string> = {};
   private expandedToolMessageKeys = new Set<string>();
 
@@ -263,6 +272,8 @@ export class KanbanWatcherCard extends LitElement {
 
     const messages = this.getDialogMessages(workspace);
     const isRunning = workspace.status === "running";
+    const queueStatus = this.queueStatusByWorkspace[workspace.id];
+    const isQueued = isRunning && queueStatus?.status === "queued";
 
     return html`
       <div class="dialog-shell" role="presentation">
@@ -300,6 +311,9 @@ export class KanbanWatcherCard extends LitElement {
           </section>
 
           <div class="dialog-composer">
+            ${isQueued
+              ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
+              : nothing}
             <textarea
               class="message-input"
               rows="2"
@@ -325,9 +339,9 @@ export class KanbanWatcherCard extends LitElement {
                     <button
                       class="dialog-action dialog-action-secondary"
                       type="button"
-                      @click=${() => void this.handleActionClick("queue")}
+                      @click=${() => void this.handleActionClick(isQueued ? "stop" : "queue")}
                     >
-                      加入队列
+                      ${isQueued ? "取消队列" : "加入队列"}
                     </button>
                   `
                 : nothing}
@@ -344,6 +358,13 @@ export class KanbanWatcherCard extends LitElement {
   private get currentFeedback() {
     if (this.actionFeedback) {
       return this.actionFeedback;
+    }
+    const workspace = this.selectedWorkspace;
+    if (workspace) {
+      const queueStatus = this.queueStatusByWorkspace[workspace.id];
+      if (queueStatus?.status === "queued") {
+        return "消息已排队 - 将在当前运行完成时执行";
+      }
     }
     if (this.dialogError) {
       return this.dialogError;
@@ -370,7 +391,11 @@ export class KanbanWatcherCard extends LitElement {
     this.actionFeedback = "";
     this.dialogError = "";
     if (this.isApiMode) {
-      void this.loadWorkspaceMessages(workspace.id, this.shouldRefreshWorkspaceMessages(workspace));
+      const shouldRefresh = this.shouldRefreshWorkspaceMessages(workspace);
+      void this.loadWorkspaceMessages(workspace.id, shouldRefresh);
+      if (workspace.status === "running" && (shouldRefresh || !this.queueStatusByWorkspace[workspace.id])) {
+        void this.loadWorkspaceQueueStatus(workspace.id);
+      }
     }
   }
 
@@ -492,6 +517,16 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private async handleActionClick(action: DialogAction) {
+    const queueStatus = this.selectedWorkspaceId
+      ? this.queueStatusByWorkspace[this.selectedWorkspaceId]
+      : undefined;
+    const isQueued = queueStatus?.status === "queued";
+
+    if (action === "stop" && isQueued) {
+      await this.handleCancelQueue();
+      return;
+    }
+
     if (action === "stop") {
       this.actionFeedback = "停止功能暂未接入，当前仅展示界面。";
       return;
@@ -520,11 +555,25 @@ export class KanbanWatcherCard extends LitElement {
       if (action === "send") {
         this.appendOptimisticUserMessage(this.selectedWorkspaceId, message);
       }
-      this.messageDraft = "";
       const successPrefix = action === "queue" ? "加入队列成功" : "发送成功";
       this.actionFeedback = response.message?.trim()
         ? `${successPrefix}：${response.message.trim()}`
         : `${successPrefix}。`;
+      if (action === "queue") {
+        this.messageDraft = message;
+        this.setQueueStatus(this.selectedWorkspaceId, {
+          ...response,
+          status: "queued",
+          queued: {
+            session_id: response.session_id,
+            data: {
+              message,
+            },
+          },
+        });
+      } else {
+        this.messageDraft = "";
+      }
       this.emitPreviewStatus();
       if (action === "send") {
         await this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
@@ -533,6 +582,58 @@ export class KanbanWatcherCard extends LitElement {
       this.actionFeedback = this.toErrorMessage(error, "发送消息失败");
       this.emitPreviewStatus(this.actionFeedback);
     }
+  }
+
+  private async handleCancelQueue() {
+    if (!this.isApiMode || !this.selectedWorkspaceId) {
+      return;
+    }
+
+    try {
+      this.actionFeedback = "正在取消队列...";
+      const response = await cancelWorkspaceQueue({
+        baseUrl: this.config!.base_url!,
+        apiKey: this.config?.api_key,
+        workspaceId: this.selectedWorkspaceId,
+      });
+      this.setQueueStatus(this.selectedWorkspaceId, response);
+      this.actionFeedback = response.message?.trim() || "队列已取消";
+      this.emitPreviewStatus();
+    } catch (error) {
+      this.actionFeedback = this.toErrorMessage(error, "取消队列失败");
+      this.emitPreviewStatus(this.actionFeedback);
+    }
+  }
+
+  private async loadWorkspaceQueueStatus(workspaceId: string) {
+    if (!this.isApiMode) {
+      return;
+    }
+
+    try {
+      const response = await fetchWorkspaceQueueStatus({
+        baseUrl: this.config!.base_url!,
+        apiKey: this.config?.api_key,
+        workspaceId,
+      });
+      this.setQueueStatus(workspaceId, response);
+      if (
+        this.selectedWorkspaceId === workspaceId &&
+        response.status === "queued" &&
+        !this.messageDraft.trim()
+      ) {
+        this.messageDraft = response.queued?.data?.message ?? "";
+      }
+    } catch (error) {
+      this.actionFeedback = this.toErrorMessage(error, "获取队列状态失败");
+    }
+  }
+
+  private setQueueStatus(workspaceId: string, response: WorkspaceQueueStatusResponse) {
+    this.queueStatusByWorkspace = {
+      ...this.queueStatusByWorkspace,
+      [workspaceId]: response,
+    };
   }
 
   private handleKeyDown = (event: Event) => {
