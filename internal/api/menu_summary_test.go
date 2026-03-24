@@ -32,6 +32,21 @@ func TestBuildMenuSummaryFallsBackToLastMessage(t *testing.T) {
 	}
 }
 
+func TestBuildMenuSummaryPrefersLastMessageOverUnreadReason(t *testing.T) {
+	lastMessage := "这里是未读时应展示的最后一条摘要"
+	workspace := Workspace{ID: "ws-1", Branch: "main", LastMessage: &lastMessage}
+	summary := WorkspaceSummary{WorkspaceID: "ws-1", HasUnseenTurns: true}
+
+	got, source := buildMenuSummary(workspace, summary)
+
+	if got != lastMessage {
+		t.Fatalf("summary = %q, want %q", got, lastMessage)
+	}
+	if source != "last_message" {
+		t.Fatalf("source = %q, want last_message", source)
+	}
+}
+
 func TestBuildMenuSummaryReturnsEmptyWhenNoReadableText(t *testing.T) {
 	lastMessage := "```bash\nnpm test\n```"
 	workspace := Workspace{ID: "ws-1", Branch: "main", LastMessage: &lastMessage}

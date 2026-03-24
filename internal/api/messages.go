@@ -130,13 +130,17 @@ func buildLocalMenuSummary(summary store.ActiveWorkspaceSummary) string {
 		return "待审批：等待你确认下一步"
 	case summary.Status == "failed":
 		return "运行失败：请检查最新日志"
-	case summary.HasUnseenTurns:
-		return "未读消息：请查看最新回复"
-	case summary.LastMessage != nil:
-		return cleanMenuSummary(*summary.LastMessage)
-	default:
-		return ""
 	}
+
+	if summary.LastMessage != nil {
+		if cleaned := cleanMenuSummary(*summary.LastMessage); cleaned != "" {
+			return cleaned
+		}
+	}
+	if summary.HasUnseenTurns {
+		return "未读消息：请查看最新回复"
+	}
+	return ""
 }
 
 func handleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {

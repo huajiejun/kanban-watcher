@@ -175,3 +175,17 @@ func TestBuildLocalMenuSummaryFallsBackToLastMessage(t *testing.T) {
 		t.Fatalf("menu summary = %q", got)
 	}
 }
+
+func TestBuildLocalMenuSummaryPrefersLastMessageOverUnreadReason(t *testing.T) {
+	lastMessage := "这里是未读时应展示的最后一条摘要"
+
+	got := buildLocalMenuSummary(store.ActiveWorkspaceSummary{
+		Status:         "completed",
+		HasUnseenTurns: true,
+		LastMessage:    &lastMessage,
+	})
+
+	if got != lastMessage {
+		t.Fatalf("menu summary = %q, want %q", got, lastMessage)
+	}
+}

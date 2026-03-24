@@ -19,8 +19,6 @@ func buildReasonHint(summary WorkspaceSummary) string {
 		return "待审批：等待你确认下一步"
 	case summary.LatestProcessStatus != nil && *summary.LatestProcessStatus == "failed":
 		return "运行失败：请检查最新日志"
-	case summary.HasUnseenTurns:
-		return "未读消息：请查看最新回复"
 	default:
 		return ""
 	}
@@ -49,6 +47,10 @@ func buildMenuSummary(ws Workspace, summary WorkspaceSummary) (string, string) {
 		if cleaned := cleanMenuSummary(*ws.LastMessage); cleaned != "" {
 			return cleaned, "last_message"
 		}
+	}
+
+	if summary.HasUnseenTurns {
+		return "未读消息：请查看最新回复", "reason"
 	}
 
 	return "", "empty"
