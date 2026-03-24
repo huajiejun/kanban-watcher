@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"net/http"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/realtime"
@@ -12,12 +14,25 @@ import (
 type RealtimePublisher struct {
 	store *store.Store
 	hub   *realtime.Hub
+
+	mu                     sync.Mutex
+	sessionMessageThrottle time.Duration
+	throttledMessages      map[string]*throttledSessionMessage
+}
+
+type throttledSessionMessage struct {
+	sessionID   string
+	lastSentAt  time.Time
+	pending     *realtime.MessagePayload
+	flushTimer  *time.Timer
 }
 
 func NewRealtimePublisher(dbStore *store.Store, hub *realtime.Hub) *RealtimePublisher {
 	return &RealtimePublisher{
-		store: dbStore,
-		hub:   hub,
+		store:                  dbStore,
+		hub:                    hub,
+		sessionMessageThrottle: 500 * time.Millisecond,
+		throttledMessages:      make(map[string]*throttledSessionMessage),
 	}
 }
 
@@ -54,12 +69,80 @@ func (p *RealtimePublisher) PublishSessionMessagesAppended(_ context.Context, se
 		return nil
 	}
 
-	messages := make([]realtime.MessagePayload, 0, len(entries))
 	for _, entry := range entries {
-		messages = append(messages, toRealtimeMessage(entry))
+		p.publishSessionMessage(sessionID, toRealtimeMessage(entry))
 	}
-	p.hub.BroadcastSessionMessagesAppended(sessionID, messages)
 	return nil
+}
+
+func (p *RealtimePublisher) publishSessionMessage(sessionID string, message realtime.MessagePayload) {
+	if p.sessionMessageThrottle <= 0 {
+		p.hub.BroadcastSessionMessagesAppended(sessionID, []realtime.MessagePayload{message})
+		return
+	}
+
+	key := sessionMessageThrottleKey(sessionID, message)
+	now := time.Now()
+
+	p.mu.Lock()
+	state := p.throttledMessages[key]
+	if state == nil {
+		state = &throttledSessionMessage{}
+		p.throttledMessages[key] = state
+	}
+
+	if state.lastSentAt.IsZero() || now.Sub(state.lastSentAt) >= p.sessionMessageThrottle {
+		if state.flushTimer != nil {
+			state.flushTimer.Stop()
+			state.flushTimer = nil
+		}
+		state.pending = nil
+		state.sessionID = sessionID
+		state.lastSentAt = now
+		p.mu.Unlock()
+
+		p.hub.BroadcastSessionMessagesAppended(sessionID, []realtime.MessagePayload{message})
+		return
+	}
+
+	state.sessionID = sessionID
+	state.pending = &message
+	if state.flushTimer == nil {
+		wait := p.sessionMessageThrottle - now.Sub(state.lastSentAt)
+		if wait < 0 {
+			wait = 0
+		}
+		state.flushTimer = time.AfterFunc(wait, func() {
+			p.flushThrottledSessionMessage(key)
+		})
+	}
+	p.mu.Unlock()
+}
+
+func (p *RealtimePublisher) flushThrottledSessionMessage(key string) {
+	p.mu.Lock()
+	state := p.throttledMessages[key]
+	if state == nil {
+		p.mu.Unlock()
+		return
+	}
+
+	message := state.pending
+	sessionID := state.sessionID
+	state.pending = nil
+	state.flushTimer = nil
+	if message == nil {
+		p.mu.Unlock()
+		return
+	}
+	state.lastSentAt = time.Now()
+	p.mu.Unlock()
+
+	p.hub.BroadcastSessionMessagesAppended(sessionID, []realtime.MessagePayload{*message})
+}
+
+func sessionMessageThrottleKey(sessionID string, message realtime.MessagePayload) string {
+	return sessionID + "::" + message.ProcessID + "::" + strconv.Itoa(message.EntryIndex)
 }
 
 func toRealtimeWorkspace(summary store.ActiveWorkspaceSummary) realtime.WorkspacePayload {

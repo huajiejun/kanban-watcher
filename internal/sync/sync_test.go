@@ -79,7 +79,7 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "skips when hash changes for same process entry",
+			name: "broadcasts when hash changes for same process entry",
 			existing: &store.ProcessEntry{
 				ProcessID:   "proc-1",
 				EntryIndex:  3,
@@ -90,10 +90,10 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 				EntryIndex:  3,
 				ContentHash: "hash-b",
 			},
-			want: false,
+			want: true,
 		},
 		{
-			name: "skips when tool status changes with same content hash",
+			name: "broadcasts when tool status changes with same content hash",
 			existing: &store.ProcessEntry{
 				ProcessID:   "proc-1",
 				EntryIndex:  3,
@@ -108,7 +108,7 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 				ContentHash: "hash-a",
 				StatusJSON:  stringPtr(`{"state":"success"}`),
 			},
-			want: false,
+			want: true,
 		},
 	}
 

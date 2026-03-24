@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -774,7 +775,36 @@ func shouldBroadcastRealtimeEntry(existing, next *store.ProcessEntry) bool {
 	if next == nil {
 		return false
 	}
-	return existing == nil
+	if existing == nil {
+		return true
+	}
+	return realtimeEntrySignature(existing) != realtimeEntrySignature(next)
+}
+
+func realtimeEntrySignature(entry *store.ProcessEntry) string {
+	if entry == nil {
+		return ""
+	}
+
+	parts := []string{
+		entry.ProcessID,
+		strconv.Itoa(entry.EntryIndex),
+		entry.EntryType,
+		entry.Role,
+		entry.ContentHash,
+		derefString(entry.ToolName),
+		derefString(entry.ActionTypeJSON),
+		derefString(entry.StatusJSON),
+		derefString(entry.ErrorType),
+	}
+	return strings.Join(parts, "::")
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func shouldPersistProcessEntryUpdate(existing, next *store.ProcessEntry) bool {
