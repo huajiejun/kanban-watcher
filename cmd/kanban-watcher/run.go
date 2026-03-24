@@ -399,6 +399,7 @@ func runHeadless() error {
 	httpServer.SetAuthHandler(authHandler)
 
 	if dbStore != nil {
+		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
 		routes := api.GetMessageRoutes(dbStore)
 		for pattern, handler := range routes {
 			httpServer.RegisterRoute(pattern, handler)
