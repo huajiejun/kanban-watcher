@@ -6,6 +6,7 @@ import {
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
   sendWorkspaceMessage,
+  stopWorkspaceExecution,
 } from "./lib/http-api";
 import { connectRealtime } from "./lib/realtime-api";
 import { groupWorkspaces } from "./lib/group-workspaces";
@@ -541,7 +542,22 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     if (action === "stop") {
-      this.actionFeedback = "停止功能暂未接入，当前仅展示界面。";
+      if (!this.isApiMode || !this.selectedWorkspaceId) {
+        this.actionFeedback = "停止功能暂未接入，当前仅展示界面。";
+        return;
+      }
+      try {
+        this.actionFeedback = "正在发送停止请求...";
+        const response = await stopWorkspaceExecution({
+          baseUrl: this.config!.base_url!,
+          apiKey: this.config?.api_key,
+          workspaceId: this.selectedWorkspaceId,
+        });
+        this.actionFeedback = response.message?.trim() || "已发送停止请求";
+        void this.loadActiveWorkspaces();
+      } catch (error) {
+        this.actionFeedback = this.toErrorMessage(error, "停止执行失败");
+      }
       return;
     }
 

@@ -29,6 +29,7 @@ type workspaceMessageDispatcher interface {
 	DispatchWorkspaceMessage(context.Context, string, string, string) (*dispatchsvc.DispatchResult, error)
 	GetWorkspaceQueueStatus(context.Context, string) (*dispatchsvc.QueueResult, error)
 	CancelWorkspaceQueue(context.Context, string) (*dispatchsvc.QueueResult, error)
+	StopWorkspaceExecution(context.Context, string) (*dispatchsvc.DispatchResult, error)
 }
 
 // routeRegistration 路由注册信息
@@ -119,11 +120,12 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 //   POST /api/workspace/{workspace_id}/follow-up
 //   GET /api/workspace/{workspace_id}/queue
 //   DELETE /api/workspace/{workspace_id}/queue
+//   POST /api/workspace/{workspace_id}/stop
 func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspace/")
 	parts := strings.Split(path, "/")
-	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message" && parts[1] != "queue") {
-		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up or /api/workspace/{id}/queue", http.StatusBadRequest)
+	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message" && parts[1] != "queue" && parts[1] != "stop") {
+		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up or /api/workspace/{id}/queue or /api/workspace/{id}/stop", http.StatusBadRequest)
 		return
 	}
 
@@ -132,6 +134,10 @@ func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) 
 
 	if actionType == "queue" {
 		s.handleWorkspaceQueue(w, r, workspaceID)
+		return
+	}
+	if actionType == "stop" {
+		s.handleWorkspaceStop(w, r, workspaceID)
 		return
 	}
 
@@ -186,6 +192,42 @@ func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) 
 	}
 
 	log.Printf("[HTTP Server] 工作区 %s 的消息发送成功", workspaceID)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"workspace_id": result.WorkspaceID,
+		"session_id":   result.SessionID,
+		"action":       result.Action,
+		"message":      result.Message,
+	})
+}
+
+func (s *Server) handleWorkspaceStop(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.dispatcher == nil {
+		http.Error(w, "消息分发器未初始化", http.StatusInternalServerError)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	result, err := s.dispatcher.StopWorkspaceExecution(ctx, workspaceID)
+	if err != nil {
+		log.Printf("[HTTP Server] 工作区 %s 停止执行失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		} else if strings.Contains(err.Error(), "当前没有运行中的执行") {
+			statusCode = http.StatusConflict
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

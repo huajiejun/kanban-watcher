@@ -1057,6 +1057,93 @@ describe("kanban-watcher-card", () => {
     );
   });
 
+  it("stops the current running workspace through the local API in API mode", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-stop",
+              name: "API Stop Workspace",
+              status: "running",
+              latest_session_id: "session-api-stop",
+              updated_at: "2026-03-24T10:00:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-stop",
+          workspace_name: "API Stop Workspace",
+          messages: [
+            {
+              id: 1,
+              session_id: "session-api-stop",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "正在执行中",
+              timestamp: "2026-03-24T09:59:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          status: "empty",
+          session_id: "session-api-stop",
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          workspace_id: "api-stop",
+          session_id: "session-api-stop",
+          action: "stop",
+          message: "已发送停止请求",
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-stop",
+              name: "API Stop Workspace",
+              status: "running",
+              latest_session_id: "session-api-stop",
+              updated_at: "2026-03-24T10:00:01Z",
+            },
+          ],
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const stopButton = card.shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    stopButton?.click();
+    await settleCard(card);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://localhost:7778/api/workspace/api-stop/stop",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "X-API-Key": "test-api-key",
+        }),
+      }),
+    );
+    expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "已发送停止请求",
+    );
+  });
+
   it("loads workspaces from the local API when base_url is configured", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

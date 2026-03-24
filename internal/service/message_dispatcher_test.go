@@ -30,6 +30,13 @@ func (f *fakeMessageContextStore) GetLatestCodingAgentProcessByWorkspaceID(_ con
 	return f.latestProcess, nil
 }
 
+func (f *fakeMessageContextStore) GetLatestRunningCodingAgentProcessByWorkspaceID(_ context.Context, workspaceID string) (*store.ExecutionProcess, error) {
+	if f.latestProcess == nil || f.latestProcess.WorkspaceID != workspaceID || f.latestProcess.Status != "running" {
+		return nil, nil
+	}
+	return f.latestProcess, nil
+}
+
 func (f *fakeMessageContextStore) UpsertMessageContext(_ context.Context, msgCtx *store.MessageContext) error {
 	f.upsertedCtx = msgCtx
 	f.ctx = msgCtx
@@ -52,6 +59,7 @@ type fakeMessageSender struct {
 	queueCall         *dispatchedCall
 	queueStatusResult *api.QueueStatusResponse
 	cancelQueueResult *api.QueueStatusResponse
+	stoppedProcessID  string
 }
 
 func (f *fakeMessageSender) SendFollowUpWithContext(_ context.Context, sessionID, message string, ctx *store.MessageContext) error {
@@ -89,6 +97,11 @@ func (f *fakeMessageSender) GetQueueStatus(_ context.Context, sessionID string) 
 
 func (f *fakeMessageSender) CancelQueue(_ context.Context, sessionID string) (*api.QueueStatusResponse, error) {
 	return f.cancelQueueResult, nil
+}
+
+func (f *fakeMessageSender) StopExecutionProcess(_ context.Context, processID string) error {
+	f.stoppedProcessID = processID
+	return nil
 }
 
 func TestDispatchWorkspaceMessageUsesStoredContextForSend(t *testing.T) {
@@ -264,5 +277,30 @@ func TestGetWorkspaceQueueStatusUsesStoredContext(t *testing.T) {
 	}
 	if result.Queued == nil || result.Queued.Data.Message != "当前任务完成后补测试" {
 		t.Fatalf("queued = %#v, want queued message", result.Queued)
+	}
+}
+
+func TestStopWorkspaceExecutionUsesLatestRunningProcess(t *testing.T) {
+	storeStub := &fakeMessageContextStore{
+		latestProcess: &store.ExecutionProcess{
+			ID:          "proc-running",
+			SessionID:   "session-1",
+			WorkspaceID: "ws-1",
+			RunReason:   "codingagent",
+			Status:      "running",
+		},
+	}
+	dispatcher := NewMessageDispatcher(storeStub, &fakeMessageSender{}, nil)
+	sender := dispatcher.sender.(*fakeMessageSender)
+
+	result, err := dispatcher.StopWorkspaceExecution(context.Background(), "ws-1")
+	if err != nil {
+		t.Fatalf("StopWorkspaceExecution 返回错误: %v", err)
+	}
+	if result.Action != "stop" {
+		t.Fatalf("action = %q, want stop", result.Action)
+	}
+	if sender.stoppedProcessID != "proc-running" {
+		t.Fatalf("stoppedProcessID = %q, want proc-running", sender.stoppedProcessID)
 	}
 }

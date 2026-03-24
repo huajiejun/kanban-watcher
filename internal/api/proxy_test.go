@@ -121,6 +121,28 @@ func TestProxyClientCancelQueue(t *testing.T) {
 	}
 }
 
+func TestProxyClientStopExecutionProcess(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/execution-processes/proc-1/stop" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"data":    map[string]interface{}{},
+		})
+	}))
+	defer server.Close()
+
+	client := NewProxyClient(server.URL)
+	if err := client.StopExecutionProcess(context.Background(), "proc-1"); err != nil {
+		t.Fatalf("StopExecutionProcess 返回错误: %v", err)
+	}
+}
+
 func testProxyMessageContext() *store.MessageContext {
 	return &store.MessageContext{
 		WorkspaceID:        "ws-1",

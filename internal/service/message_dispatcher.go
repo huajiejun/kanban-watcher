@@ -15,6 +15,7 @@ import (
 type messageContextStore interface {
 	GetMessageContextByWorkspaceID(context.Context, string) (*store.MessageContext, error)
 	GetLatestCodingAgentProcessByWorkspaceID(context.Context, string) (*store.ExecutionProcess, error)
+	GetLatestRunningCodingAgentProcessByWorkspaceID(context.Context, string) (*store.ExecutionProcess, error)
 	UpsertMessageContext(context.Context, *store.MessageContext) error
 }
 
@@ -23,6 +24,7 @@ type messageSender interface {
 	QueueMessageWithContext(context.Context, string, string, *store.MessageContext) error
 	GetQueueStatus(context.Context, string) (*api.QueueStatusResponse, error)
 	CancelQueue(context.Context, string) (*api.QueueStatusResponse, error)
+	StopExecutionProcess(context.Context, string) error
 }
 
 type executionProcessFetcher interface {
@@ -143,6 +145,27 @@ func (d *MessageDispatcher) CancelWorkspaceQueue(ctx context.Context, workspaceI
 		Status:      status.Status,
 		Queued:      status.Message,
 		Message:     "队列已取消",
+	}, nil
+}
+
+func (d *MessageDispatcher) StopWorkspaceExecution(ctx context.Context, workspaceID string) (*DispatchResult, error) {
+	process, err := d.store.GetLatestRunningCodingAgentProcessByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("获取运行中的 process 失败: %w", err)
+	}
+	if process == nil || strings.TrimSpace(process.ID) == "" {
+		return nil, errors.New("当前没有运行中的执行")
+	}
+
+	if err := d.sender.StopExecutionProcess(ctx, process.ID); err != nil {
+		return nil, err
+	}
+
+	return &DispatchResult{
+		WorkspaceID: workspaceID,
+		SessionID:   process.SessionID,
+		Action:      "stop",
+		Message:     "已发送停止请求",
 	}, nil
 }
 

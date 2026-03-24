@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/store"
@@ -149,6 +150,38 @@ func (c *ProxyClient) CancelQueue(ctx context.Context, sessionID string) (*Queue
 	defer resp.Body.Close()
 
 	return decodeQueueStatusResponse(resp)
+}
+
+// StopExecutionProcess 停止指定 execution process。
+func (c *ProxyClient) StopExecutionProcess(ctx context.Context, processID string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/execution-processes/%s/stop", c.baseURL, processID), nil)
+	if err != nil {
+		return fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("停止 execution process 失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result FollowUpResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("解析响应: %w", err)
+	}
+	if !result.Success {
+		msg := ""
+		if result.Message != nil {
+			msg = *result.Message
+		}
+		return fmt.Errorf("停止 execution process 失败: %s", msg)
+	}
+	return nil
 }
 
 // getLatestSessionID 查询 summaries 获取工作区的最新 session_id

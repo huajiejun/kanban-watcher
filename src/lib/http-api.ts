@@ -165,3 +165,19 @@ export async function cancelWorkspaceQueue({
     },
   );
 }
+
+export async function stopWorkspaceExecution({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<WorkspaceMessageResponse> {
+  return fetchJSON<WorkspaceMessageResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/stop`,
+    {
+      method: "POST",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
