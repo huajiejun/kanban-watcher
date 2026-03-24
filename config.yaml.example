@@ -34,6 +34,17 @@ wechat:
   # webhook_url: ""                  # Webhook降级地址（应用失败时使用，不填则不降级）
   notify_threshold_minutes: 10       # has_unseen_turns 或 has_pending_approval 持续多少分钟后发通知
 
+# 本地弹框通知配置
+notify:
+  # 超时阈值配置（分钟）
+  approval_threshold: 5    # 待审批超时
+  message_threshold: 10   # 未读消息超时
+  # 叠加提醒间隔（分钟）
+  # 弹框确认后，每隔这个时间再次弹框（如果问题还在）
+  repeat_interval_minutes: 5
+  # 是否启用弹框通知
+  enabled: true
+
 # 工作时间（仅在此范围内轮询，跨午夜写法：08:00 到次日 01:00）
 working_hours:
   start: "08:00"
