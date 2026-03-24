@@ -232,6 +232,86 @@ func TestGetExecutionProcessStatusReturnsNilOnNotFound(t *testing.T) {
 	}
 }
 
+func TestGetActiveWorkspaceSummariesIncludesLastMessage(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	now := time.Now()
+	rows := sqlmock.NewRows([]string{
+		"id", "name", "branch", "latest_session_id", "status",
+		"has_pending_approval", "has_unseen_turns", "has_running_dev_server",
+		"files_changed", "lines_added", "lines_removed", "updated_at",
+		"message_count", "last_message_at", "latest_process_completed_at", "last_message",
+	}).AddRow(
+		"ws-1", "Workspace 1", "main", "session-1", "completed",
+		false, true, false,
+		2, 8, 1, now,
+		5, now, now, "这里是最近一条消息",
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT
+			w.id,
+			w.name,
+			w.branch,
+			w.latest_session_id,
+			COALESCE(w.latest_process_status, 'idle') AS status,
+			w.has_pending_approval,
+			w.has_unseen_turns,
+			w.has_running_dev_server,
+			w.files_changed,
+			w.lines_added,
+			w.lines_removed,
+			w.updated_at,
+			COALESCE(msg.message_count, 0) AS message_count,
+			msg.last_message_at,
+			ep.latest_process_completed_at,
+			lm.content AS last_message
+		FROM kw_workspaces w
+		LEFT JOIN (
+			SELECT
+				workspace_id,
+				COUNT(*) AS message_count,
+				MAX(entry_timestamp) AS last_message_at
+			FROM kw_process_entries
+			GROUP BY workspace_id
+		) msg ON msg.workspace_id = w.id
+		LEFT JOIN (
+			SELECT
+				workspace_id,
+				MAX(completed_at) AS latest_process_completed_at
+			FROM kw_execution_processes
+			WHERE completed_at IS NOT NULL
+			GROUP BY workspace_id
+		) ep ON ep.workspace_id = w.id
+		LEFT JOIN kw_process_entries lm ON lm.id = (
+			SELECT e.id
+			FROM kw_process_entries e
+			WHERE e.workspace_id = w.id
+			  AND e.entry_type IN ('assistant_message', 'user_message')
+			ORDER BY e.entry_timestamp DESC, e.id DESC
+			LIMIT 1
+		)
+		WHERE w.archived = FALSE
+		ORDER BY COALESCE(msg.last_message_at, w.updated_at, w.last_seen_at) DESC
+	`)).WillReturnRows(rows)
+
+	summaries, err := store.GetActiveWorkspaceSummaries(context.Background())
+	if err != nil {
+		t.Fatalf("GetActiveWorkspaceSummaries 返回错误: %v", err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("len(summaries) = %d, want 1", len(summaries))
+	}
+	if summaries[0].LastMessage == nil || *summaries[0].LastMessage != "这里是最近一条消息" {
+		t.Fatalf("last message = %#v, want 最近一条消息", summaries[0].LastMessage)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestGetLatestCodingAgentProcessByWorkspaceIDReturnsProcess(t *testing.T) {
 	store, mock, cleanup := newMockStore(t)
 	defer cleanup()

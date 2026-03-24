@@ -94,8 +94,20 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 
 		// 工作区需要关注：检查是否已跟踪
 		existing, found := updated.Entries[key]
+		if !found && key.UpdatedAt != "" {
+			legacyKey := key
+			legacyKey.UpdatedAt = ""
+			if legacyEntry, ok := updated.Entries[legacyKey]; ok {
+				updated = updated.WithoutKey(legacyKey)
+				legacyEntry.Key = key
+				updated = updated.WithEntry(key, legacyEntry)
+				existing = legacyEntry
+				found = true
+			}
+		}
 		if !found {
 			// 首次发现此问题：创建条目，开始计时
+			updated = updated.WithoutWorkspace(w.ID)
 			updated = updated.WithEntry(key, state.AttentionEntry{
 				Key:         key,
 				FirstSeenAt: now,
@@ -119,10 +131,10 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 				// 已超时：立即通知
 				notifiedAt := now
 				updated = updated.WithEntry(key, state.AttentionEntry{
-					Key:          existing.Key,
-					FirstSeenAt:  existing.FirstSeenAt,
-					ConfirmedAt:  &now,
-					NotifiedAt:   &notifiedAt,
+					Key:           existing.Key,
+					FirstSeenAt:   existing.FirstSeenAt,
+					ConfirmedAt:   &now,
+					NotifiedAt:    &notifiedAt,
 					LastAlertedAt: &now,
 				})
 				toNotify = append(toNotify, TrackedWorkspace{
@@ -157,10 +169,10 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 		// 达到阈值：标记为已通知，加入待通知列表
 		notifiedAt := now
 		updated = updated.WithEntry(key, state.AttentionEntry{
-			Key:          existing.Key,
-			FirstSeenAt:  existing.FirstSeenAt,
-			ConfirmedAt:  existing.ConfirmedAt,
-			NotifiedAt:   &notifiedAt,
+			Key:           existing.Key,
+			FirstSeenAt:   existing.FirstSeenAt,
+			ConfirmedAt:   existing.ConfirmedAt,
+			NotifiedAt:    &notifiedAt,
 			LastAlertedAt: &now,
 		})
 		// 通知时计算从首次发现到现在的总时长
@@ -190,6 +202,7 @@ func notificationKey(w api.EnrichedWorkspace) state.NotificationKey {
 	return state.NotificationKey{
 		WorkspaceID: w.ID,
 		CompletedAt: completedAt,
+		UpdatedAt:   w.UpdatedAt,
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/poller"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 	"github.com/huajiejun/kanban-watcher/internal/state"
+	"github.com/huajiejun/kanban-watcher/internal/store"
 	"github.com/huajiejun/kanban-watcher/internal/wechat"
 )
 
@@ -176,6 +177,56 @@ func TestHandlePollResultProcessesWorkspaces(t *testing.T) {
 	)
 
 	// 测试通过表示函数正常处理工作区数据
+}
+
+func TestMergeLocalMenuSummariesPrefersDatabaseLastMessage(t *testing.T) {
+	lastMessage := "数据库里的最后一条消息"
+
+	workspaces := []api.EnrichedWorkspace{
+		{
+			Workspace:     api.Workspace{ID: "ws-1", Branch: "main"},
+			Summary:       api.WorkspaceSummary{WorkspaceID: "ws-1", HasUnseenTurns: true},
+			DisplayName:   "Workspace 1",
+			MenuSummary:   "未读消息：请查看最新回复",
+			MenuSummaryBy: "reason",
+		},
+	}
+
+	summaries := []store.ActiveWorkspaceSummary{
+		{
+			ID:             "ws-1",
+			Status:         "completed",
+			HasUnseenTurns: true,
+			LastMessage:    &lastMessage,
+		},
+	}
+
+	merged := mergeLocalMenuSummaries(workspaces, summaries)
+
+	if got := merged[0].MenuSummary; got != lastMessage {
+		t.Fatalf("menu summary = %q, want %q", got, lastMessage)
+	}
+	if got := merged[0].MenuSummaryBy; got != "last_message" {
+		t.Fatalf("menu summary by = %q, want last_message", got)
+	}
+}
+
+func TestMergeLocalMenuSummariesKeepsOriginalWhenNoLocalMatch(t *testing.T) {
+	workspaces := []api.EnrichedWorkspace{
+		{
+			Workspace:     api.Workspace{ID: "ws-1", Branch: "main"},
+			Summary:       api.WorkspaceSummary{WorkspaceID: "ws-1", HasUnseenTurns: true},
+			DisplayName:   "Workspace 1",
+			MenuSummary:   "未读消息：请查看最新回复",
+			MenuSummaryBy: "reason",
+		},
+	}
+
+	merged := mergeLocalMenuSummaries(workspaces, nil)
+
+	if got := merged[0].MenuSummary; got != "未读消息：请查看最新回复" {
+		t.Fatalf("menu summary = %q", got)
+	}
 }
 
 type fakeFetcher struct {

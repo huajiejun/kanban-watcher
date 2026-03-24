@@ -37,6 +37,8 @@ type WorkspaceSummary struct {
 	PrStatus                 *string `json:"pr_status"`                   // PR 状态：open/closed/merged
 	PrNumber                 *int64  `json:"pr_number"`                   // PR 编号
 	PrURL                    *string `json:"pr_url"`                      // PR 链接地址
+	MenuSummary              *string `json:"menu_summary,omitempty"`      // 远端可选返回的菜单摘要候选
+	MenuSummaryBy            *string `json:"menu_summary_by,omitempty"`   // 菜单摘要来源
 }
 
 // WorkspaceSummaryResponse summaries 接口的 Data 字段结构
@@ -47,13 +49,14 @@ type WorkspaceSummaryResponse struct {
 // Workspace 工作区基本信息（从 GET /api/workspaces 获取）
 // 注意：summaries 接口不返回工作区名称，必须通过 workspace_id 关联此表获取
 type Workspace struct {
-	ID        string  `json:"id"`         // 工作区唯一标识
-	Name      *string `json:"name"`       // 工作区显示名称（用户自定义，可能为空）
-	Branch    string  `json:"branch"`     // Git 分支名（Name为空时用作显示）
-	Archived  bool    `json:"archived"`   // 是否已归档
-	Pinned    bool    `json:"pinned"`     // 是否置顶
-	CreatedAt string  `json:"created_at"` // 创建时间
-	UpdatedAt string  `json:"updated_at"` // 最后更新时间
+	ID          string  `json:"id"`                     // 工作区唯一标识
+	Name        *string `json:"name"`                   // 工作区显示名称（用户自定义，可能为空）
+	Branch      string  `json:"branch"`                 // Git 分支名（Name为空时用作显示）
+	Archived    bool    `json:"archived"`               // 是否已归档
+	Pinned      bool    `json:"pinned"`                 // 是否置顶
+	CreatedAt   string  `json:"created_at"`             // 创建时间
+	UpdatedAt   string  `json:"updated_at"`             // 最后更新时间
+	LastMessage *string `json:"last_message,omitempty"` // 远端可选返回的最近消息
 }
 
 // WorkspacesResponse workspaces 接口的 Data 字段结构
@@ -78,9 +81,11 @@ type ExecutionProcessDetail struct {
 // EnrichedWorkspace 关联后的完整工作区信息
 // 将 Workspace（身份）与 WorkspaceSummary（状态）合并，便于统一处理
 type EnrichedWorkspace struct {
-	Workspace                    // 嵌入基本信息
-	Summary     WorkspaceSummary // 状态汇总
-	DisplayName string           // 显示名称：优先使用 Name，否则使用 Branch
+	Workspace                      // 嵌入基本信息
+	Summary       WorkspaceSummary // 状态汇总
+	DisplayName   string           // 显示名称：优先使用 Name，否则使用 Branch
+	MenuSummary   string           // 菜单栏摘要候选
+	MenuSummaryBy string           // 菜单栏摘要来源：reason/last_message/empty
 }
 
 // NeedsAttention 判断该工作区是否需要用户关注

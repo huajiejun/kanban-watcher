@@ -50,37 +50,37 @@ type ExecutionProcess struct {
 
 // MessageContext 工作区消息发送上下文
 type MessageContext struct {
-	WorkspaceID        string     `db:"workspace_id"`
-	SessionID          string     `db:"session_id"`
-	ProcessID          *string    `db:"process_id"`
-	Executor           *string    `db:"executor"`
-	Variant            *string    `db:"variant"`
-	ExecutorConfigJSON string     `db:"executor_config_json"`
-	ForceWhenDirty     *bool      `db:"force_when_dirty"`
-	PerformGitReset    *bool      `db:"perform_git_reset"`
-	DefaultSendMode    string     `db:"default_send_mode"`
-	Source             string     `db:"source"`
-	UpdatedAt          time.Time  `db:"updated_at"`
-	SyncedAt           time.Time  `db:"synced_at"`
+	WorkspaceID        string    `db:"workspace_id"`
+	SessionID          string    `db:"session_id"`
+	ProcessID          *string   `db:"process_id"`
+	Executor           *string   `db:"executor"`
+	Variant            *string   `db:"variant"`
+	ExecutorConfigJSON string    `db:"executor_config_json"`
+	ForceWhenDirty     *bool     `db:"force_when_dirty"`
+	PerformGitReset    *bool     `db:"perform_git_reset"`
+	DefaultSendMode    string    `db:"default_send_mode"`
+	Source             string    `db:"source"`
+	UpdatedAt          time.Time `db:"updated_at"`
+	SyncedAt           time.Time `db:"synced_at"`
 }
 
 // ProcessEntry 对话消息
 type ProcessEntry struct {
-	ID             int64      `db:"id"`
-	ProcessID      string     `db:"process_id"`
-	SessionID      string     `db:"session_id"`
-	WorkspaceID    string     `db:"workspace_id"`
-	EntryIndex     int        `db:"entry_index"`
-	EntryType      string     `db:"entry_type"`
-	Role           string     `db:"role"`
-	Content        string     `db:"content"`
-	ToolName       *string    `db:"tool_name"`
-	ActionTypeJSON *string    `db:"action_type_json"`
-	StatusJSON     *string    `db:"status_json"`
-	ErrorType      *string    `db:"error_type"`
-	EntryTimestamp time.Time  `db:"entry_timestamp"`
-	ContentHash    string     `db:"content_hash"`
-	CreatedAt      time.Time  `db:"created_at"`
+	ID             int64     `db:"id"`
+	ProcessID      string    `db:"process_id"`
+	SessionID      string    `db:"session_id"`
+	WorkspaceID    string    `db:"workspace_id"`
+	EntryIndex     int       `db:"entry_index"`
+	EntryType      string    `db:"entry_type"`
+	Role           string    `db:"role"`
+	Content        string    `db:"content"`
+	ToolName       *string   `db:"tool_name"`
+	ActionTypeJSON *string   `db:"action_type_json"`
+	StatusJSON     *string   `db:"status_json"`
+	ErrorType      *string   `db:"error_type"`
+	EntryTimestamp time.Time `db:"entry_timestamp"`
+	ContentHash    string    `db:"content_hash"`
+	CreatedAt      time.Time `db:"created_at"`
 }
 
 // ActiveWorkspaceSummary 活跃工作区摘要
@@ -100,20 +100,21 @@ type ActiveWorkspaceSummary struct {
 	MessageCount             int        `db:"message_count"`
 	LastMessageAt            *time.Time `db:"last_message_at"`
 	LatestProcessCompletedAt *time.Time `db:"latest_process_completed_at"`
+	LastMessage              *string    `db:"last_message"`
 }
 
 // SyncSubscription 同步订阅状态
 type SyncSubscription struct {
-	SubscriptionKey  string     `db:"subscription_key"`
-	SubscriptionType string     `db:"subscription_type"`
-	TargetID         string     `db:"target_id"`
-	SessionID        *string    `db:"session_id"`
-	WorkspaceID      *string    `db:"workspace_id"`
-	LastEntryIndex   *int       `db:"last_entry_index"`
-	Status           string     `db:"status"`
-	LastError        *string    `db:"last_error"`
-	LastSeenAt       time.Time  `db:"last_seen_at"`
-	UpdatedAt        time.Time  `db:"updated_at"`
+	SubscriptionKey  string    `db:"subscription_key"`
+	SubscriptionType string    `db:"subscription_type"`
+	TargetID         string    `db:"target_id"`
+	SessionID        *string   `db:"session_id"`
+	WorkspaceID      *string   `db:"workspace_id"`
+	LastEntryIndex   *int      `db:"last_entry_index"`
+	Status           string    `db:"status"`
+	LastError        *string   `db:"last_error"`
+	LastSeenAt       time.Time `db:"last_seen_at"`
+	UpdatedAt        time.Time `db:"updated_at"`
 }
 
 // NormalizedEntry 从 vibe-kanban normalized logs 提取的消息
@@ -173,13 +174,13 @@ func boolPtr(v bool) *bool {
 
 // TokenUsageDaily 按天聚合的 Token 用量
 type TokenUsageDaily struct {
-	ID            int64     `json:"id"`
-	StatDate      time.Time `json:"stat_date"`       // 天时间点，如 2026-03-24
-	Executor      string    `json:"executor"`        // CLAUDE_CODE / CODEX / OPENCODE 等
-	InputTokens   int64     `json:"input_tokens"`    // 输入 token 数
-	OutputTokens  int64     `json:"output_tokens"`   // 输出 token 数
-	TotalTokens   int64     `json:"total_tokens"`    // 总 token 数
-	SessionCount  int       `json:"session_count"`   // 该天会话数
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID           int64     `json:"id"`
+	StatDate     time.Time `json:"stat_date"`     // 天时间点，如 2026-03-24
+	Executor     string    `json:"executor"`      // CLAUDE_CODE / CODEX / OPENCODE 等
+	InputTokens  int64     `json:"input_tokens"`  // 输入 token 数
+	OutputTokens int64     `json:"output_tokens"` // 输出 token 数
+	TotalTokens  int64     `json:"total_tokens"`  // 总 token 数
+	SessionCount int       `json:"session_count"` // 该天会话数
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }

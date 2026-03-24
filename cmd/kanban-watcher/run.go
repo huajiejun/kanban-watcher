@@ -277,7 +277,7 @@ func runDaemon() error {
 
 	pollResults := make(chan poller.PollResult, 2)
 	go poller.Run(ctx, cfg, apiClient, pollResults)
-	go runEventLoop(ctx, pollResults, sessionExtractor, cfg, wechatNotifier, tracker, trayApp, dialogNotifier)
+	go runEventLoop(ctx, pollResults, dbStore, sessionExtractor, cfg, wechatNotifier, tracker, trayApp, dialogNotifier)
 
 	systray.Run(trayApp.OnReady, trayApp.OnExit(cancel))
 
@@ -365,7 +365,7 @@ func runHeadless() error {
 
 	pollResults := make(chan poller.PollResult, 2)
 	go poller.Run(ctx, cfg, apiClient, pollResults)
-	go runEventLoop(ctx, pollResults, sessionExtractor, cfg, wechatNotifier, tracker, nil, dialogNotifier)
+	go runEventLoop(ctx, pollResults, dbStore, sessionExtractor, cfg, wechatNotifier, tracker, nil, dialogNotifier)
 
 	fmt.Fprintln(os.Stdout, "headless 模式已启动")
 	<-ctx.Done()

@@ -13,9 +13,14 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/sessioncleaner"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 	"github.com/huajiejun/kanban-watcher/internal/state"
+	"github.com/huajiejun/kanban-watcher/internal/store"
 	"github.com/huajiejun/kanban-watcher/internal/tray"
 	"github.com/huajiejun/kanban-watcher/internal/wechat"
 )
+
+type activeWorkspaceSummaryFetcher interface {
+	GetActiveWorkspaceSummaries(context.Context) ([]store.ActiveWorkspaceSummary, error)
+}
 
 func main() {
 	err := run(os.Args[1:], commandDeps{
@@ -36,6 +41,7 @@ func main() {
 func runEventLoop(
 	ctx context.Context,
 	results <-chan poller.PollResult,
+	summaryFetcher activeWorkspaceSummaryFetcher,
 	sessionExtractor *sessionlog.Extractor,
 	cfg *config.Config,
 	wechatNotifier *wechat.Notifier,
@@ -69,10 +75,15 @@ func runEventLoop(
 		select {
 		case <-ctx.Done():
 			return
-	case result := <-results:
+		case result := <-results:
 			if result.Err != nil {
 				fmt.Fprintf(os.Stderr, "轮询错误: %v\n", result.Err)
 				continue
+			}
+			if summaryFetcher != nil {
+				if summaries, err := summaryFetcher.GetActiveWorkspaceSummaries(ctx); err == nil {
+					result.Workspaces = mergeLocalMenuSummaries(result.Workspaces, summaries)
+				}
 			}
 			latestWorkspaces = result.Workspaces
 			handlePollResult(ctx, result, sessionExtractor, cfg, wechatNotifier, tracker, trayApp, dialogNotifier)
@@ -92,6 +103,37 @@ func runEventLoop(
 			}
 		}
 	}
+}
+
+func mergeLocalMenuSummaries(workspaces []api.EnrichedWorkspace, summaries []store.ActiveWorkspaceSummary) []api.EnrichedWorkspace {
+	if len(workspaces) == 0 || len(summaries) == 0 {
+		return workspaces
+	}
+
+	summaryMap := make(map[string]store.ActiveWorkspaceSummary, len(summaries))
+	for _, summary := range summaries {
+		summaryMap[summary.ID] = summary
+	}
+
+	merged := make([]api.EnrichedWorkspace, len(workspaces))
+	copy(merged, workspaces)
+
+	for i, workspace := range merged {
+		summary, ok := summaryMap[workspace.ID]
+		if !ok {
+			continue
+		}
+
+		menuSummary, menuSummaryBy := api.BuildLocalMenuSummary(summary)
+		if menuSummary == "" {
+			continue
+		}
+
+		merged[i].MenuSummary = menuSummary
+		merged[i].MenuSummaryBy = menuSummaryBy
+	}
+
+	return merged
 }
 
 // handlePollResult 处理单次轮询结果

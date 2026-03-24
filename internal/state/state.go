@@ -5,17 +5,18 @@ import "time"
 // NotificationKey 通知去重键，唯一标识一次"需要关注"的状态
 //
 // 设计原理：
-//   - 使用 WorkspaceID + CompletedAt 组合，确保同一工作区在同一构建周期内只通知一次
+//   - 使用 WorkspaceID + CompletedAt + UpdatedAt 组合，确保同一工作区在同一状态周期内只通知一次
 //   - CompletedAt 为 "" 表示进程仍在运行中（对应 API 返回的 null）
-//   - 当有新构建完成时，CompletedAt 会变化，从而重置去重状态，允许再次通知
+//   - 当状态发生新一轮变化时，UpdatedAt 会变化，从而重置去重状态，允许重新计时
 //
 // 示例场景：
 //   - 工作区 A 的构建 #10 正在运行且需要关注 → 持续计时，达到阈值后发送通知
 //   - 构建 #10 完成后，CompletedAt 被填充 → 若问题仍存在，新 Key 开始计时
-//   - 这确保同一构建不会被重复通知，但新构建会触发新的通知流程
+//   - 同一构建内若状态重新进入“需要关注”，UpdatedAt 变化后也会触发新的通知流程
 type NotificationKey struct {
 	WorkspaceID string // 工作区唯一标识
 	CompletedAt string // 构建完成时间（ISO8601）或 ""（运行中）
+	UpdatedAt   string // 工作区最近状态更新时间（ISO8601）
 }
 
 // AttentionEntry 记录某个 NotificationKey 的跟踪状态

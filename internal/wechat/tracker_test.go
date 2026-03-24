@@ -9,19 +9,32 @@ import (
 )
 
 func makeWorkspace(id string, hasUnseen, hasPending bool, completedAt *string) api.EnrichedWorkspace {
+	return makeWorkspaceWithSession(id, id+"-session", hasUnseen, hasPending, completedAt)
+}
+
+func makeWorkspaceWithSession(id, sessionID string, hasUnseen, hasPending bool, completedAt *string) api.EnrichedWorkspace {
+	updatedAt := time.Now().UTC().Format(time.RFC3339)
 	return api.EnrichedWorkspace{
 		Workspace: api.Workspace{
-			ID:     id,
-			Branch: "branch/" + id,
+			ID:        id,
+			Branch:    "branch/" + id,
+			UpdatedAt: updatedAt,
 		},
 		Summary: api.WorkspaceSummary{
 			WorkspaceID:              id,
+			LatestSessionID:          &sessionID,
 			HasUnseenTurns:           hasUnseen,
 			HasPendingApproval:       hasPending,
 			LatestProcessCompletedAt: completedAt,
 		},
 		DisplayName: id,
 	}
+}
+
+func makeWorkspaceWithStateVersion(id, sessionID, updatedAt string, hasUnseen, hasPending bool, completedAt *string) api.EnrichedWorkspace {
+	workspace := makeWorkspaceWithSession(id, sessionID, hasUnseen, hasPending, completedAt)
+	workspace.Workspace.UpdatedAt = updatedAt
+	return workspace
 }
 
 func strPtr(s string) *string { return &s }
@@ -212,6 +225,56 @@ func TestTracker_TransientFalsePositive(t *testing.T) {
 	notify := tracker.ProcessWorkspaces(ws1, now.Add(11*time.Minute+1*time.Minute))
 	if len(notify) != 1 {
 		t.Fatalf("expected 1 notification after resolve+restart, got %d", len(notify))
+	}
+}
+
+func TestTracker_NewSessionRestartsTimer(t *testing.T) {
+	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
+	now := time.Now()
+
+	firstSession := []api.EnrichedWorkspace{
+		makeWorkspaceWithSession("ws1", "session-1", true, false, nil),
+	}
+	tracker.ProcessWorkspaces(firstSession, now)
+	tracker.ProcessWorkspaces(firstSession, now.Add(30*time.Second))
+
+	secondSession := []api.EnrichedWorkspace{
+		makeWorkspaceWithSession("ws1", "session-2", true, false, nil),
+	}
+
+	notify := tracker.ProcessWorkspaces(secondSession, now.Add(10*time.Minute))
+	if len(notify) != 0 {
+		t.Fatalf("expected 0 notifications when a new session just entered attention, got %d", len(notify))
+	}
+
+	notify = tracker.ProcessWorkspaces(secondSession, now.Add(20*time.Minute+30*time.Second))
+	if len(notify) != 1 {
+		t.Fatalf("expected 1 notification after the new session waits full threshold, got %d", len(notify))
+	}
+}
+
+func TestTracker_UpdatedAtChangeRestartsApprovalTimer(t *testing.T) {
+	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
+	now := time.Now()
+
+	firstAttention := []api.EnrichedWorkspace{
+		makeWorkspaceWithStateVersion("ws1", "session-1", "2026-03-24T12:00:00Z", false, true, nil),
+	}
+	tracker.ProcessWorkspaces(firstAttention, now)
+	tracker.ProcessWorkspaces(firstAttention, now.Add(30*time.Second))
+
+	secondAttention := []api.EnrichedWorkspace{
+		makeWorkspaceWithStateVersion("ws1", "session-1", "2026-03-24T12:10:00Z", false, true, nil),
+	}
+
+	notify := tracker.ProcessWorkspaces(secondAttention, now.Add(10*time.Minute))
+	if len(notify) != 0 {
+		t.Fatalf("expected 0 notifications when a new approval cycle just started, got %d", len(notify))
+	}
+
+	notify = tracker.ProcessWorkspaces(secondAttention, now.Add(16*time.Minute))
+	if len(notify) != 1 {
+		t.Fatalf("expected 1 notification after the new approval cycle waits full threshold, got %d", len(notify))
 	}
 }
 

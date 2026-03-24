@@ -12,15 +12,15 @@ import (
 
 // MessageResponse 消息响应结构
 type MessageResponse struct {
-	ID        int64                  `json:"id"`
-	SessionID string                 `json:"session_id"`
-	ProcessID string                 `json:"process_id,omitempty"`
-	EntryIndex int                   `json:"entry_index"`
-	EntryType string                 `json:"entry_type"`
-	Role      string                 `json:"role"`
-	Content   string                 `json:"content"`
-	ToolInfo  map[string]interface{} `json:"tool_info,omitempty"`
-	Timestamp string                 `json:"timestamp"`
+	ID         int64                  `json:"id"`
+	SessionID  string                 `json:"session_id"`
+	ProcessID  string                 `json:"process_id,omitempty"`
+	EntryIndex int                    `json:"entry_index"`
+	EntryType  string                 `json:"entry_type"`
+	Role       string                 `json:"role"`
+	Content    string                 `json:"content"`
+	ToolInfo   map[string]interface{} `json:"tool_info,omitempty"`
+	Timestamp  string                 `json:"timestamp"`
 }
 
 // SessionMessagesResponse 会话消息响应
@@ -53,6 +53,7 @@ type LocalWorkspaceSummary struct {
 	MessageCount             int    `json:"message_count"`
 	LastMessageAt            string `json:"last_message_at,omitempty"`
 	LatestProcessCompletedAt string `json:"latest_process_completed_at,omitempty"`
+	MenuSummary              string `json:"menu_summary,omitempty"`
 }
 
 // GetMessageRoutes 注册消息 API 路由
@@ -103,6 +104,7 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 			LinesAdded:          summary.LinesAdded,
 			LinesRemoved:        summary.LinesRemoved,
 			MessageCount:        summary.MessageCount,
+			MenuSummary:         buildLocalMenuSummary(summary),
 		}
 		if summary.LatestSessionID != nil {
 			item.LatestSessionID = *summary.LatestSessionID
@@ -120,6 +122,30 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 	}
 
 	writeJSON(w, resp)
+}
+
+func buildLocalMenuSummary(summary store.ActiveWorkspaceSummary) string {
+	text, _ := BuildLocalMenuSummary(summary)
+	return text
+}
+
+func BuildLocalMenuSummary(summary store.ActiveWorkspaceSummary) (string, string) {
+	switch {
+	case summary.HasPendingApproval:
+		return "待审批：等待你确认下一步", "reason"
+	case summary.Status == "failed":
+		return "运行失败：请检查最新日志", "reason"
+	}
+
+	if summary.LastMessage != nil {
+		if cleaned := cleanMenuSummary(*summary.LastMessage); cleaned != "" {
+			return cleaned, "last_message"
+		}
+	}
+	if summary.HasUnseenTurns {
+		return "未读消息：请查看最新回复", "reason"
+	}
+	return "", "empty"
 }
 
 func handleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
@@ -214,14 +240,14 @@ func getSessionMessagesInternal(w http.ResponseWriter, r *http.Request, dbStore 
 
 	for _, entry := range entries {
 		item := MessageResponse{
-			ID:        entry.ID,
-			SessionID: entry.SessionID,
-			ProcessID: entry.ProcessID,
+			ID:         entry.ID,
+			SessionID:  entry.SessionID,
+			ProcessID:  entry.ProcessID,
 			EntryIndex: entry.EntryIndex,
-			EntryType: entry.EntryType,
-			Role:      entry.Role,
-			Content:   entry.Content,
-			Timestamp: entry.EntryTimestamp.Format(time.RFC3339Nano),
+			EntryType:  entry.EntryType,
+			Role:       entry.Role,
+			Content:    entry.Content,
+			Timestamp:  entry.EntryTimestamp.Format(time.RFC3339Nano),
 		}
 		if info := buildToolInfo(entry); len(info) > 0 {
 			item.ToolInfo = info
