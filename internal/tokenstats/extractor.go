@@ -22,12 +22,14 @@ type TokenInfo struct {
 	ContextWindow int64      `json:"model_context_window"`
 }
 
-// SessionToken session 级别的 token 汇总
-type SessionToken struct {
-	SessionID  string
-	Executor   string
-	TokenInfo  TokenInfo
-	LastSeenAt time.Time
+// TokenDelta 单个时间点的 token 增量
+type TokenDelta struct {
+	SessionID   string
+	Executor    string
+	InputDelta  int64
+	OutputDelta int64
+	TotalDelta  int64
+	Timestamp   time.Time
 }
 
 // codexEvent 用于解析 codex 事件
@@ -50,15 +52,24 @@ type outerEnvelope struct {
 	Stdout string `json:"Stdout"`
 }
 
-// ExtractFromJSONL 从单个 JSONL 文件提取 token 数据
-func ExtractFromJSONL(path string) (*TokenCount, error) {
+// ExtractTokenDeltasFromJSONL 从单个 JSONL 文件提取所有 token 增量
+// 返回文件内每对相邻 token_count 事件之间的增量，使用文件修改时间作为时间戳
+func ExtractTokenDeltasFromJSONL(path string) ([]TokenDelta, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	fileModTime := fileInfo.ModTime()
+
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	var latestTotal TokenCount
+	var deltas []TokenDelta
+	var prevTotal TokenCount
+
 	scanner := bufio.NewScanner(file)
 	const maxCapacity = 1024 * 1024
 	buf := make([]byte, 0, 64*1024)
@@ -76,7 +87,6 @@ func ExtractFromJSONL(path string) (*TokenCount, error) {
 			continue
 		}
 
-		// 内部是另一个 JSON 字符串
 		if outer.Stdout == "" {
 			continue
 		}
@@ -92,24 +102,40 @@ func ExtractFromJSONL(path string) (*TokenCount, error) {
 			continue
 		}
 
-		latestTotal = params.Msg.Info.TotalUsage
+		currentTotal := params.Msg.Info.TotalUsage
+
+		// 只有在有前一个值的情况下才计算增量
+		if prevTotal.TotalTokens > 0 {
+			inputDelta := currentTotal.InputTokens - prevTotal.InputTokens
+			outputDelta := currentTotal.OutputTokens - prevTotal.OutputTokens
+			totalDelta := currentTotal.TotalTokens - prevTotal.TotalTokens
+
+			// 忽略负增量（session 重置等情况）
+			if inputDelta >= 0 && outputDelta >= 0 && totalDelta >= 0 {
+				deltas = append(deltas, TokenDelta{
+					InputDelta:  inputDelta,
+					OutputDelta: outputDelta,
+					TotalDelta:  totalDelta,
+					Timestamp:   fileModTime,
+				})
+			}
+		}
+
+		prevTotal = currentTotal
 	}
 
-	if latestTotal.TotalTokens == 0 {
-		return nil, nil
-	}
-	return &latestTotal, nil
+	return deltas, nil
 }
 
-// CollectSessionTokens 收集目录下所有 session 的 token 数据
-func CollectSessionTokens(baseDir string) ([]SessionToken, error) {
+// CollectTokenDeltas 收集目录下所有 session 的 token 增量数据
+func CollectTokenDeltas(baseDir string) ([]TokenDelta, error) {
 	sessionsDir := filepath.Join(baseDir, "sessions")
 	entries, err := os.ReadDir(sessionsDir)
 	if err != nil {
 		return nil, err
 	}
 
-	var results []SessionToken
+	var results []TokenDelta
 	for _, entry := range entries {
 		if !entry.IsDir() || len(entry.Name()) < 2 {
 			continue
@@ -134,16 +160,14 @@ func CollectSessionTokens(baseDir string) ([]SessionToken, error) {
 				if pf.IsDir() || filepath.Ext(pf.Name()) != ".jsonl" {
 					continue
 				}
-				tokenCount, err := ExtractFromJSONL(filepath.Join(processDir, pf.Name()))
-				if err != nil || tokenCount == nil {
+				deltas, err := ExtractTokenDeltasFromJSONL(filepath.Join(processDir, pf.Name()))
+				if err != nil || len(deltas) == 0 {
 					continue
 				}
-				results = append(results, SessionToken{
-					SessionID: sessionID,
-					TokenInfo: TokenInfo{
-						TotalUsage: *tokenCount,
-					},
-				})
+				for i := range deltas {
+					deltas[i].SessionID = sessionID
+				}
+				results = append(results, deltas...)
 			}
 		}
 	}

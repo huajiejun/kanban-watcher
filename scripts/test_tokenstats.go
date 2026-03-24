@@ -43,31 +43,29 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	fmt.Println("\n开始收集 token 用量...")
+	fmt.Println("\n开始收集 token 增量...")
 
-	// 收集所有 session 的 token 数据
-	sessions, err := tokenstats.CollectSessionTokens(cfg.ConversationSync.BaseDir)
+	// 收集所有 session 的 token 增量数据
+	deltas, err := tokenstats.CollectTokenDeltas(cfg.ConversationSync.BaseDir)
 	if err != nil {
-		log.Fatalf("收集 session token 失败: %v", err)
+		log.Fatalf("收集 token delta 失败: %v", err)
 	}
-	fmt.Printf("收集到 %d 条 session token 记录\n", len(sessions))
+	fmt.Printf("收集到 %d 条 token 增量记录\n", len(deltas))
 
 	// 打印详情
-	for i, s := range sessions {
+	for i, d := range deltas {
 		if i < 10 {
-			fmt.Printf("  Session[%d]: ID=%s, Executor=%s, Input=%d, Output=%d, Total=%d\n",
-				i, s.SessionID, s.Executor,
-				s.TokenInfo.TotalUsage.InputTokens,
-				s.TokenInfo.TotalUsage.OutputTokens,
-				s.TokenInfo.TotalUsage.TotalTokens)
+			fmt.Printf("  Delta[%d]: Session=%s, Input=%d, Output=%d, Total=%d, Time=%s\n",
+				i, d.SessionID, d.InputDelta, d.OutputDelta, d.TotalDelta,
+				d.Timestamp.Format("2006-01-02 15:04:05"))
 		}
 	}
-	if len(sessions) > 10 {
-		fmt.Printf("  ... 还有 %d 条记录\n", len(sessions)-10)
+	if len(deltas) > 10 {
+		fmt.Printf("  ... 还有 %d 条记录\n", len(deltas)-10)
 	}
 
-	// 按小时聚合 (模拟 collector 的逻辑)
-	aggregated := aggregateByHour(sessions)
+	// 按小时聚合
+	aggregated := aggregateDeltasByHour(deltas)
 	fmt.Printf("聚合后 %d 条记录\n", len(aggregated))
 
 	for _, a := range aggregated {
@@ -87,31 +85,31 @@ func main() {
 	}
 }
 
-// aggregateByHour 按 (小时, executor) 聚合
-func aggregateByHour(sessions []tokenstats.SessionToken) []*tokenstats.AggregatedUsage {
+// aggregateDeltasByHour 按 (小时, executor) 聚合 token 增量
+func aggregateDeltasByHour(deltas []tokenstats.TokenDelta) []*tokenstats.AggregatedUsage {
 	type key struct {
 		hour     time.Time
 		executor string
 	}
 	agg := make(map[key]*tokenstats.AggregatedUsage)
 
-	for _, s := range sessions {
+	for _, d := range deltas {
 		// 标准化到小时
-		hour := time.Date(s.LastSeenAt.Year(), s.LastSeenAt.Month(), s.LastSeenAt.Day(),
-			s.LastSeenAt.Hour(), 0, 0, 0, s.LastSeenAt.Location())
-		k := key{hour: hour, executor: s.Executor}
+		hour := time.Date(d.Timestamp.Year(), d.Timestamp.Month(), d.Timestamp.Day(),
+			d.Timestamp.Hour(), 0, 0, 0, d.Timestamp.Location())
+		k := key{hour: hour, executor: d.Executor}
 		if a, ok := agg[k]; ok {
-			a.InputTokens += s.TokenInfo.TotalUsage.InputTokens
-			a.OutputTokens += s.TokenInfo.TotalUsage.OutputTokens
-			a.TotalTokens += s.TokenInfo.TotalUsage.TotalTokens
+			a.InputTokens += d.InputDelta
+			a.OutputTokens += d.OutputDelta
+			a.TotalTokens += d.TotalDelta
 			a.SessionCount++
 		} else {
 			agg[k] = &tokenstats.AggregatedUsage{
 				StatHour:     k.hour,
-				Executor:     k.executor,
-				InputTokens:  s.TokenInfo.TotalUsage.InputTokens,
-				OutputTokens: s.TokenInfo.TotalUsage.OutputTokens,
-				TotalTokens:  s.TokenInfo.TotalUsage.TotalTokens,
+				Executor:     d.Executor,
+				InputTokens:  d.InputDelta,
+				OutputTokens: d.OutputDelta,
+				TotalTokens:  d.TotalDelta,
 				SessionCount: 1,
 			}
 		}

@@ -74,19 +74,16 @@ func (c *Collector) collect() {
 
 	log.Println("[tokenstats] 开始收集 token 用量...")
 
-	// 收集所有 session 的 token 数据
-	sessions, err := CollectSessionTokens(c.baseDir)
+	// 收集所有 session 的 token 增量数据
+	deltas, err := CollectTokenDeltas(c.baseDir)
 	if err != nil {
-		log.Printf("[tokenstats] 收集 session token 失败: %v", err)
+		log.Printf("[tokenstats] 收集 token delta 失败: %v", err)
 		return
 	}
-	log.Printf("[tokenstats] 收集到 %d 条 session token 记录", len(sessions))
-
-	// 关联 session 元数据获取 executor
-	// TODO: 从 vibe-kanban SQLite 数据库读取 session 元数据
+	log.Printf("[tokenstats] 收集到 %d 条 token 增量记录", len(deltas))
 
 	// 按 (小时, executor) 聚合
-	aggregated := aggregateByHour(sessions)
+	aggregated := aggregateDeltasByHour(deltas)
 
 	// 存入 MariaDB
 	if err := SaveUsage(ctx, c.db, aggregated); err != nil {
@@ -96,7 +93,7 @@ func (c *Collector) collect() {
 	log.Printf("[tokenstats] 成功存储 %d 条聚合记录", len(aggregated))
 }
 
-func aggregateByHour(sessions []SessionToken) []*AggregatedUsage {
+func aggregateDeltasByHour(deltas []TokenDelta) []*AggregatedUsage {
 	// 按 (hour, executor) 聚合
 	type key struct {
 		hour     time.Time
@@ -104,24 +101,23 @@ func aggregateByHour(sessions []SessionToken) []*AggregatedUsage {
 	}
 	agg := make(map[key]*AggregatedUsage)
 
-	now := time.Now()
-	// 标准化到小时
-	hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
-
-	for _, s := range sessions {
-		k := key{hour: hour, executor: s.Executor}
+	for _, d := range deltas {
+		// 标准化到小时
+		hour := time.Date(d.Timestamp.Year(), d.Timestamp.Month(), d.Timestamp.Day(),
+			d.Timestamp.Hour(), 0, 0, 0, d.Timestamp.Location())
+		k := key{hour: hour, executor: d.Executor}
 		if a, ok := agg[k]; ok {
-			a.InputTokens += s.TokenInfo.TotalUsage.InputTokens
-			a.OutputTokens += s.TokenInfo.TotalUsage.OutputTokens
-			a.TotalTokens += s.TokenInfo.TotalUsage.TotalTokens
+			a.InputTokens += d.InputDelta
+			a.OutputTokens += d.OutputDelta
+			a.TotalTokens += d.TotalDelta
 			a.SessionCount++
 		} else {
 			agg[k] = &AggregatedUsage{
 				StatHour:     k.hour,
-				Executor:     k.executor,
-				InputTokens:  s.TokenInfo.TotalUsage.InputTokens,
-				OutputTokens: s.TokenInfo.TotalUsage.OutputTokens,
-				TotalTokens:  s.TokenInfo.TotalUsage.TotalTokens,
+				Executor:     d.Executor,
+				InputTokens:  d.InputDelta,
+				OutputTokens: d.OutputDelta,
+				TotalTokens:  d.TotalDelta,
 				SessionCount: 1,
 			}
 		}
