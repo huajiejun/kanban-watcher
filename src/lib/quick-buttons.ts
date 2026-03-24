@@ -1,6 +1,27 @@
 /** 通用快捷词（始终显示） */
 export const STATIC_BUTTONS = ["继续", "同意"] as const;
 
+/** 方案类消息关键词 */
+const PROPOSAL_KEYWORDS = [
+  '方案', '选择', '建议', '推荐', '选项', '计划',
+  '决定', '评估', '对比', '优缺点', '利弊'
+];
+
+/**
+ * 检测消息类型
+ * @param message 消息文本
+ * @returns 消息类型（proposal/decision）
+ */
+export function detectMessageType(message: string): 'proposal' | 'decision' {
+  if (!message || typeof message !== 'string') {
+    return 'decision';
+  }
+  const hasProposalKeyword = PROPOSAL_KEYWORDS.some(
+    keyword => message.includes(keyword)
+  );
+  return hasProposalKeyword ? 'proposal' : 'decision';
+}
+
 /** 中文数字到阿拉伯数字的映射 */
 const CHINESE_NUMBER_MAP: Record<string, string> = {
   一: "1",
