@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/config"
@@ -52,11 +53,30 @@ func main() {
 	}
 	fmt.Printf("收集到 %d 条 token 增量记录\n", len(deltas))
 
+	// 读取 SQLite 获取 session 元数据
+	sqlitePath := filepath.Join(cfg.ConversationSync.BaseDir, "db.v2.sqlite")
+	sessionMetas, err := tokenstats.ReadSessionMeta(sqlitePath)
+	if err != nil {
+		log.Printf("读取 session 元数据失败: %v", err)
+	} else {
+		fmt.Printf("读取到 %d 条 session 元数据\n", len(sessionMetas))
+
+		// 丰富 deltas 的 executor 信息（保留文件修改时间作为时间戳）
+		enrichedCount := 0
+		for i := range deltas {
+			if meta, ok := sessionMetas[deltas[i].SessionID]; ok {
+				deltas[i].Executor = meta.Executor
+				enrichedCount++
+			}
+		}
+		fmt.Printf("丰富了 %d 条记录的 executor\n", enrichedCount)
+	}
+
 	// 打印详情
 	for i, d := range deltas {
 		if i < 10 {
-			fmt.Printf("  Delta[%d]: Session=%s, Input=%d, Output=%d, Total=%d, Time=%s\n",
-				i, d.SessionID, d.InputDelta, d.OutputDelta, d.TotalDelta,
+			fmt.Printf("  Delta[%d]: Session=%s, Executor=%s, Input=%d, Output=%d, Total=%d, Time=%s\n",
+				i, d.SessionID, d.Executor, d.InputDelta, d.OutputDelta, d.TotalDelta,
 				d.Timestamp.Format("2006-01-02 15:04:05"))
 		}
 	}

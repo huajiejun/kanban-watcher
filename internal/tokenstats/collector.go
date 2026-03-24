@@ -3,6 +3,7 @@ package tokenstats
 import (
 	"context"
 	"log"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -81,6 +82,23 @@ func (c *Collector) collect() {
 		return
 	}
 	log.Printf("[tokenstats] 收集到 %d 条 token 增量记录", len(deltas))
+
+	// 读取 SQLite 获取 session 元数据
+	sqlitePath := filepath.Join(c.baseDir, "db.v2.sqlite")
+	sessionMetas, err := ReadSessionMeta(sqlitePath)
+	if err != nil {
+		log.Printf("[tokenstats] 读取 session 元数据失败: %v", err)
+	} else {
+		log.Printf("[tokenstats] 读取到 %d 条 session 元数据", len(sessionMetas))
+
+		// 丰富 deltas 的 executor 信息
+		for i := range deltas {
+			if meta, ok := sessionMetas[deltas[i].SessionID]; ok {
+				deltas[i].Executor = meta.Executor
+				deltas[i].Timestamp = meta.CreatedAt
+			}
+		}
+	}
 
 	// 按 (小时, executor) 聚合
 	aggregated := aggregateDeltasByHour(deltas)
