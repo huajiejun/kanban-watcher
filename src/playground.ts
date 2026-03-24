@@ -57,12 +57,14 @@ function readStringParam(params: URLSearchParams, key: string) {
   return value || undefined;
 }
 
-// 默认配置（本地开发预览）
-const DEFAULT_BASE_URL = "http://127.0.0.1:7778";
-// API 密钥从 URL 参数读取，无默认值（需在 URL 中指定 api_key 参数）
-const DEFAULT_API_KEY = "";
+// 默认配置（优先级：URL 参数 > 环境变量 > 硬编码默认值）
+// 注：在测试环境中 import.meta.env 可能不存在，使用空对象作为 fallback
+const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
+const DEFAULT_BASE_URL = env.VITE_BASE_URL || "http://127.0.0.1:7778";
+const DEFAULT_API_KEY = env.VITE_API_KEY || "";
 
 export function readPreviewApiOptions(url = new URL(window.location.href)): PreviewApiOptions {
+  // 优先级：URL 参数 > 环境变量(.env.local) > 硬编码默认值
   const baseUrl = readStringParam(url.searchParams, "base_url") || DEFAULT_BASE_URL;
   const apiKey = readStringParam(url.searchParams, "api_key") || DEFAULT_API_KEY;
   const rawLimit = readStringParam(url.searchParams, "messages_limit");
