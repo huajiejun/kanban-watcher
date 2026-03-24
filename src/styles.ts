@@ -309,11 +309,11 @@ export const cardStyles = css`
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
-    padding: 7px 9px;
-    border-radius: 10px;
-    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 46%, transparent);
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 32%, transparent);
-    color: color-mix(in srgb, var(--primary-text-color) 72%, var(--secondary-text-color, #64748b));
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 22%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #f8fafc) 16%, transparent);
+    color: color-mix(in srgb, var(--primary-text-color) 60%, var(--secondary-text-color, #94a3b8));
     text-align: left;
     cursor: pointer;
     font: inherit;
@@ -326,28 +326,29 @@ export const cardStyles = css`
   }
 
   .message-tool-button.is-pending {
-    border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 65%, transparent);
-    background: color-mix(in srgb, var(--warning-color, #f59e0b) 14%, transparent);
-    color: inherit;
+    border-color: color-mix(in srgb, var(--warning-color, #fbbf24) 40%, transparent);
+    background: color-mix(in srgb, var(--warning-color, #fef3c7) 8%, transparent);
+    color: color-mix(in srgb, var(--warning-color, #92400e) 85%, var(--secondary-text-color, #78716c));
   }
 
   .message-tool-button.is-error {
-    border-color: color-mix(in srgb, var(--error-color, #ef4444) 62%, transparent);
-    background: color-mix(in srgb, var(--error-color, #ef4444) 12%, transparent);
-    color: inherit;
+    border-color: color-mix(in srgb, var(--error-color, #f87171) 40%, transparent);
+    background: color-mix(in srgb, var(--error-color, #fee2e2) 8%, transparent);
+    color: color-mix(in srgb, var(--error-color, #991b1b) 85%, var(--secondary-text-color, #78716c));
   }
 
   .message-tool-button.is-denied {
-    border-color: color-mix(in srgb, var(--error-color, #ef4444) 34%, transparent);
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 42%, transparent);
+    border-color: color-mix(in srgb, var(--error-color, #d1d5db) 25%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 20%, transparent);
   }
 
   .message-tool-icon {
-    width: 1.8rem;
-    color: var(--secondary-text-color, #64748b);
-    font-size: 0.88rem;
+    width: 1.6rem;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.82rem;
     line-height: 1;
     white-space: nowrap;
+    opacity: 0.85;
   }
 
   .message-tool-summary {
@@ -361,8 +362,8 @@ export const cardStyles = css`
 
   .message-tool-name {
     color: inherit;
-    font-size: 0.83rem;
-    font-weight: 700;
+    font-size: 0.8rem;
+    font-weight: 600;
     flex: none;
   }
 
@@ -371,23 +372,23 @@ export const cardStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--secondary-text-color, #64748b);
-    font-size: 0.8rem;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.78rem;
   }
 
   .message-tool-status {
     justify-self: end;
-    color: var(--secondary-text-color, #64748b);
-    font-size: 0.74rem;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.72rem;
     white-space: nowrap;
   }
 
   .message-tool-detail {
     padding: 8px 10px;
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 54%, transparent);
-    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 42%, transparent);
-    color: inherit;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--secondary-background-color, #f8fafc) 28%, transparent);
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e2e8f0) 20%, transparent);
+    color: color-mix(in srgb, var(--primary-text-color) 78%, var(--secondary-text-color, #64748b));
     word-break: break-word;
   }
 
@@ -404,36 +405,195 @@ export const cardStyles = css`
   }
 
   .message-tool-group-item + .message-tool-group-item {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 34%, transparent);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--divider-color, #e2e8f0) 18%, transparent);
   }
 
   .message-tool-group-item-summary {
-    margin-bottom: 6px;
-    color: var(--secondary-text-color, #64748b);
-    font-size: 0.8rem;
-    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.78rem;
+    font-weight: 500;
     word-break: break-word;
   }
 
   .message-tool-detail pre {
-    margin: 8px 0 0;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 28%, transparent);
+    margin: 6px 0 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--divider-color, #e2e8f0) 14%, transparent);
     overflow-x: auto;
   }
 
   .message-tool-command {
-    margin-bottom: 8px;
-    color: var(--secondary-text-color, #64748b);
+    margin-bottom: 6px;
+    color: var(--secondary-text-color, #94a3b8);
     font-family:
       ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
       "Liberation Mono", "Courier New", monospace;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     white-space: nowrap;
     overflow-x: auto;
+  }
+
+  .file-change {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--divider-color, #e2e8f0) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e2e8f0) 18%, transparent);
+  }
+
+  .file-change-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .file-change-action {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--primary-color, #3b82f6) 14%, transparent);
+    color: var(--primary-color, #3b82f6);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .file-change-lines {
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.74rem;
+  }
+
+  .file-change-new-path {
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.74rem;
+    font-family:
+      ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+  }
+
+  .file-change-diff,
+  .file-change-code {
+    margin: 0;
+    padding: 8px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--divider-color, #e2e8f0) 10%, transparent);
+    color: var(--primary-text-color, #1e293b);
+    font-family:
+      ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    font-size: 0.74rem;
+    line-height: 1.5;
+    overflow-x: auto;
+  }
+
+  /* Diff line styles - GitHub-like */
+  .diff-line {
+    display: flex;
+    align-items: flex-start;
+    min-height: 1.5em;
+    line-height: 1.5;
+  }
+
+  .diff-line .diff-num {
+    flex: none;
+    width: 3em;
+    padding-right: 8px;
+    color: var(--secondary-text-color, #94a3b8);
+    text-align: right;
+    user-select: none;
+    opacity: 0.7;
+    font-size: 0.7rem;
+  }
+
+  .diff-line .diff-sign {
+    flex: none;
+    width: 1em;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .diff-line .diff-content {
+    flex: 1;
+    min-width: 0;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .diff-header {
+    color: var(--secondary-text-color, #64748b);
+    background: color-mix(in srgb, var(--divider-color, #e2e8f0) 20%, transparent);
+    padding: 4px 8px;
+    margin: 4px 0;
+    border-radius: 4px;
+  }
+
+  .diff-header .diff-content {
+    font-size: 0.72rem;
+  }
+
+  .diff-add {
+    background: color-mix(in srgb, #22c55e 10%, transparent);
+  }
+
+  .diff-add .diff-sign {
+    color: #16a34a;
+  }
+
+  .diff-add .diff-content {
+    color: var(--primary-text-color, #1e293b);
+  }
+
+  .diff-remove {
+    background: color-mix(in srgb, #ef4444 10%, transparent);
+  }
+
+  .diff-remove .diff-sign {
+    color: #dc2626;
+  }
+
+  .diff-remove .diff-content {
+    color: var(--primary-text-color, #1e293b);
+  }
+
+  .diff-context {
+    background: transparent;
+  }
+
+  .diff-context .diff-sign {
+    color: var(--secondary-text-color, #94a3b8);
+  }
+
+  /* Code line styles */
+  .code-line {
+    display: flex;
+    align-items: flex-start;
+    min-height: 1.5em;
+    line-height: 1.5;
+  }
+
+  .code-line .line-num {
+    flex: none;
+    width: 3em;
+    padding-right: 8px;
+    color: var(--secondary-text-color, #94a3b8);
+    text-align: right;
+    user-select: none;
+    opacity: 0.7;
+    font-size: 0.7rem;
+  }
+
+  .code-line .line-content {
+    flex: 1;
+    min-width: 0;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .file-change + .file-change {
+    margin-top: 10px;
   }
 
   .message-bubble {
@@ -810,6 +970,139 @@ export const cardStyles = css`
       min-height: 38px;
       padding: 8px 10px;
       font-size: 0.88rem;
+    }
+
+    /* 代码编辑/文件修改样式 */
+    .file-change {
+      padding: 6px 8px;
+      margin-top: 6px;
+    }
+
+    .file-change-header {
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .file-change-action {
+      font-size: 0.65rem;
+      padding: 2px 4px;
+    }
+
+    .file-change-lines,
+    .file-change-new-path {
+      font-size: 0.65rem;
+    }
+
+    .file-change-diff,
+    .file-change-code {
+      padding: 6px;
+      font-size: 0.62rem;
+      line-height: 1.35;
+      overflow-x: visible;
+    }
+
+    /* 手机端代码自动换行，隐藏行号 */
+    .diff-line {
+      min-height: auto;
+      line-height: 1.35;
+      flex-wrap: wrap;
+    }
+
+    .diff-line .diff-num {
+      display: none;
+    }
+
+    .diff-line .diff-sign {
+      width: auto;
+      margin-right: 4px;
+      font-size: 0.62rem;
+    }
+
+    .diff-line .diff-content {
+      font-size: 0.62rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow-x: visible;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .diff-header {
+      padding: 3px 6px;
+      margin: 3px 0;
+    }
+
+    .diff-header .diff-content {
+      font-size: 0.6rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .code-line {
+      min-height: auto;
+      line-height: 1.35;
+      flex-wrap: wrap;
+    }
+
+    .code-line .line-num {
+      display: none;
+    }
+
+    .code-line .line-content {
+      font-size: 0.62rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow-x: visible;
+    }
+
+    .file-change + .file-change {
+      margin-top: 8px;
+    }
+  }
+
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    .file-change-diff,
+    .file-change-code {
+      background: color-mix(in srgb, #1e293b 80%, transparent);
+      color: #e2e8f0;
+    }
+
+    .diff-header {
+      background: color-mix(in srgb, #334155 60%, transparent);
+      color: #94a3b8;
+    }
+
+    .diff-add {
+      background: color-mix(in srgb, #22c55e 15%, transparent);
+    }
+
+    .diff-add .diff-sign {
+      color: #4ade80;
+    }
+
+    .diff-add .diff-content {
+      color: #e2e8f0;
+    }
+
+    .diff-remove {
+      background: color-mix(in srgb, #ef4444 15%, transparent);
+    }
+
+    .diff-remove .diff-sign {
+      color: #f87171;
+    }
+
+    .diff-remove .diff-content {
+      color: #e2e8f0;
+    }
+
+    .diff-context .diff-content {
+      color: #cbd5e1;
+    }
+
+    .code-line .line-content {
+      color: #e2e8f0;
     }
   }
 `;
