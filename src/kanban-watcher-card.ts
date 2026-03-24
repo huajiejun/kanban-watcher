@@ -291,15 +291,11 @@ export class KanbanWatcherCard extends LitElement {
       return nothing;
     }
 
-    // attention 状态使用 LLM 分析或缓存的动态按钮
-    const isAttention = workspace.status === "attention";
+    // 所有非 running 状态都显示缓存的动态按钮
     const cachedDynamicButtons = this.dynamicButtonsByWorkspace[workspace.id] || [];
 
-    // 非 attention 状态只显示静态按钮
-    const dynamicButtons = isAttention ? cachedDynamicButtons : [];
-
     // 合并通用按钮和动态按钮
-    const allButtons = [...STATIC_BUTTONS, ...dynamicButtons].filter(isValidButtonText);
+    const allButtons = [...STATIC_BUTTONS, ...cachedDynamicButtons].filter(isValidButtonText);
 
     if (allButtons.length === 0) {
       return nothing;
@@ -1431,8 +1427,8 @@ export class KanbanWatcherCard extends LitElement {
           ...this.dialogMessageVersionsByWorkspace,
           [workspaceId]: this.getWorkspaceMessageVersion(workspace),
         };
-        // 如果是 attention 状态，触发 LLM 分析动态按钮
-        if (workspace.status === "attention") {
+        // 非 running 状态都触发 LLM 分析动态按钮（带缓存）
+        if (workspace.status !== "running") {
           void this.analyzeDynamicButtons(workspace);
         }
       }
