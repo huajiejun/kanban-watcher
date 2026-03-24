@@ -10,6 +10,12 @@ export type DialogToolSummary = {
   statusLabel: string;
   icon: string;
   command?: string;
+  changes?: Array<{
+    action: "write" | "edit" | "delete" | "rename";
+    content?: string;
+    unified_diff?: string;
+    new_path?: string;
+  }>;
 };
 
 export function summarizeToolCall(message: SessionMessageResponse): DialogToolSummary | undefined {
@@ -21,6 +27,7 @@ export function summarizeToolCall(message: SessionMessageResponse): DialogToolSu
   const action = getActionType(toolInfo);
   const toolName = getToolName(toolInfo, action);
   const command = getCommand(toolInfo);
+  const changes = getChanges(toolInfo);
 
   return {
     toolName,
@@ -30,6 +37,7 @@ export function summarizeToolCall(message: SessionMessageResponse): DialogToolSu
     statusLabel: getToolStatusLabel(toolInfo),
     icon: getToolIcon(action),
     command,
+    changes,
   };
 }
 
@@ -147,6 +155,17 @@ function getCommand(toolInfo: ToolInfo) {
     toolInfo.action_type.command.trim()
     ? toolInfo.action_type.command.trim()
     : undefined;
+}
+
+function getChanges(toolInfo: ToolInfo): DialogToolSummary["changes"] {
+  if (toolInfo.action_type?.action !== "file_edit") {
+    return undefined;
+  }
+  const changes = toolInfo.action_type.changes;
+  if (!Array.isArray(changes) || changes.length === 0) {
+    return undefined;
+  }
+  return changes;
 }
 
 function getActionType(toolInfo: ToolInfo) {

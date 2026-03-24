@@ -437,6 +437,64 @@ export const cardStyles = css`
     overflow-x: auto;
   }
 
+  .file-change {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--divider-color, #e2e8f0) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e2e8f0) 18%, transparent);
+  }
+
+  .file-change-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .file-change-action {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--primary-color, #3b82f6) 14%, transparent);
+    color: var(--primary-color, #3b82f6);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .file-change-lines {
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.74rem;
+  }
+
+  .file-change-new-path {
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.74rem;
+    font-family:
+      ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+  }
+
+  .file-change-diff,
+  .file-change-content {
+    margin: 0;
+    padding: 8px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--divider-color, #e2e8f0) 10%, transparent);
+    color: var(--primary-text-color, #1e293b);
+    font-family:
+      ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    font-size: 0.74rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .file-change + .file-change {
+    margin-top: 10px;
+  }
+
   .message-bubble {
     width: 100%;
     box-sizing: border-box;
