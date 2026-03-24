@@ -8,6 +8,9 @@ type PlaygroundCardConfig = {
   base_url?: string;
   api_key?: string;
   messages_limit?: number;
+  llm_enabled?: boolean;
+  llm_base_url?: string;
+  llm_model?: string;
 };
 
 type PlaygroundCard = HTMLElement & {
@@ -80,6 +83,9 @@ export function buildPreviewCardConfig(
     ...(options.baseUrl ? { base_url: options.baseUrl } : {}),
     ...(options.apiKey ? { api_key: options.apiKey } : {}),
     ...(options.messagesLimit ? { messages_limit: options.messagesLimit } : {}),
+    // 启用 LLM 推荐按钮
+    llm_enabled: true,
+    llm_base_url: "http://localhost:1234",
   };
 }
 
