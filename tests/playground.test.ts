@@ -44,12 +44,16 @@ describe("playground preview config", () => {
       base_url: "https://watcher.huajiejun.cn",
       api_key: "test-key",
       messages_limit: 30,
+      llm_enabled: true,
+      llm_base_url: "/llm-api",
     });
   });
 
-  it("builds fallback config without API fields when base_url is missing", () => {
+  it("builds fallback config with LLM enabled when base_url is missing", () => {
     expect(buildPreviewCardConfig({})).toEqual({
       entity: previewEntityId,
+      llm_enabled: true,
+      llm_base_url: "/llm-api",
     });
   });
 

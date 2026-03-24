@@ -83,9 +83,9 @@ export function buildPreviewCardConfig(
     ...(options.baseUrl ? { base_url: options.baseUrl } : {}),
     ...(options.apiKey ? { api_key: options.apiKey } : {}),
     ...(options.messagesLimit ? { messages_limit: options.messagesLimit } : {}),
-    // 启用 LLM 推荐按钮
+    // 启用 LLM 推荐按钮（使用 Vite 代理解决 CORS）
     llm_enabled: true,
-    llm_base_url: "http://localhost:1234",
+    llm_base_url: "/llm-api",
   };
 }
 
