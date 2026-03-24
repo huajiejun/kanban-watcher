@@ -352,4 +352,96 @@ describe("workspace home helpers", () => {
     expect(pane.queueStatus?.status).toBe("queued");
     expect(pane.messageDraft).toBe("跑完后继续补全");
   });
+
+  it("cancels queued work instead of stopping execution when the queued action is closed", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-running",
+              name: "运行中的任务",
+              status: "running",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-running/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "还在执行中",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-running/queue")) {
+        if (init?.method === "GET") {
+          return createJsonResponse({
+            success: true,
+            workspace_id: "ws-running",
+            status: "queued",
+            queued: {
+              data: {
+                message: "跑完后继续补全",
+              },
+            },
+          });
+        }
+
+        if (init?.method === "DELETE") {
+          return createJsonResponse({
+            success: true,
+            workspace_id: "ws-running",
+            status: "empty",
+            message: "队列已取消",
+          });
+        }
+      }
+
+      if (url.includes("/api/workspace/ws-running/stop")) {
+        throw new Error("stop endpoint should not be called for queued work");
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+
+    await waitForWorkspaceList(element);
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+
+    pane.dispatchEvent(
+      new CustomEvent("action-click", {
+        detail: "stop",
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await flushElement(element);
+
+    const deleteQueueRequests = fetchMock.mock.calls.filter(([url, init]) =>
+      readRequestUrl(url as RequestInfo | URL).includes("/api/workspace/ws-running/queue") &&
+      (init as RequestInit | undefined)?.method === "DELETE",
+    );
+    const stopRequests = fetchMock.mock.calls.filter(([url]) =>
+      readRequestUrl(url as RequestInfo | URL).includes("/api/workspace/ws-running/stop"),
+    );
+
+    expect(deleteQueueRequests).toHaveLength(1);
+    expect(stopRequests).toHaveLength(0);
+  });
 });

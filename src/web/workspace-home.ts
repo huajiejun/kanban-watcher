@@ -8,6 +8,7 @@ import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
 import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
 import {
+  cancelWorkspaceQueue,
   fetchActiveWorkspaces,
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
@@ -336,6 +337,10 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private async handlePaneAction(workspace: KanbanWorkspace, action: ConversationPaneAction) {
     if (action === "stop") {
+      if (this.queueStatusByWorkspace[workspace.id]?.status === "queued") {
+        await this.handleCancelWorkspaceQueue(workspace.id);
+        return;
+      }
       await this.handleStopWorkspace(workspace.id);
       return;
     }
@@ -423,6 +428,42 @@ export class KanbanWorkspaceHome extends LitElement {
       this.actionFeedbackByWorkspace = {
         ...this.actionFeedbackByWorkspace,
         [workspaceId]: error instanceof Error ? error.message : "停止执行失败",
+      };
+    }
+  }
+
+  private async handleCancelWorkspaceQueue(workspaceId: string) {
+    if (!this.isApiMode) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspaceId]: "预览模式暂不支持取消队列。",
+      };
+      return;
+    }
+
+    this.actionFeedbackByWorkspace = {
+      ...this.actionFeedbackByWorkspace,
+      [workspaceId]: "正在取消队列...",
+    };
+
+    try {
+      const response = await cancelWorkspaceQueue({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId,
+      });
+      this.queueStatusByWorkspace = {
+        ...this.queueStatusByWorkspace,
+        [workspaceId]: response,
+      };
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspaceId]: response.message?.trim() || "队列已取消",
+      };
+    } catch (error) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspaceId]: error instanceof Error ? error.message : "取消队列失败",
       };
     }
   }
