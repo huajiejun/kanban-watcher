@@ -972,4 +972,50 @@ export const cardStyles = css`
       font-size: 0.88rem;
     }
   }
+
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    .file-change-diff,
+    .file-change-code {
+      background: color-mix(in srgb, #1e293b 80%, transparent);
+      color: #e2e8f0;
+    }
+
+    .diff-header {
+      background: color-mix(in srgb, #334155 60%, transparent);
+      color: #94a3b8;
+    }
+
+    .diff-add {
+      background: color-mix(in srgb, #22c55e 15%, transparent);
+    }
+
+    .diff-add .diff-sign {
+      color: #4ade80;
+    }
+
+    .diff-add .diff-content {
+      color: #e2e8f0;
+    }
+
+    .diff-remove {
+      background: color-mix(in srgb, #ef4444 15%, transparent);
+    }
+
+    .diff-remove .diff-sign {
+      color: #f87171;
+    }
+
+    .diff-remove .diff-content {
+      color: #e2e8f0;
+    }
+
+    .diff-context .diff-content {
+      color: #cbd5e1;
+    }
+
+    .code-line .line-content {
+      color: #e2e8f0;
+    }
+  }
 `;
