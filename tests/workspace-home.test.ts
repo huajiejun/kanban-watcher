@@ -285,4 +285,71 @@ describe("workspace home helpers", () => {
     expect(messageRequests).toHaveLength(1);
     expect(latestMessageRequests).toHaveLength(2);
   });
+
+  it("hydrates running panes with stop and queue controls", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-running",
+              name: "运行中的任务",
+              status: "running",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-running/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "还在执行中",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-running/queue")) {
+        return createJsonResponse({
+          success: true,
+          workspace_id: "ws-running",
+          status: "queued",
+          queued: {
+            data: {
+              message: "跑完后继续补全",
+            },
+          },
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+
+    await waitForWorkspaceList(element);
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement & {
+      isRunning?: boolean;
+      canQueue?: boolean;
+      queueStatus?: { status?: string };
+      messageDraft?: string;
+    };
+
+    expect(pane.isRunning).toBe(true);
+    expect(pane.canQueue).toBe(true);
+    expect(pane.queueStatus?.status).toBe("queued");
+    expect(pane.messageDraft).toBe("跑完后继续补全");
+  });
 });

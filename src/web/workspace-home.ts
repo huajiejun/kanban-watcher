@@ -10,6 +10,7 @@ import { groupWorkspaces } from "../lib/group-workspaces";
 import {
   fetchActiveWorkspaces,
   fetchWorkspaceLatestMessages,
+  fetchWorkspaceQueueStatus,
   sendWorkspaceMessage,
   stopWorkspaceExecution,
 } from "../lib/http-api";
@@ -17,6 +18,7 @@ import type {
   KanbanSessionAttributes,
   KanbanWorkspace,
   LocalWorkspaceSummary,
+  WorkspaceQueueStatusResponse,
 } from "../types";
 import { workspaceHomeStyles, workspaceSectionListStyles } from "../styles";
 import { getPaneColumns } from "./workspace-home.utils";
@@ -54,6 +56,7 @@ export class KanbanWorkspaceHome extends LitElement {
     messageErrorByWorkspace: { attribute: false },
     messageDraftByWorkspace: { attribute: false },
     actionFeedbackByWorkspace: { attribute: false },
+    queueStatusByWorkspace: { attribute: false },
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
@@ -67,6 +70,7 @@ export class KanbanWorkspaceHome extends LitElement {
   messageErrorByWorkspace: Record<string, string> = {};
   messageDraftByWorkspace: Record<string, string> = {};
   actionFeedbackByWorkspace: Record<string, string> = {};
+  queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
   private refreshTimer?: number;
 
   connectedCallback() {
@@ -146,20 +150,28 @@ export class KanbanWorkspaceHome extends LitElement {
             ${openWorkspaces.length === 0
               ? html`<div class="empty-state">从左侧选择工作区后，这里会显示对话内容。</div>`
               : openWorkspaces.map(
-                  (workspace) => html`
+                  (workspace) => {
+                    const queueStatus = this.queueStatusByWorkspace[workspace.id];
+                    const isRunning = workspace.status === "running";
+
+                    return html`
                     <workspace-conversation-pane
                       .workspaceName=${workspace.name}
                       .messages=${this.messagesByWorkspace[workspace.id] ?? []}
                       .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
                       .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}
                       .quickButtons=${[]}
+                      .queueStatus=${queueStatus}
+                      .isRunning=${isRunning}
+                      .canQueue=${Boolean(isRunning || queueStatus?.status === "queued")}
                       @draft-change=${(event: CustomEvent<string>) =>
                         this.handleDraftChange(workspace.id, event.detail)}
                       @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
                         void this.handlePaneAction(workspace, event.detail)}
                       @pane-close=${() => this.handleCloseWorkspace(workspace)}
                     ></workspace-conversation-pane>
-                  `,
+                  `;
+                  },
                 )}
           </section>
         </section>
@@ -182,10 +194,18 @@ export class KanbanWorkspaceHome extends LitElement {
 
       this.workspaces = workspaces;
       this.pageState = reconcileWorkspacePageState(this.pageState, workspaces);
+      const openWorkspaces = this.pageState.openWorkspaceIds
+        .map((workspaceId) => workspaces.find((workspace) => workspace.id === workspaceId))
+        .filter((workspace): workspace is KanbanWorkspace => Boolean(workspace));
+
       await Promise.all(
-        this.pageState.openWorkspaceIds.map((workspaceId) =>
-          this.loadWorkspaceMessages(workspaceId, true),
-        ),
+        openWorkspaces.flatMap((workspace) => {
+          const jobs: Promise<void>[] = [this.loadWorkspaceMessages(workspace.id, true)];
+          if (workspace.status === "running") {
+            jobs.push(this.loadWorkspaceQueueStatus(workspace.id));
+          }
+          return jobs;
+        }),
       );
     } catch (error) {
       this.error = error instanceof Error ? error.message : "加载工作区失败";
@@ -294,6 +314,9 @@ export class KanbanWorkspaceHome extends LitElement {
   private handleOpenWorkspace(workspace: KanbanWorkspace) {
     this.pageState = openWorkspacePane(this.pageState, workspace.id);
     void this.loadWorkspaceMessages(workspace.id, true);
+    if (workspace.status === "running") {
+      void this.loadWorkspaceQueueStatus(workspace.id);
+    }
   }
 
   private handleDraftChange(workspaceId: string, draft: string) {
@@ -400,6 +423,35 @@ export class KanbanWorkspaceHome extends LitElement {
       this.actionFeedbackByWorkspace = {
         ...this.actionFeedbackByWorkspace,
         [workspaceId]: error instanceof Error ? error.message : "停止执行失败",
+      };
+    }
+  }
+
+  private async loadWorkspaceQueueStatus(workspaceId: string) {
+    if (!this.isApiMode) {
+      return;
+    }
+
+    try {
+      const response = await fetchWorkspaceQueueStatus({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId,
+      });
+      this.queueStatusByWorkspace = {
+        ...this.queueStatusByWorkspace,
+        [workspaceId]: response,
+      };
+      if (response.status === "queued" && !(this.messageDraftByWorkspace[workspaceId] ?? "").trim()) {
+        this.messageDraftByWorkspace = {
+          ...this.messageDraftByWorkspace,
+          [workspaceId]: response.queued?.data?.message ?? "",
+        };
+      }
+    } catch (error) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspaceId]: error instanceof Error ? error.message : "获取队列状态失败",
       };
     }
   }
