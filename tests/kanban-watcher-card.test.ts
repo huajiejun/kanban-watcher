@@ -1506,6 +1506,91 @@ describe("kanban-watcher-card", () => {
     );
   });
 
+  it("keeps optimistic user messages in order before later realtime assistant replies", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-send-order",
+              name: "API Send Order Workspace",
+              status: "completed",
+              latest_session_id: "session-api-send-order",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-send-order",
+          workspace_name: "API Send Order Workspace",
+          messages: [
+            {
+              id: 1,
+              process_id: "proc-history",
+              entry_index: 1,
+              session_id: "session-api-send-order",
+              entry_type: "user_message",
+              role: "user",
+              content: "上一条用户消息",
+              timestamp: "2026-03-21T11:57:00Z",
+            },
+            {
+              id: 2,
+              process_id: "proc-history",
+              entry_index: 2,
+              session_id: "session-api-send-order",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "上一条助手消息",
+              timestamp: "2026-03-21T11:58:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const realtimeReplyTimestamp = new Date(Date.now() + 1_000).toISOString();
+
+    (card as unknown as {
+      appendOptimisticUserMessage(workspaceId: string, text: string): void;
+      appendRealtimeMessages(sessionId: string, messages: Array<Record<string, unknown>>): void;
+    }).appendOptimisticUserMessage("api-send-order", "刚发送的用户消息");
+    (card as unknown as {
+      appendOptimisticUserMessage(workspaceId: string, text: string): void;
+      appendRealtimeMessages(sessionId: string, messages: Array<Record<string, unknown>>): void;
+    }).appendRealtimeMessages("session-api-send-order", [
+      {
+        id: 3,
+        process_id: "proc-live",
+        entry_index: 3,
+        session_id: "session-api-send-order",
+        entry_type: "assistant_message",
+        role: "assistant",
+        content: "后续助手回复",
+        timestamp: realtimeReplyTimestamp,
+      },
+    ]);
+    await settleCard(card);
+
+    const messageTexts = Array.from(
+      card.shadowRoot?.querySelectorAll(".message-bubble") ?? [],
+    ).map((element) => normalizeText(element.textContent));
+
+    expect(messageTexts).toEqual([
+      "上一条用户消息",
+      "上一条助手消息",
+      "刚发送的用户消息",
+      "后续助手回复",
+    ]);
+  });
+
   it("allows queueing immediately after sending from an idle workspace", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(

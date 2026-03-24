@@ -1537,6 +1537,7 @@ export class KanbanWatcherCard extends LitElement {
       kind: "message",
       sender: "user",
       text: this.compactMessageText(text),
+      timestamp: new Date().toISOString(),
     };
     const existing = this.dialogMessagesByWorkspace[workspaceId] ?? [];
     this.dialogMessagesByWorkspace = {
