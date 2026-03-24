@@ -446,6 +446,7 @@ export class KanbanWatcherCard extends LitElement {
     // 与 vibe-kanban 主项目保持一致：优先使用 AI 执行完成时间
     const timeSource =
       workspace.latest_process_completed_at ||
+      workspace.last_message_at ||
       workspace.updated_at;
 
     return {
@@ -989,7 +990,12 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private mapApiWorkspace(workspace: LocalWorkspaceSummary): KanbanWorkspace {
-    const updatedAt = workspace.last_message_at || workspace.updated_at;
+    // 与 vibe-kanban 主项目保持一致：优先使用 AI 执行完成时间
+    const displayTimeSource =
+      workspace.latest_process_completed_at ||
+      workspace.last_message_at ||
+      workspace.updated_at;
+
     return {
       id: workspace.id,
       name: workspace.name || workspace.id,
@@ -998,8 +1004,10 @@ export class KanbanWatcherCard extends LitElement {
       has_pending_approval: workspace.has_pending_approval,
       has_unseen_turns: workspace.has_unseen_turns,
       has_running_dev_server: workspace.has_running_dev_server,
-      updated_at: updatedAt,
-      relative_time: formatRelativeTime(updatedAt),
+      latest_process_completed_at: workspace.latest_process_completed_at,
+      updated_at: workspace.updated_at,
+      last_message_at: workspace.last_message_at,
+      relative_time: formatRelativeTime(displayTimeSource),
       files_changed: workspace.files_changed ?? 0,
       lines_added: workspace.lines_added ?? 0,
       lines_removed: workspace.lines_removed ?? 0,
