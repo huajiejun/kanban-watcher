@@ -114,13 +114,11 @@ func (h *Hub) BroadcastWorkspaceSnapshot(workspaces []WorkspacePayload) {
 	h.mu.Lock()
 	if digest == h.lastWorkspaceSnapshotDigest {
 		h.mu.Unlock()
-		log.Printf("[Realtime] 跳过重复 workspace_snapshot count=%d", len(workspaces))
 		return
 	}
 	h.lastWorkspaceSnapshotDigest = digest
 	h.mu.Unlock()
 
-	log.Printf("[Realtime] 广播 workspace_snapshot count=%d", len(workspaces))
 	h.broadcast(Event{
 		Type:       EventTypeWorkspaceSnapshot,
 		Workspaces: workspaces,
