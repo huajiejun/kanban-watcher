@@ -1457,6 +1457,16 @@ export class KanbanWatcherCard extends LitElement {
 
   private sortDialogMessagesByTimestamp(messages: Array<DialogTextMessage | DialogToolMessage>) {
     return [...messages].sort((left, right) => {
+      const leftTimestampValue = this.getComparableTimestampValue(left.timestamp);
+      const rightTimestampValue = this.getComparableTimestampValue(right.timestamp);
+      if (
+        leftTimestampValue !== undefined &&
+        rightTimestampValue !== undefined &&
+        leftTimestampValue !== rightTimestampValue
+      ) {
+        return leftTimestampValue - rightTimestampValue;
+      }
+
       const leftTimestamp = left.timestamp ?? "";
       const rightTimestamp = right.timestamp ?? "";
       if (leftTimestamp && rightTimestamp && leftTimestamp !== rightTimestamp) {
@@ -1471,7 +1481,7 @@ export class KanbanWatcherCard extends LitElement {
       if (!message.timestamp) {
         return latest;
       }
-      if (!latest || message.timestamp.localeCompare(latest) > 0) {
+      if (this.compareTimestamps(message.timestamp, latest) > 0) {
         return message.timestamp;
       }
       return latest;
@@ -1479,23 +1489,40 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private isMessageAtOrAfter(timestamp: string | undefined, baseline: string | undefined) {
-    if (!timestamp) {
-      return !baseline;
-    }
-    if (!baseline) {
-      return true;
-    }
-    return timestamp.localeCompare(baseline) >= 0;
+    return this.compareTimestamps(timestamp, baseline) >= 0;
   }
 
   private isMessageStrictlyAfter(timestamp: string | undefined, baseline: string | undefined) {
+    return this.compareTimestamps(timestamp, baseline) > 0;
+  }
+
+  private compareTimestamps(left: string | undefined, right: string | undefined) {
+    if (!left) {
+      return right ? -1 : 0;
+    }
+    if (!right) {
+      return 1;
+    }
+
+    const leftValue = this.getComparableTimestampValue(left);
+    const rightValue = this.getComparableTimestampValue(right);
+    if (leftValue !== undefined && rightValue !== undefined && leftValue !== rightValue) {
+      return leftValue - rightValue;
+    }
+
+    return left.localeCompare(right);
+  }
+
+  private getComparableTimestampValue(timestamp: string | undefined) {
     if (!timestamp) {
-      return !baseline;
+      return undefined;
     }
-    if (!baseline) {
-      return true;
+
+    const parsed = Date.parse(timestamp);
+    if (Number.isNaN(parsed)) {
+      return undefined;
     }
-    return timestamp.localeCompare(baseline) > 0;
+    return parsed;
   }
 
   private areFlatMessagesEqual(

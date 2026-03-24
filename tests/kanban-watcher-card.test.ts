@@ -1679,6 +1679,83 @@ describe("kanban-watcher-card", () => {
     ]);
   });
 
+  it("keeps persisted user messages on the timeline when timestamps use different offsets", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-mixed-offsets",
+              name: "API Mixed Offsets Workspace",
+              status: "completed",
+              latest_session_id: "session-api-mixed-offsets",
+              updated_at: "2026-03-24T06:02:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-mixed-offsets",
+          workspace_name: "API Mixed Offsets Workspace",
+          messages: [
+            {
+              id: 1,
+              process_id: "proc-history",
+              entry_index: 1,
+              session_id: "session-api-mixed-offsets",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "历史助手消息",
+              timestamp: "2026-03-24T05:59:00Z",
+            },
+            {
+              id: 2,
+              process_id: "proc-history",
+              entry_index: -1,
+              session_id: "session-api-mixed-offsets",
+              entry_type: "user_message",
+              role: "user",
+              content: "刚发送的用户消息",
+              timestamp: "2026-03-24T14:00:00+08:00",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    (card as unknown as {
+      appendRealtimeMessages(sessionId: string, messages: Array<Record<string, unknown>>): void;
+    }).appendRealtimeMessages("session-api-mixed-offsets", [
+      {
+        id: 3,
+        process_id: "proc-live",
+        entry_index: 2,
+        session_id: "session-api-mixed-offsets",
+        entry_type: "assistant_message",
+        role: "assistant",
+        content: "后续助手回复",
+        timestamp: "2026-03-24T06:01:00Z",
+      },
+    ]);
+    await settleCard(card);
+
+    const messageTexts = Array.from(
+      card.shadowRoot?.querySelectorAll(".message-bubble") ?? [],
+    ).map((element) => normalizeText(element.textContent));
+
+    expect(messageTexts).toEqual([
+      "历史助手消息",
+      "刚发送的用户消息",
+      "后续助手回复",
+    ]);
+  });
+
   it("allows queueing immediately after sending from an idle workspace", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
