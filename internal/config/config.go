@@ -18,6 +18,7 @@ type Config struct {
 	PollIntervalSecs int                    `yaml:"poll_interval_seconds"` // 轮询间隔（秒）
 	Database         DatabaseConfig         `yaml:"database"`              // 数据库配置
 	HTTPAPI          HTTPAPIConfig          `yaml:"http_api"`              // 本地 HTTP API 配置
+	TokenStats       TokenStatsConfig       `yaml:"token_stats"`           // Token 用量统计配置
 }
 
 // DatabaseConfig 数据库连接参数
@@ -47,6 +48,17 @@ func (c DatabaseConfig) IsEnabled() bool {
 func (c DatabaseConfig) DSN() string {
 	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local",
 		c.User, c.Password, c.Host, c.Port, c.Database)
+}
+
+// TokenStatsConfig Token 用量统计配置
+type TokenStatsConfig struct {
+	Enabled           *bool `yaml:"enabled"`             // 是否启用
+	SyncIntervalHours int   `yaml:"sync_interval_hours"` // 同步间隔（小时），默认 1
+}
+
+// IsEnabled 检查 token 统计是否启用
+func (c TokenStatsConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
 }
 
 // ConversationSyncConfig 对话日志提取与 Home Assistant 同步配置
@@ -232,6 +244,12 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Notify.RepeatInterval <= 0 {
 		cfg.Notify.RepeatInterval = 5
+	}
+	if cfg.TokenStats.SyncIntervalHours <= 0 {
+		cfg.TokenStats.SyncIntervalHours = 1 // 默认每小时同步
+	}
+	if cfg.TokenStats.Enabled == nil {
+		cfg.TokenStats.Enabled = boolPtr(true)
 	}
 }
 
