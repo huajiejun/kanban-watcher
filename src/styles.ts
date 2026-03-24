@@ -309,11 +309,11 @@ export const cardStyles = css`
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
-    padding: 7px 9px;
-    border-radius: 10px;
-    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 46%, transparent);
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 32%, transparent);
-    color: color-mix(in srgb, var(--primary-text-color) 72%, var(--secondary-text-color, #64748b));
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 22%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #f8fafc) 16%, transparent);
+    color: color-mix(in srgb, var(--primary-text-color) 60%, var(--secondary-text-color, #94a3b8));
     text-align: left;
     cursor: pointer;
     font: inherit;
@@ -326,28 +326,29 @@ export const cardStyles = css`
   }
 
   .message-tool-button.is-pending {
-    border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 65%, transparent);
-    background: color-mix(in srgb, var(--warning-color, #f59e0b) 14%, transparent);
-    color: inherit;
+    border-color: color-mix(in srgb, var(--warning-color, #fbbf24) 40%, transparent);
+    background: color-mix(in srgb, var(--warning-color, #fef3c7) 8%, transparent);
+    color: color-mix(in srgb, var(--warning-color, #92400e) 85%, var(--secondary-text-color, #78716c));
   }
 
   .message-tool-button.is-error {
-    border-color: color-mix(in srgb, var(--error-color, #ef4444) 62%, transparent);
-    background: color-mix(in srgb, var(--error-color, #ef4444) 12%, transparent);
-    color: inherit;
+    border-color: color-mix(in srgb, var(--error-color, #f87171) 40%, transparent);
+    background: color-mix(in srgb, var(--error-color, #fee2e2) 8%, transparent);
+    color: color-mix(in srgb, var(--error-color, #991b1b) 85%, var(--secondary-text-color, #78716c));
   }
 
   .message-tool-button.is-denied {
-    border-color: color-mix(in srgb, var(--error-color, #ef4444) 34%, transparent);
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 42%, transparent);
+    border-color: color-mix(in srgb, var(--error-color, #d1d5db) 25%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 20%, transparent);
   }
 
   .message-tool-icon {
-    width: 1.8rem;
-    color: var(--secondary-text-color, #64748b);
-    font-size: 0.88rem;
+    width: 1.6rem;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.82rem;
     line-height: 1;
     white-space: nowrap;
+    opacity: 0.85;
   }
 
   .message-tool-summary {
@@ -361,8 +362,8 @@ export const cardStyles = css`
 
   .message-tool-name {
     color: inherit;
-    font-size: 0.83rem;
-    font-weight: 700;
+    font-size: 0.8rem;
+    font-weight: 600;
     flex: none;
   }
 
@@ -371,23 +372,23 @@ export const cardStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--secondary-text-color, #64748b);
-    font-size: 0.8rem;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.78rem;
   }
 
   .message-tool-status {
     justify-self: end;
-    color: var(--secondary-text-color, #64748b);
-    font-size: 0.74rem;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.72rem;
     white-space: nowrap;
   }
 
   .message-tool-detail {
     padding: 8px 10px;
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 54%, transparent);
-    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 42%, transparent);
-    color: inherit;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--secondary-background-color, #f8fafc) 28%, transparent);
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e2e8f0) 20%, transparent);
+    color: color-mix(in srgb, var(--primary-text-color) 78%, var(--secondary-text-color, #64748b));
     word-break: break-word;
   }
 
@@ -404,34 +405,34 @@ export const cardStyles = css`
   }
 
   .message-tool-group-item + .message-tool-group-item {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 34%, transparent);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--divider-color, #e2e8f0) 18%, transparent);
   }
 
   .message-tool-group-item-summary {
-    margin-bottom: 6px;
-    color: var(--secondary-text-color, #64748b);
-    font-size: 0.8rem;
-    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.78rem;
+    font-weight: 500;
     word-break: break-word;
   }
 
   .message-tool-detail pre {
-    margin: 8px 0 0;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 28%, transparent);
+    margin: 6px 0 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--divider-color, #e2e8f0) 14%, transparent);
     overflow-x: auto;
   }
 
   .message-tool-command {
-    margin-bottom: 8px;
-    color: var(--secondary-text-color, #64748b);
+    margin-bottom: 6px;
+    color: var(--secondary-text-color, #94a3b8);
     font-family:
       ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas,
       "Liberation Mono", "Courier New", monospace;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     white-space: nowrap;
     overflow-x: auto;
   }
