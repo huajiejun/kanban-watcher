@@ -1,0 +1,135 @@
+package tokenstats
+
+import (
+	"context"
+	"log"
+	"sync"
+	"time"
+
+	"github.com/huajiejun/kanban-watcher/internal/config"
+	"github.com/huajiejun/kanban-watcher/internal/store"
+)
+
+// Collector 定时收集 token 用量
+type Collector struct {
+	cfg        config.TokenStatsConfig
+	baseDir    string
+	db         *store.Store
+	stopCh     chan struct{}
+	wg         sync.WaitGroup
+}
+
+// NewCollector 创建 collector 实例
+func NewCollector(cfg config.TokenStatsConfig, baseDir string, db *store.Store) *Collector {
+	return &Collector{
+		cfg:     cfg,
+		baseDir: baseDir,
+		db:      db,
+		stopCh:  make(chan struct{}),
+	}
+}
+
+// Start 启动定时收集
+func (c *Collector) Start() {
+	if !c.cfg.IsEnabled() {
+		log.Println("[tokenstats] 未启用，跳过启动")
+		return
+	}
+	interval := time.Duration(c.cfg.SyncIntervalHours) * time.Hour
+	if interval <= 0 {
+		interval = time.Hour
+	}
+
+	c.wg.Add(1)
+	go func() {
+		defer c.wg.Done()
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		// 启动时立即执行一次
+		c.collect()
+
+		for {
+			select {
+			case <-ticker.C:
+				c.collect()
+			case <-c.stopCh:
+				log.Println("[tokenstats] 收到停止信号")
+				return
+			}
+		}
+	}()
+	log.Printf("[tokenstats] 已启动，间隔 %d 小时", c.cfg.SyncIntervalHours)
+}
+
+// Stop 停止收集
+func (c *Collector) Stop() {
+	close(c.stopCh)
+	c.wg.Wait()
+}
+
+func (c *Collector) collect() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	log.Println("[tokenstats] 开始收集 token 用量...")
+
+	// 收集所有 session 的 token 数据
+	sessions, err := CollectSessionTokens(c.baseDir)
+	if err != nil {
+		log.Printf("[tokenstats] 收集 session token 失败: %v", err)
+		return
+	}
+	log.Printf("[tokenstats] 收集到 %d 条 session token 记录", len(sessions))
+
+	// 关联 session 元数据获取 executor
+	// TODO: 从 vibe-kanban SQLite 数据库读取 session 元数据
+
+	// 按 (小时, executor) 聚合
+	aggregated := aggregateByHour(sessions)
+
+	// 存入 MariaDB
+	if err := SaveUsage(ctx, c.db, aggregated); err != nil {
+		log.Printf("[tokenstats] 存储失败: %v", err)
+		return
+	}
+	log.Printf("[tokenstats] 成功存储 %d 条聚合记录", len(aggregated))
+}
+
+func aggregateByHour(sessions []SessionToken) []*AggregatedUsage {
+	// 按 (hour, executor) 聚合
+	type key struct {
+		hour     time.Time
+		executor string
+	}
+	agg := make(map[key]*AggregatedUsage)
+
+	now := time.Now()
+	// 标准化到小时
+	hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+
+	for _, s := range sessions {
+		k := key{hour: hour, executor: s.Executor}
+		if a, ok := agg[k]; ok {
+			a.InputTokens += s.TokenInfo.TotalUsage.InputTokens
+			a.OutputTokens += s.TokenInfo.TotalUsage.OutputTokens
+			a.TotalTokens += s.TokenInfo.TotalUsage.TotalTokens
+			a.SessionCount++
+		} else {
+			agg[k] = &AggregatedUsage{
+				StatHour:     k.hour,
+				Executor:     k.executor,
+				InputTokens:  s.TokenInfo.TotalUsage.InputTokens,
+				OutputTokens: s.TokenInfo.TotalUsage.OutputTokens,
+				TotalTokens:  s.TokenInfo.TotalUsage.TotalTokens,
+				SessionCount: 1,
+			}
+		}
+	}
+
+	result := make([]*AggregatedUsage, 0, len(agg))
+	for _, v := range agg {
+		result = append(result, v)
+	}
+	return result
+}
