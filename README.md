@@ -36,12 +36,13 @@ The production bundle is written to `dist/kanban-watcher-card.js`.
 
 - 主程序二进制：`Contents/MacOS/Kanban Watcher`
 - 应用元数据：`Contents/Info.plist`
+- Finder 图标：`Contents/Resources/AppIcon.icns`
 - 示例配置：`Contents/Resources/config.yaml.example`
 
 说明：
 
 - 当前版本只生成未签名 `.app`，适合本机使用或内部分发
-- 首版未附带自定义 `.icns`，后续如有专用大图标可再补 Finder 图标
+- 当前默认使用 `build/macos/AppIcon.svg` 生成 Finder 图标
 
 ## Local Preview
 

@@ -6,6 +6,7 @@ ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 APP_DIR="$ROOT_DIR/dist-macos/Kanban Watcher.app"
 EXECUTABLE="$APP_DIR/Contents/MacOS/Kanban Watcher"
 INFO_PLIST="$APP_DIR/Contents/Info.plist"
+ICON_FILE="$APP_DIR/Contents/Resources/AppIcon.icns"
 
 "$ROOT_DIR/scripts/build_macos_app.sh"
 
@@ -24,8 +25,18 @@ INFO_PLIST="$APP_DIR/Contents/Info.plist"
   exit 1
 }
 
+[[ -f "$ICON_FILE" ]] || {
+  echo "缺少应用图标: $ICON_FILE" >&2
+  exit 1
+}
+
 grep -q "<string>com.huajiejun.kanban-watcher</string>" "$INFO_PLIST" || {
   echo "Info.plist 缺少 bundle id" >&2
+  exit 1
+}
+
+grep -q "<key>CFBundleIconFile</key>" "$INFO_PLIST" || {
+  echo "Info.plist 缺少图标声明" >&2
   exit 1
 }
 
