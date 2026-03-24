@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   analyzeButtonsWithLLM,
   getQuickButtonsWithLLM,
+  type LLMButtonsResponse,
+  type QuickButtonsResult,
 } from "../src/lib/quick-buttons";
 
 // Mock fetch for LLM API calls
@@ -18,11 +20,11 @@ describe("quick-buttons-llm", () => {
   });
 
   describe("analyzeButtonsWithLLM", () => {
-    it("returns empty array when LLM API is not available", async () => {
+    it("returns empty result when LLM API is not available", async () => {
       mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
       const result = await analyzeButtonsWithLLM("请选择方案1或方案2");
-      expect(result).toEqual([]);
+      expect(result).toEqual<LLMButtonsResponse>({ extracted: [], suggested: [] });
     });
 
     it("calls LM Studio API with correct format", async () => {
@@ -32,7 +34,7 @@ describe("quick-buttons-llm", () => {
           choices: [
             {
               message: {
-                content: '["方案1", "方案2"]',
+                content: '{"extracted": ["方案1", "方案2"], "suggested": []}',
               },
             },
           ],
@@ -52,10 +54,10 @@ describe("quick-buttons-llm", () => {
         })
       );
 
-      expect(result).toEqual(["方案1", "方案2"]);
+      expect(result.extracted).toEqual(["方案1", "方案2"]);
     });
 
-    it("returns empty array when LLM returns invalid JSON", async () => {
+    it("returns empty result when LLM returns invalid JSON", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -70,17 +72,17 @@ describe("quick-buttons-llm", () => {
       });
 
       const result = await analyzeButtonsWithLLM("普通消息");
-      expect(result).toEqual([]);
+      expect(result).toEqual<LLMButtonsResponse>({ extracted: [], suggested: [] });
     });
 
-    it("returns empty array when LLM returns empty array", async () => {
+    it("returns empty result when LLM returns empty object", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           choices: [
             {
               message: {
-                content: "[]",
+                content: "{}",
               },
             },
           ],
@@ -88,55 +90,18 @@ describe("quick-buttons-llm", () => {
       });
 
       const result = await analyzeButtonsWithLLM("这是注意事项，无需操作");
-      expect(result).toEqual([]);
+      expect(result).toEqual<LLMButtonsResponse>({ extracted: [], suggested: [] });
     });
 
-    it("limits buttons to 5 items", async () => {
+    it("extracts options and suggestions from choice messages", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           choices: [
             {
               message: {
-                content: '["A", "B", "C", "D", "E", "F", "G"]',
-              },
-            },
-          ],
-        }),
-      });
-
-      const result = await analyzeButtonsWithLLM("选择 A-G");
-      expect(result.length).toBeLessThanOrEqual(5);
-    });
-
-    it("returns empty array for notice messages", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: "[]",
-              },
-            },
-          ],
-        }),
-      });
-
-      const result = await analyzeButtonsWithLLM(
-        "注意事项：请确保数据库已备份"
-      );
-      expect(result).toEqual([]);
-    });
-
-    it("extracts action buttons from choice messages", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: '["使用方案1", "使用方案2", "取消操作"]',
+                content:
+                  '{"extracted": ["方案1", "方案2"], "suggested": ["选择方案1", "选择方案2"]}',
               },
             },
           ],
@@ -146,9 +111,31 @@ describe("quick-buttons-llm", () => {
       const result = await analyzeButtonsWithLLM(
         "发现两种实现方案，请选择：方案1是快速实现，方案2是完整实现"
       );
-      expect(result).toContain("使用方案1");
-      expect(result).toContain("使用方案2");
-      expect(result).toContain("取消操作");
+      expect(result.extracted).toContain("方案1");
+      expect(result.extracted).toContain("方案2");
+      expect(result.suggested).toContain("选择方案1");
+      expect(result.suggested).toContain("选择方案2");
+    });
+
+    it("returns suggested actions for completion messages", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content:
+                  '{"extracted": [], "suggested": ["运行测试", "提交代码"]}',
+              },
+            },
+          ],
+        }),
+      });
+
+      const result = await analyzeButtonsWithLLM("代码修改已完成，测试通过");
+      expect(result.extracted).toEqual([]);
+      expect(result.suggested).toContain("运行测试");
+      expect(result.suggested).toContain("提交代码");
     });
   });
 
@@ -158,12 +145,15 @@ describe("quick-buttons-llm", () => {
         message: "请选择方案1或方案2",
         workspaceStatus: "running",
         llmEnabled: true,
-        llmBaseUrl: "http://localhost:1234",
+        llmConfig: {
+          baseUrl: "http://localhost:1234",
+        },
       });
 
       // 运行中应该只返回静态按钮（但运行时会隐藏所有按钮）
       expect(result.staticButtons).toEqual(["继续", "同意"]);
-      expect(result.dynamicButtons).toEqual([]);
+      expect(result.extractedButtons).toEqual([]);
+      expect(result.suggestedButtons).toEqual([]);
     });
 
     it("returns static and dynamic buttons when workspace is in attention status", async () => {
@@ -173,7 +163,8 @@ describe("quick-buttons-llm", () => {
           choices: [
             {
               message: {
-                content: '["方案1", "方案2"]',
+                content:
+                  '{"extracted": ["方案1", "方案2"], "suggested": ["选择方案1"]}',
               },
             },
           ],
@@ -184,11 +175,14 @@ describe("quick-buttons-llm", () => {
         message: "请选择方案1或方案2",
         workspaceStatus: "attention",
         llmEnabled: true,
-        llmBaseUrl: "http://localhost:1234",
+        llmConfig: {
+          baseUrl: "http://localhost:1234",
+        },
       });
 
       expect(result.staticButtons).toEqual(["继续", "同意"]);
-      expect(result.dynamicButtons).toEqual(["方案1", "方案2"]);
+      expect(result.extractedButtons).toEqual(["方案1", "方案2"]);
+      expect(result.suggestedButtons).toEqual(["选择方案1"]);
     });
 
     it("falls back to regex when LLM is disabled", async () => {
@@ -196,22 +190,23 @@ describe("quick-buttons-llm", () => {
         message: "请选择方案1或方案2",
         workspaceStatus: "attention",
         llmEnabled: false,
-        llmBaseUrl: undefined,
+        llmConfig: undefined,
       });
 
       // 应该使用正则匹配
-      expect(result.dynamicButtons).toContain("方案1");
-      expect(result.dynamicButtons).toContain("方案2");
+      expect(result.extractedButtons).toContain("方案1");
+      expect(result.extractedButtons).toContain("方案2");
+      expect(result.suggestedButtons).toEqual([]);
     });
 
-    it("falls back to regex when LLM returns empty", async () => {
+    it("falls back to regex when LLM returns empty extracted", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           choices: [
             {
               message: {
-                content: "[]",
+                content: '{"extracted": [], "suggested": []}',
               },
             },
           ],
@@ -222,22 +217,25 @@ describe("quick-buttons-llm", () => {
         message: "请选择方案1或方案2",
         workspaceStatus: "attention",
         llmEnabled: true,
-        llmBaseUrl: "http://localhost:1234",
+        llmConfig: {
+          baseUrl: "http://localhost:1234",
+        },
       });
 
-      // LLM 返回空时，应该回退到正则
-      expect(result.dynamicButtons).toContain("方案1");
-      expect(result.dynamicButtons).toContain("方案2");
+      // LLM 返回空提取时，应该回退到正则
+      expect(result.extractedButtons).toContain("方案1");
+      expect(result.extractedButtons).toContain("方案2");
     });
 
-    it("returns empty dynamic buttons for notice messages", async () => {
+    it("returns suggested buttons even when extracted is empty", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           choices: [
             {
               message: {
-                content: "[]",
+                content:
+                  '{"extracted": [], "suggested": ["运行测试", "提交代码"]}',
               },
             },
           ],
@@ -245,14 +243,18 @@ describe("quick-buttons-llm", () => {
       });
 
       const result = await getQuickButtonsWithLLM({
-        message: "注意事项：请确保数据库已备份",
+        message: "代码修改已完成",
         workspaceStatus: "attention",
         llmEnabled: true,
-        llmBaseUrl: "http://localhost:1234",
+        llmConfig: {
+          baseUrl: "http://localhost:1234",
+        },
       });
 
-      // 注意事项不应该有动态按钮
-      expect(result.dynamicButtons).toEqual([]);
+      expect(result.extractedButtons).toEqual([]);
+      expect(result.suggestedButtons).toEqual(["运行测试", "提交代码"]);
+      expect(result.dynamicButtons).toContain("运行测试");
+      expect(result.dynamicButtons).toContain("提交代码");
     });
   });
 });

@@ -607,6 +607,29 @@ export const cardStyles = css`
     background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 50%, transparent);
   }
 
+  /* 从消息中提取的选项按钮 */
+  .quick-button.is-extracted {
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 50%, transparent);
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 12%, transparent);
+    color: var(--primary-text-color, inherit);
+  }
+
+  .quick-button.is-extracted:hover {
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 24%, transparent);
+  }
+
+  /* LLM 语义联想推荐的按钮 */
+  .quick-button.is-suggested {
+    border: 1px dashed color-mix(in srgb, var(--accent-color, #3b82f6) 60%, transparent);
+    background: color-mix(in srgb, var(--accent-color, #3b82f6) 8%, transparent);
+    color: var(--secondary-text-color, inherit);
+  }
+
+  .quick-button.is-suggested:hover {
+    background: color-mix(in srgb, var(--accent-color, #3b82f6) 18%, transparent);
+    border-style: solid;
+  }
+
   .dialog-composer {
     display: grid;
     gap: 8px;

@@ -146,7 +146,12 @@ export class KanbanWatcherCard extends LitElement {
   private messageListScrollHandler?: () => void;
   private dialogMessageVersionsByWorkspace: Record<string, string> = {};
   private expandedToolMessageKeys = new Set<string>();
+  /** @deprecated 使用 extractedButtonsByWorkspace 和 suggestedButtonsByWorkspace 代替 */
   private dynamicButtonsByWorkspace: Record<string, string[]> = {};
+  /** 从消息中提取的选项按钮 */
+  private extractedButtonsByWorkspace: Record<string, string[]> = {};
+  /** LLM 语义联想推荐的操作按钮 */
+  private suggestedButtonsByWorkspace: Record<string, string[]> = {};
   /** 缓存每个工作区最后分析的消息 hash，避免重复调用 LLM */
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
 
@@ -291,30 +296,48 @@ export class KanbanWatcherCard extends LitElement {
       return nothing;
     }
 
-    // 所有非 running 状态都显示缓存的动态按钮
-    const cachedDynamicButtons = this.dynamicButtonsByWorkspace[workspace.id] || [];
+    // 获取各类按钮
+    const extractedButtons = this.extractedButtonsByWorkspace[workspace.id] || [];
+    const suggestedButtons = this.suggestedButtonsByWorkspace[workspace.id] || [];
 
-    // 合并通用按钮和动态按钮
-    const allButtons = [...STATIC_BUTTONS, ...cachedDynamicButtons].filter(isValidButtonText);
+    // 合并所有按钮：静态 + 提取 + 推荐
+    const staticBtns = STATIC_BUTTONS.filter(isValidButtonText);
+    const extractedBtns = extractedButtons.filter(isValidButtonText);
+    const suggestedBtns = suggestedButtons.filter(isValidButtonText);
 
-    if (allButtons.length === 0) {
+    if (staticBtns.length === 0 && extractedBtns.length === 0 && suggestedBtns.length === 0) {
       return nothing;
     }
 
     return html`
       <div class="quick-buttons">
-        ${allButtons.map((text, index) => {
-          const isStatic = index < STATIC_BUTTONS.length;
-          return html`
-            <button
-              class="quick-button ${isStatic ? "is-static" : "is-dynamic"}"
-              type="button"
-              @click=${() => void this.handleQuickButtonClick(text)}
-            >
-              ${text}
-            </button>
-          `;
-        })}
+        ${staticBtns.map((text) => html`
+          <button
+            class="quick-button is-static"
+            type="button"
+            @click=${() => void this.handleQuickButtonClick(text)}
+          >
+            ${text}
+          </button>
+        `)}
+        ${extractedBtns.map((text) => html`
+          <button
+            class="quick-button is-extracted"
+            type="button"
+            @click=${() => void this.handleQuickButtonClick(text)}
+          >
+            ${text}
+          </button>
+        `)}
+        ${suggestedBtns.map((text) => html`
+          <button
+            class="quick-button is-suggested"
+            type="button"
+            @click=${() => void this.handleQuickButtonClick(text)}
+          >
+            ${text}
+          </button>
+        `)}
       </div>
     `;
   }
@@ -1471,6 +1494,14 @@ export class KanbanWatcherCard extends LitElement {
       .find((msg) => msg.kind === "message" && msg.sender === "ai");
 
     if (!lastAiMessage || !("text" in lastAiMessage)) {
+      this.extractedButtonsByWorkspace = {
+        ...this.extractedButtonsByWorkspace,
+        [workspace.id]: [],
+      };
+      this.suggestedButtonsByWorkspace = {
+        ...this.suggestedButtonsByWorkspace,
+        [workspace.id]: [],
+      };
       this.dynamicButtonsByWorkspace = {
         ...this.dynamicButtonsByWorkspace,
         [workspace.id]: [],
@@ -1502,6 +1533,15 @@ export class KanbanWatcherCard extends LitElement {
 
     // 更新缓存
     this.dynamicButtonsMessageHashByWorkspace[workspace.id] = messageHash;
+    this.extractedButtonsByWorkspace = {
+      ...this.extractedButtonsByWorkspace,
+      [workspace.id]: result.extractedButtons,
+    };
+    this.suggestedButtonsByWorkspace = {
+      ...this.suggestedButtonsByWorkspace,
+      [workspace.id]: result.suggestedButtons,
+    };
+    // 兼容旧的 dynamicButtons
     this.dynamicButtonsByWorkspace = {
       ...this.dynamicButtonsByWorkspace,
       [workspace.id]: result.dynamicButtons,

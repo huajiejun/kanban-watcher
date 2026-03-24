@@ -137,47 +137,71 @@ interface LLMAnalysisResult {
   needsAction: boolean;
 }
 
+/** LLM 按钮分析完整结果 */
+export interface LLMButtonsResponse {
+  /** 从消息中提取的选项 */
+  extracted: string[];
+  /** LLM 语义联想推荐的操作（最多2个） */
+  suggested: string[];
+}
+
 /**
- * 使用 LLM 分析消息，提取快捷按钮
+ * 使用 LLM 分析消息，提取快捷按钮并联想推荐操作
  * @param message AI 消息文本
  * @param llmBaseUrl LLM API 基础 URL（默认 http://localhost:1234）
  * @param llmModel LLM 模型名称（默认 local-model）
- * @returns 快捷按钮列表
+ * @returns 按钮分析结果（提取的选项 + 推荐的操作）
  */
 export async function analyzeButtonsWithLLM(
   message: string,
   llmBaseUrl?: string,
   llmModel?: string
-): Promise<string[]> {
+): Promise<LLMButtonsResponse> {
+  const emptyResult: LLMButtonsResponse = { extracted: [], suggested: [] };
+
   if (!message || typeof message !== "string" || !message.trim()) {
-    return [];
+    return emptyResult;
   }
 
   const baseUrl = llmBaseUrl || "http://localhost:1234";
   const model = llmModel || "local-model";
   const url = `${baseUrl}/v1/chat/completions`;
 
-  const systemPrompt = `你是一个快捷按钮分析助手。分析用户的 AI 助手消息，判断是否需要用户进行选择操作。
+  const systemPrompt = `你是一个快捷按钮分析助手。分析 AI 助手发送给用户的消息，完成两个任务：
 
-任务：
-1. 判断消息是否包含需要用户选择的方案/选项
-2. 如果是"注意事项"、"说明"、"已完成"等无需用户操作的内容，返回空数组
-3. 如果需要用户选择，提取具体的选项名称（最多5个）
+任务1 - 提取选项（extracted）：
+- 判断消息是否包含需要用户选择的方案/选项
+- 如果是"注意事项"、"说明"、"已完成"等无需用户操作的内容，返回空数组
+- 如果需要用户选择，提取具体的选项名称（最多3个）
 
-返回格式要求：
-- 必须返回严格的 JSON 数组格式
-- 每个选项不超过10个字符
-- 如果无需操作，返回空数组 []
+任务2 - 语义联想推荐（suggested）：
+- 基于消息内容，推断用户最可能想执行的2个下一步操作
+- 推荐要简洁、具体、可执行
+- 如果消息已包含明确选项，推荐可以是如何使用这些选项
+- 如果消息是完成状态，推荐下一步可能的工作
+
+返回格式要求（必须是严格JSON）：
+{
+  "extracted": ["选项1", "选项2"],
+  "suggested": ["推荐操作1", "推荐操作2"]
+}
 
 示例：
-- "请选择方案1或方案2" → ["方案1", "方案2"]
-- "选项A是快速实现，选项B是完整实现" → ["选项A", "选项B"]
-- "注意事项：请确保数据库已备份" → []
-- "任务已完成" → []`;
+消息："请选择方案1或方案2，方案1是快速实现，方案2是完整实现"
+返回：{"extracted": ["方案1", "方案2"], "suggested": ["选择方案1快速实现", "选择方案2完整实现"]}
+
+消息："代码修改已完成，测试通过"
+返回：{"extracted": [], "suggested": ["运行测试验证", "提交代码"]}
+
+消息："注意事项：请确保数据库已备份"
+返回：{"extracted": [], "suggested": ["确认已备份", "继续执行"]}
+
+消息："发现3个错误需要修复"
+返回：{"extracted": [], "suggested": ["查看错误详情", "自动修复"]}`;
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch(url, {
       method: "POST",
@@ -188,8 +212,8 @@ export async function analyzeButtonsWithLLM(
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
         ],
-        temperature: 0.1,
-        max_tokens: 200,
+        temperature: 0.3,
+        max_tokens: 300,
       }),
       signal: controller.signal,
     });
@@ -197,55 +221,72 @@ export async function analyzeButtonsWithLLM(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return [];
+      return emptyResult;
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content || typeof content !== "string") {
-      return [];
+      return emptyResult;
     }
 
     // 尝试解析 JSON
     try {
-      // 提取 JSON 数组
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      // 提取 JSON 对象
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        return [];
+        return emptyResult;
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
-      if (!Array.isArray(parsed)) {
-        return [];
+      if (typeof parsed !== "object" || parsed === null) {
+        return emptyResult;
       }
 
-      // 过滤和限制
-      const buttons = parsed
-        .filter((item): item is string => typeof item === "string")
-        .map((item: string) => item.trim())
-        .filter((item: string) => isValidButtonText(item))
-        .slice(0, MAX_DYNAMIC_BUTTONS);
+      // 提取和验证 extracted
+      const extracted: string[] = Array.isArray(parsed.extracted)
+        ? parsed.extracted
+            .filter((item): item is string => typeof item === "string")
+            .map((item: string) => item.trim())
+            .filter((item: string) => isValidButtonText(item))
+            .slice(0, 3)
+        : [];
 
-      return buttons;
+      // 提取和验证 suggested
+      const suggested: string[] = Array.isArray(parsed.suggested)
+        ? parsed.suggested
+            .filter((item): item is string => typeof item === "string")
+            .map((item: string) => item.trim())
+            .filter((item: string) => isValidButtonText(item))
+            .slice(0, 2)
+        : [];
+
+      return { extracted, suggested };
     } catch {
-      return [];
+      return emptyResult;
     }
   } catch {
-    return [];
+    return emptyResult;
   }
 }
 
 /** 快捷按钮结果 */
 export interface QuickButtonsResult {
+  /** 静态按钮（继续、同意） */
   staticButtons: string[];
+  /** 从消息中提取的选项 */
+  extractedButtons: string[];
+  /** LLM 语义联想推荐的操作（最多2个） */
+  suggestedButtons: string[];
+  /** @deprecated 使用 extractedButtons 代替 */
   dynamicButtons: string[];
 }
 
 /**
  * 获取快捷按钮（结合静态按钮和 LLM 分析）
  * @param request 请求参数
- * @returns 快捷按钮结果（静态 + 动态）
+ * @returns 快捷按钮结果（静态 + 提取 + 推荐）
  */
 export async function getQuickButtonsWithLLM(
   request: QuickButtonsRequest
@@ -256,6 +297,8 @@ export async function getQuickButtonsWithLLM(
   if (workspaceStatus === "running") {
     return {
       staticButtons: [...STATIC_BUTTONS],
+      extractedButtons: [],
+      suggestedButtons: [],
       dynamicButtons: [],
     };
   }
@@ -263,31 +306,32 @@ export async function getQuickButtonsWithLLM(
   // idle / completed / attention 状态都显示动态按钮
   // LLM 未启用，使用正则匹配
   if (!llmEnabled) {
-    const dynamicButtons = extractDynamicButtons(message);
+    const extractedButtons = extractDynamicButtons(message);
     return {
       staticButtons: [...STATIC_BUTTONS],
-      dynamicButtons: dynamicButtons.filter(isValidButtonText),
+      extractedButtons: extractedButtons.filter(isValidButtonText),
+      suggestedButtons: [],
+      dynamicButtons: extractedButtons.filter(isValidButtonText),
     };
   }
 
   // 使用 LLM 分析
-  const dynamicButtons = await analyzeButtonsWithLLM(
+  const llmResult = await analyzeButtonsWithLLM(
     message,
     llmConfig?.baseUrl,
     llmConfig?.model
   );
 
-  // LLM 返回空，回退到正则
-  if (dynamicButtons.length === 0) {
-    const regexButtons = extractDynamicButtons(message);
-    return {
-      staticButtons: [...STATIC_BUTTONS],
-      dynamicButtons: regexButtons.filter(isValidButtonText),
-    };
-  }
+  // LLM 返回空提取，回退到正则
+  const extractedButtons =
+    llmResult.extracted.length > 0
+      ? llmResult.extracted
+      : extractDynamicButtons(message);
 
   return {
     staticButtons: [...STATIC_BUTTONS],
-    dynamicButtons: dynamicButtons.filter(isValidButtonText),
+    extractedButtons: extractedButtons.filter(isValidButtonText),
+    suggestedButtons: llmResult.suggested.filter(isValidButtonText),
+    dynamicButtons: [...extractedButtons, ...llmResult.suggested].filter(isValidButtonText),
   };
 }

@@ -1,5 +1,5 @@
 /**
- * 测试 LLM 快捷按钮分析
+ * 测试 LLM 快捷按钮分析（包括提取选项和语义联想推荐）
  * 使用方法: npx tsx scripts/test-llm-buttons.ts
  */
 
@@ -37,18 +37,53 @@ Option C: 暂时跳过`,
     name: "Yes/No 选择",
     message: `检测到潜在的问题，是否要继续执行？请回复 Yes 或 No`,
   },
+  {
+    name: "发现错误",
+    message: `在运行测试时发现了 3 个错误，需要修复后才能继续。`,
+  },
+  {
+    name: "代码审查",
+    message: `代码已经准备好提交，建议先进行一次代码审查。`,
+  },
 ];
 
-async function analyzeButtonsWithLLM(message: string): Promise<string[]> {
-  const systemPrompt = `你是一个快捷按钮提取助手。分析用户消息，提取可能的快捷回复按钮。
+interface LLMButtonsResponse {
+  extracted: string[];
+  suggested: string[];
+}
 
-规则：
-1. 只返回 JSON 数组格式，例如 ["按钮1", "按钮2"]
-2. 如果消息中有选项（如方案A/B/C、Option A/B/C、Yes/No 等），提取这些选项
-3. 如果消息询问是否继续，返回 ["继续", "取消"]
-4. 如果没有明确的操作选项，返回空数组 []
-5. 按钮文本要简短（不超过20字）
-6. 不要返回任何解释，只返回 JSON 数组`;
+async function analyzeButtonsWithLLM(message: string): Promise<LLMButtonsResponse> {
+  const systemPrompt = `你是一个快捷按钮分析助手。分析 AI 助手发送给用户的消息，完成两个任务：
+
+任务1 - 提取选项（extracted）：
+- 判断消息是否包含需要用户选择的方案/选项
+- 如果是"注意事项"、"说明"、"已完成"等无需用户操作的内容，返回空数组
+- 如果需要用户选择，提取具体的选项名称（最多3个）
+
+任务2 - 语义联想推荐（suggested）：
+- 基于消息内容，推断用户最可能想执行的2个下一步操作
+- 推荐要简洁、具体、可执行
+- 如果消息已包含明确选项，推荐可以是如何使用这些选项
+- 如果消息是完成状态，推荐下一步可能的工作
+
+返回格式要求（必须是严格JSON）：
+{
+  "extracted": ["选项1", "选项2"],
+  "suggested": ["推荐操作1", "推荐操作2"]
+}
+
+示例：
+消息："请选择方案1或方案2，方案1是快速实现，方案2是完整实现"
+返回：{"extracted": ["方案1", "方案2"], "suggested": ["选择方案1快速实现", "选择方案2完整实现"]}
+
+消息："代码修改已完成，测试通过"
+返回：{"extracted": [], "suggested": ["运行测试验证", "提交代码"]}
+
+消息："注意事项：请确保数据库已备份"
+返回：{"extracted": [], "suggested": ["确认已备份", "继续执行"]}
+
+消息："发现3个错误需要修复"
+返回：{"extracted": [], "suggested": ["查看错误详情", "自动修复"]}`;
 
   try {
     const response = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
@@ -60,8 +95,8 @@ async function analyzeButtonsWithLLM(message: string): Promise<string[]> {
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
         ],
-        temperature: 0.1,
-        max_tokens: 100,
+        temperature: 0.3,
+        max_tokens: 300,
       }),
     });
 
@@ -70,22 +105,26 @@ async function analyzeButtonsWithLLM(message: string): Promise<string[]> {
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "[]";
+    const content = data.choices?.[0]?.message?.content || "{}";
 
-    // 提取 JSON 数组
-    const jsonMatch = content.match(/\[[\s\S]*?\]/);
+    // 提取 JSON 对象
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        extracted: Array.isArray(parsed.extracted) ? parsed.extracted : [],
+        suggested: Array.isArray(parsed.suggested) ? parsed.suggested : [],
+      };
     }
-    return [];
+    return { extracted: [], suggested: [] };
   } catch (error) {
     console.error("LLM 调用失败:", error);
-    return [];
+    return { extracted: [], suggested: [] };
   }
 }
 
 async function main() {
-  console.log("=== LLM 快捷按钮测试 ===\n");
+  console.log("=== LLM 快捷按钮测试（提取 + 推荐）===\n");
   console.log(`LLM 服务: ${LLM_BASE_URL}`);
   console.log(`模型: ${LLM_MODEL}\n`);
 
@@ -94,10 +133,11 @@ async function main() {
     console.log(`消息: ${test.message.slice(0, 100)}...`);
 
     const startTime = Date.now();
-    const buttons = await analyzeButtonsWithLLM(test.message);
+    const result = await analyzeButtonsWithLLM(test.message);
     const duration = Date.now() - startTime;
 
-    console.log(`结果: ${JSON.stringify(buttons)}`);
+    console.log(`提取选项: ${JSON.stringify(result.extracted)}`);
+    console.log(`推荐操作: ${JSON.stringify(result.suggested)}`);
     console.log(`耗时: ${duration}ms\n`);
   }
 }
