@@ -174,6 +174,94 @@ export const workspaceSectionListStyles = css`
   }
 `;
 
+export const workspaceHomeStyles = css`
+  :host {
+    display: block;
+    min-height: 100vh;
+    padding: 32px 24px 40px;
+    color: #e5e7eb;
+  }
+
+  .workspace-home-shell {
+    display: grid;
+    gap: 20px;
+    width: min(1440px, 100%);
+    margin: 0 auto;
+  }
+
+  .workspace-home-hero {
+    display: grid;
+    gap: 8px;
+  }
+
+  .workspace-home-eyebrow {
+    font-size: 0.76rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #f59e0b;
+    font-weight: 700;
+  }
+
+  .workspace-home-hero h1 {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.05;
+  }
+
+  .workspace-home-hero p {
+    margin: 0;
+    max-width: 56rem;
+    color: #94a3b8;
+    line-height: 1.6;
+  }
+
+  .workspace-home-layout {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .workspace-home-sidebar,
+  .workspace-home-pane-grid,
+  .workspace-home-placeholder {
+    border-radius: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.72);
+    box-shadow: 0 20px 48px rgba(2, 6, 23, 0.32);
+    backdrop-filter: blur(14px);
+  }
+
+  .workspace-home-sidebar {
+    padding: 14px;
+    display: grid;
+    gap: 12px;
+    min-height: 60vh;
+  }
+
+  .workspace-home-pane-grid {
+    min-height: 60vh;
+    padding: 14px;
+    display: grid;
+    grid-template-columns: repeat(var(--workspace-pane-columns, 1), minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .workspace-home-placeholder {
+    padding: 24px;
+  }
+
+  @media (max-width: 768px) {
+    :host {
+      padding: 20px 14px 28px;
+    }
+
+    .workspace-home-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+`;
+
 export const cardStyles = css`
   :host {
     display: block;
