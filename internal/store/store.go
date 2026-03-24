@@ -679,7 +679,8 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 			w.updated_at,
 			COALESCE(msg.message_count, 0) AS message_count,
 			msg.last_message_at,
-			ep.latest_process_completed_at
+			ep.latest_process_completed_at,
+			lm.content AS last_message
 		FROM kw_workspaces w
 		LEFT JOIN (
 			SELECT
@@ -697,6 +698,14 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 			WHERE completed_at IS NOT NULL
 			GROUP BY workspace_id
 		) ep ON ep.workspace_id = w.id
+		LEFT JOIN kw_process_entries lm ON lm.id = (
+			SELECT e.id
+			FROM kw_process_entries e
+			WHERE e.workspace_id = w.id
+			  AND e.entry_type IN ('assistant_message', 'user_message')
+			ORDER BY e.entry_timestamp DESC, e.id DESC
+			LIMIT 1
+		)
 		WHERE w.archived = FALSE
 		ORDER BY COALESCE(msg.last_message_at, w.updated_at, w.last_seen_at) DESC
 	`
@@ -711,12 +720,13 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 	for rows.Next() {
 		var summary ActiveWorkspaceSummary
 		var latestSessionID sql.NullString
+		var lastMessage sql.NullString
 		var updatedAt, lastMessageAt, latestProcessCompletedAt sql.NullTime
 		if err := rows.Scan(
 			&summary.ID, &summary.Name, &summary.Branch, &latestSessionID, &summary.Status,
 			&summary.HasPendingApproval, &summary.HasUnseenTurns, &summary.HasRunningDevServer,
 			&summary.FilesChanged, &summary.LinesAdded, &summary.LinesRemoved,
-			&updatedAt, &summary.MessageCount, &lastMessageAt, &latestProcessCompletedAt,
+			&updatedAt, &summary.MessageCount, &lastMessageAt, &latestProcessCompletedAt, &lastMessage,
 		); err != nil {
 			return nil, fmt.Errorf("scan active workspace summary: %w", err)
 		}
@@ -731,6 +741,9 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 		}
 		if latestProcessCompletedAt.Valid {
 			summary.LatestProcessCompletedAt = &latestProcessCompletedAt.Time
+		}
+		if lastMessage.Valid {
+			summary.LastMessage = &lastMessage.String
 		}
 		summaries = append(summaries, summary)
 	}

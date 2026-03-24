@@ -19,9 +19,14 @@ import (
 //   - 本结构体的 mu 用于保护 menuItems 等字段的并发访问
 type App struct {
 	mu         sync.Mutex
-	menuItems  []*systray.MenuItem // 动态工作区菜单项（可复用）
-	statusItem *systray.MenuItem   // 顶部状态标题项
-	quitItem   *systray.MenuItem   // 退出菜单项
+	menuItems  []*workspaceMenuItems // 动态工作区菜单项（可复用）
+	statusItem *systray.MenuItem     // 顶部状态标题项
+	quitItem   *systray.MenuItem     // 退出菜单项
+}
+
+type workspaceMenuItems struct {
+	title   *systray.MenuItem
+	summary *systray.MenuItem
 }
 
 // New 创建新的 App 实例
@@ -88,24 +93,38 @@ func (a *App) UpdateWorkspaces(workspaces []api.EnrichedWorkspace) {
 
 	// 隐藏旧的动态菜单项（systray 不支持删除，只能隐藏复用）
 	for _, item := range a.menuItems {
-		item.Hide()
+		item.title.Hide()
+		item.summary.Hide()
 	}
 
 	// 复用或创建新的菜单项显示工作区
 	for i, w := range workspaces {
-		title := fmt.Sprintf("%s %s", statusEmoji(w), w.DisplayName)
-		tooltip := fmt.Sprintf("状态: %s", w.StatusText())
+		view := formatWorkspaceMenu(w)
 
 		if i < len(a.menuItems) {
 			// 复用已有菜单项
-			a.menuItems[i].SetTitle(title)
-			a.menuItems[i].SetTooltip(tooltip)
-			a.menuItems[i].Show()
+			a.menuItems[i].title.SetTitle(view.Title)
+			a.menuItems[i].title.SetTooltip(view.TitleTooltip)
+			a.menuItems[i].title.Show()
+			if view.ShowSummary {
+				a.menuItems[i].summary.SetTitle(view.Summary)
+				a.menuItems[i].summary.SetTooltip(view.SummaryTooltip)
+				a.menuItems[i].summary.Show()
+			} else {
+				a.menuItems[i].summary.Hide()
+			}
 		} else {
-			// 创建新菜单项（复选框样式，但禁用交互）
-			item := systray.AddMenuItemCheckbox(title, tooltip, false)
-			item.Disable() // 当前仅作展示，不支持点击
-			a.menuItems = append(a.menuItems, item)
+			titleItem := systray.AddMenuItemCheckbox(view.Title, view.TitleTooltip, false)
+			titleItem.Disable()
+			summaryItem := systray.AddMenuItem(view.Summary, view.SummaryTooltip)
+			summaryItem.Disable()
+			if !view.ShowSummary {
+				summaryItem.Hide()
+			}
+			a.menuItems = append(a.menuItems, &workspaceMenuItems{
+				title:   titleItem,
+				summary: summaryItem,
+			})
 		}
 	}
 }
