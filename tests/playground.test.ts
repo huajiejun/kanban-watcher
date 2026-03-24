@@ -20,16 +20,15 @@ describe("playground preview config", () => {
     });
   });
 
-  it("ignores invalid or empty URL params", () => {
+  it("uses env vars when URL params are empty", () => {
     const options = readPreviewApiOptions(
       new URL("http://localhost:5173/?base_url=&api_key=&messages_limit=0"),
     );
 
-    expect(options).toEqual({
-      baseUrl: "http://127.0.0.1:7778",
-      apiKey: "wolale1990",
-      messagesLimit: undefined,
-    });
+    // 当 URL 参数为空时，使用环境变量（.env.local）或默认值
+    expect(options.baseUrl).toBe("http://127.0.0.1:7778");
+    expect(options.apiKey).toBe(import.meta.env.VITE_API_KEY || "");
+    expect(options.messagesLimit).toBeUndefined();
   });
 
   it("builds API card config when base_url is provided", () => {
@@ -44,12 +43,16 @@ describe("playground preview config", () => {
       base_url: "https://watcher.huajiejun.cn",
       api_key: "test-key",
       messages_limit: 30,
+      llm_enabled: true,
+      llm_base_url: "/llm-api",
     });
   });
 
-  it("builds fallback config without API fields when base_url is missing", () => {
+  it("builds fallback config with LLM enabled when base_url is missing", () => {
     expect(buildPreviewCardConfig({})).toEqual({
       entity: previewEntityId,
+      llm_enabled: true,
+      llm_base_url: "/llm-api",
     });
   });
 

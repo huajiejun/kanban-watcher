@@ -11,3 +11,8 @@ dist/
 dist-macos/
 coverage/
 .idea/
+
+# Environment variables
+.env
+.env.local
+.env.*.local

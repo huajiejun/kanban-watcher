@@ -8,6 +8,9 @@ type PlaygroundCardConfig = {
   base_url?: string;
   api_key?: string;
   messages_limit?: number;
+  llm_enabled?: boolean;
+  llm_base_url?: string;
+  llm_model?: string;
 };
 
 type PlaygroundCard = HTMLElement & {
@@ -54,11 +57,14 @@ function readStringParam(params: URLSearchParams, key: string) {
   return value || undefined;
 }
 
-// 默认配置（本地开发预览）
-const DEFAULT_BASE_URL = "http://127.0.0.1:7778";
-const DEFAULT_API_KEY = "wolale1990";
+// 默认配置（优先级：URL 参数 > 环境变量 > 硬编码默认值）
+// 注：在测试环境中 import.meta.env 可能不存在，使用空对象作为 fallback
+const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
+const DEFAULT_BASE_URL = env.VITE_BASE_URL || "http://127.0.0.1:7778";
+const DEFAULT_API_KEY = env.VITE_API_KEY || "";
 
 export function readPreviewApiOptions(url = new URL(window.location.href)): PreviewApiOptions {
+  // 优先级：URL 参数 > 环境变量(.env.local) > 硬编码默认值
   const baseUrl = readStringParam(url.searchParams, "base_url") || DEFAULT_BASE_URL;
   const apiKey = readStringParam(url.searchParams, "api_key") || DEFAULT_API_KEY;
   const rawLimit = readStringParam(url.searchParams, "messages_limit");
@@ -80,6 +86,9 @@ export function buildPreviewCardConfig(
     ...(options.baseUrl ? { base_url: options.baseUrl } : {}),
     ...(options.apiKey ? { api_key: options.apiKey } : {}),
     ...(options.messagesLimit ? { messages_limit: options.messagesLimit } : {}),
+    // 启用 LLM 推荐按钮（使用 Vite 代理解决 CORS）
+    llm_enabled: true,
+    llm_base_url: "/llm-api",
   };
 }
 

@@ -733,6 +733,124 @@ export const cardStyles = css`
     background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
   }
 
+  /* 快捷按钮区域 */
+  .quick-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 0;
+  }
+
+  .quick-button {
+    padding: 5px 10px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 120ms ease, opacity 120ms ease;
+  }
+
+  .quick-button:active {
+    transform: scale(0.96);
+  }
+
+  .quick-button.is-static {
+    border: 0;
+    background: var(--primary-color, #f59e0b);
+    color: #ffffff;
+  }
+
+  .quick-button.is-dynamic {
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 72%, transparent);
+    background: transparent;
+    color: inherit;
+  }
+
+  .quick-button.is-dynamic:hover {
+    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 50%, transparent);
+  }
+
+  /* 从消息中提取的选项按钮 */
+  .quick-button.is-extracted {
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 50%, transparent);
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 12%, transparent);
+    color: var(--primary-text-color, inherit);
+  }
+
+  .quick-button.is-extracted:hover {
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 24%, transparent);
+  }
+
+  /* LLM 语义联想推荐的按钮 */
+  .quick-button.is-suggested {
+    border: 1px dashed color-mix(in srgb, var(--accent-color, #3b82f6) 60%, transparent);
+    background: color-mix(in srgb, var(--accent-color, #3b82f6) 8%, transparent);
+    color: var(--secondary-text-color, inherit);
+  }
+
+  .quick-button.is-suggested:hover {
+    background: color-mix(in srgb, var(--accent-color, #3b82f6) 18%, transparent);
+    border-style: solid;
+  }
+
+  /* 推荐按钮包装器 */
+  .quick-button-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  /* 信息图标按钮 */
+  .quick-button-info {
+    padding: 2px 4px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.75rem;
+    opacity: 0.6;
+    transition: opacity 150ms ease;
+    border-radius: 4px;
+  }
+
+  .quick-button-info:hover {
+    opacity: 1;
+    background: color-mix(in srgb, var(--accent-color, #3b82f6) 15%, transparent);
+  }
+
+  /* 理由提示框 */
+  .quick-button-reason {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    min-width: 180px;
+    max-width: 280px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--primary-background-color, #1f2937);
+    color: var(--primary-text-color, #f9fafb);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    word-wrap: break-word;
+  }
+
+  .quick-button-reason.is-visible {
+    display: block;
+  }
+
+  .quick-button-reason::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 16px;
+    border: 6px solid transparent;
+    border-top-color: var(--primary-background-color, #1f2937);
+  }
+
   .dialog-composer {
     display: grid;
     gap: 8px;
@@ -968,6 +1086,16 @@ export const cardStyles = css`
 
     .dialog-feedback {
       font-size: 0.72rem;
+    }
+
+    /* 快捷按钮移动端样式 */
+    .quick-buttons {
+      gap: 5px;
+    }
+
+    .quick-button {
+      padding: 4px 8px;
+      font-size: 0.78rem;
     }
 
     .message-input {

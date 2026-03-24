@@ -154,3 +154,28 @@ export interface ToolInfo {
   action_type?: ToolActionInfo;
   status?: ToolStatusInfo;
 }
+
+/** 消息类型 */
+export type MessageType = 'proposal' | 'decision';
+
+/** 带理由的按钮 */
+export interface ButtonWithReason {
+  button: string;
+  reason: string;
+}
+
+/** 方案类响应（方案评价师） */
+export interface ProposalButtonsResponse {
+  type: 'proposal';
+  extracted: string[];
+  suggested: ButtonWithReason[];
+}
+
+/** 非方案类响应（任务决策者） */
+export interface DecisionButtonsResponse {
+  type: 'decision';
+  actions: ButtonWithReason[];
+}
+
+/** LLM 按钮响应（联合类型） */
+export type LLMButtonsResponse = ProposalButtonsResponse | DecisionButtonsResponse;

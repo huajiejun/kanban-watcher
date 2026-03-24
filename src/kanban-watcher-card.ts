@@ -15,6 +15,13 @@ import { renderMessageMarkdown } from "./lib/render-message-markdown";
 import { getStatusMeta } from "./lib/status-meta";
 import { summarizeToolCall, type DialogToolStatus } from "./lib/tool-call";
 import {
+  extractDynamicButtons,
+  getQuickButtonsWithLLM,
+  isValidButtonText,
+  STATIC_BUTTONS,
+} from "./lib/quick-buttons";
+import type { ButtonWithReason } from "./types";
+import {
   detectLanguageFromPath,
   renderDiffWithHighlight,
   renderCodeWithHighlight,
@@ -47,6 +54,9 @@ type CardConfig = {
   base_url?: string;
   api_key?: string;
   messages_limit?: number;
+  llm_enabled?: boolean;
+  llm_base_url?: string;
+  llm_model?: string;
 };
 
 type DialogAction = "send" | "queue" | "stop";
@@ -117,6 +127,7 @@ export class KanbanWatcherCard extends LitElement {
     queueStatusByWorkspace: { state: true },
     optimisticQueueWorkspaceIds: { state: true },
     autoScrollEnabled: { state: true },
+    dynamicButtonsByWorkspace: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -147,6 +158,14 @@ export class KanbanWatcherCard extends LitElement {
   private messageListScrollHandler?: () => void;
   private dialogMessageVersionsByWorkspace: Record<string, string> = {};
   private expandedToolMessageKeys = new Set<string>();
+  /** @deprecated 使用 extractedButtonsByWorkspace 和 suggestedButtonsByWorkspace 代替 */
+  private dynamicButtonsByWorkspace: Record<string, string[]> = {};
+  /** 从消息中提取的选项按钮 */
+  private extractedButtonsByWorkspace: Record<string, string[]> = {};
+  /** LLM 语义联想推荐的操作按钮（带理由） */
+  private suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
+  /** 缓存每个工作区最后分析的消息 hash，避免重复调用 LLM */
+  private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
 
   connectedCallback() {
     super.connectedCallback();
@@ -281,6 +300,77 @@ export class KanbanWatcherCard extends LitElement {
     `;
   }
 
+  private renderQuickButtons(workspace: KanbanWorkspace) {
+    const isRunning = workspace.status === "running";
+
+    // 运行时隐藏所有快捷按钮
+    if (isRunning) {
+      return nothing;
+    }
+
+    // 获取各类按钮
+    const extractedButtons = this.extractedButtonsByWorkspace[workspace.id] || [];
+    const suggestedButtons = this.suggestedButtonsByWorkspace[workspace.id] || [];
+
+    // 合并所有按钮：静态 + 提取 + 推荐
+    const staticBtns = STATIC_BUTTONS.filter(isValidButtonText);
+    const extractedBtns = extractedButtons.filter(isValidButtonText);
+
+    if (staticBtns.length === 0 && extractedBtns.length === 0 && suggestedButtons.length === 0) {
+      return nothing;
+    }
+
+    return html`
+      <div class="quick-buttons">
+        ${staticBtns.map((text) => html`
+          <button
+            class="quick-button is-static"
+            type="button"
+            @click=${() => void this.handleQuickButtonClick(text)}
+          >
+            ${text}
+          </button>
+        `)}
+        ${extractedBtns.map((text) => html`
+          <button
+            class="quick-button is-extracted"
+            type="button"
+            @click=${() => void this.handleQuickButtonClick(text)}
+          >
+            ${text}
+          </button>
+        `)}
+        ${suggestedButtons.map((item, index) => html`
+          <div class="quick-button-wrapper">
+            <button
+              class="quick-button is-suggested"
+              type="button"
+              @click=${() => void this.handleQuickButtonClick(item.button)}
+            >
+              ${item.button}
+            </button>
+            <button
+              class="quick-button-info"
+              type="button"
+              title="点击查看理由"
+              @click=${(e: Event) => {
+                e.stopPropagation();
+                const wrapper = (e.target as HTMLElement).closest('.quick-button-wrapper');
+                const tooltip = wrapper?.querySelector('.quick-button-reason');
+                if (tooltip) {
+                  tooltip.classList.toggle('is-visible');
+                }
+              }}
+            >
+              ℹ️
+            </button>
+            <div class="quick-button-reason">${item.reason}</div>
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
   private renderDialog() {
     const workspace = this.selectedWorkspace;
 
@@ -333,6 +423,7 @@ export class KanbanWatcherCard extends LitElement {
             ${isQueued
               ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
               : nothing}
+            ${this.renderQuickButtons(workspace)}
             <textarea
               class="message-input"
               rows="2"
@@ -727,6 +818,49 @@ export class KanbanWatcherCard extends LitElement {
       }
     } catch (error) {
       this.actionFeedback = this.toErrorMessage(error, "发送消息失败");
+      this.emitPreviewStatus(this.actionFeedback);
+    }
+  }
+
+  private async handleQuickButtonClick(text: string) {
+    const workspace = this.selectedWorkspace;
+    if (!workspace) {
+      return;
+    }
+
+    const isRunning = workspace.status === "running";
+    if (isRunning) {
+      this.actionFeedback = "工作区正在运行，无法发送快捷消息。";
+      this.emitPreviewStatus(this.actionFeedback);
+      return;
+    }
+
+    if (!this.isApiMode || !this.selectedWorkspaceId) {
+      this.actionFeedback = "发送消息功能暂未接入，当前仅展示界面。";
+      this.emitPreviewStatus(this.actionFeedback);
+      return;
+    }
+
+    try {
+      this.actionFeedback = "正在发送快捷消息...";
+      this.emitPreviewStatus(this.actionFeedback);
+      const response = await sendWorkspaceMessage({
+        baseUrl: this.config!.base_url!,
+        apiKey: this.config?.api_key,
+        workspaceId: this.selectedWorkspaceId,
+        message: text,
+        mode: "send",
+      });
+
+      this.appendOptimisticUserMessage(this.selectedWorkspaceId, text);
+      this.actionFeedback = response.message?.trim()
+        ? `发送成功：${response.message.trim()}`
+        : "快捷消息已发送";
+      this.messageDraft = "";
+      this.emitPreviewStatus(this.actionFeedback);
+      await this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+    } catch (error) {
+      this.actionFeedback = this.toErrorMessage(error, "发送快捷消息失败");
       this.emitPreviewStatus(this.actionFeedback);
     }
   }
@@ -1446,6 +1580,10 @@ export class KanbanWatcherCard extends LitElement {
           ...this.dialogMessageVersionsByWorkspace,
           [workspaceId]: this.getWorkspaceMessageVersion(workspace),
         };
+        // 非 running 状态都触发 LLM 分析动态按钮（带缓存）
+        if (workspace.status !== "running") {
+          void this.analyzeDynamicButtons(workspace);
+        }
       }
       this.emitPreviewStatus();
       this.requestUpdate();
@@ -1458,6 +1596,100 @@ export class KanbanWatcherCard extends LitElement {
       this.dialogLoading = false;
       this.requestUpdate();
     }
+  }
+
+  /**
+   * 计算字符串的简单 hash（用于缓存判断）
+   */
+  private simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // 转为 32 位整数
+    }
+    return hash.toString(16);
+  }
+
+  /**
+   * 分析动态按钮（使用 LLM 或正则匹配）
+   * 带缓存：相同消息内容不重复调用 LLM
+   */
+  private async analyzeDynamicButtons(workspace: KanbanWorkspace) {
+    const messages = this.dialogMessagesByWorkspace[workspace.id] || [];
+
+    // 获取最后一条 AI 消息
+    const lastAiMessage = [...messages]
+      .reverse()
+      .find((msg) => msg.kind === "message" && msg.sender === "ai");
+
+    if (!lastAiMessage || !("text" in lastAiMessage)) {
+      this.extractedButtonsByWorkspace = {
+        ...this.extractedButtonsByWorkspace,
+        [workspace.id]: [],
+      };
+      this.suggestedButtonsByWorkspace = {
+        ...this.suggestedButtonsByWorkspace,
+        [workspace.id]: [],
+      };
+      this.dynamicButtonsByWorkspace = {
+        ...this.dynamicButtonsByWorkspace,
+        [workspace.id]: [],
+      };
+      // 清除缓存
+      delete this.dynamicButtonsMessageHashByWorkspace[workspace.id];
+      return;
+    }
+
+    const message = lastAiMessage.text;
+    const messageHash = this.simpleHash(message);
+    const cachedHash = this.dynamicButtonsMessageHashByWorkspace[workspace.id];
+
+    // 如果消息内容相同，使用缓存结果
+    if (cachedHash === messageHash) {
+      return;
+    }
+
+    // 构建消息历史（用于短消息时的上下文分析）
+    const recentMessages: SessionMessageResponse[] = messages
+      .filter((msg): msg is DialogTextMessage =>
+        msg.kind === "message" && msg.sender === "ai"
+      )
+      .slice(-5)
+      .map((msg) => ({
+        role: "assistant",
+        content: msg.text,
+        timestamp: msg.timestamp,
+      }));
+
+    // 使用 LLM 分析
+    const result = await getQuickButtonsWithLLM({
+      message,
+      workspaceStatus: workspace.status,
+      llmEnabled: this.config?.llm_enabled ?? false,
+      llmConfig: {
+        baseUrl: this.config?.llm_base_url,
+        model: this.config?.llm_model,
+      },
+      recentMessages,
+    });
+
+    // 更新缓存
+    this.dynamicButtonsMessageHashByWorkspace[workspace.id] = messageHash;
+    this.extractedButtonsByWorkspace = {
+      ...this.extractedButtonsByWorkspace,
+      [workspace.id]: result.extractedButtons,
+    };
+    this.suggestedButtonsByWorkspace = {
+      ...this.suggestedButtonsByWorkspace,
+      [workspace.id]: result.suggestedButtons,
+    };
+    // 兼容旧的 dynamicButtons
+    this.dynamicButtonsByWorkspace = {
+      ...this.dynamicButtonsByWorkspace,
+      [workspace.id]: result.dynamicButtons,
+    };
+    this.requestUpdate();
   }
 
   private normalizeApiMessages(messages: SessionMessageResponse[] | undefined) {
