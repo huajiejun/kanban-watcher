@@ -239,3 +239,46 @@ func TestMessageContextFromProcessSkipsWhenExecutorConfigMissing(t *testing.T) {
 		t.Fatalf("messageContextFromProcess = %#v, want nil", msgCtx)
 	}
 }
+
+func TestProcessPromptEntryFromProcessBuildsUserMessage(t *testing.T) {
+	now := time.Date(2026, 3, 24, 10, 0, 0, 0, time.UTC)
+	createdAt := "2026-03-24T09:58:00Z"
+	process := remoteExecutionProcess{
+		ID:        "proc-1",
+		SessionID: "session-1",
+		RunReason: "codingagent",
+		Status:    "running",
+		CreatedAt: &createdAt,
+	}
+	process.ExecutorAction.Typ.Type = "CodingAgentFollowUpRequest"
+	process.ExecutorAction.Typ.Prompt = "继续处理这个问题"
+
+	entry, err := processPromptEntryFromProcess("ws-1", process, now)
+	if err != nil {
+		t.Fatalf("processPromptEntryFromProcess 返回错误: %v", err)
+	}
+	if entry == nil {
+		t.Fatal("processPromptEntryFromProcess = nil, want entry")
+	}
+	if entry.ProcessID != "proc-1" {
+		t.Fatalf("process_id = %q, want proc-1", entry.ProcessID)
+	}
+	if entry.EntryIndex != -1 {
+		t.Fatalf("entry_index = %d, want -1", entry.EntryIndex)
+	}
+	if entry.EntryType != "user_message" {
+		t.Fatalf("entry_type = %q, want user_message", entry.EntryType)
+	}
+	if entry.Content != "继续处理这个问题" {
+		t.Fatalf("content = %q, want 继续处理这个问题", entry.Content)
+	}
+	if got := entry.EntryTimestamp.Format(time.RFC3339); got != createdAt {
+		t.Fatalf("entry_timestamp = %q, want %q", got, createdAt)
+	}
+}
+
+func TestProcessPromptEntryFromProcessSkipsLogDerivedUserMessage(t *testing.T) {
+	if store.ShouldSync("user_message") {
+		t.Fatal("ShouldSync(user_message) = true, want false")
+	}
+}

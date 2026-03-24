@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,9 +15,7 @@ import (
 type messageContextStore interface {
 	GetMessageContextByWorkspaceID(context.Context, string) (*store.MessageContext, error)
 	GetLatestCodingAgentProcessByWorkspaceID(context.Context, string) (*store.ExecutionProcess, error)
-	GetNextLocalEntryIndex(context.Context, string) (int, error)
 	UpsertMessageContext(context.Context, *store.MessageContext) error
-	UpsertProcessEntry(context.Context, *store.ProcessEntry) error
 }
 
 type messageSender interface {
@@ -88,17 +84,6 @@ func (d *MessageDispatcher) DispatchWorkspaceMessage(ctx context.Context, worksp
 	case "send":
 		if err := d.sender.SendFollowUpWithContext(ctx, msgCtx.SessionID, trimmed, msgCtx); err != nil {
 			return nil, err
-		}
-		processID, err := d.resolveActiveProcessID(ctx, workspaceID, msgCtx)
-		if err != nil {
-			return nil, err
-		}
-		entryIndex, err := d.store.GetNextLocalEntryIndex(ctx, processID)
-		if err != nil {
-			return nil, fmt.Errorf("获取本地消息序号失败: %w", err)
-		}
-		if err := d.store.UpsertProcessEntry(ctx, buildLocalUserMessageEntry(workspaceID, msgCtx.SessionID, processID, entryIndex, trimmed)); err != nil {
-			return nil, fmt.Errorf("消息已发送，但写入本地会话失败: %w", err)
 		}
 		return &DispatchResult{
 			WorkspaceID: workspaceID,
@@ -178,22 +163,6 @@ func (d *MessageDispatcher) resolveMessageContext(ctx context.Context, workspace
 	return msgCtx, nil
 }
 
-func (d *MessageDispatcher) resolveActiveProcessID(ctx context.Context, workspaceID string, msgCtx *store.MessageContext) (string, error) {
-	if msgCtx != nil && msgCtx.ProcessID != nil && strings.TrimSpace(*msgCtx.ProcessID) != "" {
-		return strings.TrimSpace(*msgCtx.ProcessID), nil
-	}
-
-	latestProcess, err := d.store.GetLatestCodingAgentProcessByWorkspaceID(ctx, workspaceID)
-	if err != nil {
-		return "", fmt.Errorf("获取最新 process 失败: %w", err)
-	}
-	if latestProcess == nil || strings.TrimSpace(latestProcess.ID) == "" {
-		return "", errors.New("工作区缺少可用 process_id")
-	}
-
-	return strings.TrimSpace(latestProcess.ID), nil
-}
-
 func (d *MessageDispatcher) hydrateMessageContext(ctx context.Context, workspaceID string) (*store.MessageContext, error) {
 	if d.fetcher == nil {
 		return nil, errors.New("工作区缺少可用消息上下文，请等待同步完成后重试")
@@ -244,23 +213,6 @@ func (d *MessageDispatcher) hydrateMessageContext(ctx context.Context, workspace
 
 func stringPtr(v string) *string {
 	return &v
-}
-
-func buildLocalUserMessageEntry(workspaceID, sessionID, processID string, entryIndex int, message string) *store.ProcessEntry {
-	now := time.Now()
-	hash := sha256.Sum256([]byte(message))
-
-	return &store.ProcessEntry{
-		ProcessID:      processID,
-		SessionID:      sessionID,
-		WorkspaceID:    workspaceID,
-		EntryIndex:     entryIndex,
-		EntryType:      "user_message",
-		Role:           "user",
-		Content:        message,
-		EntryTimestamp: now,
-		ContentHash:    hex.EncodeToString(hash[:]),
-	}
 }
 
 func queueStatusMessage(status *api.QueueStatusResponse) string {

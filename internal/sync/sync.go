@@ -374,6 +374,13 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 					fmt.Fprintf(os.Stderr, "保存 execution process 失败 [%s]: %v\n", ep.ID, err)
 					continue
 				}
+				if promptEntry, err := processPromptEntryFromProcess(workspaceID, process, time.Now()); err != nil {
+					fmt.Fprintf(os.Stderr, "提取用户消息失败 [%s]: %v\n", ep.ID, err)
+				} else if promptEntry != nil {
+					if err := s.store.UpsertProcessEntry(ctx, promptEntry); err != nil {
+						fmt.Fprintf(os.Stderr, "保存用户消息失败 [%s]: %v\n", ep.ID, err)
+					}
+				}
 				if msgCtx, err := messageContextFromProcess(workspaceID, process, time.Now()); err != nil {
 					fmt.Fprintf(os.Stderr, "提取消息上下文失败 [%s]: %v\n", ep.ID, err)
 				} else if msgCtx != nil {
@@ -634,6 +641,42 @@ func toStoreExecutionProcess(workspaceID string, process remoteExecutionProcess)
 		CreatedAt:          parseTimePtrValue(process.CreatedAt),
 		CompletedAt:        parseTimePtrValue(process.CompletedAt),
 	}
+}
+
+func processPromptEntryFromProcess(workspaceID string, process remoteExecutionProcess, now time.Time) (*store.ProcessEntry, error) {
+	if process.RunReason != "codingagent" {
+		return nil, nil
+	}
+
+	actionType := process.ExecutorAction.Typ.Type
+	switch actionType {
+	case "CodingAgentInitialRequest", "CodingAgentFollowUpRequest", "ReviewRequest":
+	default:
+		return nil, nil
+	}
+
+	prompt := strings.TrimSpace(process.ExecutorAction.Typ.Prompt)
+	if prompt == "" {
+		return nil, nil
+	}
+
+	entryTimestamp := now
+	if parsed := parseTimePtrValue(process.CreatedAt); parsed != nil {
+		entryTimestamp = *parsed
+	}
+	hash := sha256.Sum256([]byte(prompt))
+
+	return &store.ProcessEntry{
+		ProcessID:      process.ID,
+		SessionID:      process.SessionID,
+		WorkspaceID:    workspaceID,
+		EntryIndex:     -1,
+		EntryType:      "user_message",
+		Role:           "user",
+		Content:        prompt,
+		EntryTimestamp: entryTimestamp,
+		ContentHash:    hex.EncodeToString(hash[:]),
+	}, nil
 }
 
 func messageContextFromProcess(workspaceID string, process remoteExecutionProcess, now time.Time) (*store.MessageContext, error) {

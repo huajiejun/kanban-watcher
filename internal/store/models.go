@@ -136,7 +136,6 @@ type NormalizedEntryType struct {
 
 // MessageTypesToSync 需要同步的消息类型
 var MessageTypesToSync = []string{
-	"user_message",
 	"assistant_message",
 	"tool_use",
 	"error_message",
