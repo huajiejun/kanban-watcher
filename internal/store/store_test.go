@@ -259,6 +259,77 @@ func TestMarkMissingWorkspacesArchivedMarksAllWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestUpsertMessageContextStoresLatestSessionAndExecutorConfig(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	updatedAt := time.Now()
+	ctxRow := &MessageContext{
+		WorkspaceID:        "ws-1",
+		SessionID:          "session-1",
+		ProcessID:          stringPtr("proc-1"),
+		Executor:           stringPtr("CLAUDE_CODE"),
+		Variant:            stringPtr("ZHIPU"),
+		ExecutorConfigJSON: `{"executor":"CLAUDE_CODE","variant":"ZHIPU"}`,
+		ForceWhenDirty:     boolPtr(false),
+		PerformGitReset:    boolPtr(true),
+		DefaultSendMode:    "send",
+		Source:             "sync",
+		UpdatedAt:          updatedAt,
+	}
+
+	mock.ExpectExec("INSERT INTO kw_msg_contexts").
+		WithArgs(
+			ctxRow.WorkspaceID,
+			ctxRow.SessionID,
+			ctxRow.ProcessID,
+			ctxRow.Executor,
+			ctxRow.Variant,
+			ctxRow.ExecutorConfigJSON,
+			ctxRow.ForceWhenDirty,
+			ctxRow.PerformGitReset,
+			ctxRow.DefaultSendMode,
+			ctxRow.Source,
+			ctxRow.UpdatedAt,
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	if err := store.UpsertMessageContext(context.Background(), ctxRow); err != nil {
+		t.Fatalf("UpsertMessageContext 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestGetMessageContextByWorkspaceIDReturnsNilWhenMissing(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT workspace_id, session_id, process_id, executor, variant, executor_config_json,
+		       force_when_dirty, perform_git_reset, default_send_mode, source, updated_at, synced_at
+		FROM kw_msg_contexts
+		WHERE workspace_id = ?
+		LIMIT 1
+	`)).
+		WithArgs("missing-workspace").
+		WillReturnError(sql.ErrNoRows)
+
+	got, err := store.GetMessageContextByWorkspaceID(context.Background(), "missing-workspace")
+	if err != nil {
+		t.Fatalf("GetMessageContextByWorkspaceID 返回错误: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("message context = %#v, want nil", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestRefreshWorkspaceRuntimeStatePromotesRunningProcess(t *testing.T) {
 	store, mock, cleanup := newMockStore(t)
 	defer cleanup()

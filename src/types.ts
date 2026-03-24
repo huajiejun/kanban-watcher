@@ -98,6 +98,14 @@ export interface RealtimeEvent {
   messages?: SessionMessageResponse[];
 }
 
+export interface WorkspaceMessageResponse {
+  success?: boolean;
+  workspace_id?: string;
+  session_id?: string;
+  action?: string;
+  message?: string;
+}
+
 export interface ToolActionInfo {
   action?: string;
   command?: string;

@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,15 +12,21 @@ import (
 	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
+	dispatchsvc "github.com/huajiejun/kanban-watcher/internal/service"
 )
 
 // Server HTTP 服务器
 type Server struct {
 	proxy       *api.ProxyClient
+	dispatcher  workspaceMessageDispatcher
 	port        int
 	apiKey      string
 	httpServer  *http.Server
 	extraRoutes []routeRegistration
+}
+
+type workspaceMessageDispatcher interface {
+	DispatchWorkspaceMessage(context.Context, string, string, string) (*dispatchsvc.DispatchResult, error)
 }
 
 // routeRegistration 路由注册信息
@@ -38,6 +45,11 @@ func NewServer(proxy *api.ProxyClient, port int, apiKey string) *Server {
 	}
 }
 
+// SetWorkspaceMessageDispatcher 设置工作区消息分发器
+func (s *Server) SetWorkspaceMessageDispatcher(dispatcher workspaceMessageDispatcher) {
+	s.dispatcher = dispatcher
+}
+
 // RegisterRoute 注册额外的路由
 func (s *Server) RegisterRoute(pattern string, handler http.HandlerFunc) {
 	s.extraRoutes = append(s.extraRoutes, routeRegistration{
@@ -53,8 +65,8 @@ func (s *Server) Start() error {
 	// 健康检查
 	mux.HandleFunc("/health", s.handleHealth)
 
-	// Follow-up 代理接口
-	mux.HandleFunc("/api/workspace/", s.handleFollowUp)
+	// 工作区消息代理接口
+	mux.HandleFunc("/api/workspace/", s.handleWorkspaceMessage)
 
 	// 注册额外的路由
 	for _, route := range s.extraRoutes {
@@ -99,28 +111,28 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleFollowUp 处理 follow-up 请求
-// URL 格式: POST /api/workspace/{workspace_id}/follow-up
-func (s *Server) handleFollowUp(w http.ResponseWriter, r *http.Request) {
+// handleWorkspaceMessage 处理工作区消息请求
+// URL 格式:
+//   POST /api/workspace/{workspace_id}/message
+//   POST /api/workspace/{workspace_id}/follow-up
+func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// 解析 URL 路径，提取 workspace_id
-	// 格式: /api/workspace/{id}/follow-up
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspace/")
 	parts := strings.Split(path, "/")
-	if len(parts) != 2 || parts[1] != "follow-up" {
-		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/follow-up", http.StatusBadRequest)
+	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message") {
+		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up", http.StatusBadRequest)
 		return
 	}
 
 	workspaceID := parts[0]
 
-	// 解析请求体
 	var req struct {
 		Message string `json:"message"`
+		Mode    string `json:"mode"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -133,24 +145,45 @@ func (s *Server) handleFollowUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[HTTP Server] 收到工作区 %s 的 follow-up 请求: %s", workspaceID, req.Message)
+	mode := req.Mode
+	if parts[1] == "follow-up" {
+		mode = "send"
+	}
 
-	// 调用代理
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
+	log.Printf("[HTTP Server] 收到工作区 %s 的消息请求: mode=%s message=%s", workspaceID, mode, req.Message)
 
-	if err := s.proxy.SendFollowUp(ctx, workspaceID, req.Message); err != nil {
-		log.Printf("[HTTP Server] follow-up 失败: %v", err)
-		http.Error(w, fmt.Sprintf("Failed to send follow-up: %v", err), http.StatusInternalServerError)
+	if s.dispatcher == nil {
+		http.Error(w, "消息分发器未初始化", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("[HTTP Server] 工作区 %s 的 follow-up 发送成功", workspaceID)
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	result, err := s.dispatcher.DispatchWorkspaceMessage(ctx, workspaceID, req.Message, mode)
+	if err != nil {
+		log.Printf("[HTTP Server] 消息发送失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		} else if strings.Contains(err.Error(), "message is required") || strings.Contains(err.Error(), "unsupported mode") {
+			statusCode = http.StatusBadRequest
+		} else if strings.Contains(err.Error(), "缺少可用") || strings.Contains(err.Error(), "等待同步") {
+			statusCode = http.StatusConflict
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	log.Printf("[HTTP Server] 工作区 %s 的消息发送成功", workspaceID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"success": "true",
-		"message": "Follow-up sent successfully",
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"workspace_id": result.WorkspaceID,
+		"session_id":   result.SessionID,
+		"action":       result.Action,
+		"message":      result.Message,
 	})
 }
 

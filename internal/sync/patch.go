@@ -50,7 +50,8 @@ type remoteExecutionProcess struct {
 	Executor     *string `json:"executor"`
 	ExecutorAction struct {
 		Typ struct {
-			Type string `json:"type"`
+			Type           string                 `json:"type"`
+			ExecutorConfig map[string]interface{} `json:"executor_config"`
 		} `json:"typ"`
 	} `json:"executor_action"`
 }

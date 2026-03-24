@@ -819,7 +819,7 @@ describe("kanban-watcher-card", () => {
     expect(shadowRoot?.querySelector(".workspace-dialog")).toBeNull();
   });
 
-  it("switches actions by running state and shows queue items above the input", async () => {
+  it("switches actions by running state and keeps non-api queue action in placeholder mode", async () => {
     const card = await renderCard();
     const shadowRoot = card.shadowRoot;
     const taskCards = Array.from(
@@ -882,12 +882,9 @@ describe("kanban-watcher-card", () => {
     queueButton?.click();
     await card.updateComplete;
 
-    expect(normalizeText(shadowRoot?.querySelector(".queue-list")?.textContent)).toContain(
-      "运行中先加入这一条队列",
-    );
     expect(
       normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent),
-    ).toContain("加入队列功能暂未接入");
+    ).toContain("发送消息功能暂未接入");
   });
 
   it("declares a large dialog with its own scrollable full-width message flow", () => {
@@ -1485,14 +1482,14 @@ describe("kanban-watcher-card", () => {
 
     expect(globalThis.fetch).toHaveBeenNthCalledWith(
       3,
-      "http://localhost:7778/api/workspace/api-send/follow-up",
+      "http://localhost:7778/api/workspace/api-send/message",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
           "Content-Type": "application/json",
           "X-API-Key": "test-api-key",
         }),
-        body: JSON.stringify({ message: "继续推进这个任务" }),
+        body: JSON.stringify({ message: "继续推进这个任务", mode: "send" }),
       }),
     );
     expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(

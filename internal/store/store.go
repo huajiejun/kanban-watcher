@@ -131,6 +131,25 @@ func (s *Store) InitSchema(ctx context.Context) error {
 				ON UPDATE CURRENT_TIMESTAMP(3),
 			KEY idx_kw_sync_type_target (subscription_type, target_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+		`CREATE TABLE IF NOT EXISTS kw_msg_contexts (
+			workspace_id VARCHAR(36) PRIMARY KEY,
+			session_id VARCHAR(36) NOT NULL,
+			process_id VARCHAR(36) NULL,
+			executor VARCHAR(50) NULL,
+			variant VARCHAR(50) NULL,
+			executor_config_json JSON NOT NULL,
+			force_when_dirty BOOLEAN NULL,
+			perform_git_reset BOOLEAN NULL,
+			default_send_mode VARCHAR(20) NOT NULL DEFAULT 'send',
+			source VARCHAR(30) NOT NULL,
+			updated_at TIMESTAMP(3) NOT NULL,
+			synced_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+				ON UPDATE CURRENT_TIMESTAMP(3),
+			KEY idx_kw_msg_contexts_session (session_id),
+			KEY idx_kw_msg_contexts_updated_at (updated_at),
+			CONSTRAINT fk_kw_msg_contexts_workspace
+				FOREIGN KEY (workspace_id) REFERENCES kw_workspaces(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_pending_approval BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_unseen_turns BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_running_dev_server BOOLEAN NOT NULL DEFAULT FALSE`,
@@ -234,6 +253,71 @@ func (s *Store) UpsertExecutionProcess(ctx context.Context, ep *ExecutionProcess
 		return fmt.Errorf("upsert execution process: %w", err)
 	}
 	return nil
+}
+
+// UpsertMessageContext 插入或更新工作区消息上下文
+func (s *Store) UpsertMessageContext(ctx context.Context, msgCtx *MessageContext) error {
+	query := `
+		INSERT INTO kw_msg_contexts (
+			workspace_id, session_id, process_id, executor, variant, executor_config_json,
+			force_when_dirty, perform_git_reset, default_send_mode, source, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			session_id = VALUES(session_id),
+			process_id = VALUES(process_id),
+			executor = VALUES(executor),
+			variant = VALUES(variant),
+			executor_config_json = VALUES(executor_config_json),
+			force_when_dirty = VALUES(force_when_dirty),
+			perform_git_reset = VALUES(perform_git_reset),
+			default_send_mode = VALUES(default_send_mode),
+			source = VALUES(source),
+			updated_at = VALUES(updated_at),
+			synced_at = CURRENT_TIMESTAMP(3)
+	`
+	_, err := s.execWithRetry(ctx, query,
+		msgCtx.WorkspaceID, msgCtx.SessionID, msgCtx.ProcessID, msgCtx.Executor, msgCtx.Variant,
+		msgCtx.ExecutorConfigJSON, msgCtx.ForceWhenDirty, msgCtx.PerformGitReset,
+		msgCtx.DefaultSendMode, msgCtx.Source, msgCtx.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert message context: %w", err)
+	}
+	return nil
+}
+
+// GetMessageContextByWorkspaceID 获取工作区消息上下文
+func (s *Store) GetMessageContextByWorkspaceID(ctx context.Context, workspaceID string) (*MessageContext, error) {
+	query := `
+		SELECT workspace_id, session_id, process_id, executor, variant, executor_config_json,
+		       force_when_dirty, perform_git_reset, default_send_mode, source, updated_at, synced_at
+		FROM kw_msg_contexts
+		WHERE workspace_id = ?
+		LIMIT 1
+	`
+
+	var msgCtx MessageContext
+	if err := s.db.QueryRowContext(ctx, query, workspaceID).Scan(
+		&msgCtx.WorkspaceID,
+		&msgCtx.SessionID,
+		&msgCtx.ProcessID,
+		&msgCtx.Executor,
+		&msgCtx.Variant,
+		&msgCtx.ExecutorConfigJSON,
+		&msgCtx.ForceWhenDirty,
+		&msgCtx.PerformGitReset,
+		&msgCtx.DefaultSendMode,
+		&msgCtx.Source,
+		&msgCtx.UpdatedAt,
+		&msgCtx.SyncedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get message context by workspace id: %w", err)
+	}
+
+	return &msgCtx, nil
 }
 
 // GetExecutionProcessStatus 获取 execution process 当前状态

@@ -19,6 +19,7 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/realtime"
 	"github.com/huajiejun/kanban-watcher/internal/server"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
+	"github.com/huajiejun/kanban-watcher/internal/service"
 	"github.com/huajiejun/kanban-watcher/internal/singleton"
 	"github.com/huajiejun/kanban-watcher/internal/state"
 	"github.com/huajiejun/kanban-watcher/internal/store"
@@ -242,6 +243,9 @@ func runDaemon() error {
 
 	proxyClient := api.NewProxyClient(cfg.KanbanAPIURL)
 	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey)
+	if dbStore != nil {
+		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient))
+	}
 
 	// 注册消息 API 路由（如果数据库已连接）
 	if dbStore != nil {

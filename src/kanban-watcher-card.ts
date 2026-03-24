@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { fetchActiveWorkspaces, fetchWorkspaceLatestMessages, sendWorkspaceFollowUp } from "./lib/http-api";
+import { fetchActiveWorkspaces, fetchWorkspaceLatestMessages, sendWorkspaceMessage } from "./lib/http-api";
 import { connectRealtime } from "./lib/realtime-api";
 import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
@@ -68,10 +68,6 @@ type DialogToolGroupMessage = {
   timestamp?: string;
 };
 type DialogMessage = DialogTextMessage | DialogToolMessage | DialogToolGroupMessage;
-type QueueItem = {
-  workspaceId: string;
-  content: string;
-};
 
 const SECTION_ORDER: Array<{ key: SectionKey; label: string }> = [
   { key: "attention", label: "需要注意" },
@@ -117,7 +113,6 @@ export class KanbanWatcherCard extends LitElement {
   private selectedWorkspaceId?: string;
   private messageDraft = "";
   private actionFeedback = "";
-  private queuedItems: QueueItem[] = [];
   private apiWorkspaces: KanbanWorkspace[] = [];
   private boardLoading = false;
   private boardError = "";
@@ -268,7 +263,6 @@ export class KanbanWatcherCard extends LitElement {
 
     const messages = this.getDialogMessages(workspace);
     const isRunning = workspace.status === "running";
-    const queuedItems = this.getQueueItems(workspace.id);
 
     return html`
       <div class="dialog-shell" role="presentation">
@@ -306,20 +300,6 @@ export class KanbanWatcherCard extends LitElement {
           </section>
 
           <div class="dialog-composer">
-            ${queuedItems.length > 0
-              ? html`
-                  <div class="queue-list">
-                    ${queuedItems.map(
-                      (item, index) => html`
-                        <div class="queue-item">
-                          <span class="queue-index">队列 ${index + 1}</span>
-                          <span class="queue-content">${item.content}</span>
-                        </div>
-                      `,
-                    )}
-                  </div>
-                `
-              : nothing}
             <textarea
               class="message-input"
               rows="2"
@@ -512,16 +492,6 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private async handleActionClick(action: DialogAction) {
-    if (action === "queue" && this.selectedWorkspaceId) {
-      const content = this.messageDraft.trim() || "未填写内容的排队消息";
-      this.queuedItems = [
-        ...this.queuedItems.filter((item) => item.workspaceId !== this.selectedWorkspaceId),
-        { workspaceId: this.selectedWorkspaceId, content },
-      ];
-      this.actionFeedback = "加入队列功能暂未接入，当前仅展示界面。";
-      return;
-    }
-
     if (action === "stop") {
       this.actionFeedback = "停止功能暂未接入，当前仅展示界面。";
       return;
@@ -539,20 +509,26 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     try {
-      this.actionFeedback = "正在发送消息...";
-      const response = await sendWorkspaceFollowUp({
+      this.actionFeedback = action === "queue" ? "正在加入队列..." : "正在发送消息...";
+      const response = await sendWorkspaceMessage({
         baseUrl: this.config!.base_url!,
         apiKey: this.config?.api_key,
         workspaceId: this.selectedWorkspaceId,
         message,
+        mode: action,
       });
-      this.appendOptimisticUserMessage(this.selectedWorkspaceId, message);
+      if (action === "send") {
+        this.appendOptimisticUserMessage(this.selectedWorkspaceId, message);
+      }
       this.messageDraft = "";
+      const successPrefix = action === "queue" ? "加入队列成功" : "发送成功";
       this.actionFeedback = response.message?.trim()
-        ? `发送成功：${response.message.trim()}`
-        : "发送成功。";
+        ? `${successPrefix}：${response.message.trim()}`
+        : `${successPrefix}。`;
       this.emitPreviewStatus();
-      await this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+      if (action === "send") {
+        await this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+      }
     } catch (error) {
       this.actionFeedback = this.toErrorMessage(error, "发送消息失败");
       this.emitPreviewStatus(this.actionFeedback);
@@ -772,10 +748,6 @@ export class KanbanWatcherCard extends LitElement {
     if (messageList) {
       messageList.scrollTop = messageList.scrollHeight;
     }
-  }
-
-  private getQueueItems(workspaceId: string) {
-    return this.queuedItems.filter((item) => item.workspaceId === workspaceId);
   }
 
   private emitPreviewStatus(message?: string) {

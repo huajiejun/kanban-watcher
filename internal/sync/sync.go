@@ -374,6 +374,13 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 					fmt.Fprintf(os.Stderr, "保存 execution process 失败 [%s]: %v\n", ep.ID, err)
 					continue
 				}
+				if msgCtx, err := messageContextFromProcess(workspaceID, process, time.Now()); err != nil {
+					fmt.Fprintf(os.Stderr, "提取消息上下文失败 [%s]: %v\n", ep.ID, err)
+				} else if msgCtx != nil {
+					if err := s.store.UpsertMessageContext(ctx, msgCtx); err != nil {
+						fmt.Fprintf(os.Stderr, "保存消息上下文失败 [%s]: %v\n", ep.ID, err)
+					}
+				}
 				if err := s.store.RefreshWorkspaceRuntimeState(ctx, workspaceID); err != nil {
 					fmt.Fprintf(os.Stderr, "刷新 workspace 运行态失败 [%s]: %v\n", workspaceID, err)
 				} else if s.realtime != nil {
@@ -629,6 +636,45 @@ func toStoreExecutionProcess(workspaceID string, process remoteExecutionProcess)
 	}
 }
 
+func messageContextFromProcess(workspaceID string, process remoteExecutionProcess, now time.Time) (*store.MessageContext, error) {
+	if process.RunReason != "codingagent" {
+		return nil, nil
+	}
+	if len(process.ExecutorAction.Typ.ExecutorConfig) == 0 {
+		return nil, nil
+	}
+
+	encoded, err := json.Marshal(process.ExecutorAction.Typ.ExecutorConfig)
+	if err != nil {
+		return nil, fmt.Errorf("marshal executor config: %w", err)
+	}
+
+	msgCtx := &store.MessageContext{
+		WorkspaceID:        workspaceID,
+		SessionID:          process.SessionID,
+		ProcessID:          optionalString(process.ID),
+		ExecutorConfigJSON: string(encoded),
+		DefaultSendMode:    "send",
+		Source:             "sync",
+		UpdatedAt:          now,
+	}
+
+	if executor, ok := process.ExecutorAction.Typ.ExecutorConfig["executor"].(string); ok && executor != "" {
+		msgCtx.Executor = optionalString(executor)
+	}
+	if variant, ok := process.ExecutorAction.Typ.ExecutorConfig["variant"].(string); ok && variant != "" {
+		msgCtx.Variant = optionalString(variant)
+	}
+	if forceWhenDirty, ok := process.ExecutorAction.Typ.ExecutorConfig["force_when_dirty"].(bool); ok {
+		msgCtx.ForceWhenDirty = boolPtr(forceWhenDirty)
+	}
+	if performGitReset, ok := process.ExecutorAction.Typ.ExecutorConfig["perform_git_reset"].(bool); ok {
+		msgCtx.PerformGitReset = boolPtr(performGitReset)
+	}
+
+	return msgCtx, nil
+}
+
 func buildWSURL(baseURL, path string, query map[string]string) (string, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
@@ -679,6 +725,10 @@ func optionalString(v string) *string {
 	if v == "" {
 		return nil
 	}
+	return &v
+}
+
+func boolPtr(v bool) *bool {
 	return &v
 }
 

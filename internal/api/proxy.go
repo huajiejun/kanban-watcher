@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/huajiejun/kanban-watcher/internal/store"
 )
 
 // ProxyClient 代理客户端，用于转发 HomeAssistant 的请求到 vibe-kanban
@@ -44,6 +46,11 @@ type FollowUpResponse struct {
 	Message    *string     `json:"message,omitempty"`
 }
 
+type QueueRequest struct {
+	Message        string                 `json:"message"`
+	ExecutorConfig map[string]interface{} `json:"executor_config"`
+}
+
 // SendFollowUp 发送 follow-up 消息到指定工作区的最新 session
 // 流程：
 //   1. 查询 summaries 获取工作区的 latest_session_id
@@ -61,6 +68,38 @@ func (c *ProxyClient) SendFollowUp(ctx context.Context, workspaceID, message str
 
 	// 步骤 2：调用 follow-up 接口
 	return c.callFollowUpAPI(ctx, sessionID, message)
+}
+
+// SendFollowUpWithContext 使用已保存的消息上下文发送 follow-up
+func (c *ProxyClient) SendFollowUpWithContext(ctx context.Context, sessionID, message string, msgCtx *store.MessageContext) error {
+	executorConfig, err := decodeExecutorConfig(msgCtx.ExecutorConfigJSON)
+	if err != nil {
+		return fmt.Errorf("解析 executor_config: %w", err)
+	}
+
+	reqBody := FollowUpRequest{
+		Prompt:         message,
+		ExecutorConfig: executorConfig,
+	}
+	reqBody.ForceWhenDirty = msgCtx.ForceWhenDirty
+	reqBody.PerformGitReset = msgCtx.PerformGitReset
+
+	return c.postJSON(ctx, fmt.Sprintf("%s/api/sessions/%s/follow-up", c.baseURL, sessionID), reqBody)
+}
+
+// QueueMessageWithContext 使用已保存的消息上下文加入 follow-up 队列
+func (c *ProxyClient) QueueMessageWithContext(ctx context.Context, sessionID, message string, msgCtx *store.MessageContext) error {
+	executorConfig, err := decodeExecutorConfig(msgCtx.ExecutorConfigJSON)
+	if err != nil {
+		return fmt.Errorf("解析 executor_config: %w", err)
+	}
+
+	reqBody := QueueRequest{
+		Message:        message,
+		ExecutorConfig: executorConfig,
+	}
+
+	return c.postJSON(ctx, fmt.Sprintf("%s/api/sessions/%s/queue", c.baseURL, sessionID), reqBody)
 }
 
 // getLatestSessionID 查询 summaries 获取工作区的最新 session_id
@@ -144,4 +183,43 @@ func (c *ProxyClient) callFollowUpAPI(ctx context.Context, sessionID, message st
 	}
 
 	return nil
+}
+
+func (c *ProxyClient) postJSON(ctx context.Context, url string, payload interface{}) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("序列化请求: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("构建请求: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应体
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+func decodeExecutorConfig(raw string) (map[string]interface{}, error) {
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+		return nil, err
+	}
+	if len(cfg) == 0 {
+		return nil, fmt.Errorf("empty executor_config")
+	}
+	return cfg, nil
 }
