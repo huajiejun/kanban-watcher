@@ -27,7 +27,7 @@ func makeWorkspace(id string, hasUnseen, hasPending bool, completedAt *string) a
 func strPtr(s string) *string { return &s }
 
 func TestTracker_NoAlertBeforeThreshold(t *testing.T) {
-	tracker := NewTracker(state.NewAppState(), 10)
+	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
 	now := time.Now()
 
 	ws := []api.EnrichedWorkspace{
@@ -54,7 +54,7 @@ func TestTracker_NoAlertBeforeThreshold(t *testing.T) {
 }
 
 func TestTracker_AlertAfterThreshold(t *testing.T) {
-	tracker := NewTracker(state.NewAppState(), 10)
+	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
 	now := time.Now()
 
 	ws := []api.EnrichedWorkspace{
@@ -81,7 +81,7 @@ func TestTracker_AlertAfterThreshold(t *testing.T) {
 }
 
 func TestTracker_NoRepeatNotification(t *testing.T) {
-	tracker := NewTracker(state.NewAppState(), 10)
+	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
 	now := time.Now()
 
 	ws := []api.EnrichedWorkspace{
@@ -98,15 +98,21 @@ func TestTracker_NoRepeatNotification(t *testing.T) {
 		t.Fatalf("expected 1 notification, got %d", len(notify))
 	}
 
-	// Second call: already notified for this key → no repeat
-	notify = tracker.ProcessWorkspaces(ws, now.Add(20*time.Minute+30*time.Second))
+	// Within repeat_interval (2 minutes later): no repeat notification
+	notify = tracker.ProcessWorkspaces(ws, now.Add(13*time.Minute+30*time.Second))
 	if len(notify) != 0 {
-		t.Fatalf("expected 0 repeat notifications, got %d", len(notify))
+		t.Fatalf("expected 0 repeat notifications within interval, got %d", len(notify))
+	}
+
+	// After repeat_interval (9 minutes later): should repeat notification (stacked reminder)
+	notify = tracker.ProcessWorkspaces(ws, now.Add(20*time.Minute+30*time.Second))
+	if len(notify) != 1 {
+		t.Fatalf("expected 1 stacked reminder notification, got %d", len(notify))
 	}
 }
 
 func TestTracker_NewCompletedAtResetsDedup(t *testing.T) {
-	tracker := NewTracker(state.NewAppState(), 10)
+	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
 	now := time.Now()
 	completedAt1 := strPtr("2026-03-21T10:00:00Z")
 
@@ -131,7 +137,7 @@ func TestTracker_NewCompletedAtResetsDedup(t *testing.T) {
 }
 
 func TestTracker_ResolvedWorkspaceRemoved(t *testing.T) {
-	tracker := NewTracker(state.NewAppState(), 10)
+	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
 	now := time.Now()
 
 	ws := []api.EnrichedWorkspace{makeWorkspace("ws1", true, false, nil)}
@@ -154,7 +160,7 @@ func TestTracker_ResolvedWorkspaceRemoved(t *testing.T) {
 }
 
 func TestTracker_StatePersistence(t *testing.T) {
-	tracker := NewTracker(state.NewAppState(), 10)
+	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
 	now := time.Now()
 
 	ws := []api.EnrichedWorkspace{makeWorkspace("ws1", true, false, nil)}
@@ -169,17 +175,23 @@ func TestTracker_StatePersistence(t *testing.T) {
 
 	// Simulate restart: load state and create new tracker
 	savedState := tracker.GetState()
-	tracker2 := NewTracker(savedState, 10)
+	tracker2 := NewTracker(savedState, 5, 10, 5)
 
-	// Should not notify again (already notified)
-	notify = tracker2.ProcessWorkspaces(ws, now.Add(20*time.Minute+30*time.Second))
+	// Within repeat_interval after restart: should not notify
+	notify = tracker2.ProcessWorkspaces(ws, now.Add(13*time.Minute+30*time.Second))
 	if len(notify) != 0 {
-		t.Fatalf("expected 0 notifications after restart with saved state, got %d", len(notify))
+		t.Fatalf("expected 0 notifications within repeat_interval after restart, got %d", len(notify))
+	}
+
+	// After repeat_interval (9 minutes later): should notify again (stacked reminder)
+	notify = tracker2.ProcessWorkspaces(ws, now.Add(20*time.Minute+30*time.Second))
+	if len(notify) != 1 {
+		t.Fatalf("expected 1 stacked reminder notification after restart, got %d", len(notify))
 	}
 }
 
 func TestTracker_TransientFalsePositive(t *testing.T) {
-	tracker := NewTracker(state.NewAppState(), 10)
+	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
 	now := time.Now()
 
 	// First cycle: needs attention
@@ -221,7 +233,7 @@ func TestTracker_BackwardCompatibility(t *testing.T) {
 	oldState = oldState.WithEntry(key, oldEntry)
 
 	// 创建 Tracker（此时会进行兼容性迁移）
-	tracker := NewTracker(oldState, 10)
+	tracker := NewTracker(oldState, 5, 10, 5)
 
 	ws := []api.EnrichedWorkspace{makeWorkspace("ws1", true, false, nil)}
 
@@ -256,7 +268,7 @@ func TestTracker_BackwardCompatibility_Expired(t *testing.T) {
 	oldState = oldState.WithEntry(key, oldEntry)
 
 	// 创建 Tracker（此时会强制重新确认：ConfirmedAt = now）
-	tracker := NewTracker(oldState, 10)
+	tracker := NewTracker(oldState, 5, 10, 5)
 
 	ws := []api.EnrichedWorkspace{makeWorkspace("ws1", true, false, nil)}
 
