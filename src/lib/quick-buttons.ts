@@ -392,6 +392,23 @@ export async function getQuickButtonsWithLLM(
     llmConfig?.model
   );
 
+  // 检查 LLM 是否返回有效结果（如果失败或返回空，回退到正则模式）
+  const isLLMFailed =
+    (llmResult.type === 'proposal' && llmResult.suggested.length === 0) ||
+    (llmResult.type === 'decision' && llmResult.actions.length === 0);
+
+  if (isLLMFailed) {
+    // LLM 失败或返回空，回退到正则提取模式（不显示推荐按钮）
+    const extractedButtons = extractDynamicButtons(message);
+    return {
+      type: 'decision',
+      staticButtons: [...STATIC_BUTTONS],
+      extractedButtons: extractedButtons.filter(isValidButtonText),
+      suggestedButtons: [],
+      dynamicButtons: extractedButtons.filter(isValidButtonText),
+    };
+  }
+
   // 根据类型处理结果
   if (llmResult.type === 'proposal') {
     // LLM 返回空提取，回退到正则

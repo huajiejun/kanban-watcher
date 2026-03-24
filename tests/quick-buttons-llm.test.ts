@@ -205,6 +205,25 @@ describe("quick-buttons-llm", () => {
       expect(result.suggestedButtons).toEqual([{ button: "选择方案1", reason: "推荐理由" }]);
     });
 
+    it("falls back to regex when LLM API is not available (network error)", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+
+      const result = await getQuickButtonsWithLLM({
+        message: "请选择方案1或方案2",
+        workspaceStatus: "attention",
+        llmEnabled: true,
+        llmConfig: {
+          baseUrl: "http://localhost:1234",
+        },
+      });
+
+      // LLM 不可用时应该回退到正则提取模式
+      expect(result.type).toBe('decision');
+      expect(result.extractedButtons).toContain("方案1");
+      expect(result.extractedButtons).toContain("方案2");
+      expect(result.suggestedButtons).toEqual([]); // 不显示推荐按钮
+    });
+
     it("falls back to regex when LLM is disabled", async () => {
       const result = await getQuickButtonsWithLLM({
         message: "请选择方案1或方案2",
