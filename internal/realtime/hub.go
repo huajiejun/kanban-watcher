@@ -140,8 +140,10 @@ func (h *Hub) broadcast(event Event) {
 	h.mu.RLock()
 	clients := make([]*client, 0, len(h.clients))
 	for c := range h.clients {
-		if event.Type == EventTypeSessionMessagesAppended && c.sessionID != "" && c.sessionID != event.SessionID {
-			continue
+		if event.Type == EventTypeSessionMessagesAppended {
+			if c.sessionID == "" || c.sessionID != event.SessionID {
+				continue
+			}
 		}
 		clients = append(clients, c)
 	}

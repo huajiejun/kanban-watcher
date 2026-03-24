@@ -15,22 +15,28 @@ type workspacesAPIResponse struct {
 	Message *string     `json:"message"`
 }
 
+type executionProcessAPIResponse struct {
+	Success bool                    `json:"success"`
+	Data    *ExecutionProcessDetail `json:"data"`
+	Message *string                 `json:"message"`
+}
+
 // WorkspaceSummary 工作区状态汇总信息（从 POST /api/workspaces/summaries 获取）
 // 包含最新的构建状态、PR信息、是否有未读消息或待审批项等关键字段
 type WorkspaceSummary struct {
-	WorkspaceID              string  `json:"workspace_id"`              // 工作区唯一标识
-	LatestSessionID          *string `json:"latest_session_id"`         // 最新会话ID（可能为空）
-	HasPendingApproval       bool    `json:"has_pending_approval"`      // 是否有待审批的构建
-	FilesChanged             *int    `json:"files_changed"`             // 变更文件数（最近一次构建）
-	LinesAdded               *int    `json:"lines_added"`               // 新增行数
-	LinesRemoved             *int    `json:"lines_removed"`             // 删除行数
+	WorkspaceID              string  `json:"workspace_id"`                // 工作区唯一标识
+	LatestSessionID          *string `json:"latest_session_id"`           // 最新会话ID（可能为空）
+	HasPendingApproval       bool    `json:"has_pending_approval"`        // 是否有待审批的构建
+	FilesChanged             *int    `json:"files_changed"`               // 变更文件数（最近一次构建）
+	LinesAdded               *int    `json:"lines_added"`                 // 新增行数
+	LinesRemoved             *int    `json:"lines_removed"`               // 删除行数
 	LatestProcessCompletedAt *string `json:"latest_process_completed_at"` // 最新构建完成时间（ISO8601，运行中为null）
-	LatestProcessStatus      *string `json:"latest_process_status"`     // 最新构建状态：running/completed/failed/killed
-	HasRunningDevServer      bool    `json:"has_running_dev_server"`    // 是否有正在运行的 dev server
-	HasUnseenTurns           bool    `json:"has_unseen_turns"`          // 是否有未读的消息/轮次
-	PrStatus                 *string `json:"pr_status"`                 // PR 状态：open/closed/merged
-	PrNumber                 *int64  `json:"pr_number"`                 // PR 编号
-	PrURL                    *string `json:"pr_url"`                    // PR 链接地址
+	LatestProcessStatus      *string `json:"latest_process_status"`       // 最新构建状态：running/completed/failed/killed
+	HasRunningDevServer      bool    `json:"has_running_dev_server"`      // 是否有正在运行的 dev server
+	HasUnseenTurns           bool    `json:"has_unseen_turns"`            // 是否有未读的消息/轮次
+	PrStatus                 *string `json:"pr_status"`                   // PR 状态：open/closed/merged
+	PrNumber                 *int64  `json:"pr_number"`                   // PR 编号
+	PrURL                    *string `json:"pr_url"`                      // PR 链接地址
 }
 
 // WorkspaceSummaryResponse summaries 接口的 Data 字段结构
@@ -55,12 +61,26 @@ type WorkspacesResponse struct {
 	Workspaces []Workspace `json:"workspaces"`
 }
 
+type ExecutionProcessDetail struct {
+	ID             string `json:"id"`
+	SessionID      string `json:"session_id"`
+	WorkspaceID    string `json:"workspace_id"`
+	RunReason      string `json:"run_reason"`
+	Status         string `json:"status"`
+	ExecutorAction struct {
+		Typ struct {
+			Type           string                 `json:"type"`
+			ExecutorConfig map[string]interface{} `json:"executor_config"`
+		} `json:"typ"`
+	} `json:"executor_action"`
+}
+
 // EnrichedWorkspace 关联后的完整工作区信息
 // 将 Workspace（身份）与 WorkspaceSummary（状态）合并，便于统一处理
 type EnrichedWorkspace struct {
-	Workspace                         // 嵌入基本信息
-	Summary     WorkspaceSummary      // 状态汇总
-	DisplayName string                // 显示名称：优先使用 Name，否则使用 Branch
+	Workspace                    // 嵌入基本信息
+	Summary     WorkspaceSummary // 状态汇总
+	DisplayName string           // 显示名称：优先使用 Name，否则使用 Branch
 }
 
 // NeedsAttention 判断该工作区是否需要用户关注

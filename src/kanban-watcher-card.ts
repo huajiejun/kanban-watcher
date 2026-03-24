@@ -1,6 +1,13 @@
 import { LitElement, html, nothing } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { fetchActiveWorkspaces, fetchWorkspaceLatestMessages, sendWorkspaceFollowUp } from "./lib/http-api";
+import {
+  cancelWorkspaceQueue,
+  fetchActiveWorkspaces,
+  fetchWorkspaceLatestMessages,
+  fetchWorkspaceQueueStatus,
+  sendWorkspaceMessage,
+  stopWorkspaceExecution,
+} from "./lib/http-api";
 import { connectRealtime } from "./lib/realtime-api";
 import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
@@ -17,6 +24,7 @@ import type {
   LocalWorkspaceSummary,
   RealtimeEvent,
   SessionMessageResponse,
+  WorkspaceQueueStatusResponse,
 } from "./types";
 
 type SectionKey = "attention" | "running" | "idle";
@@ -68,10 +76,6 @@ type DialogToolGroupMessage = {
   timestamp?: string;
 };
 type DialogMessage = DialogTextMessage | DialogToolMessage | DialogToolGroupMessage;
-type QueueItem = {
-  workspaceId: string;
-  content: string;
-};
 
 const SECTION_ORDER: Array<{ key: SectionKey; label: string }> = [
   { key: "attention", label: "需要注意" },
@@ -99,7 +103,9 @@ export class KanbanWatcherCard extends LitElement {
     dialogLoading: { state: true },
     dialogError: { state: true },
     dialogMessagesByWorkspace: { state: true },
-    autoScrollEnabled: { state: true },  // 是否启用自动滚动
+    queueStatusByWorkspace: { state: true },
+    optimisticQueueWorkspaceIds: { state: true },
+    autoScrollEnabled: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -118,15 +124,16 @@ export class KanbanWatcherCard extends LitElement {
   private selectedWorkspaceId?: string;
   private messageDraft = "";
   private actionFeedback = "";
-  private queuedItems: QueueItem[] = [];
   private apiWorkspaces: KanbanWorkspace[] = [];
   private boardLoading = false;
   private boardError = "";
   private dialogLoading = false;
   private dialogError = "";
   private dialogMessagesByWorkspace: Record<string, DialogMessage[]> = {};
-  private autoScrollEnabled = true;  // 默认启用自动滚动
-  private messageListScrollHandler?: () => void;  // 滚动事件处理器
+  private queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
+  private optimisticQueueWorkspaceIds = new Set<string>();
+  private autoScrollEnabled = true;
+  private messageListScrollHandler?: () => void;
   private dialogMessageVersionsByWorkspace: Record<string, string> = {};
   private expandedToolMessageKeys = new Set<string>();
 
@@ -272,7 +279,9 @@ export class KanbanWatcherCard extends LitElement {
 
     const messages = this.getDialogMessages(workspace);
     const isRunning = workspace.status === "running";
-    const queuedItems = this.getQueueItems(workspace.id);
+    const canQueue = isRunning || this.optimisticQueueWorkspaceIds.has(workspace.id);
+    const queueStatus = this.queueStatusByWorkspace[workspace.id];
+    const isQueued = canQueue && queueStatus?.status === "queued";
 
     return html`
       <div class="dialog-shell" role="presentation">
@@ -310,19 +319,8 @@ export class KanbanWatcherCard extends LitElement {
           </section>
 
           <div class="dialog-composer">
-            ${queuedItems.length > 0
-              ? html`
-                  <div class="queue-list">
-                    ${queuedItems.map(
-                      (item, index) => html`
-                        <div class="queue-item">
-                          <span class="queue-index">队列 ${index + 1}</span>
-                          <span class="queue-content">${item.content}</span>
-                        </div>
-                      `,
-                    )}
-                  </div>
-                `
+            ${isQueued
+              ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
               : nothing}
             <textarea
               class="message-input"
@@ -344,14 +342,14 @@ export class KanbanWatcherCard extends LitElement {
                     `
                   : "发送消息"}
               </button>
-              ${isRunning
+              ${canQueue
                 ? html`
                     <button
                       class="dialog-action dialog-action-secondary"
                       type="button"
-                      @click=${() => void this.handleActionClick("queue")}
+                      @click=${() => void this.handleActionClick(isQueued ? "stop" : "queue")}
                     >
-                      加入队列
+                      ${isQueued ? "取消队列" : "加入队列"}
                     </button>
                   `
                 : nothing}
@@ -368,6 +366,13 @@ export class KanbanWatcherCard extends LitElement {
   private get currentFeedback() {
     if (this.actionFeedback) {
       return this.actionFeedback;
+    }
+    const workspace = this.selectedWorkspace;
+    if (workspace) {
+      const queueStatus = this.queueStatusByWorkspace[workspace.id];
+      if (queueStatus?.status === "queued") {
+        return "消息已排队 - 将在当前运行完成时执行";
+      }
     }
     if (this.dialogError) {
       return this.dialogError;
@@ -394,16 +399,26 @@ export class KanbanWatcherCard extends LitElement {
     this.actionFeedback = "";
     this.dialogError = "";
     if (this.isApiMode) {
-      void this.loadWorkspaceMessages(workspace.id, this.shouldRefreshWorkspaceMessages(workspace));
+      const shouldRefreshQueueStatus = this.shouldRefreshWorkspaceMessages(workspace);
+      void this.loadWorkspaceMessages(workspace.id, true);
+      if (workspace.status === "running" && (shouldRefreshQueueStatus || !this.queueStatusByWorkspace[workspace.id])) {
+        void this.loadWorkspaceQueueStatus(workspace.id);
+      }
     }
   }
 
   private closeWorkspaceDialog = () => {
+    const workspaceID = this.selectedWorkspaceId;
     this.selectedWorkspaceId = undefined;
     this.messageDraft = "";
     this.actionFeedback = "";
     this.dialogError = "";
     this.dialogLoading = false;
+    if (workspaceID) {
+      const next = new Set(this.optimisticQueueWorkspaceIds);
+      next.delete(workspaceID);
+      this.optimisticQueueWorkspaceIds = next;
+    }
     this.expandedToolMessageKeys = new Set();
   };
 
@@ -516,18 +531,33 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private async handleActionClick(action: DialogAction) {
-    if (action === "queue" && this.selectedWorkspaceId) {
-      const content = this.messageDraft.trim() || "未填写内容的排队消息";
-      this.queuedItems = [
-        ...this.queuedItems.filter((item) => item.workspaceId !== this.selectedWorkspaceId),
-        { workspaceId: this.selectedWorkspaceId, content },
-      ];
-      this.actionFeedback = "加入队列功能暂未接入，当前仅展示界面。";
+    const queueStatus = this.selectedWorkspaceId
+      ? this.queueStatusByWorkspace[this.selectedWorkspaceId]
+      : undefined;
+    const isQueued = queueStatus?.status === "queued";
+
+    if (action === "stop" && isQueued) {
+      await this.handleCancelQueue();
       return;
     }
 
     if (action === "stop") {
-      this.actionFeedback = "停止功能暂未接入，当前仅展示界面。";
+      if (!this.isApiMode || !this.selectedWorkspaceId) {
+        this.actionFeedback = "停止功能暂未接入，当前仅展示界面。";
+        return;
+      }
+      try {
+        this.actionFeedback = "正在发送停止请求...";
+        const response = await stopWorkspaceExecution({
+          baseUrl: this.config!.base_url!,
+          apiKey: this.config?.api_key,
+          workspaceId: this.selectedWorkspaceId,
+        });
+        this.actionFeedback = response.message?.trim() || "已发送停止请求";
+        void this.loadActiveWorkspaces();
+      } catch (error) {
+        this.actionFeedback = this.toErrorMessage(error, "停止执行失败");
+      }
       return;
     }
 
@@ -543,24 +573,102 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     try {
-      this.actionFeedback = "正在发送消息...";
-      const response = await sendWorkspaceFollowUp({
+      this.actionFeedback = action === "queue" ? "正在加入队列..." : "正在发送消息...";
+      const response = await sendWorkspaceMessage({
         baseUrl: this.config!.base_url!,
         apiKey: this.config?.api_key,
         workspaceId: this.selectedWorkspaceId,
         message,
+        mode: action,
       });
-      this.appendOptimisticUserMessage(this.selectedWorkspaceId, message);
-      this.messageDraft = "";
+      if (action === "send") {
+        this.appendOptimisticUserMessage(this.selectedWorkspaceId, message);
+      }
+      const successPrefix = action === "queue" ? "加入队列成功" : "发送成功";
       this.actionFeedback = response.message?.trim()
-        ? `发送成功：${response.message.trim()}`
-        : "发送成功。";
+        ? `${successPrefix}：${response.message.trim()}`
+        : `${successPrefix}。`;
+      if (action === "queue") {
+        this.messageDraft = message;
+        this.setQueueStatus(this.selectedWorkspaceId, {
+          ...response,
+          status: "queued",
+          queued: {
+            session_id: response.session_id,
+            data: {
+              message,
+            },
+          },
+        });
+      } else {
+        const workspace = this.selectedWorkspace;
+        if (workspace && workspace.status !== "running") {
+          const next = new Set(this.optimisticQueueWorkspaceIds);
+          next.add(workspace.id);
+          this.optimisticQueueWorkspaceIds = next;
+        }
+        this.messageDraft = "";
+      }
       this.emitPreviewStatus();
-      await this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+      if (action === "send") {
+        await this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+      }
     } catch (error) {
       this.actionFeedback = this.toErrorMessage(error, "发送消息失败");
       this.emitPreviewStatus(this.actionFeedback);
     }
+  }
+
+  private async handleCancelQueue() {
+    if (!this.isApiMode || !this.selectedWorkspaceId) {
+      return;
+    }
+
+    try {
+      this.actionFeedback = "正在取消队列...";
+      const response = await cancelWorkspaceQueue({
+        baseUrl: this.config!.base_url!,
+        apiKey: this.config?.api_key,
+        workspaceId: this.selectedWorkspaceId,
+      });
+      this.setQueueStatus(this.selectedWorkspaceId, response);
+      this.actionFeedback = response.message?.trim() || "队列已取消";
+      this.emitPreviewStatus();
+    } catch (error) {
+      this.actionFeedback = this.toErrorMessage(error, "取消队列失败");
+      this.emitPreviewStatus(this.actionFeedback);
+    }
+  }
+
+  private async loadWorkspaceQueueStatus(workspaceId: string) {
+    if (!this.isApiMode) {
+      return;
+    }
+
+    try {
+      const response = await fetchWorkspaceQueueStatus({
+        baseUrl: this.config!.base_url!,
+        apiKey: this.config?.api_key,
+        workspaceId,
+      });
+      this.setQueueStatus(workspaceId, response);
+      if (
+        this.selectedWorkspaceId === workspaceId &&
+        response.status === "queued" &&
+        !this.messageDraft.trim()
+      ) {
+        this.messageDraft = response.queued?.data?.message ?? "";
+      }
+    } catch (error) {
+      this.actionFeedback = this.toErrorMessage(error, "获取队列状态失败");
+    }
+  }
+
+  private setQueueStatus(workspaceId: string, response: WorkspaceQueueStatusResponse) {
+    this.queueStatusByWorkspace = {
+      ...this.queueStatusByWorkspace,
+      [workspaceId]: response,
+    };
   }
 
   private handleKeyDown = (event: Event) => {
@@ -572,11 +680,15 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private getWorkspaceDisplayMeta(workspace: KanbanWorkspace) {
-    // 与 vibe-kanban 主项目保持一致：优先使用 AI 执行完成时间
-    const timeSource =
+    // 与 vibe-kanban 主项目保持一致：优先使用 AI 执行完成时间，同时兼容旧 completed_at 字段。
+    const completionTimeSource =
       workspace.latest_process_completed_at ||
+      (workspace.status === "completed" ? workspace.completed_at : undefined);
+    const timeSource =
+      completionTimeSource ||
       workspace.last_message_at ||
-      workspace.updated_at;
+      workspace.updated_at ||
+      this.entityAttributes?.updated_at;
 
     return {
       relativeTime: workspace.relative_time || formatRelativeTime(timeSource),
@@ -768,7 +880,7 @@ export class KanbanWatcherCard extends LitElement {
 
   private scrollMessagesToBottom() {
     if (!this.autoScrollEnabled) {
-      return;  // 如果用户已取消自动滚动，跳过
+      return;
     }
 
     const messageList = this.renderRoot.querySelector(".message-list") as
@@ -781,7 +893,6 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private setupMessageListScrollListener() {
-    // 移除旧的监听器
     if (this.messageListScrollHandler) {
       const oldMessageList = this.renderRoot.querySelector(".message-list");
       if (oldMessageList) {
@@ -789,10 +900,8 @@ export class KanbanWatcherCard extends LitElement {
       }
     }
 
-    // 重置自动滚动状态
     this.autoScrollEnabled = true;
 
-    // 添加新的监听器
     const messageList = this.renderRoot.querySelector(".message-list") as HTMLDivElement | null;
     if (messageList) {
       this.messageListScrollHandler = () => this.handleMessageListScroll(messageList);
@@ -801,27 +910,19 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private handleMessageListScroll(messageList: HTMLDivElement) {
-    // 检查是否滚动到底部（允许 50px 容差）
     const isAtBottom =
       messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight < 50;
 
     if (isAtBottom) {
-      // 滚动到底部，恢复自动滚动
       if (!this.autoScrollEnabled) {
         this.autoScrollEnabled = true;
       }
     } else {
-      // 向上滚动了一定距离，取消自动滚动
       if (this.autoScrollEnabled) {
         this.autoScrollEnabled = false;
       }
     }
   }
-
-  private getQueueItems(workspaceId: string) {
-    return this.queuedItems.filter((item) => item.workspaceId === workspaceId);
-  }
-
   private emitPreviewStatus(message?: string) {
     this.dispatchEvent(
       new CustomEvent("kanban-watcher-preview-status", {
@@ -1376,6 +1477,16 @@ export class KanbanWatcherCard extends LitElement {
 
   private sortDialogMessagesByTimestamp(messages: Array<DialogTextMessage | DialogToolMessage>) {
     return [...messages].sort((left, right) => {
+      const leftTimestampValue = this.getComparableTimestampValue(left.timestamp);
+      const rightTimestampValue = this.getComparableTimestampValue(right.timestamp);
+      if (
+        leftTimestampValue !== undefined &&
+        rightTimestampValue !== undefined &&
+        leftTimestampValue !== rightTimestampValue
+      ) {
+        return leftTimestampValue - rightTimestampValue;
+      }
+
       const leftTimestamp = left.timestamp ?? "";
       const rightTimestamp = right.timestamp ?? "";
       if (leftTimestamp && rightTimestamp && leftTimestamp !== rightTimestamp) {
@@ -1390,7 +1501,7 @@ export class KanbanWatcherCard extends LitElement {
       if (!message.timestamp) {
         return latest;
       }
-      if (!latest || message.timestamp.localeCompare(latest) > 0) {
+      if (this.compareTimestamps(message.timestamp, latest) > 0) {
         return message.timestamp;
       }
       return latest;
@@ -1398,23 +1509,40 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private isMessageAtOrAfter(timestamp: string | undefined, baseline: string | undefined) {
-    if (!timestamp) {
-      return !baseline;
-    }
-    if (!baseline) {
-      return true;
-    }
-    return timestamp.localeCompare(baseline) >= 0;
+    return this.compareTimestamps(timestamp, baseline) >= 0;
   }
 
   private isMessageStrictlyAfter(timestamp: string | undefined, baseline: string | undefined) {
+    return this.compareTimestamps(timestamp, baseline) > 0;
+  }
+
+  private compareTimestamps(left: string | undefined, right: string | undefined) {
+    if (!left) {
+      return right ? -1 : 0;
+    }
+    if (!right) {
+      return 1;
+    }
+
+    const leftValue = this.getComparableTimestampValue(left);
+    const rightValue = this.getComparableTimestampValue(right);
+    if (leftValue !== undefined && rightValue !== undefined && leftValue !== rightValue) {
+      return leftValue - rightValue;
+    }
+
+    return left.localeCompare(right);
+  }
+
+  private getComparableTimestampValue(timestamp: string | undefined) {
     if (!timestamp) {
-      return !baseline;
+      return undefined;
     }
-    if (!baseline) {
-      return true;
+
+    const parsed = Date.parse(timestamp);
+    if (Number.isNaN(parsed)) {
+      return undefined;
     }
-    return timestamp.localeCompare(baseline) > 0;
+    return parsed;
   }
 
   private areFlatMessagesEqual(
@@ -1456,6 +1584,7 @@ export class KanbanWatcherCard extends LitElement {
       kind: "message",
       sender: "user",
       text: this.compactMessageText(text),
+      timestamp: new Date().toISOString(),
     };
     const existing = this.dialogMessagesByWorkspace[workspaceId] ?? [];
     this.dialogMessagesByWorkspace = {

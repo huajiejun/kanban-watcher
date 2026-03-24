@@ -152,6 +152,60 @@ func TestGetProcessEntryReturnsNilOnNotFound(t *testing.T) {
 	}
 }
 
+func TestGetNextLocalEntryIndexDefaultsToNegativeOne(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	rows := sqlmock.NewRows([]string{"COALESCE(MIN(entry_index), 0)"}).AddRow(0)
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT COALESCE(MIN(entry_index), 0)
+		FROM kw_process_entries
+		WHERE process_id = ?
+		  AND entry_index < 0
+	`)).
+		WithArgs("proc-1").
+		WillReturnRows(rows)
+
+	got, err := store.GetNextLocalEntryIndex(context.Background(), "proc-1")
+	if err != nil {
+		t.Fatalf("GetNextLocalEntryIndex 返回错误: %v", err)
+	}
+	if got != -1 {
+		t.Fatalf("next local entry_index = %d, want -1", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestGetNextLocalEntryIndexContinuesDecrementingNegativeRange(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	rows := sqlmock.NewRows([]string{"COALESCE(MIN(entry_index), 0)"}).AddRow(-3)
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT COALESCE(MIN(entry_index), 0)
+		FROM kw_process_entries
+		WHERE process_id = ?
+		  AND entry_index < 0
+	`)).
+		WithArgs("proc-1").
+		WillReturnRows(rows)
+
+	got, err := store.GetNextLocalEntryIndex(context.Background(), "proc-1")
+	if err != nil {
+		t.Fatalf("GetNextLocalEntryIndex 返回错误: %v", err)
+	}
+	if got != -4 {
+		t.Fatalf("next local entry_index = %d, want -4", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestGetExecutionProcessStatusReturnsNilOnNotFound(t *testing.T) {
 	store, mock, cleanup := newMockStore(t)
 	defer cleanup()
@@ -171,6 +225,83 @@ func TestGetExecutionProcessStatusReturnsNilOnNotFound(t *testing.T) {
 	}
 	if got != nil {
 		t.Fatalf("status = %#v, want nil", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestGetLatestCodingAgentProcessByWorkspaceIDReturnsProcess(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	rows := sqlmock.NewRows([]string{
+		"id", "session_id", "workspace_id", "run_reason", "status", "executor",
+		"executor_action_type", "dropped", "created_at", "completed_at", "synced_at",
+	}).AddRow(
+		"proc-1", "session-1", "ws-1", "codingagent", "running", "CLAUDE_CODE",
+		"CodingAgentInitialRequest", false, time.Now(), nil, time.Now(),
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, session_id, workspace_id, run_reason, status, executor,
+		       executor_action_type, dropped, created_at, completed_at, synced_at
+		FROM kw_execution_processes
+		WHERE workspace_id = ?
+		  AND run_reason = 'codingagent'
+		  AND dropped = FALSE
+		ORDER BY synced_at DESC, created_at DESC, id DESC
+		LIMIT 1
+	`)).
+		WithArgs("ws-1").
+		WillReturnRows(rows)
+
+	got, err := store.GetLatestCodingAgentProcessByWorkspaceID(context.Background(), "ws-1")
+	if err != nil {
+		t.Fatalf("GetLatestCodingAgentProcessByWorkspaceID 返回错误: %v", err)
+	}
+	if got == nil || got.ID != "proc-1" {
+		t.Fatalf("process = %#v, want proc-1", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestGetLatestRunningCodingAgentProcessByWorkspaceIDReturnsRunningProcess(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	rows := sqlmock.NewRows([]string{
+		"id", "session_id", "workspace_id", "run_reason", "status", "executor",
+		"executor_action_type", "dropped", "created_at", "completed_at", "synced_at",
+	}).AddRow(
+		"proc-running", "session-1", "ws-1", "codingagent", "running", "CLAUDE_CODE",
+		"CodingAgentFollowUpRequest", false, time.Now(), nil, time.Now(),
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, session_id, workspace_id, run_reason, status, executor,
+		       executor_action_type, dropped, created_at, completed_at, synced_at
+		FROM kw_execution_processes
+		WHERE workspace_id = ?
+		  AND run_reason = 'codingagent'
+		  AND dropped = FALSE
+		  AND status = 'running'
+		ORDER BY synced_at DESC, created_at DESC, id DESC
+		LIMIT 1
+	`)).
+		WithArgs("ws-1").
+		WillReturnRows(rows)
+
+	got, err := store.GetLatestRunningCodingAgentProcessByWorkspaceID(context.Background(), "ws-1")
+	if err != nil {
+		t.Fatalf("GetLatestRunningCodingAgentProcessByWorkspaceID 返回错误: %v", err)
+	}
+	if got == nil || got.ID != "proc-running" {
+		t.Fatalf("process = %#v, want proc-running", got)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -252,6 +383,77 @@ func TestMarkMissingWorkspacesArchivedMarksAllWhenEmpty(t *testing.T) {
 
 	if err := store.MarkMissingWorkspacesArchived(context.Background(), nil, now); err != nil {
 		t.Fatalf("MarkMissingWorkspacesArchived 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestUpsertMessageContextStoresLatestSessionAndExecutorConfig(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	updatedAt := time.Now()
+	ctxRow := &MessageContext{
+		WorkspaceID:        "ws-1",
+		SessionID:          "session-1",
+		ProcessID:          stringPtr("proc-1"),
+		Executor:           stringPtr("CLAUDE_CODE"),
+		Variant:            stringPtr("ZHIPU"),
+		ExecutorConfigJSON: `{"executor":"CLAUDE_CODE","variant":"ZHIPU"}`,
+		ForceWhenDirty:     boolPtr(false),
+		PerformGitReset:    boolPtr(true),
+		DefaultSendMode:    "send",
+		Source:             "sync",
+		UpdatedAt:          updatedAt,
+	}
+
+	mock.ExpectExec("INSERT INTO kw_msg_contexts").
+		WithArgs(
+			ctxRow.WorkspaceID,
+			ctxRow.SessionID,
+			ctxRow.ProcessID,
+			ctxRow.Executor,
+			ctxRow.Variant,
+			ctxRow.ExecutorConfigJSON,
+			ctxRow.ForceWhenDirty,
+			ctxRow.PerformGitReset,
+			ctxRow.DefaultSendMode,
+			ctxRow.Source,
+			ctxRow.UpdatedAt,
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	if err := store.UpsertMessageContext(context.Background(), ctxRow); err != nil {
+		t.Fatalf("UpsertMessageContext 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestGetMessageContextByWorkspaceIDReturnsNilWhenMissing(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT workspace_id, session_id, process_id, executor, variant, executor_config_json,
+		       force_when_dirty, perform_git_reset, default_send_mode, source, updated_at, synced_at
+		FROM kw_msg_contexts
+		WHERE workspace_id = ?
+		LIMIT 1
+	`)).
+		WithArgs("missing-workspace").
+		WillReturnError(sql.ErrNoRows)
+
+	got, err := store.GetMessageContextByWorkspaceID(context.Background(), "missing-workspace")
+	if err != nil {
+		t.Fatalf("GetMessageContextByWorkspaceID 返回错误: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("message context = %#v, want nil", got)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {

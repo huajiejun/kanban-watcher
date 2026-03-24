@@ -819,7 +819,7 @@ describe("kanban-watcher-card", () => {
     expect(shadowRoot?.querySelector(".workspace-dialog")).toBeNull();
   });
 
-  it("switches actions by running state and shows queue items above the input", async () => {
+  it("switches actions by running state and keeps non-api queue action in placeholder mode", async () => {
     const card = await renderCard();
     const shadowRoot = card.shadowRoot;
     const taskCards = Array.from(
@@ -882,12 +882,9 @@ describe("kanban-watcher-card", () => {
     queueButton?.click();
     await card.updateComplete;
 
-    expect(normalizeText(shadowRoot?.querySelector(".queue-list")?.textContent)).toContain(
-      "运行中先加入这一条队列",
-    );
     expect(
       normalizeText(shadowRoot?.querySelector(".dialog-feedback")?.textContent),
-    ).toContain("加入队列功能暂未接入");
+    ).toContain("发送消息功能暂未接入");
   });
 
   it("declares a large dialog with its own scrollable full-width message flow", () => {
@@ -1060,6 +1057,93 @@ describe("kanban-watcher-card", () => {
     );
   });
 
+  it("stops the current running workspace through the local API in API mode", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-stop",
+              name: "API Stop Workspace",
+              status: "running",
+              latest_session_id: "session-api-stop",
+              updated_at: "2026-03-24T10:00:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-stop",
+          workspace_name: "API Stop Workspace",
+          messages: [
+            {
+              id: 1,
+              session_id: "session-api-stop",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "正在执行中",
+              timestamp: "2026-03-24T09:59:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          status: "empty",
+          session_id: "session-api-stop",
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          workspace_id: "api-stop",
+          session_id: "session-api-stop",
+          action: "stop",
+          message: "已发送停止请求",
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-stop",
+              name: "API Stop Workspace",
+              status: "running",
+              latest_session_id: "session-api-stop",
+              updated_at: "2026-03-24T10:00:01Z",
+            },
+          ],
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const stopButton = card.shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    stopButton?.click();
+    await settleCard(card);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://localhost:7778/api/workspace/api-stop/stop",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "X-API-Key": "test-api-key",
+        }),
+      }),
+    );
+    expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "已发送停止请求",
+    );
+  });
+
   it("loads workspaces from the local API when base_url is configured", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -1219,7 +1303,7 @@ describe("kanban-watcher-card", () => {
     );
   });
 
-  it("reuses cached dialog messages when reopening the same workspace without new updates", async () => {
+  it("reloads dialog messages when reopening the same workspace", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
@@ -1228,7 +1312,7 @@ describe("kanban-watcher-card", () => {
             {
               id: "api-reopen",
               name: "API Reopen Workspace",
-              status: "running",
+              status: "completed",
               latest_session_id: "session-api-reopen",
               updated_at: "2026-03-21T11:58:00Z",
             },
@@ -1251,6 +1335,23 @@ describe("kanban-watcher-card", () => {
           ],
           has_more: false,
         }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-reopen",
+          workspace_name: "API Reopen Workspace",
+          messages: [
+            {
+              id: 2,
+              session_id: "session-api-reopen",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "第二次打开时重新拉取到的最新消息",
+              timestamp: "2026-03-21T11:58:30Z",
+            },
+          ],
+          has_more: false,
+        }),
       );
 
     const card = await renderApiCard({ messagesLimit: 20 });
@@ -1265,9 +1366,9 @@ describe("kanban-watcher-card", () => {
     taskCard?.click();
     await settleCard(card);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
     expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
-      "第一次打开时看到的消息",
+      "第二次打开时重新拉取到的最新消息",
     );
   });
 
@@ -1485,14 +1586,14 @@ describe("kanban-watcher-card", () => {
 
     expect(globalThis.fetch).toHaveBeenNthCalledWith(
       3,
-      "http://localhost:7778/api/workspace/api-send/follow-up",
+      "http://localhost:7778/api/workspace/api-send/message",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
           "Content-Type": "application/json",
           "X-API-Key": "test-api-key",
         }),
-        body: JSON.stringify({ message: "继续推进这个任务" }),
+        body: JSON.stringify({ message: "继续推进这个任务", mode: "send" }),
       }),
     );
     expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
@@ -1501,6 +1602,427 @@ describe("kanban-watcher-card", () => {
     expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
       "继续推进这个任务",
     );
+  });
+
+  it("keeps optimistic user messages in order before later realtime assistant replies", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-send-order",
+              name: "API Send Order Workspace",
+              status: "completed",
+              latest_session_id: "session-api-send-order",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-send-order",
+          workspace_name: "API Send Order Workspace",
+          messages: [
+            {
+              id: 1,
+              process_id: "proc-history",
+              entry_index: 1,
+              session_id: "session-api-send-order",
+              entry_type: "user_message",
+              role: "user",
+              content: "上一条用户消息",
+              timestamp: "2026-03-21T11:57:00Z",
+            },
+            {
+              id: 2,
+              process_id: "proc-history",
+              entry_index: 2,
+              session_id: "session-api-send-order",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "上一条助手消息",
+              timestamp: "2026-03-21T11:58:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const realtimeReplyTimestamp = new Date(Date.now() + 1_000).toISOString();
+
+    (card as unknown as {
+      appendOptimisticUserMessage(workspaceId: string, text: string): void;
+      appendRealtimeMessages(sessionId: string, messages: Array<Record<string, unknown>>): void;
+    }).appendOptimisticUserMessage("api-send-order", "刚发送的用户消息");
+    (card as unknown as {
+      appendOptimisticUserMessage(workspaceId: string, text: string): void;
+      appendRealtimeMessages(sessionId: string, messages: Array<Record<string, unknown>>): void;
+    }).appendRealtimeMessages("session-api-send-order", [
+      {
+        id: 3,
+        process_id: "proc-live",
+        entry_index: 3,
+        session_id: "session-api-send-order",
+        entry_type: "assistant_message",
+        role: "assistant",
+        content: "后续助手回复",
+        timestamp: realtimeReplyTimestamp,
+      },
+    ]);
+    await settleCard(card);
+
+    const messageTexts = Array.from(
+      card.shadowRoot?.querySelectorAll(".message-bubble") ?? [],
+    ).map((element) => normalizeText(element.textContent));
+
+    expect(messageTexts).toEqual([
+      "上一条用户消息",
+      "上一条助手消息",
+      "刚发送的用户消息",
+      "后续助手回复",
+    ]);
+  });
+
+  it("replaces persisted local-send user messages when the real user message arrives", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-local-send",
+              name: "API Local Send Workspace",
+              status: "completed",
+              latest_session_id: "session-api-local-send",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-local-send",
+          workspace_name: "API Local Send Workspace",
+          messages: [
+            {
+              id: 1,
+              process_id: "proc-history",
+              entry_index: 1,
+              session_id: "session-api-local-send",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "历史助手消息",
+              timestamp: "2026-03-21T11:58:00Z",
+            },
+            {
+              id: 2,
+              process_id: "proc-history",
+              entry_index: -1,
+              session_id: "session-api-local-send",
+              entry_type: "user_message",
+              role: "user",
+              content: "刚发送的用户消息",
+              timestamp: "2026-03-21T11:58:30Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const realtimeReplyTimestamp = new Date(Date.now() + 1_000).toISOString();
+    (card as unknown as {
+      appendRealtimeMessages(sessionId: string, messages: Array<Record<string, unknown>>): void;
+    }).appendRealtimeMessages("session-api-local-send", [
+      {
+        id: 3,
+        process_id: "proc-real",
+        entry_index: 1,
+        session_id: "session-api-local-send",
+        entry_type: "user_message",
+        role: "user",
+        content: "刚发送的用户消息",
+        timestamp: new Date(Date.now() + 500).toISOString(),
+      },
+      {
+        id: 4,
+        process_id: "proc-real",
+        entry_index: 2,
+        session_id: "session-api-local-send",
+        entry_type: "assistant_message",
+        role: "assistant",
+        content: "后续助手回复",
+        timestamp: realtimeReplyTimestamp,
+      },
+    ]);
+    await settleCard(card);
+
+    const messageTexts = Array.from(
+      card.shadowRoot?.querySelectorAll(".message-bubble") ?? [],
+    ).map((element) => normalizeText(element.textContent));
+
+    expect(messageTexts).toEqual([
+      "历史助手消息",
+      "刚发送的用户消息",
+      "后续助手回复",
+    ]);
+  });
+
+  it("keeps persisted user messages on the timeline when timestamps use different offsets", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-mixed-offsets",
+              name: "API Mixed Offsets Workspace",
+              status: "completed",
+              latest_session_id: "session-api-mixed-offsets",
+              updated_at: "2026-03-24T06:02:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-mixed-offsets",
+          workspace_name: "API Mixed Offsets Workspace",
+          messages: [
+            {
+              id: 1,
+              process_id: "proc-history",
+              entry_index: 1,
+              session_id: "session-api-mixed-offsets",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "历史助手消息",
+              timestamp: "2026-03-24T05:59:00Z",
+            },
+            {
+              id: 2,
+              process_id: "proc-history",
+              entry_index: -1,
+              session_id: "session-api-mixed-offsets",
+              entry_type: "user_message",
+              role: "user",
+              content: "刚发送的用户消息",
+              timestamp: "2026-03-24T14:00:00+08:00",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    (card as unknown as {
+      appendRealtimeMessages(sessionId: string, messages: Array<Record<string, unknown>>): void;
+    }).appendRealtimeMessages("session-api-mixed-offsets", [
+      {
+        id: 3,
+        process_id: "proc-live",
+        entry_index: 2,
+        session_id: "session-api-mixed-offsets",
+        entry_type: "assistant_message",
+        role: "assistant",
+        content: "后续助手回复",
+        timestamp: "2026-03-24T06:01:00Z",
+      },
+    ]);
+    await settleCard(card);
+
+    const messageTexts = Array.from(
+      card.shadowRoot?.querySelectorAll(".message-bubble") ?? [],
+    ).map((element) => normalizeText(element.textContent));
+
+    expect(messageTexts).toEqual([
+      "历史助手消息",
+      "刚发送的用户消息",
+      "后续助手回复",
+    ]);
+  });
+
+  it("allows queueing immediately after sending from an idle workspace", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-send-queue",
+              name: "API Send Queue Workspace",
+              status: "completed",
+              latest_session_id: "session-api-send-queue",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-send-queue",
+          workspace_name: "API Send Queue Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          message: "消息已发送",
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-send-queue",
+          workspace_name: "API Send Queue Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          message: "消息已加入队列",
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const input = card.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    input!.value = "第一条消息";
+    input?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await settleCard(card);
+
+    const sendButton = card.shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    sendButton?.click();
+    await settleCard(card);
+
+    const queueButton = card.shadowRoot?.querySelector(
+      ".dialog-action-secondary",
+    ) as HTMLButtonElement | null;
+    expect(normalizeText(queueButton?.textContent)).toBe("加入队列");
+
+    const queueInput = card.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    queueInput!.value = "第二条排队消息";
+    queueInput?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await settleCard(card);
+
+    queueButton?.click();
+    await settleCard(card);
+
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      5,
+      "http://localhost:7778/api/workspace/api-send-queue/message",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ message: "第二条排队消息", mode: "queue" }),
+      }),
+    );
+  });
+
+  it("shows queued status and cancels queued messages through the local API in API mode", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-queue",
+              name: "API Queue Workspace",
+              status: "running",
+              latest_session_id: "session-api-queue",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-queue",
+          workspace_name: "API Queue Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          status: "queued",
+          message: "消息已排队 - 将在当前运行完成时执行",
+          session_id: "session-api-queue",
+          queued: {
+            session_id: "session-api-queue",
+            data: {
+              message: "当前任务完成后补测试",
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          status: "empty",
+          session_id: "session-api-queue",
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      3,
+      "http://localhost:7778/api/workspace/api-queue/queue",
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
+    expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "消息已排队",
+    );
+    expect(
+      normalizeText(card.shadowRoot?.querySelector(".queue-banner")?.textContent),
+    ).toContain("消息已排队 - 将在当前运行完成时执行");
+
+    const input = card.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    expect(input?.value).toBe("当前任务完成后补测试");
+
+    const queueButton = card.shadowRoot?.querySelector(
+      ".dialog-action-secondary",
+    ) as HTMLButtonElement | null;
+    expect(normalizeText(queueButton?.textContent)).toBe("取消队列");
+
+    queueButton?.click();
+    await settleCard(card);
+
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      4,
+      "http://localhost:7778/api/workspace/api-queue/queue",
+      expect.objectContaining({
+        method: "DELETE",
+      }),
+    );
+    expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "队列已取消",
+    );
+    expect(input?.value).toBe("当前任务完成后补测试");
+    expect(card.shadowRoot?.querySelector(".queue-banner")).toBeNull();
+    expect(normalizeText(queueButton?.textContent)).toBe("加入队列");
   });
 
   it("appends realtime messages through WebSocket in API mode", async () => {

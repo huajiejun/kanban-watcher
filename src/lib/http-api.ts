@@ -1,16 +1,13 @@
 import type {
   ActiveWorkspacesResponse,
   SessionMessagesResponse,
+  WorkspaceMessageResponse,
+  WorkspaceQueueStatusResponse,
 } from "../types";
 
 type RequestOptions = {
   baseUrl: string;
   apiKey?: string;
-};
-
-type FollowUpResponse = {
-  message?: string;
-  success?: boolean;
 };
 
 function buildHeaders(apiKey?: string, hasBody = false) {
@@ -87,13 +84,100 @@ export async function sendWorkspaceFollowUp({
 }: RequestOptions & {
   workspaceId: string;
   message: string;
-}): Promise<FollowUpResponse> {
-  return fetchJSON<FollowUpResponse>(
+}): Promise<WorkspaceMessageResponse> {
+  return sendWorkspaceMessage({
+    baseUrl,
+    apiKey,
+    workspaceId,
+    message,
+    mode: "send",
+  });
+}
+
+export async function sendWorkspaceMessage({
+  baseUrl,
+  apiKey,
+  workspaceId,
+  message,
+  mode,
+}: RequestOptions & {
+  workspaceId: string;
+  message: string;
+  mode: "send" | "queue";
+}): Promise<WorkspaceMessageResponse> {
+  return fetchJSON<WorkspaceMessageResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/message`,
+    {
+      method: "POST",
+      headers: buildHeaders(apiKey, true),
+      body: JSON.stringify({ message, mode }),
+    },
+  );
+}
+
+export async function sendWorkspaceLegacyFollowUp({
+  baseUrl,
+  apiKey,
+  workspaceId,
+  message,
+}: RequestOptions & {
+  workspaceId: string;
+  message: string;
+}): Promise<WorkspaceMessageResponse> {
+  return fetchJSON<WorkspaceMessageResponse>(
     `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/follow-up`,
     {
       method: "POST",
       headers: buildHeaders(apiKey, true),
       body: JSON.stringify({ message }),
+    },
+  );
+}
+
+export async function fetchWorkspaceQueueStatus({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<WorkspaceQueueStatusResponse> {
+  return fetchJSON<WorkspaceQueueStatusResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/queue`,
+    {
+      method: "GET",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function cancelWorkspaceQueue({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<WorkspaceQueueStatusResponse> {
+  return fetchJSON<WorkspaceQueueStatusResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/queue`,
+    {
+      method: "DELETE",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function stopWorkspaceExecution({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<WorkspaceMessageResponse> {
+  return fetchJSON<WorkspaceMessageResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/stop`,
+    {
+      method: "POST",
+      headers: buildHeaders(apiKey),
     },
   );
 }

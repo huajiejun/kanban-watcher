@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -174,5 +175,110 @@ func TestShouldPersistProcessEntryUpdate(t *testing.T) {
 				t.Fatalf("shouldPersistProcessEntryUpdate(%+v, %+v) = %v, want %v", tt.existing, tt.next, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestMessageContextFromProcessBuildsContextFromExecutorConfig(t *testing.T) {
+	now := time.Date(2026, 3, 24, 10, 0, 0, 0, time.UTC)
+	process := remoteExecutionProcess{
+		ID:        "proc-1",
+		SessionID: "session-1",
+		RunReason: "codingagent",
+		Status:    "running",
+	}
+	process.ExecutorAction.Typ.Type = "CodingAgentInitialRequest"
+	process.ExecutorAction.Typ.ExecutorConfig = map[string]interface{}{
+		"executor":  "CLAUDE_CODE",
+		"variant":   "ZHIPU",
+		"model_id":  "glm-4.5",
+		"agent_id":  "coder",
+	}
+
+	msgCtx, err := messageContextFromProcess("ws-1", process, now)
+	if err != nil {
+		t.Fatalf("messageContextFromProcess 返回错误: %v", err)
+	}
+	if msgCtx == nil {
+		t.Fatal("messageContextFromProcess = nil, want context")
+	}
+	if msgCtx.WorkspaceID != "ws-1" {
+		t.Fatalf("workspace_id = %q, want ws-1", msgCtx.WorkspaceID)
+	}
+	if msgCtx.SessionID != "session-1" {
+		t.Fatalf("session_id = %q, want session-1", msgCtx.SessionID)
+	}
+	if msgCtx.Executor == nil || *msgCtx.Executor != "CLAUDE_CODE" {
+		t.Fatalf("executor = %#v, want CLAUDE_CODE", msgCtx.Executor)
+	}
+	if msgCtx.Variant == nil || *msgCtx.Variant != "ZHIPU" {
+		t.Fatalf("variant = %#v, want ZHIPU", msgCtx.Variant)
+	}
+	if msgCtx.Source != "sync" {
+		t.Fatalf("source = %q, want sync", msgCtx.Source)
+	}
+
+	var decoded map[string]interface{}
+	if err := json.Unmarshal([]byte(msgCtx.ExecutorConfigJSON), &decoded); err != nil {
+		t.Fatalf("executor_config_json 不是有效 JSON: %v", err)
+	}
+	if decoded["model_id"] != "glm-4.5" {
+		t.Fatalf("model_id = %#v, want glm-4.5", decoded["model_id"])
+	}
+}
+
+func TestMessageContextFromProcessSkipsWhenExecutorConfigMissing(t *testing.T) {
+	msgCtx, err := messageContextFromProcess("ws-1", remoteExecutionProcess{
+		ID:        "proc-1",
+		SessionID: "session-1",
+		RunReason: "codingagent",
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("messageContextFromProcess 返回错误: %v", err)
+	}
+	if msgCtx != nil {
+		t.Fatalf("messageContextFromProcess = %#v, want nil", msgCtx)
+	}
+}
+
+func TestProcessPromptEntryFromProcessBuildsUserMessage(t *testing.T) {
+	now := time.Date(2026, 3, 24, 10, 0, 0, 0, time.UTC)
+	createdAt := "2026-03-24T09:58:00Z"
+	process := remoteExecutionProcess{
+		ID:        "proc-1",
+		SessionID: "session-1",
+		RunReason: "codingagent",
+		Status:    "running",
+		CreatedAt: &createdAt,
+	}
+	process.ExecutorAction.Typ.Type = "CodingAgentFollowUpRequest"
+	process.ExecutorAction.Typ.Prompt = "继续处理这个问题"
+
+	entry, err := processPromptEntryFromProcess("ws-1", process, now)
+	if err != nil {
+		t.Fatalf("processPromptEntryFromProcess 返回错误: %v", err)
+	}
+	if entry == nil {
+		t.Fatal("processPromptEntryFromProcess = nil, want entry")
+	}
+	if entry.ProcessID != "proc-1" {
+		t.Fatalf("process_id = %q, want proc-1", entry.ProcessID)
+	}
+	if entry.EntryIndex != -1 {
+		t.Fatalf("entry_index = %d, want -1", entry.EntryIndex)
+	}
+	if entry.EntryType != "user_message" {
+		t.Fatalf("entry_type = %q, want user_message", entry.EntryType)
+	}
+	if entry.Content != "继续处理这个问题" {
+		t.Fatalf("content = %q, want 继续处理这个问题", entry.Content)
+	}
+	if got := entry.EntryTimestamp.Format(time.RFC3339); got != createdAt {
+		t.Fatalf("entry_timestamp = %q, want %q", got, createdAt)
+	}
+}
+
+func TestProcessPromptEntryFromProcessSkipsLogDerivedUserMessage(t *testing.T) {
+	if store.ShouldSync("user_message") {
+		t.Fatal("ShouldSync(user_message) = true, want false")
 	}
 }

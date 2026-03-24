@@ -112,6 +112,7 @@ func (s *Store) InitSchema(ctx context.Context) error {
 			created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			UNIQUE KEY uk_kw_entries_process_index (process_id, entry_index),
 			KEY idx_kw_entries_session_time (session_id, entry_timestamp),
+			KEY idx_kw_entries_session_type_time (session_id, entry_type, entry_timestamp),
 			KEY idx_kw_entries_workspace_time (workspace_id, entry_timestamp),
 			KEY idx_kw_entries_type (entry_type),
 			CONSTRAINT fk_kw_entries_process
@@ -131,12 +132,32 @@ func (s *Store) InitSchema(ctx context.Context) error {
 				ON UPDATE CURRENT_TIMESTAMP(3),
 			KEY idx_kw_sync_type_target (subscription_type, target_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+		`CREATE TABLE IF NOT EXISTS kw_msg_contexts (
+			workspace_id VARCHAR(36) PRIMARY KEY,
+			session_id VARCHAR(36) NOT NULL,
+			process_id VARCHAR(36) NULL,
+			executor VARCHAR(50) NULL,
+			variant VARCHAR(50) NULL,
+			executor_config_json JSON NOT NULL,
+			force_when_dirty BOOLEAN NULL,
+			perform_git_reset BOOLEAN NULL,
+			default_send_mode VARCHAR(20) NOT NULL DEFAULT 'send',
+			source VARCHAR(30) NOT NULL,
+			updated_at TIMESTAMP(3) NOT NULL,
+			synced_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+				ON UPDATE CURRENT_TIMESTAMP(3),
+			KEY idx_kw_msg_contexts_session (session_id),
+			KEY idx_kw_msg_contexts_updated_at (updated_at),
+			CONSTRAINT fk_kw_msg_contexts_workspace
+				FOREIGN KEY (workspace_id) REFERENCES kw_workspaces(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_pending_approval BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_unseen_turns BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_running_dev_server BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS files_changed INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_added INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_removed INT NOT NULL DEFAULT 0`,
+		`ALTER TABLE kw_process_entries ADD INDEX IF NOT EXISTS idx_kw_entries_session_type_time (session_id, entry_type, entry_timestamp)`,
 	}
 
 	for _, stmt := range statements {
@@ -236,6 +257,71 @@ func (s *Store) UpsertExecutionProcess(ctx context.Context, ep *ExecutionProcess
 	return nil
 }
 
+// UpsertMessageContext 插入或更新工作区消息上下文
+func (s *Store) UpsertMessageContext(ctx context.Context, msgCtx *MessageContext) error {
+	query := `
+		INSERT INTO kw_msg_contexts (
+			workspace_id, session_id, process_id, executor, variant, executor_config_json,
+			force_when_dirty, perform_git_reset, default_send_mode, source, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			session_id = VALUES(session_id),
+			process_id = VALUES(process_id),
+			executor = VALUES(executor),
+			variant = VALUES(variant),
+			executor_config_json = VALUES(executor_config_json),
+			force_when_dirty = VALUES(force_when_dirty),
+			perform_git_reset = VALUES(perform_git_reset),
+			default_send_mode = VALUES(default_send_mode),
+			source = VALUES(source),
+			updated_at = VALUES(updated_at),
+			synced_at = CURRENT_TIMESTAMP(3)
+	`
+	_, err := s.execWithRetry(ctx, query,
+		msgCtx.WorkspaceID, msgCtx.SessionID, msgCtx.ProcessID, msgCtx.Executor, msgCtx.Variant,
+		msgCtx.ExecutorConfigJSON, msgCtx.ForceWhenDirty, msgCtx.PerformGitReset,
+		msgCtx.DefaultSendMode, msgCtx.Source, msgCtx.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert message context: %w", err)
+	}
+	return nil
+}
+
+// GetMessageContextByWorkspaceID 获取工作区消息上下文
+func (s *Store) GetMessageContextByWorkspaceID(ctx context.Context, workspaceID string) (*MessageContext, error) {
+	query := `
+		SELECT workspace_id, session_id, process_id, executor, variant, executor_config_json,
+		       force_when_dirty, perform_git_reset, default_send_mode, source, updated_at, synced_at
+		FROM kw_msg_contexts
+		WHERE workspace_id = ?
+		LIMIT 1
+	`
+
+	var msgCtx MessageContext
+	if err := s.db.QueryRowContext(ctx, query, workspaceID).Scan(
+		&msgCtx.WorkspaceID,
+		&msgCtx.SessionID,
+		&msgCtx.ProcessID,
+		&msgCtx.Executor,
+		&msgCtx.Variant,
+		&msgCtx.ExecutorConfigJSON,
+		&msgCtx.ForceWhenDirty,
+		&msgCtx.PerformGitReset,
+		&msgCtx.DefaultSendMode,
+		&msgCtx.Source,
+		&msgCtx.UpdatedAt,
+		&msgCtx.SyncedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get message context by workspace id: %w", err)
+	}
+
+	return &msgCtx, nil
+}
+
 // GetExecutionProcessStatus 获取 execution process 当前状态
 func (s *Store) GetExecutionProcessStatus(ctx context.Context, processID string) (*string, error) {
 	query := `
@@ -253,6 +339,79 @@ func (s *Store) GetExecutionProcessStatus(ctx context.Context, processID string)
 		return nil, fmt.Errorf("get execution process status: %w", err)
 	}
 	return &status, nil
+}
+
+// GetLatestCodingAgentProcessByWorkspaceID 获取工作区最近的 codingagent execution process
+func (s *Store) GetLatestCodingAgentProcessByWorkspaceID(ctx context.Context, workspaceID string) (*ExecutionProcess, error) {
+	query := `
+		SELECT id, session_id, workspace_id, run_reason, status, executor,
+		       executor_action_type, dropped, created_at, completed_at, synced_at
+		FROM kw_execution_processes
+		WHERE workspace_id = ?
+		  AND run_reason = 'codingagent'
+		  AND dropped = FALSE
+		ORDER BY synced_at DESC, created_at DESC, id DESC
+		LIMIT 1
+	`
+
+	var ep ExecutionProcess
+	if err := s.db.QueryRowContext(ctx, query, workspaceID).Scan(
+		&ep.ID,
+		&ep.SessionID,
+		&ep.WorkspaceID,
+		&ep.RunReason,
+		&ep.Status,
+		&ep.Executor,
+		&ep.ExecutorActionType,
+		&ep.Dropped,
+		&ep.CreatedAt,
+		&ep.CompletedAt,
+		&ep.SyncedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get latest codingagent process by workspace id: %w", err)
+	}
+
+	return &ep, nil
+}
+
+// GetLatestRunningCodingAgentProcessByWorkspaceID 获取工作区最近仍在运行的 codingagent execution process
+func (s *Store) GetLatestRunningCodingAgentProcessByWorkspaceID(ctx context.Context, workspaceID string) (*ExecutionProcess, error) {
+	query := `
+		SELECT id, session_id, workspace_id, run_reason, status, executor,
+		       executor_action_type, dropped, created_at, completed_at, synced_at
+		FROM kw_execution_processes
+		WHERE workspace_id = ?
+		  AND run_reason = 'codingagent'
+		  AND dropped = FALSE
+		  AND status = 'running'
+		ORDER BY synced_at DESC, created_at DESC, id DESC
+		LIMIT 1
+	`
+
+	var ep ExecutionProcess
+	if err := s.db.QueryRowContext(ctx, query, workspaceID).Scan(
+		&ep.ID,
+		&ep.SessionID,
+		&ep.WorkspaceID,
+		&ep.RunReason,
+		&ep.Status,
+		&ep.Executor,
+		&ep.ExecutorActionType,
+		&ep.Dropped,
+		&ep.CreatedAt,
+		&ep.CompletedAt,
+		&ep.SyncedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get latest running codingagent process by workspace id: %w", err)
+	}
+
+	return &ep, nil
 }
 
 // RefreshWorkspaceRuntimeState 根据最新 execution process 刷新工作区运行态
@@ -354,6 +513,25 @@ func (s *Store) GetProcessEntry(ctx context.Context, processID string, entryInde
 		return nil, fmt.Errorf("get process entry: %w", err)
 	}
 	return &entry, nil
+}
+
+// GetNextLocalEntryIndex 为本地占位消息分配负数序号，避免与远端同步的非负序号冲突。
+func (s *Store) GetNextLocalEntryIndex(ctx context.Context, processID string) (int, error) {
+	query := `
+		SELECT COALESCE(MIN(entry_index), 0)
+		FROM kw_process_entries
+		WHERE process_id = ?
+		  AND entry_index < 0
+	`
+
+	var minIndex int
+	if err := s.db.QueryRowContext(ctx, query, processID).Scan(&minIndex); err != nil {
+		return 0, fmt.Errorf("get next local entry index: %w", err)
+	}
+	if minIndex >= 0 {
+		return -1, nil
+	}
+	return minIndex - 1, nil
 }
 
 // MarkMissingWorkspacesArchived 将本轮未出现在上游非归档列表中的工作区标记为 archived

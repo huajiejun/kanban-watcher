@@ -599,6 +599,16 @@ export const cardStyles = css`
     word-break: break-word;
   }
 
+  .queue-banner {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 28%, transparent);
+    color: inherit;
+    font-size: 0.84rem;
+    line-height: 1.4;
+  }
+
   .message-input {
     width: 100%;
     min-height: 44px;

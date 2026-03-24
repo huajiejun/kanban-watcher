@@ -48,6 +48,22 @@ type ExecutionProcess struct {
 	SyncedAt           time.Time  `db:"synced_at"`
 }
 
+// MessageContext 工作区消息发送上下文
+type MessageContext struct {
+	WorkspaceID        string     `db:"workspace_id"`
+	SessionID          string     `db:"session_id"`
+	ProcessID          *string    `db:"process_id"`
+	Executor           *string    `db:"executor"`
+	Variant            *string    `db:"variant"`
+	ExecutorConfigJSON string     `db:"executor_config_json"`
+	ForceWhenDirty     *bool      `db:"force_when_dirty"`
+	PerformGitReset    *bool      `db:"perform_git_reset"`
+	DefaultSendMode    string     `db:"default_send_mode"`
+	Source             string     `db:"source"`
+	UpdatedAt          time.Time  `db:"updated_at"`
+	SyncedAt           time.Time  `db:"synced_at"`
+}
+
 // ProcessEntry 对话消息
 type ProcessEntry struct {
 	ID             int64      `db:"id"`
@@ -120,7 +136,6 @@ type NormalizedEntryType struct {
 
 // MessageTypesToSync 需要同步的消息类型
 var MessageTypesToSync = []string{
-	"user_message",
 	"assistant_message",
 	"tool_use",
 	"error_message",
@@ -149,5 +164,9 @@ func ToRole(entryType string) string {
 }
 
 func stringPtr(v string) *string {
+	return &v
+}
+
+func boolPtr(v bool) *bool {
 	return &v
 }

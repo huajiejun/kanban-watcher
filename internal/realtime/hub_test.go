@@ -81,9 +81,9 @@ func TestBroadcastSessionMessagesAppendedFiltersBySessionID(t *testing.T) {
 	}
 
 	select {
-	case <-allSessions.send:
+	case event := <-allSessions.send:
+		t.Fatalf("未指定 session 的客户端不应收到事件: %#v", event)
 	default:
-		t.Fatal("未指定 session 的客户端也应该收到事件")
 	}
 
 	select {

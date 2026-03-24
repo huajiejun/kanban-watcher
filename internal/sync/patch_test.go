@@ -115,7 +115,16 @@ func TestExtractExecutionProcessesFromSnapshotAndIncrementalPatch(t *testing.T) 
 						"status": "running",
 						"dropped": false,
 						"created_at": "2026-03-23T10:00:00Z",
-						"executor_action": {"typ": {"type": "CodingAgentInitialRequest"}}
+						"executor_action": {
+							"typ": {
+								"type": "CodingAgentInitialRequest",
+								"executor_config": {
+									"executor": "CLAUDE_CODE",
+									"variant": "ZHIPU",
+									"model_id": "glm-4.5"
+								}
+							}
+						}
 					}
 				}
 			},
@@ -144,6 +153,12 @@ func TestExtractExecutionProcessesFromSnapshotAndIncrementalPatch(t *testing.T) 
 	}
 	if processes[0].ID != "proc-1" || processes[1].ID != "proc-2" {
 		t.Fatalf("process 列表错误: %#v", processes)
+	}
+	if got := processes[0].ExecutorAction.Typ.ExecutorConfig["executor"]; got != "CLAUDE_CODE" {
+		t.Fatalf("executor = %#v, want CLAUDE_CODE", got)
+	}
+	if got := processes[0].ExecutorAction.Typ.ExecutorConfig["variant"]; got != "ZHIPU" {
+		t.Fatalf("variant = %#v, want ZHIPU", got)
 	}
 }
 
