@@ -15,6 +15,7 @@ import (
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/config"
+	"github.com/huajiejun/kanban-watcher/internal/notify"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
 	"github.com/huajiejun/kanban-watcher/internal/realtime"
 	"github.com/huajiejun/kanban-watcher/internal/server"
@@ -210,6 +211,7 @@ func runDaemon() error {
 	wechatNotifier := wechat.NewNotifier(cfg.WeChat)
 	tracker := wechat.NewTracker(persistedState, cfg.Notify.ApprovalThreshold, cfg.Notify.MessageThreshold, cfg.Notify.RepeatInterval)
 	trayApp := tray.New()
+	dialogNotifier := notify.NewDialogNotifier()
 
 	// 初始化数据库 Store（如果配置了）
 	var dbStore *store.Store
@@ -263,7 +265,7 @@ func runDaemon() error {
 
 	pollResults := make(chan poller.PollResult, 2)
 	go poller.Run(ctx, cfg, apiClient, pollResults)
-	go runEventLoop(ctx, pollResults, sessionExtractor, cfg, wechatNotifier, tracker, trayApp)
+	go runEventLoop(ctx, pollResults, sessionExtractor, cfg, wechatNotifier, tracker, trayApp, dialogNotifier)
 
 	systray.Run(trayApp.OnReady, trayApp.OnExit(cancel))
 
@@ -297,6 +299,7 @@ func runHeadless() error {
 	)
 	wechatNotifier := wechat.NewNotifier(cfg.WeChat)
 	tracker := wechat.NewTracker(persistedState, cfg.Notify.ApprovalThreshold, cfg.Notify.MessageThreshold, cfg.Notify.RepeatInterval)
+	dialogNotifier := notify.NewDialogNotifier()
 
 	var dbStore *store.Store
 	var realtimePublisher *api.RealtimePublisher
@@ -343,7 +346,7 @@ func runHeadless() error {
 
 	pollResults := make(chan poller.PollResult, 2)
 	go poller.Run(ctx, cfg, apiClient, pollResults)
-	go runEventLoop(ctx, pollResults, sessionExtractor, cfg, wechatNotifier, tracker, nil)
+	go runEventLoop(ctx, pollResults, sessionExtractor, cfg, wechatNotifier, tracker, nil, dialogNotifier)
 
 	fmt.Fprintln(os.Stdout, "headless 模式已启动")
 	<-ctx.Done()
