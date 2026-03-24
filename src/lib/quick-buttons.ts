@@ -115,3 +115,178 @@ export function isValidButtonText(text: string): boolean {
   const trimmed = text.trim();
   return trimmed.length > 0 && trimmed.length <= 20;
 }
+
+/** LLM 分析配置 */
+interface LLMConfig {
+  baseUrl?: string;
+  timeout?: number;
+}
+
+/** 快捷按钮分析请求参数 */
+interface QuickButtonsRequest {
+  message: string;
+  workspaceStatus: "running" | "attention" | "idle" | "completed";
+  llmEnabled?: boolean;
+  llmConfig?: LLMConfig;
+}
+
+/** LLM 分析结果 */
+interface LLMAnalysisResult {
+  buttons: string[];
+  needsAction: boolean;
+}
+
+/**
+ * 使用 LLM 分析消息，提取快捷按钮
+ * @param message AI 消息文本
+ * @param llmBaseUrl LLM API 基础 URL（默认 http://localhost:1234）
+ * @returns 快捷按钮列表
+ */
+export async function analyzeButtonsWithLLM(
+  message: string,
+  llmBaseUrl?: string
+): Promise<string[]> {
+  if (!message || typeof message !== "string" || !message.trim()) {
+    return [];
+  }
+
+  const baseUrl = llmBaseUrl || "http://localhost:1234";
+  const url = `${baseUrl}/v1/chat/completions`;
+
+  const systemPrompt = `你是一个快捷按钮分析助手。分析用户的 AI 助手消息，判断是否需要用户进行选择操作。
+
+任务：
+1. 判断消息是否包含需要用户选择的方案/选项
+2. 如果是"注意事项"、"说明"、"已完成"等无需用户操作的内容，返回空数组
+3. 如果需要用户选择，提取具体的选项名称（最多5个）
+
+返回格式要求：
+- 必须返回严格的 JSON 数组格式
+- 每个选项不超过10个字符
+- 如果无需操作，返回空数组 []
+
+示例：
+- "请选择方案1或方案2" → ["方案1", "方案2"]
+- "选项A是快速实现，选项B是完整实现" → ["选项A", "选项B"]
+- "注意事项：请确保数据库已备份" → []
+- "任务已完成" → []`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "local-model",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message },
+        ],
+        temperature: 0.1,
+        max_tokens: 200,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content || typeof content !== "string") {
+      return [];
+    }
+
+    // 尝试解析 JSON
+    try {
+      // 提取 JSON 数组
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        return [];
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      // 过滤和限制
+      const buttons = parsed
+        .filter((item): item is string => typeof item === "string")
+        .map((item: string) => item.trim())
+        .filter((item: string) => isValidButtonText(item))
+        .slice(0, MAX_DYNAMIC_BUTTONS);
+
+      return buttons;
+    } catch {
+      return [];
+    }
+  } catch {
+    return [];
+  }
+}
+
+/** 快捷按钮结果 */
+export interface QuickButtonsResult {
+  staticButtons: string[];
+  dynamicButtons: string[];
+}
+
+/**
+ * 获取快捷按钮（结合静态按钮和 LLM 分析）
+ * @param request 请求参数
+ * @returns 快捷按钮结果（静态 + 动态）
+ */
+export async function getQuickButtonsWithLLM(
+  request: QuickButtonsRequest
+): Promise<QuickButtonsResult> {
+  const { message, workspaceStatus, llmEnabled, llmConfig } = request;
+
+  // 运行中只返回静态按钮
+  if (workspaceStatus === "running") {
+    return {
+      staticButtons: [...STATIC_BUTTONS],
+      dynamicButtons: [],
+    };
+  }
+
+  // 非 attention 状态，只返回静态按钮
+  if (workspaceStatus !== "attention") {
+    return {
+      staticButtons: [...STATIC_BUTTONS],
+      dynamicButtons: [],
+    };
+  }
+
+  // LLM 未启用，使用正则匹配
+  if (!llmEnabled) {
+    const dynamicButtons = extractDynamicButtons(message);
+    return {
+      staticButtons: [...STATIC_BUTTONS],
+      dynamicButtons: dynamicButtons.filter(isValidButtonText),
+    };
+  }
+
+  // 使用 LLM 分析
+  const dynamicButtons = await analyzeButtonsWithLLM(message, llmConfig?.baseUrl);
+
+  // LLM 返回空，回退到正则
+  if (dynamicButtons.length === 0) {
+    const regexButtons = extractDynamicButtons(message);
+    return {
+      staticButtons: [...STATIC_BUTTONS],
+      dynamicButtons: regexButtons.filter(isValidButtonText),
+    };
+  }
+
+  return {
+    staticButtons: [...STATIC_BUTTONS],
+    dynamicButtons: dynamicButtons.filter(isValidButtonText),
+  };
+}

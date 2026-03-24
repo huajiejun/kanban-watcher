@@ -16,6 +16,7 @@ import { getStatusMeta } from "./lib/status-meta";
 import { summarizeToolCall, type DialogToolStatus } from "./lib/tool-call";
 import {
   extractDynamicButtons,
+  getQuickButtonsWithLLM,
   isValidButtonText,
   STATIC_BUTTONS,
 } from "./lib/quick-buttons";
@@ -47,6 +48,8 @@ type CardConfig = {
   base_url?: string;
   api_key?: string;
   messages_limit?: number;
+  llm_enabled?: boolean;
+  llm_base_url?: string;
 };
 
 type DialogAction = "send" | "queue" | "stop";
@@ -111,6 +114,7 @@ export class KanbanWatcherCard extends LitElement {
     queueStatusByWorkspace: { state: true },
     optimisticQueueWorkspaceIds: { state: true },
     autoScrollEnabled: { state: true },
+    dynamicButtonsByWorkspace: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -141,6 +145,7 @@ export class KanbanWatcherCard extends LitElement {
   private messageListScrollHandler?: () => void;
   private dialogMessageVersionsByWorkspace: Record<string, string> = {};
   private expandedToolMessageKeys = new Set<string>();
+  private dynamicButtonsByWorkspace: Record<string, string[]> = {};
 
   connectedCallback() {
     super.connectedCallback();
@@ -283,18 +288,12 @@ export class KanbanWatcherCard extends LitElement {
       return nothing;
     }
 
-    const messages = this.getDialogMessages(workspace);
+    // attention 状态使用 LLM 分析或缓存的动态按钮
+    const isAttention = workspace.status === "attention";
+    const cachedDynamicButtons = this.dynamicButtonsByWorkspace[workspace.id] || [];
 
-    // 获取最后一条 AI 消息
-    const lastAiMessage = [...messages]
-      .reverse()
-      .find((msg) => msg.kind === "message" && msg.sender === "ai");
-
-    // 提取动态按钮
-    const dynamicButtons =
-      lastAiMessage && "text" in lastAiMessage
-        ? extractDynamicButtons(lastAiMessage.text)
-        : [];
+    // 非 attention 状态只显示静态按钮
+    const dynamicButtons = isAttention ? cachedDynamicButtons : [];
 
     // 合并通用按钮和动态按钮
     const allButtons = [...STATIC_BUTTONS, ...dynamicButtons].filter(isValidButtonText);
@@ -1429,6 +1428,10 @@ export class KanbanWatcherCard extends LitElement {
           ...this.dialogMessageVersionsByWorkspace,
           [workspaceId]: this.getWorkspaceMessageVersion(workspace),
         };
+        // 如果是 attention 状态，触发 LLM 分析动态按钮
+        if (workspace.status === "attention") {
+          void this.analyzeDynamicButtons(workspace);
+        }
       }
       this.emitPreviewStatus();
       this.requestUpdate();
@@ -1441,6 +1444,44 @@ export class KanbanWatcherCard extends LitElement {
       this.dialogLoading = false;
       this.requestUpdate();
     }
+  }
+
+  /**
+   * 分析动态按钮（使用 LLM 或正则匹配）
+   */
+  private async analyzeDynamicButtons(workspace: KanbanWorkspace) {
+    const messages = this.dialogMessagesByWorkspace[workspace.id] || [];
+
+    // 获取最后一条 AI 消息
+    const lastAiMessage = [...messages]
+      .reverse()
+      .find((msg) => msg.kind === "message" && msg.sender === "ai");
+
+    if (!lastAiMessage || !("text" in lastAiMessage)) {
+      this.dynamicButtonsByWorkspace = {
+        ...this.dynamicButtonsByWorkspace,
+        [workspace.id]: [],
+      };
+      return;
+    }
+
+    const message = lastAiMessage.text;
+
+    // 使用 LLM 分析
+    const result = await getQuickButtonsWithLLM({
+      message,
+      workspaceStatus: workspace.status,
+      llmEnabled: this.config?.llm_enabled ?? false,
+      llmConfig: {
+        baseUrl: this.config?.llm_base_url,
+      },
+    });
+
+    this.dynamicButtonsByWorkspace = {
+      ...this.dynamicButtonsByWorkspace,
+      [workspace.id]: result.dynamicButtons,
+    };
+    this.requestUpdate();
   }
 
   private normalizeApiMessages(messages: SessionMessageResponse[] | undefined) {
