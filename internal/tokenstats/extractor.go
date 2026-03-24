@@ -45,6 +45,11 @@ type tokenMsg struct {
 	Info TokenInfo `json:"info"`
 }
 
+// outerEnvelope JSONL 文件的外层 envelope
+type outerEnvelope struct {
+	Stdout string `json:"Stdout"`
+}
+
 // ExtractFromJSONL 从单个 JSONL 文件提取 token 数据
 func ExtractFromJSONL(path string) (*TokenCount, error) {
 	file, err := os.Open(path)
@@ -66,14 +71,19 @@ func ExtractFromJSONL(path string) (*TokenCount, error) {
 		}
 
 		// 解析外层 envelope
-		var outer map[string]json.RawMessage
+		var outer outerEnvelope
 		if err := json.Unmarshal([]byte(line), &outer); err != nil {
 			continue
 		}
 
-		// 尝试解析 codexEvent
+		// 内部是另一个 JSON 字符串
+		if outer.Stdout == "" {
+			continue
+		}
+
+		// 解析内部的 codex event
 		var event codexEvent
-		if err := json.Unmarshal([]byte(line), &event); err != nil || event.Method != "codex/event/token_count" {
+		if err := json.Unmarshal([]byte(outer.Stdout), &event); err != nil || event.Method != "codex/event/token_count" {
 			continue
 		}
 
