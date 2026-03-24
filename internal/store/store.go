@@ -486,7 +486,8 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 			w.lines_removed,
 			w.updated_at,
 			COALESCE(msg.message_count, 0) AS message_count,
-			msg.last_message_at
+			msg.last_message_at,
+			ep.latest_process_completed_at
 		FROM kw_workspaces w
 		LEFT JOIN (
 			SELECT
@@ -496,6 +497,14 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 			FROM kw_process_entries
 			GROUP BY workspace_id
 		) msg ON msg.workspace_id = w.id
+		LEFT JOIN (
+			SELECT
+				workspace_id,
+				MAX(completed_at) AS latest_process_completed_at
+			FROM kw_execution_processes
+			WHERE completed_at IS NOT NULL
+			GROUP BY workspace_id
+		) ep ON ep.workspace_id = w.id
 		WHERE w.archived = FALSE
 		ORDER BY COALESCE(msg.last_message_at, w.updated_at, w.last_seen_at) DESC
 	`
@@ -510,12 +519,12 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 	for rows.Next() {
 		var summary ActiveWorkspaceSummary
 		var latestSessionID sql.NullString
-		var updatedAt, lastMessageAt sql.NullTime
+		var updatedAt, lastMessageAt, latestProcessCompletedAt sql.NullTime
 		if err := rows.Scan(
 			&summary.ID, &summary.Name, &summary.Branch, &latestSessionID, &summary.Status,
 			&summary.HasPendingApproval, &summary.HasUnseenTurns, &summary.HasRunningDevServer,
 			&summary.FilesChanged, &summary.LinesAdded, &summary.LinesRemoved,
-			&updatedAt, &summary.MessageCount, &lastMessageAt,
+			&updatedAt, &summary.MessageCount, &lastMessageAt, &latestProcessCompletedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan active workspace summary: %w", err)
 		}
@@ -527,6 +536,9 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 		}
 		if lastMessageAt.Valid {
 			summary.LastMessageAt = &lastMessageAt.Time
+		}
+		if latestProcessCompletedAt.Valid {
+			summary.LatestProcessCompletedAt = &latestProcessCompletedAt.Time
 		}
 		summaries = append(summaries, summary)
 	}
