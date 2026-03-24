@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
+	"github.com/huajiejun/kanban-watcher/internal/auth"
 	dispatchsvc "github.com/huajiejun/kanban-watcher/internal/service"
 )
 
@@ -21,6 +22,8 @@ type Server struct {
 	dispatcher  workspaceMessageDispatcher
 	port        int
 	apiKey      string
+	jwtService  *auth.JWTService
+	authHandler *AuthHandler
 	httpServer  *http.Server
 	extraRoutes []routeRegistration
 }
@@ -40,17 +43,24 @@ type routeRegistration struct {
 
 // NewServer 创建 HTTP 服务器
 // apiKey 用于简单的安全验证，HA 请求需要携带这个 key
-func NewServer(proxy *api.ProxyClient, port int, apiKey string) *Server {
+// jwtService 用于 JWT 认证，可选
+func NewServer(proxy *api.ProxyClient, port int, apiKey string, jwtService *auth.JWTService) *Server {
 	return &Server{
-		proxy:  proxy,
-		port:   port,
-		apiKey: apiKey,
+		proxy:      proxy,
+		port:       port,
+		apiKey:     apiKey,
+		jwtService: jwtService,
 	}
 }
 
 // SetWorkspaceMessageDispatcher 设置工作区消息分发器
 func (s *Server) SetWorkspaceMessageDispatcher(dispatcher workspaceMessageDispatcher) {
 	s.dispatcher = dispatcher
+}
+
+// SetAuthHandler 设置认证处理器
+func (s *Server) SetAuthHandler(handler *AuthHandler) {
+	s.authHandler = handler
 }
 
 // RegisterRoute 注册额外的路由
@@ -67,6 +77,13 @@ func (s *Server) Start() error {
 
 	// 健康检查
 	mux.HandleFunc("/health", s.handleHealth)
+
+	// 认证接口
+	if s.authHandler != nil {
+		mux.HandleFunc("/api/auth/login", s.authHandler.HandleLogin)
+		mux.HandleFunc("/api/auth/verify", s.authHandler.HandleVerify)
+		mux.HandleFunc("/api/auth/refresh", s.authHandler.HandleRefresh)
+	}
 
 	// 工作区消息代理接口
 	mux.HandleFunc("/api/workspace/", s.handleWorkspaceMessage)
@@ -286,27 +303,50 @@ func (s *Server) handleWorkspaceQueue(w http.ResponseWriter, r *http.Request, wo
 	})
 }
 
-// authMiddleware API Key 验证
+// authMiddleware API Key 和 JWT 双模式验证
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 健康检查接口不需要认证
+		// 1. 健康检查接口不需要认证
 		if r.URL.Path == "/health" {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// 从 Header 或 Query 参数获取 API Key
+		// 2. 认证接口不需要认证
+		if strings.HasPrefix(r.URL.Path, "/api/auth/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// 3. 尝试 X-API-Key 认证
 		apiKey := r.Header.Get("X-API-Key")
 		if apiKey == "" {
 			apiKey = r.URL.Query().Get("api_key")
 		}
-
-		if apiKey != s.apiKey {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		if apiKey != "" && apiKey == s.apiKey {
+			next.ServeHTTP(w, r)
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		// 4. 尝试 JWT Bearer Token 认证
+		if s.jwtService != nil {
+			authHeader := r.Header.Get("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				token := strings.TrimPrefix(authHeader, "Bearer ")
+				if _, err := s.jwtService.ValidateToken(token); err == nil {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+		}
+
+		// 5. 认证失败
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "unauthorized",
+		})
 	})
 }
 
@@ -315,7 +355,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
