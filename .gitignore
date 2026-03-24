@@ -1,4 +1,5 @@
 kanban-watcher
+kanban-watcher-*
 !cmd/
 !cmd/kanban-watcher/
 !cmd/kanban-watcher/*.go
