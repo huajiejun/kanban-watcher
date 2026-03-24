@@ -277,6 +277,12 @@ export class KanbanWatcherCard extends LitElement {
 
   private renderQuickButtons(workspace: KanbanWorkspace) {
     const isRunning = workspace.status === "running";
+
+    // 运行时隐藏所有快捷按钮
+    if (isRunning) {
+      return nothing;
+    }
+
     const messages = this.getDialogMessages(workspace);
 
     // 获取最后一条 AI 消息
@@ -291,10 +297,7 @@ export class KanbanWatcherCard extends LitElement {
         : [];
 
     // 合并通用按钮和动态按钮
-    const allButtons = [
-      ...STATIC_BUTTONS,
-      ...(isRunning ? [] : dynamicButtons), // 运行时不显示动态按钮
-    ].filter(isValidButtonText);
+    const allButtons = [...STATIC_BUTTONS, ...dynamicButtons].filter(isValidButtonText);
 
     if (allButtons.length === 0) {
       return nothing;
