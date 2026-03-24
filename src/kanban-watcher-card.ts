@@ -103,6 +103,7 @@ export class KanbanWatcherCard extends LitElement {
     dialogError: { state: true },
     dialogMessagesByWorkspace: { state: true },
     queueStatusByWorkspace: { state: true },
+    optimisticQueueWorkspaceIds: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -128,6 +129,7 @@ export class KanbanWatcherCard extends LitElement {
   private dialogError = "";
   private dialogMessagesByWorkspace: Record<string, DialogMessage[]> = {};
   private queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
+  private optimisticQueueWorkspaceIds = new Set<string>();
   private dialogMessageVersionsByWorkspace: Record<string, string> = {};
   private expandedToolMessageKeys = new Set<string>();
 
@@ -272,8 +274,9 @@ export class KanbanWatcherCard extends LitElement {
 
     const messages = this.getDialogMessages(workspace);
     const isRunning = workspace.status === "running";
+    const canQueue = isRunning || this.optimisticQueueWorkspaceIds.has(workspace.id);
     const queueStatus = this.queueStatusByWorkspace[workspace.id];
-    const isQueued = isRunning && queueStatus?.status === "queued";
+    const isQueued = canQueue && queueStatus?.status === "queued";
 
     return html`
       <div class="dialog-shell" role="presentation">
@@ -334,7 +337,7 @@ export class KanbanWatcherCard extends LitElement {
                     `
                   : "发送消息"}
               </button>
-              ${isRunning
+              ${canQueue
                 ? html`
                     <button
                       class="dialog-action dialog-action-secondary"
@@ -400,11 +403,17 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private closeWorkspaceDialog = () => {
+    const workspaceID = this.selectedWorkspaceId;
     this.selectedWorkspaceId = undefined;
     this.messageDraft = "";
     this.actionFeedback = "";
     this.dialogError = "";
     this.dialogLoading = false;
+    if (workspaceID) {
+      const next = new Set(this.optimisticQueueWorkspaceIds);
+      next.delete(workspaceID);
+      this.optimisticQueueWorkspaceIds = next;
+    }
     this.expandedToolMessageKeys = new Set();
   };
 
@@ -572,6 +581,12 @@ export class KanbanWatcherCard extends LitElement {
           },
         });
       } else {
+        const workspace = this.selectedWorkspace;
+        if (workspace && workspace.status !== "running") {
+          const next = new Set(this.optimisticQueueWorkspaceIds);
+          next.add(workspace.id);
+          this.optimisticQueueWorkspaceIds = next;
+        }
         this.messageDraft = "";
       }
       this.emitPreviewStatus();

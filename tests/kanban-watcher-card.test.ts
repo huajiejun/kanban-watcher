@@ -1506,6 +1506,89 @@ describe("kanban-watcher-card", () => {
     );
   });
 
+  it("allows queueing immediately after sending from an idle workspace", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-send-queue",
+              name: "API Send Queue Workspace",
+              status: "completed",
+              latest_session_id: "session-api-send-queue",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-send-queue",
+          workspace_name: "API Send Queue Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          message: "消息已发送",
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-send-queue",
+          workspace_name: "API Send Queue Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          message: "消息已加入队列",
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const input = card.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    input!.value = "第一条消息";
+    input?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await settleCard(card);
+
+    const sendButton = card.shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    sendButton?.click();
+    await settleCard(card);
+
+    const queueButton = card.shadowRoot?.querySelector(
+      ".dialog-action-secondary",
+    ) as HTMLButtonElement | null;
+    expect(normalizeText(queueButton?.textContent)).toBe("加入队列");
+
+    const queueInput = card.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    queueInput!.value = "第二条排队消息";
+    queueInput?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await settleCard(card);
+
+    queueButton?.click();
+    await settleCard(card);
+
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      5,
+      "http://localhost:7778/api/workspace/api-send-queue/message",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ message: "第二条排队消息", mode: "queue" }),
+      }),
+    );
+  });
+
   it("shows queued status and cancels queued messages through the local API in API mode", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
