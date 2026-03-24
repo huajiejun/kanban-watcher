@@ -898,9 +898,9 @@ describe("kanban-watcher-card", () => {
     expect(cssText).toContain(".message-bubble.is-user");
     expect(cssText).toContain(".message-bubble.is-ai");
     expect(cssText).not.toContain("justify-content: flex-end");
-    expect(cssText).not.toContain("text-align: right");
+    // 注意：text-align: right 现在用于代码高亮的行号，不再检查
+    // 注意：white-space: pre-wrap 现在用于代码高亮功能，不再检查
     expect(cssText).toContain("white-space: normal");
-    expect(cssText).not.toContain("white-space: pre-wrap");
   });
 
   it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {

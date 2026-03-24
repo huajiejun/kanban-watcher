@@ -10,6 +10,12 @@ export type DialogToolSummary = {
   statusLabel: string;
   icon: string;
   command?: string;
+  changes?: Array<{
+    action: "write" | "edit" | "delete" | "rename";
+    content?: string;
+    unified_diff?: string;
+    new_path?: string;
+  }>;
 };
 
 export function summarizeToolCall(message: SessionMessageResponse): DialogToolSummary | undefined {
@@ -21,6 +27,7 @@ export function summarizeToolCall(message: SessionMessageResponse): DialogToolSu
   const action = getActionType(toolInfo);
   const toolName = getToolName(toolInfo, action);
   const command = getCommand(toolInfo);
+  const changes = getChanges(toolInfo);
 
   return {
     toolName,
@@ -30,6 +37,7 @@ export function summarizeToolCall(message: SessionMessageResponse): DialogToolSu
     statusLabel: getToolStatusLabel(toolInfo),
     icon: getToolIcon(action),
     command,
+    changes,
   };
 }
 
@@ -41,6 +49,7 @@ function getToolName(toolInfo: ToolInfo, action?: string) {
   const fallbackMap: Record<string, string> = {
     command_run: "命令",
     file_read: "读取文件",
+    file_edit: "修改文件",
     search: "搜索",
     web_fetch: "抓取网页",
     task_create: "创建任务",
@@ -62,6 +71,10 @@ function getToolSummary(toolInfo: ToolInfo, toolName: string) {
         ? action.command.trim()
         : toolName;
     case "file_read":
+      return typeof action.path === "string" && action.path.trim()
+        ? action.path.trim()
+        : toolName;
+    case "file_edit":
       return typeof action.path === "string" && action.path.trim()
         ? action.path.trim()
         : toolName;
@@ -126,6 +139,7 @@ function getToolStatusLabel(toolInfo: ToolInfo) {
 function getToolIcon(action?: string) {
   const iconMap: Record<string, string> = {
     file_read: "📄",
+    file_edit: "✏️",
     search: "🔎",
     web_fetch: "🌐",
     command_run: ">_",
@@ -141,6 +155,17 @@ function getCommand(toolInfo: ToolInfo) {
     toolInfo.action_type.command.trim()
     ? toolInfo.action_type.command.trim()
     : undefined;
+}
+
+function getChanges(toolInfo: ToolInfo): DialogToolSummary["changes"] {
+  if (toolInfo.action_type?.action !== "file_edit") {
+    return undefined;
+  }
+  const changes = toolInfo.action_type.changes;
+  if (!Array.isArray(changes) || changes.length === 0) {
+    return undefined;
+  }
+  return changes;
 }
 
 function getActionType(toolInfo: ToolInfo) {

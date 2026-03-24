@@ -170,3 +170,16 @@ func stringPtr(v string) *string {
 func boolPtr(v bool) *bool {
 	return &v
 }
+
+// TokenUsageDaily 按天聚合的 Token 用量
+type TokenUsageDaily struct {
+	ID            int64     `json:"id"`
+	StatDate      time.Time `json:"stat_date"`       // 天时间点，如 2026-03-24
+	Executor      string    `json:"executor"`        // CLAUDE_CODE / CODEX / OPENCODE 等
+	InputTokens   int64     `json:"input_tokens"`    // 输入 token 数
+	OutputTokens  int64     `json:"output_tokens"`   // 输出 token 数
+	TotalTokens   int64     `json:"total_tokens"`    // 总 token 数
+	SessionCount  int       `json:"session_count"`   // 该天会话数
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}

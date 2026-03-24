@@ -8,6 +8,7 @@ import (
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/config"
+	"github.com/huajiejun/kanban-watcher/internal/notify"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
 	"github.com/huajiejun/kanban-watcher/internal/sessioncleaner"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
@@ -40,6 +41,7 @@ func runEventLoop(
 	wechatNotifier *wechat.Notifier,
 	tracker *wechat.Tracker,
 	trayApp *tray.App,
+	dialogNotifier *notify.DialogNotifier,
 ) {
 	// 创建 session 清理器
 	var cleaner *sessioncleaner.Cleaner
@@ -73,7 +75,7 @@ func runEventLoop(
 				continue
 			}
 			latestWorkspaces = result.Workspaces
-			handlePollResult(ctx, result, sessionExtractor, cfg, wechatNotifier, tracker, trayApp)
+			handlePollResult(ctx, result, sessionExtractor, cfg, wechatNotifier, tracker, trayApp, dialogNotifier)
 		case <-cleanupCh:
 			// 每小时清理一次过期 session
 			if cleaner != nil && len(latestWorkspaces) > 0 {
@@ -102,6 +104,7 @@ func handlePollResult(
 	wechatNotifier *wechat.Notifier,
 	tracker *wechat.Tracker,
 	trayApp *tray.App,
+	dialogNotifier *notify.DialogNotifier,
 ) {
 	workspaces := result.Workspaces
 
@@ -120,7 +123,30 @@ func handlePollResult(
 		}
 	}
 
-	// 4. 若发送了通知，更新持久化状态（记录已通知，避免重复）
+	// 4. 本地弹框通知（如果启用）
+	if cfg.Notify.Enabled && dialogNotifier != nil {
+		for _, tw := range toNotify {
+			// 构建弹框信息
+			title := "Kanban Watcher - 需要关注"
+			message := fmt.Sprintf("工作区：%s\n状态：%s\n等待时间：%d 分钟",
+				tw.Workspace.DisplayName,
+				tw.Workspace.StatusText(),
+				tw.ElapsedMinutes,
+			)
+			url := fmt.Sprintf("%s/workspace/%s", cfg.KanbanAPIURL, tw.Workspace.ID)
+
+			clicked, err := dialogNotifier.ShowAndOpen(title, message, url)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "弹框失败 [%s]: %v\n", tw.Workspace.DisplayName, err)
+			}
+
+			// tracker.ProcessWorkspaces 已经在达到阈值时更新了 LastAlertedAt
+			// 所以这里不需要再次更新
+			_ = clicked
+		}
+	}
+
+	// 5. 若发送了通知，更新持久化状态（记录已通知，避免重复）
 	if len(toNotify) > 0 {
 		if err := state.SaveState(tracker.GetState()); err != nil {
 			fmt.Fprintf(os.Stderr, "警告: 保存状态: %v\n", err)

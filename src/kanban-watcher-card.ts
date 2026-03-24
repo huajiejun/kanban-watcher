@@ -20,6 +20,11 @@ import {
   isValidButtonText,
   STATIC_BUTTONS,
 } from "./lib/quick-buttons";
+import {
+  detectLanguageFromPath,
+  renderDiffWithHighlight,
+  renderCodeWithHighlight,
+} from "./lib/highlight-code";
 import { cardStyles } from "./styles";
 import type {
   ActiveWorkspacesResponse,
@@ -72,6 +77,12 @@ type DialogToolMessage = {
   icon: string;
   command?: string;
   timestamp?: string;
+  changes?: Array<{
+    action: "write" | "edit" | "delete" | "rename";
+    content?: string;
+    unified_diff?: string;
+    new_path?: string;
+  }>;
 };
 type DialogToolGroupMessage = {
   key?: string;
@@ -536,7 +547,10 @@ export class KanbanWatcherCard extends LitElement {
                 ${message.command
                   ? html`<div class="message-tool-command">${message.command}</div>`
                   : nothing}
-                ${message.detail
+                ${message.changes && message.changes.length > 0
+                  ? message.changes.map((change) => this.renderFileChange(change))
+                  : nothing}
+                ${message.detail && (!message.changes || message.changes.length === 0)
                   ? html`${unsafeHTML(renderMessageMarkdown(message.detail))}`
                   : nothing}
               </div>
@@ -544,6 +558,104 @@ export class KanbanWatcherCard extends LitElement {
           : nothing}
       </div>
     `;
+  }
+
+  private renderFileChange(change: NonNullable<DialogToolMessage["changes"]>[number]) {
+    const actionLabel: Record<string, string> = {
+      write: "写入",
+      edit: "编辑",
+      delete: "删除",
+      rename: "重命名",
+    };
+
+    if (change.action === "edit" && change.unified_diff) {
+      const language = this.currentEditLanguage;
+      const highlightedDiff = renderDiffWithHighlight(change.unified_diff, language);
+      return html`
+        <div class="file-change">
+          <div class="file-change-header">
+            <span class="file-change-action">${actionLabel[change.action]}</span>
+          </div>
+          <div class="file-change-diff">${unsafeHTML(highlightedDiff)}</div>
+        </div>
+      `;
+    }
+
+    if (change.action === "write" && change.content) {
+      const lines = change.content.split("\n").length;
+      const language = this.currentEditLanguage;
+      const highlightedCode = renderCodeWithHighlight(this.truncateContent(change.content, 50), language);
+      return html`
+        <div class="file-change">
+          <div class="file-change-header">
+            <span class="file-change-action">${actionLabel[change.action]}</span>
+            <span class="file-change-lines">${lines} 行</span>
+          </div>
+          <div class="file-change-code">${unsafeHTML(highlightedCode)}</div>
+        </div>
+      `;
+    }
+
+    if (change.action === "delete") {
+      return html`
+        <div class="file-change">
+          <div class="file-change-header">
+            <span class="file-change-action">${actionLabel[change.action]}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    if (change.action === "rename" && change.new_path) {
+      return html`
+        <div class="file-change">
+          <div class="file-change-header">
+            <span class="file-change-action">${actionLabel[change.action]}</span>
+            <span class="file-change-new-path">→ ${change.new_path}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    return nothing;
+  }
+
+  private get currentEditLanguage(): string | undefined {
+    const messages = this.selectedWorkspaceId
+      ? this.dialogMessagesByWorkspace[this.selectedWorkspaceId]
+      : [];
+    for (const message of messages) {
+      if (message.kind === "tool" && message.toolName === "修改文件" && message.summary) {
+        return detectLanguageFromPath(message.summary);
+      }
+    }
+    return undefined;
+  }
+
+  private formatUnifiedDiff(diff: string): string {
+    return diff
+      .split("\n")
+      .map((line) => {
+        if (line.startsWith("+") && !line.startsWith("+++")) {
+          return `+ ${line.slice(1)}`;
+        }
+        if (line.startsWith("-") && !line.startsWith("---")) {
+          return `- ${line.slice(1)}`;
+        }
+        if (line.startsWith("@@")) {
+          return `@@ ${line.slice(2)}`;
+        }
+        return line;
+      })
+      .join("\n");
+  }
+
+  private truncateContent(content: string, maxLines: number): string {
+    const lines = content.split("\n");
+    if (lines.length <= maxLines) {
+      return content;
+    }
+    return lines.slice(0, maxLines).join("\n") + `\n... (${lines.length - maxLines} 行已省略)`;
   }
 
   private renderToolGroupMessage(message: DialogToolGroupMessage) {
@@ -1589,6 +1701,7 @@ export class KanbanWatcherCard extends LitElement {
       statusLabel: summary.statusLabel,
       icon: summary.icon,
       command: summary.command,
+      changes: summary.changes,
       timestamp: message.timestamp,
     } satisfies DialogMessage;
   }

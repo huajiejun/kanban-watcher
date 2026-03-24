@@ -158,6 +158,20 @@ func (s *Store) InitSchema(ctx context.Context) error {
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_added INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_removed INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE kw_process_entries ADD INDEX IF NOT EXISTS idx_kw_entries_session_type_time (session_id, entry_type, entry_timestamp)`,
+		`CREATE TABLE IF NOT EXISTS kw_token_usage_daily (
+			id BIGINT AUTO_INCREMENT PRIMARY KEY,
+			stat_date DATE NOT NULL,
+			executor VARCHAR(50) NOT NULL,
+			input_tokens BIGINT NOT NULL DEFAULT 0,
+			output_tokens BIGINT NOT NULL DEFAULT 0,
+			total_tokens BIGINT NOT NULL DEFAULT 0,
+			session_count INT NOT NULL DEFAULT 0,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			UNIQUE KEY uk_token_daily_stat_executor (stat_date, executor),
+			INDEX idx_token_daily_stat (stat_date),
+			INDEX idx_token_daily_executor (executor)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	}
 
 	for _, stmt := range statements {
@@ -784,6 +798,64 @@ func (s *Store) UpsertSubscription(ctx context.Context, sub *SyncSubscription) e
 		return fmt.Errorf("upsert subscription: %w", err)
 	}
 	return nil
+}
+
+// UpsertTokenUsageDaily 插入或更新按天聚合的 Token 用量
+func (s *Store) UpsertTokenUsageDaily(ctx context.Context, usage *TokenUsageDaily) error {
+	query := `
+		INSERT INTO kw_token_usage_daily (
+			stat_date, executor, input_tokens, output_tokens, total_tokens, session_count
+		) VALUES (?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			input_tokens = input_tokens + VALUES(input_tokens),
+			output_tokens = output_tokens + VALUES(output_tokens),
+			total_tokens = total_tokens + VALUES(total_tokens),
+			session_count = session_count + VALUES(session_count),
+			updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := s.db.ExecContext(ctx, query,
+		usage.StatDate, usage.Executor, usage.InputTokens, usage.OutputTokens,
+		usage.TotalTokens, usage.SessionCount,
+	)
+	return err
+}
+
+// BatchUpsertTokenUsageDaily 批量插入或更新 Token 用量
+func (s *Store) BatchUpsertTokenUsageDaily(ctx context.Context, usages []*TokenUsageDaily) error {
+	if len(usages) == 0 {
+		return nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO kw_token_usage_daily (
+			stat_date, executor, input_tokens, output_tokens, total_tokens, session_count
+		) VALUES (?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			input_tokens = input_tokens + VALUES(input_tokens),
+			output_tokens = output_tokens + VALUES(output_tokens),
+			total_tokens = total_tokens + VALUES(total_tokens),
+			session_count = session_count + VALUES(session_count),
+			updated_at = CURRENT_TIMESTAMP
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, usage := range usages {
+		if _, err := stmt.ExecContext(ctx,
+			usage.StatDate, usage.Executor, usage.InputTokens, usage.OutputTokens,
+			usage.TotalTokens, usage.SessionCount,
+		); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func scanWorkspace(scanner interface {
