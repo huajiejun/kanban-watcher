@@ -4,6 +4,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,29 +22,34 @@ type ProxyClient struct {
 
 // NewProxyClient 创建代理客户端
 func NewProxyClient(baseURL string) *ProxyClient {
+	insecureTransport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
 	return &ProxyClient{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: insecureTransport,
 		},
 	}
 }
 
 // FollowUpRequest follow-up 接口请求体
 type FollowUpRequest struct {
-	Prompt            string                 `json:"prompt"`
-	ExecutorConfig    map[string]interface{} `json:"executor_config,omitempty"`
-	RetryProcessID    *string                `json:"retry_process_id,omitempty"`
-	ForceWhenDirty    *bool                  `json:"force_when_dirty,omitempty"`
-	PerformGitReset   *bool                  `json:"perform_git_reset,omitempty"`
+	Prompt          string                 `json:"prompt"`
+	ExecutorConfig  map[string]interface{} `json:"executor_config,omitempty"`
+	RetryProcessID  *string                `json:"retry_process_id,omitempty"`
+	ForceWhenDirty  *bool                  `json:"force_when_dirty,omitempty"`
+	PerformGitReset *bool                  `json:"perform_git_reset,omitempty"`
 }
 
 // FollowUpResponse follow-up 接口响应
 type FollowUpResponse struct {
-	Success    bool        `json:"success"`
-	Data       interface{} `json:"data,omitempty"`
-	ErrorData  interface{} `json:"error_data,omitempty"`
-	Message    *string     `json:"message,omitempty"`
+	Success   bool        `json:"success"`
+	Data      interface{} `json:"data,omitempty"`
+	ErrorData interface{} `json:"error_data,omitempty"`
+	Message   *string     `json:"message,omitempty"`
 }
 
 type QueueRequest struct {
