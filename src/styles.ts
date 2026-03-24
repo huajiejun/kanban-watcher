@@ -984,39 +984,47 @@ export const cardStyles = css`
     }
 
     .file-change-action {
-      font-size: 0.68rem;
-      padding: 2px 5px;
+      font-size: 0.65rem;
+      padding: 2px 4px;
     }
 
     .file-change-lines,
     .file-change-new-path {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
     }
 
     .file-change-diff,
     .file-change-code {
       padding: 6px;
-      font-size: 0.68rem;
-      line-height: 1.4;
+      font-size: 0.62rem;
+      line-height: 1.35;
+      overflow-x: visible;
     }
 
+    /* 手机端代码自动换行，隐藏行号 */
     .diff-line {
-      min-height: 1.4em;
-      line-height: 1.4;
+      min-height: auto;
+      line-height: 1.35;
+      flex-wrap: wrap;
     }
 
     .diff-line .diff-num {
-      width: 2.5em;
-      padding-right: 6px;
-      font-size: 0.65rem;
+      display: none;
     }
 
     .diff-line .diff-sign {
-      width: 0.8em;
+      width: auto;
+      margin-right: 4px;
+      font-size: 0.62rem;
     }
 
     .diff-line .diff-content {
-      font-size: 0.68rem;
+      font-size: 0.62rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow-x: visible;
+      flex: 1;
+      min-width: 0;
     }
 
     .diff-header {
@@ -1025,22 +1033,26 @@ export const cardStyles = css`
     }
 
     .diff-header .diff-content {
-      font-size: 0.65rem;
+      font-size: 0.6rem;
+      white-space: pre-wrap;
+      word-break: break-all;
     }
 
     .code-line {
-      min-height: 1.4em;
-      line-height: 1.4;
+      min-height: auto;
+      line-height: 1.35;
+      flex-wrap: wrap;
     }
 
     .code-line .line-num {
-      width: 2.5em;
-      padding-right: 6px;
-      font-size: 0.65rem;
+      display: none;
     }
 
     .code-line .line-content {
-      font-size: 0.68rem;
+      font-size: 0.62rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow-x: visible;
     }
 
     .file-change + .file-change {
