@@ -971,6 +971,81 @@ export const cardStyles = css`
       padding: 8px 10px;
       font-size: 0.88rem;
     }
+
+    /* 代码编辑/文件修改样式 */
+    .file-change {
+      padding: 6px 8px;
+      margin-top: 6px;
+    }
+
+    .file-change-header {
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .file-change-action {
+      font-size: 0.68rem;
+      padding: 2px 5px;
+    }
+
+    .file-change-lines,
+    .file-change-new-path {
+      font-size: 0.7rem;
+    }
+
+    .file-change-diff,
+    .file-change-code {
+      padding: 6px;
+      font-size: 0.68rem;
+      line-height: 1.4;
+    }
+
+    .diff-line {
+      min-height: 1.4em;
+      line-height: 1.4;
+    }
+
+    .diff-line .diff-num {
+      width: 2.5em;
+      padding-right: 6px;
+      font-size: 0.65rem;
+    }
+
+    .diff-line .diff-sign {
+      width: 0.8em;
+    }
+
+    .diff-line .diff-content {
+      font-size: 0.68rem;
+    }
+
+    .diff-header {
+      padding: 3px 6px;
+      margin: 3px 0;
+    }
+
+    .diff-header .diff-content {
+      font-size: 0.65rem;
+    }
+
+    .code-line {
+      min-height: 1.4em;
+      line-height: 1.4;
+    }
+
+    .code-line .line-num {
+      width: 2.5em;
+      padding-right: 6px;
+      font-size: 0.65rem;
+    }
+
+    .code-line .line-content {
+      font-size: 0.68rem;
+    }
+
+    .file-change + .file-change {
+      margin-top: 8px;
+    }
   }
 
   /* Dark mode support */
