@@ -7,6 +7,12 @@ APP_DIR="$ROOT_DIR/dist-macos/Kanban Watcher.app"
 EXECUTABLE="$APP_DIR/Contents/MacOS/Kanban Watcher"
 INFO_PLIST="$APP_DIR/Contents/Info.plist"
 ICON_FILE="$APP_DIR/Contents/Resources/AppIcon.icns"
+ICON_SOURCE="$ROOT_DIR/build/macos/AppIcon.png"
+
+[[ -f "$ICON_SOURCE" ]] || {
+  echo "缺少 PNG 图标源文件: $ICON_SOURCE" >&2
+  exit 1
+}
 
 "$ROOT_DIR/scripts/build_macos_app.sh"
 

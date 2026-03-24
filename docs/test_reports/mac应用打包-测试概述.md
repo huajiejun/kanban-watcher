@@ -26,5 +26,5 @@ zsh scripts/test_build_macos_app.sh
 ## 备注
 
 - 构建过程中出现一次 `ld` warning，但未影响产物生成和结构校验
-- 当前版本使用 `build/macos/AppIcon.svg` 生成 Finder 图标
+- 当前版本使用 `build/macos/AppIcon.png` 生成 Finder 图标
 - 本次为脚本与产物结构验证，未生成截图

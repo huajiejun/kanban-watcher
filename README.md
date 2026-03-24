@@ -42,7 +42,7 @@ The production bundle is written to `dist/kanban-watcher-card.js`.
 说明：
 
 - 当前版本只生成未签名 `.app`，适合本机使用或内部分发
-- 当前默认使用 `build/macos/AppIcon.svg` 生成 Finder 图标
+- 当前默认使用 `build/macos/AppIcon.png` 生成 Finder 图标
 
 ## Local Preview
 
