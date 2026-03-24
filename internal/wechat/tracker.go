@@ -103,14 +103,31 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 
 		// 检查是否已确认稳定
 		if existing.ConfirmedAt == nil {
-			// 首次确认：设置 ConfirmedAt，从现在开始计算阈值
-			confirmedAt := now
-			updated = updated.WithEntry(key, state.AttentionEntry{
-				Key:         existing.Key,
-				FirstSeenAt: existing.FirstSeenAt,
-				ConfirmedAt: &confirmedAt,
-				NotifiedAt:  existing.NotifiedAt,
-			})
+			// 首次确认：检查是否已超时（从首次发现到现在）
+			elapsedFromFirstSeen := now.Sub(existing.FirstSeenAt)
+			if elapsedFromFirstSeen >= threshold {
+				// 已超时：立即通知
+				notifiedAt := now
+				updated = updated.WithEntry(key, state.AttentionEntry{
+					Key:         existing.Key,
+					FirstSeenAt: existing.FirstSeenAt,
+					ConfirmedAt: &now,
+					NotifiedAt:  &notifiedAt,
+				})
+				toNotify = append(toNotify, TrackedWorkspace{
+					Workspace:      w,
+					ElapsedMinutes: int(elapsedFromFirstSeen.Minutes()),
+				})
+			} else {
+				// 未超时：设置 ConfirmedAt，从现在起计算阈值
+				confirmedAt := now
+				updated = updated.WithEntry(key, state.AttentionEntry{
+					Key:         existing.Key,
+					FirstSeenAt: existing.FirstSeenAt,
+					ConfirmedAt: &confirmedAt,
+					NotifiedAt:  existing.NotifiedAt,
+				})
+			}
 			continue
 		}
 
@@ -129,9 +146,11 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 			ConfirmedAt:  existing.ConfirmedAt,
 			NotifiedAt:  &notifiedAt,
 		})
+		// 通知时计算从首次发现到现在的总时长
+		totalElapsed := now.Sub(existing.FirstSeenAt)
 		toNotify = append(toNotify, TrackedWorkspace{
 			Workspace:      w,
-			ElapsedMinutes: int(elapsed.Minutes()),
+			ElapsedMinutes: int(totalElapsed.Minutes()),
 		})
 	}
 
