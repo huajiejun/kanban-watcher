@@ -790,6 +790,63 @@ export const cardStyles = css`
     border-style: solid;
   }
 
+  /* 推荐按钮包装器 */
+  .quick-button-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  /* 信息图标按钮 */
+  .quick-button-info {
+    padding: 2px 4px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.75rem;
+    opacity: 0.6;
+    transition: opacity 150ms ease;
+    border-radius: 4px;
+  }
+
+  .quick-button-info:hover {
+    opacity: 1;
+    background: color-mix(in srgb, var(--accent-color, #3b82f6) 15%, transparent);
+  }
+
+  /* 理由提示框 */
+  .quick-button-reason {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    min-width: 180px;
+    max-width: 280px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--primary-background-color, #1f2937);
+    color: var(--primary-text-color, #f9fafb);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    word-wrap: break-word;
+  }
+
+  .quick-button-reason.is-visible {
+    display: block;
+  }
+
+  .quick-button-reason::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 16px;
+    border: 6px solid transparent;
+    border-top-color: var(--primary-background-color, #1f2937);
+  }
+
   .dialog-composer {
     display: grid;
     gap: 8px;

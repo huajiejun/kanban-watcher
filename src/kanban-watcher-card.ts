@@ -340,15 +340,32 @@ export class KanbanWatcherCard extends LitElement {
             ${text}
           </button>
         `)}
-        ${suggestedButtons.map((item) => html`
-          <button
-            class="quick-button is-suggested"
-            type="button"
-            title="${item.reason}"
-            @click=${() => void this.handleQuickButtonClick(item.button)}
-          >
-            ${item.button}
-          </button>
+        ${suggestedButtons.map((item, index) => html`
+          <div class="quick-button-wrapper">
+            <button
+              class="quick-button is-suggested"
+              type="button"
+              @click=${() => void this.handleQuickButtonClick(item.button)}
+            >
+              ${item.button}
+            </button>
+            <button
+              class="quick-button-info"
+              type="button"
+              title="点击查看理由"
+              @click=${(e: Event) => {
+                e.stopPropagation();
+                const wrapper = (e.target as HTMLElement).closest('.quick-button-wrapper');
+                const tooltip = wrapper?.querySelector('.quick-button-reason');
+                if (tooltip) {
+                  tooltip.classList.toggle('is-visible');
+                }
+              }}
+            >
+              ℹ️
+            </button>
+            <div class="quick-button-reason">${item.reason}</div>
+          </div>
         `)}
       </div>
     `;
