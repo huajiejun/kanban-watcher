@@ -18,7 +18,7 @@ type AggregatedUsage struct {
 }
 
 // SaveUsage 将聚合后的 token 用量存入 MariaDB
-func SaveUsage(ctx context.Context, store *store.Store, usages []*AggregatedUsage) error {
+func SaveUsage(ctx context.Context, db *store.Store, usages []*AggregatedUsage) error {
 	if len(usages) == 0 {
 		return nil
 	}
@@ -34,5 +34,5 @@ func SaveUsage(ctx context.Context, store *store.Store, usages []*AggregatedUsag
 			SessionCount: u.SessionCount,
 		})
 	}
-	return store.BatchUpsertTokenUsageHourly(ctx, dbUsages)
+	return db.BatchUpsertTokenUsageHourly(ctx, dbUsages)
 }

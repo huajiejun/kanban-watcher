@@ -25,6 +25,7 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/state"
 	"github.com/huajiejun/kanban-watcher/internal/store"
 	"github.com/huajiejun/kanban-watcher/internal/sync"
+	"github.com/huajiejun/kanban-watcher/internal/tokenstats"
 	"github.com/huajiejun/kanban-watcher/internal/tray"
 	"github.com/huajiejun/kanban-watcher/internal/wechat"
 )
@@ -237,6 +238,13 @@ func runDaemon() error {
 				realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
 				syncService.SetRealtimePublisher(realtimePublisher)
 				go syncService.Start(context.Background())
+
+				// 启动 token stats collector
+				if cfg.TokenStats.IsEnabled() {
+					tokenCollector := tokenstats.NewCollector(cfg.TokenStats, cfg.ConversationSync.BaseDir, dbStore)
+					tokenCollector.Start()
+					defer tokenCollector.Stop()
+				}
 			}
 		}
 	} else {
@@ -323,6 +331,13 @@ func runHeadless() error {
 				realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
 				syncService.SetRealtimePublisher(realtimePublisher)
 				go syncService.Start(context.Background())
+
+				// 启动 token stats collector
+				if cfg.TokenStats.IsEnabled() {
+					tokenCollector := tokenstats.NewCollector(cfg.TokenStats, cfg.ConversationSync.BaseDir, dbStore)
+					tokenCollector.Start()
+					defer tokenCollector.Stop()
+				}
 			}
 		}
 	} else {
