@@ -72,6 +72,7 @@ export class KanbanWatcherCard extends LitElement {
     dialogLoading: { state: true },
     dialogError: { state: true },
     dialogMessagesByWorkspace: { state: true },
+    autoScrollEnabled: { state: true },  // 是否启用自动滚动
   };
 
   hass?: HomeAssistantLike;
@@ -97,6 +98,8 @@ export class KanbanWatcherCard extends LitElement {
   private dialogLoading = false;
   private dialogError = "";
   private dialogMessagesByWorkspace: Record<string, DialogMessage[]> = {};
+  private autoScrollEnabled = true;  // 默认启用自动滚动
+  private messageListScrollHandler?: () => void;  // 滚动事件处理器
 
   connectedCallback() {
     super.connectedCallback();
@@ -139,6 +142,7 @@ export class KanbanWatcherCard extends LitElement {
   protected updated(changedProperties: Map<string, unknown>) {
     if (changedProperties.has("selectedWorkspaceId") && this.selectedWorkspaceId) {
       this.scrollMessagesToBottom();
+      this.setupMessageListScrollListener();
     }
     if (changedProperties.has("selectedWorkspaceId") && this.isApiMode) {
       this.restartRealtimeConnection();
@@ -630,12 +634,54 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private scrollMessagesToBottom() {
+    if (!this.autoScrollEnabled) {
+      return;  // 如果用户已取消自动滚动，跳过
+    }
+
     const messageList = this.renderRoot.querySelector(".message-list") as
       | HTMLDivElement
       | null;
 
     if (messageList) {
       messageList.scrollTop = messageList.scrollHeight;
+    }
+  }
+
+  private setupMessageListScrollListener() {
+    // 移除旧的监听器
+    if (this.messageListScrollHandler) {
+      const oldMessageList = this.renderRoot.querySelector(".message-list");
+      if (oldMessageList) {
+        oldMessageList.removeEventListener("scroll", this.messageListScrollHandler);
+      }
+    }
+
+    // 重置自动滚动状态
+    this.autoScrollEnabled = true;
+
+    // 添加新的监听器
+    const messageList = this.renderRoot.querySelector(".message-list") as HTMLDivElement | null;
+    if (messageList) {
+      this.messageListScrollHandler = () => this.handleMessageListScroll(messageList);
+      messageList.addEventListener("scroll", this.messageListScrollHandler);
+    }
+  }
+
+  private handleMessageListScroll(messageList: HTMLDivElement) {
+    // 检查是否滚动到底部（允许 50px 容差）
+    const isAtBottom =
+      messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight < 50;
+
+    if (isAtBottom) {
+      // 滚动到底部，恢复自动滚动
+      if (!this.autoScrollEnabled) {
+        this.autoScrollEnabled = true;
+      }
+    } else {
+      // 向上滚动了一定距离，取消自动滚动
+      if (this.autoScrollEnabled) {
+        this.autoScrollEnabled = false;
+      }
     }
   }
 
