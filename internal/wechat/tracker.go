@@ -17,15 +17,17 @@ type TrackedWorkspace struct {
 // Tracker 管理通知去重和阈值判断逻辑
 // 非并发安全，应由单 goroutine 调用（通过 channel 串行化）
 type Tracker struct {
-	current          state.AppState // 当前跟踪状态
-	thresholdMinutes int            // 通知阈值（分钟）
+	current           state.AppState // 当前跟踪状态
+	approvalThreshold int            // 待审批超时（分钟）
+	messageThreshold  int            // 未读消息超时（分钟）
+	repeatInterval    int            // 叠加提醒间隔（分钟）
 }
 
 // NewTracker 使用持久化状态创建跟踪器
 // 启动时从磁盘加载上次保存的状态，确保跨进程去重
-func NewTracker(s state.AppState, thresholdMinutes int) *Tracker {
+func NewTracker(s state.AppState, approvalThreshold, messageThreshold, repeatInterval int) *Tracker {
 	// 兼容性迁移：检查所有 ConfirmedAt 为 nil 的旧记录
-	threshold := time.Duration(thresholdMinutes) * time.Minute
+	threshold := time.Duration(approvalThreshold) * time.Minute
 	now := time.Now()
 
 	for key, entry := range s.Entries {
@@ -44,8 +46,10 @@ func NewTracker(s state.AppState, thresholdMinutes int) *Tracker {
 	}
 
 	return &Tracker{
-		current:          s,
-		thresholdMinutes: thresholdMinutes,
+		current:           s,
+		approvalThreshold: approvalThreshold,
+		messageThreshold:  messageThreshold,
+		repeatInterval:    repeatInterval,
 	}
 }
 
@@ -61,8 +65,6 @@ func NewTracker(s state.AppState, thresholdMinutes int) *Tracker {
 //   - 需要立即通知的工作区列表（已达到阈值且未通知过）
 //   - 内部状态会更新，调用者需通过 GetState() 获取并持久化
 func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time.Time) []TrackedWorkspace {
-	threshold := time.Duration(t.thresholdMinutes) * time.Minute
-
 	// 步骤 1：构建当前活跃工作区 ID 集合
 	// 用于清理已不存在（被归档或删除）的工作区的残留记录
 	activeIDs := make(map[string]struct{}, len(workspaces))
@@ -84,6 +86,12 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 			continue
 		}
 
+		// 根据工作区类型获取阈值
+		threshold := time.Duration(t.getThreshold(w)) * time.Minute
+		if threshold == 0 {
+			continue // 不需要关注
+		}
+
 		// 工作区需要关注：检查是否已跟踪
 		existing, found := updated.Entries[key]
 		if !found {
@@ -97,8 +105,10 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 
 		// 已存在条目
 		if existing.NotifiedAt != nil {
-			// 已发送过通知，跳过（去重）
-			continue
+			// 检查是否应该弹框（叠加提醒）
+			if !t.shouldShowDialog(existing, now) {
+				continue
+			}
 		}
 
 		// 检查是否已确认稳定
@@ -109,10 +119,11 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 				// 已超时：立即通知
 				notifiedAt := now
 				updated = updated.WithEntry(key, state.AttentionEntry{
-					Key:         existing.Key,
-					FirstSeenAt: existing.FirstSeenAt,
-					ConfirmedAt: &now,
-					NotifiedAt:  &notifiedAt,
+					Key:          existing.Key,
+					FirstSeenAt:  existing.FirstSeenAt,
+					ConfirmedAt:  &now,
+					NotifiedAt:   &notifiedAt,
+					LastAlertedAt: &now,
 				})
 				toNotify = append(toNotify, TrackedWorkspace{
 					Workspace:      w,
@@ -138,13 +149,19 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 			continue
 		}
 
+		// 检查是否应该弹框（叠加提醒）
+		if !t.shouldShowDialog(existing, now) {
+			continue
+		}
+
 		// 达到阈值：标记为已通知，加入待通知列表
 		notifiedAt := now
 		updated = updated.WithEntry(key, state.AttentionEntry{
-			Key:         existing.Key,
-			FirstSeenAt: existing.FirstSeenAt,
+			Key:          existing.Key,
+			FirstSeenAt:  existing.FirstSeenAt,
 			ConfirmedAt:  existing.ConfirmedAt,
-			NotifiedAt:  &notifiedAt,
+			NotifiedAt:   &notifiedAt,
+			LastAlertedAt: &now,
 		})
 		// 通知时计算从首次发现到现在的总时长
 		totalElapsed := now.Sub(existing.FirstSeenAt)
@@ -174,4 +191,24 @@ func notificationKey(w api.EnrichedWorkspace) state.NotificationKey {
 		WorkspaceID: w.ID,
 		CompletedAt: completedAt,
 	}
+}
+
+// getThreshold 根据工作区类型返回超时阈值
+func (t *Tracker) getThreshold(w api.EnrichedWorkspace) int {
+	if w.Summary.HasPendingApproval {
+		return t.approvalThreshold
+	}
+	if w.Summary.HasUnseenTurns {
+		return t.messageThreshold
+	}
+	return 0 // 不需要关注
+}
+
+// shouldShowDialog 检查是否应该弹框（基于 LastAlertedAt 和 repeatInterval）
+func (t *Tracker) shouldShowDialog(entry state.AttentionEntry, now time.Time) bool {
+	if entry.LastAlertedAt == nil {
+		return true
+	}
+	elapsed := now.Sub(*entry.LastAlertedAt)
+	return elapsed >= time.Duration(t.repeatInterval)*time.Minute
 }
