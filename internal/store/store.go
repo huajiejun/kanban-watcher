@@ -112,6 +112,7 @@ func (s *Store) InitSchema(ctx context.Context) error {
 			created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 			UNIQUE KEY uk_kw_entries_process_index (process_id, entry_index),
 			KEY idx_kw_entries_session_time (session_id, entry_timestamp),
+			KEY idx_kw_entries_session_type_time (session_id, entry_type, entry_timestamp),
 			KEY idx_kw_entries_workspace_time (workspace_id, entry_timestamp),
 			KEY idx_kw_entries_type (entry_type),
 			CONSTRAINT fk_kw_entries_process
@@ -156,6 +157,7 @@ func (s *Store) InitSchema(ctx context.Context) error {
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS files_changed INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_added INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_removed INT NOT NULL DEFAULT 0`,
+		`ALTER TABLE kw_process_entries ADD INDEX IF NOT EXISTS idx_kw_entries_session_type_time (session_id, entry_type, entry_timestamp)`,
 	}
 
 	for _, stmt := range statements {
