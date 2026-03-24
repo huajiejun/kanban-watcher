@@ -50,6 +50,7 @@ type CardConfig = {
   messages_limit?: number;
   llm_enabled?: boolean;
   llm_base_url?: string;
+  llm_model?: string;
 };
 
 type DialogAction = "send" | "queue" | "stop";
@@ -1474,6 +1475,7 @@ export class KanbanWatcherCard extends LitElement {
       llmEnabled: this.config?.llm_enabled ?? false,
       llmConfig: {
         baseUrl: this.config?.llm_base_url,
+        model: this.config?.llm_model,
       },
     });
 

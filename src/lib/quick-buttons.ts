@@ -119,6 +119,7 @@ export function isValidButtonText(text: string): boolean {
 /** LLM 分析配置 */
 interface LLMConfig {
   baseUrl?: string;
+  model?: string;
   timeout?: number;
 }
 
@@ -140,17 +141,20 @@ interface LLMAnalysisResult {
  * 使用 LLM 分析消息，提取快捷按钮
  * @param message AI 消息文本
  * @param llmBaseUrl LLM API 基础 URL（默认 http://localhost:1234）
+ * @param llmModel LLM 模型名称（默认 local-model）
  * @returns 快捷按钮列表
  */
 export async function analyzeButtonsWithLLM(
   message: string,
-  llmBaseUrl?: string
+  llmBaseUrl?: string,
+  llmModel?: string
 ): Promise<string[]> {
   if (!message || typeof message !== "string" || !message.trim()) {
     return [];
   }
 
   const baseUrl = llmBaseUrl || "http://localhost:1234";
+  const model = llmModel || "local-model";
   const url = `${baseUrl}/v1/chat/completions`;
 
   const systemPrompt = `你是一个快捷按钮分析助手。分析用户的 AI 助手消息，判断是否需要用户进行选择操作。
@@ -179,7 +183,7 @@ export async function analyzeButtonsWithLLM(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "local-model",
+        model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
