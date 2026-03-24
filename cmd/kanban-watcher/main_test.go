@@ -9,6 +9,7 @@ import (
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/config"
+	"github.com/huajiejun/kanban-watcher/internal/notify"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
 	"github.com/huajiejun/kanban-watcher/internal/state"
@@ -151,7 +152,7 @@ func TestRunSyncNowReturnsErrorWhenDatabaseNotConfigured(t *testing.T) {
 }
 
 func TestHandlePollResultProcessesWorkspaces(t *testing.T) {
-	tracker := wechat.NewTracker(state.NewAppState(), 10)
+	tracker := wechat.NewTracker(state.NewAppState(), 5, 10, 5)
 	notifier := wechat.NewNotifier(config.WeChatConfig{})
 
 	handlePollResult(
@@ -171,6 +172,7 @@ func TestHandlePollResultProcessesWorkspaces(t *testing.T) {
 		notifier,
 		tracker,
 		nil,
+		notify.NewDialogNotifier(),
 	)
 
 	// 测试通过表示函数正常处理工作区数据
