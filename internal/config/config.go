@@ -13,6 +13,7 @@ type Config struct {
 	KanbanAPIURL     string                 `yaml:"kanban_api_url"`        // vibe-kanban API 地址
 	ConversationSync ConversationSyncConfig `yaml:"conversation_sync"`     // 会话日志同步配置
 	WeChat           WeChatConfig           `yaml:"wechat"`                // 企业微信通知配置
+	Notify           NotifyConfig           `yaml:"notify"`                 // 弹框通知配置
 	WorkingHours     WorkingHours           `yaml:"working_hours"`         // 工作时间窗口
 	PollIntervalSecs int                    `yaml:"poll_interval_seconds"` // 轮询间隔（秒）
 	Database         DatabaseConfig         `yaml:"database"`              // 数据库配置
@@ -71,6 +72,20 @@ type WeChatConfig struct {
 	WebhookURL string `yaml:"webhook_url"` // Webhook 地址（不填则不使用降级）
 
 	NotifyThresholdMinutes int `yaml:"notify_threshold_minutes"` // 通知阈值（分钟）
+}
+
+// NotifyConfig 弹框通知配置
+type NotifyConfig struct {
+	// 分级超时阈值（分钟）
+	ApprovalThreshold int `yaml:"approval_threshold"` // 待审批超时：默认 5
+	MessageThreshold int `yaml:"message_threshold"`  // 未读消息超时：默认 10
+
+	// 叠加提醒间隔（分钟）
+	// 弹框确认后，每隔这个时间再次弹框（如果问题还在）
+	RepeatInterval int `yaml:"repeat_interval_minutes"` // 默认 5
+
+	// 是否启用弹框通知
+	Enabled bool `yaml:"enabled"` // 默认 true
 }
 
 // WorkingHours 工作时间窗口配置（24小时制）
@@ -150,6 +165,12 @@ func defaultConfig() *Config {
 			ToUser:                 "@all",
 			NotifyThresholdMinutes: 10, // 默认 10 分钟阈值
 		},
+		Notify: NotifyConfig{
+			ApprovalThreshold: 5,  // 待审批 5 分钟
+			MessageThreshold:  10, // 未读消息 10 分钟
+			RepeatInterval:    5,  // 叠加提醒间隔 5 分钟
+			Enabled:           true,
+		},
 		WorkingHours: WorkingHours{
 			Start: "08:00",
 			End:   "01:00", // 跨午夜：08:00 到次日 01:00
@@ -202,6 +223,15 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.HTTPAPI.APIKey == "" {
 		cfg.HTTPAPI.APIKey = "change-me"
+	}
+	if cfg.Notify.ApprovalThreshold <= 0 {
+		cfg.Notify.ApprovalThreshold = 5
+	}
+	if cfg.Notify.MessageThreshold <= 0 {
+		cfg.Notify.MessageThreshold = 10
+	}
+	if cfg.Notify.RepeatInterval <= 0 {
+		cfg.Notify.RepeatInterval = 5
 	}
 }
 
