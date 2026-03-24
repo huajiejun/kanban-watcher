@@ -166,6 +166,45 @@ export interface LLMButtonsResponse {
   suggested: string[];
 }
 
+/** 方案评价师 Prompt（方案类消息） */
+const PROPOSAL_EVALUATOR_PROMPT = `你是优秀的方案评价师。根据给出的方案给出你的选择和理由（可以推荐多个）。
+
+任务：
+1. 从消息中提取已有的选项（如果有）
+2. 基于方案内容，给出1-3个推荐操作，每个推荐需包含理由
+
+输出 JSON 格式：
+{
+  "extracted": ["选项1", "选项2"],
+  "suggested": [
+    {"button": "推荐操作1", "reason": "选择理由"},
+    {"button": "推荐操作2", "reason": "选择理由"}
+  ]
+}
+
+示例：
+消息："请选择方案1或方案2，方案1是快速实现，方案2是完整实现"
+返回：{"extracted": ["方案1", "方案2"], "suggested": [{"button": "选择方案1", "reason": "快速实现，适合紧急需求"}]}`;
+
+/** 任务决策者 Prompt（非方案类消息） */
+const DECISION_MAKER_PROMPT = `你是优秀的任务决策者。根据当前项目情况，给出接下来1-3个紧急要做的事情。
+
+任务：
+- 分析消息上下文，判断当前状态
+- 给出1-3个决策指令，每个指令需包含理由
+
+输出 JSON 格式：
+{
+  "actions": [
+    {"button": "决策指令1", "reason": "理由"},
+    {"button": "决策指令2", "reason": "理由"}
+  ]
+}
+
+示例：
+消息："代码修改已完成，测试通过"
+返回：{"actions": [{"button": "继续", "reason": "任务已完成，可继续下一步"}, {"button": "查看改动", "reason": "确认修改内容"}]}`;
+
 /**
  * 使用 LLM 分析消息，提取快捷按钮并联想推荐操作
  * @param message AI 消息文本
