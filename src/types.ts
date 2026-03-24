@@ -67,6 +67,7 @@ export interface LocalWorkspaceSummary {
   updated_at?: string;
   message_count?: number;
   last_message_at?: string;
+  latest_process_completed_at?: string;
 }
 
 export interface ActiveWorkspacesResponse {

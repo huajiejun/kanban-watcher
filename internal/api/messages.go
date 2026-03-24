@@ -38,20 +38,21 @@ type ActiveWorkspaceResponse struct {
 
 // LocalWorkspaceSummary 本地数据库中的工作区摘要
 type LocalWorkspaceSummary struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Branch          string `json:"branch"`
-	LatestSessionID string `json:"latest_session_id,omitempty"`
-	Status          string `json:"status"`
-	HasPendingApproval bool `json:"has_pending_approval"`
-	HasUnseenTurns  bool `json:"has_unseen_turns"`
-	HasRunningDevServer bool `json:"has_running_dev_server"`
-	FilesChanged    int    `json:"files_changed"`
-	LinesAdded      int    `json:"lines_added"`
-	LinesRemoved    int    `json:"lines_removed"`
-	UpdatedAt       string `json:"updated_at,omitempty"`
-	MessageCount    int    `json:"message_count"`
-	LastMessageAt   string `json:"last_message_at,omitempty"`
+	ID                       string `json:"id"`
+	Name                     string `json:"name"`
+	Branch                   string `json:"branch"`
+	LatestSessionID          string `json:"latest_session_id,omitempty"`
+	Status                   string `json:"status"`
+	HasPendingApproval       bool   `json:"has_pending_approval"`
+	HasUnseenTurns           bool   `json:"has_unseen_turns"`
+	HasRunningDevServer      bool   `json:"has_running_dev_server"`
+	FilesChanged             int    `json:"files_changed"`
+	LinesAdded               int    `json:"lines_added"`
+	LinesRemoved             int    `json:"lines_removed"`
+	UpdatedAt                string `json:"updated_at,omitempty"`
+	MessageCount             int    `json:"message_count"`
+	LastMessageAt            string `json:"last_message_at,omitempty"`
+	LatestProcessCompletedAt string `json:"latest_process_completed_at,omitempty"`
 }
 
 // GetMessageRoutes 注册消息 API 路由
@@ -111,6 +112,9 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 		}
 		if summary.LastMessageAt != nil {
 			item.LastMessageAt = summary.LastMessageAt.Format(time.RFC3339)
+		}
+		if summary.LatestProcessCompletedAt != nil {
+			item.LatestProcessCompletedAt = summary.LatestProcessCompletedAt.Format(time.RFC3339)
 		}
 		resp.Workspaces = append(resp.Workspaces, item)
 	}
