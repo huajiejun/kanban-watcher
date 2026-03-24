@@ -1623,8 +1623,8 @@ describe("kanban-watcher-card", () => {
             },
             {
               id: 2,
-              process_id: "local-send:session-api-local-send:1",
-              entry_index: 0,
+              process_id: "proc-history",
+              entry_index: -1,
               session_id: "session-api-local-send",
               entry_type: "user_message",
               role: "user",

@@ -152,6 +152,60 @@ func TestGetProcessEntryReturnsNilOnNotFound(t *testing.T) {
 	}
 }
 
+func TestGetNextLocalEntryIndexDefaultsToNegativeOne(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	rows := sqlmock.NewRows([]string{"COALESCE(MIN(entry_index), 0)"}).AddRow(0)
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT COALESCE(MIN(entry_index), 0)
+		FROM kw_process_entries
+		WHERE process_id = ?
+		  AND entry_index < 0
+	`)).
+		WithArgs("proc-1").
+		WillReturnRows(rows)
+
+	got, err := store.GetNextLocalEntryIndex(context.Background(), "proc-1")
+	if err != nil {
+		t.Fatalf("GetNextLocalEntryIndex 返回错误: %v", err)
+	}
+	if got != -1 {
+		t.Fatalf("next local entry_index = %d, want -1", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestGetNextLocalEntryIndexContinuesDecrementingNegativeRange(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	rows := sqlmock.NewRows([]string{"COALESCE(MIN(entry_index), 0)"}).AddRow(-3)
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT COALESCE(MIN(entry_index), 0)
+		FROM kw_process_entries
+		WHERE process_id = ?
+		  AND entry_index < 0
+	`)).
+		WithArgs("proc-1").
+		WillReturnRows(rows)
+
+	got, err := store.GetNextLocalEntryIndex(context.Background(), "proc-1")
+	if err != nil {
+		t.Fatalf("GetNextLocalEntryIndex 返回错误: %v", err)
+	}
+	if got != -4 {
+		t.Fatalf("next local entry_index = %d, want -4", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestGetExecutionProcessStatusReturnsNilOnNotFound(t *testing.T) {
 	store, mock, cleanup := newMockStore(t)
 	defer cleanup()

@@ -14,6 +14,7 @@ type fakeMessageContextStore struct {
 	latestProcess *store.ExecutionProcess
 	upsertedCtx   *store.MessageContext
 	upsertedEntry *store.ProcessEntry
+	nextLocalIndex int
 }
 
 func (f *fakeMessageContextStore) GetMessageContextByWorkspaceID(_ context.Context, workspaceID string) (*store.MessageContext, error) {
@@ -39,6 +40,16 @@ func (f *fakeMessageContextStore) UpsertMessageContext(_ context.Context, msgCtx
 func (f *fakeMessageContextStore) UpsertProcessEntry(_ context.Context, entry *store.ProcessEntry) error {
 	f.upsertedEntry = entry
 	return nil
+}
+
+func (f *fakeMessageContextStore) GetNextLocalEntryIndex(_ context.Context, processID string) (int, error) {
+	if f.upsertedEntry != nil && f.upsertedEntry.ProcessID != processID {
+		return 0, nil
+	}
+	if f.nextLocalIndex == 0 {
+		return -1, nil
+	}
+	return f.nextLocalIndex, nil
 }
 
 type dispatchedCall struct {
@@ -96,11 +107,13 @@ func TestDispatchWorkspaceMessageUsesStoredContextForSend(t *testing.T) {
 		ctx: &store.MessageContext{
 			WorkspaceID:        "ws-1",
 			SessionID:          "session-1",
+			ProcessID:          stringPtr("proc-1"),
 			ExecutorConfigJSON: `{"executor":"CLAUDE_CODE","variant":"ZHIPU"}`,
 			DefaultSendMode:    "send",
 			Source:             "sync",
 			UpdatedAt:          time.Now(),
 		},
+		nextLocalIndex: -7,
 	}
 	dispatcher := NewMessageDispatcher(
 		storeStub,
@@ -138,8 +151,11 @@ func TestDispatchWorkspaceMessageUsesStoredContextForSend(t *testing.T) {
 	if storeStub.upsertedEntry.Content != "继续处理" {
 		t.Fatalf("persisted content = %q, want 继续处理", storeStub.upsertedEntry.Content)
 	}
-	if storeStub.upsertedEntry.ProcessID == "" {
-		t.Fatal("persisted process_id is empty")
+	if storeStub.upsertedEntry.ProcessID != "proc-1" {
+		t.Fatalf("persisted process_id = %q, want proc-1", storeStub.upsertedEntry.ProcessID)
+	}
+	if storeStub.upsertedEntry.EntryIndex != -7 {
+		t.Fatalf("persisted entry_index = %d, want -7", storeStub.upsertedEntry.EntryIndex)
 	}
 }
 
@@ -231,6 +247,15 @@ func TestDispatchWorkspaceMessageFallsBackToRemoteProcessWhenContextMissing(t *t
 	}
 	if sender.sendCall.executorConfigJSON == "" {
 		t.Fatal("executorConfigJSON 为空，want persisted config")
+	}
+	if storeStub.upsertedEntry == nil {
+		t.Fatal("upsertedEntry = nil, want persisted user message")
+	}
+	if storeStub.upsertedEntry.ProcessID != "proc-1" {
+		t.Fatalf("persisted process_id = %q, want proc-1", storeStub.upsertedEntry.ProcessID)
+	}
+	if storeStub.upsertedEntry.EntryIndex != -1 {
+		t.Fatalf("persisted entry_index = %d, want -1", storeStub.upsertedEntry.EntryIndex)
 	}
 }
 

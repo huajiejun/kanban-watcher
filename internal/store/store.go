@@ -476,6 +476,25 @@ func (s *Store) GetProcessEntry(ctx context.Context, processID string, entryInde
 	return &entry, nil
 }
 
+// GetNextLocalEntryIndex 为本地占位消息分配负数序号，避免与远端同步的非负序号冲突。
+func (s *Store) GetNextLocalEntryIndex(ctx context.Context, processID string) (int, error) {
+	query := `
+		SELECT COALESCE(MIN(entry_index), 0)
+		FROM kw_process_entries
+		WHERE process_id = ?
+		  AND entry_index < 0
+	`
+
+	var minIndex int
+	if err := s.db.QueryRowContext(ctx, query, processID).Scan(&minIndex); err != nil {
+		return 0, fmt.Errorf("get next local entry index: %w", err)
+	}
+	if minIndex >= 0 {
+		return -1, nil
+	}
+	return minIndex - 1, nil
+}
+
 // MarkMissingWorkspacesArchived 将本轮未出现在上游非归档列表中的工作区标记为 archived
 func (s *Store) MarkMissingWorkspacesArchived(ctx context.Context, activeWorkspaceIDs []string, seenAt time.Time) error {
 	baseQuery := `
