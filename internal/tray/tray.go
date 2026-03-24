@@ -1,6 +1,7 @@
 package tray
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
@@ -31,7 +32,7 @@ func New() *App {
 // OnReady 在 systray 图标准备好时被调用（在主 goroutine）
 // 初始化菜单结构：状态标题 + 分隔线 + 动态工作区 + 退出
 func (a *App) OnReady() {
-	systray.SetTemplateIcon(iconNormal, iconNormal)
+	systray.SetIcon(statusIconBytes(0))
 	systray.SetTooltip("Kanban Watcher — 正在监控工作区")
 
 	a.mu.Lock()
@@ -69,10 +70,10 @@ func (a *App) UpdateWorkspaces(workspaces []api.EnrichedWorkspace) {
 
 	// 根据状态切换图标和提示文字
 	if attentionCount > 0 {
-		systray.SetTemplateIcon(iconAlert, iconAlert)
+		systray.SetIcon(statusIconBytes(attentionCount))
 		systray.SetTooltip(fmt.Sprintf("Kanban Watcher — %d 个任务需要关注", attentionCount))
 	} else {
-		systray.SetTemplateIcon(iconNormal, iconNormal)
+		systray.SetIcon(statusIconBytes(attentionCount))
 		systray.SetTooltip("Kanban Watcher — 所有任务正常")
 	}
 
@@ -107,6 +108,17 @@ func (a *App) UpdateWorkspaces(workspaces []api.EnrichedWorkspace) {
 			a.menuItems = append(a.menuItems, item)
 		}
 	}
+}
+
+func statusIconBytes(attentionCount int) []byte {
+	if attentionCount > 0 && len(iconAlert) > 0 {
+		return iconAlert
+	}
+	return iconNormal
+}
+
+func usesDistinctStatusIcons() bool {
+	return !bytes.Equal(iconNormal, iconAlert)
 }
 
 // handleClicks 在单独 goroutine 中处理菜单点击事件
