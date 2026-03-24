@@ -475,7 +475,7 @@ export const cardStyles = css`
   }
 
   .file-change-diff,
-  .file-change-content {
+  .file-change-code {
     margin: 0;
     padding: 8px;
     border-radius: 6px;
@@ -487,8 +487,109 @@ export const cardStyles = css`
     font-size: 0.74rem;
     line-height: 1.5;
     overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
+  }
+
+  /* Diff line styles - GitHub-like */
+  .diff-line {
+    display: flex;
+    align-items: flex-start;
+    min-height: 1.5em;
+    line-height: 1.5;
+  }
+
+  .diff-line .diff-num {
+    flex: none;
+    width: 3em;
+    padding-right: 8px;
+    color: var(--secondary-text-color, #94a3b8);
+    text-align: right;
+    user-select: none;
+    opacity: 0.7;
+    font-size: 0.7rem;
+  }
+
+  .diff-line .diff-sign {
+    flex: none;
+    width: 1em;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .diff-line .diff-content {
+    flex: 1;
+    min-width: 0;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .diff-header {
+    color: var(--secondary-text-color, #64748b);
+    background: color-mix(in srgb, var(--divider-color, #e2e8f0) 20%, transparent);
+    padding: 4px 8px;
+    margin: 4px 0;
+    border-radius: 4px;
+  }
+
+  .diff-header .diff-content {
+    font-size: 0.72rem;
+  }
+
+  .diff-add {
+    background: color-mix(in srgb, #22c55e 10%, transparent);
+  }
+
+  .diff-add .diff-sign {
+    color: #16a34a;
+  }
+
+  .diff-add .diff-content {
+    color: var(--primary-text-color, #1e293b);
+  }
+
+  .diff-remove {
+    background: color-mix(in srgb, #ef4444 10%, transparent);
+  }
+
+  .diff-remove .diff-sign {
+    color: #dc2626;
+  }
+
+  .diff-remove .diff-content {
+    color: var(--primary-text-color, #1e293b);
+  }
+
+  .diff-context {
+    background: transparent;
+  }
+
+  .diff-context .diff-sign {
+    color: var(--secondary-text-color, #94a3b8);
+  }
+
+  /* Code line styles */
+  .code-line {
+    display: flex;
+    align-items: flex-start;
+    min-height: 1.5em;
+    line-height: 1.5;
+  }
+
+  .code-line .line-num {
+    flex: none;
+    width: 3em;
+    padding-right: 8px;
+    color: var(--secondary-text-color, #94a3b8);
+    text-align: right;
+    user-select: none;
+    opacity: 0.7;
+    font-size: 0.7rem;
+  }
+
+  .code-line .line-content {
+    flex: 1;
+    min-width: 0;
+    white-space: pre;
+    overflow-x: auto;
   }
 
   .file-change + .file-change {

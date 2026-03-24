@@ -14,6 +14,11 @@ import { formatRelativeTime } from "./lib/format-relative-time";
 import { renderMessageMarkdown } from "./lib/render-message-markdown";
 import { getStatusMeta } from "./lib/status-meta";
 import { summarizeToolCall, type DialogToolStatus } from "./lib/tool-call";
+import {
+  detectLanguageFromPath,
+  renderDiffWithHighlight,
+  renderCodeWithHighlight,
+} from "./lib/highlight-code";
 import { cardStyles } from "./styles";
 import type {
   ActiveWorkspacesResponse,
@@ -491,25 +496,29 @@ export class KanbanWatcherCard extends LitElement {
     };
 
     if (change.action === "edit" && change.unified_diff) {
+      const language = this.currentEditLanguage;
+      const highlightedDiff = renderDiffWithHighlight(change.unified_diff, language);
       return html`
         <div class="file-change">
           <div class="file-change-header">
             <span class="file-change-action">${actionLabel[change.action]}</span>
           </div>
-          <pre class="file-change-diff">${this.formatUnifiedDiff(change.unified_diff)}</pre>
+          <div class="file-change-diff">${unsafeHTML(highlightedDiff)}</div>
         </div>
       `;
     }
 
     if (change.action === "write" && change.content) {
       const lines = change.content.split("\n").length;
+      const language = this.currentEditLanguage;
+      const highlightedCode = renderCodeWithHighlight(this.truncateContent(change.content, 50), language);
       return html`
         <div class="file-change">
           <div class="file-change-header">
             <span class="file-change-action">${actionLabel[change.action]}</span>
             <span class="file-change-lines">${lines} 行</span>
           </div>
-          <pre class="file-change-content">${this.truncateContent(change.content, 50)}</pre>
+          <div class="file-change-code">${unsafeHTML(highlightedCode)}</div>
         </div>
       `;
     }
@@ -536,6 +545,18 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     return nothing;
+  }
+
+  private get currentEditLanguage(): string | undefined {
+    const messages = this.selectedWorkspaceId
+      ? this.dialogMessagesByWorkspace[this.selectedWorkspaceId]
+      : [];
+    for (const message of messages) {
+      if (message.kind === "tool" && message.toolName === "修改文件" && message.summary) {
+        return detectLanguageFromPath(message.summary);
+      }
+    }
+    return undefined;
   }
 
   private formatUnifiedDiff(diff: string): string {
