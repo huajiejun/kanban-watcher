@@ -95,8 +95,8 @@ export function buildPreviewCardConfig(
 export function describePreviewMode(options: PreviewApiOptions): PreviewModeInfo {
   if (!options.baseUrl) {
     return {
-      title: "当前模式：Mock 数据",
-      detail: "使用本地预设 hass 数据，适合看 UI 和交互。",
+      title: "当前预览：Mock 数据",
+      detail: "使用本地预设 hass 数据，适合查看预览页 UI 和交互。",
     };
   }
 
@@ -105,8 +105,8 @@ export function describePreviewMode(options: PreviewApiOptions): PreviewModeInfo
     : "。";
 
   return {
-    title: "当前模式：真实 API",
-    detail: `正在直连 ${options.baseUrl}${limitText}`,
+    title: "当前预览：真实 API",
+    detail: `预览页正在直连 ${options.baseUrl}${limitText}`,
   };
 }
 

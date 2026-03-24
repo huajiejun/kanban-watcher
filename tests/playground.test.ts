@@ -7,10 +7,10 @@ import {
 } from "../src/playground";
 import { previewEntityId } from "../src/dev/preview-fixture";
 
-describe("playground preview config", () => {
+describe("preview page config", () => {
   it("reads base_url, api_key and messages_limit from URL params", () => {
     const options = readPreviewApiOptions(
-      new URL("http://localhost:5173/?base_url=https://watcher.huajiejun.cn&api_key=test-key&messages_limit=30"),
+      new URL("http://localhost:5173/preview?base_url=https://watcher.huajiejun.cn&api_key=test-key&messages_limit=30"),
     );
 
     expect(options).toEqual({
@@ -22,7 +22,7 @@ describe("playground preview config", () => {
 
   it("uses env vars when URL params are empty", () => {
     const options = readPreviewApiOptions(
-      new URL("http://localhost:5173/?base_url=&api_key=&messages_limit=0"),
+      new URL("http://localhost:5173/preview?base_url=&api_key=&messages_limit=0"),
     );
 
     // 当 URL 参数为空时，使用环境变量（.env.local）或默认值
@@ -56,22 +56,22 @@ describe("playground preview config", () => {
     });
   });
 
-  it("describes mock preview mode when base_url is missing", () => {
+  it("describes mock preview page mode when base_url is missing", () => {
     expect(describePreviewMode({})).toEqual({
-      title: "当前模式：Mock 数据",
-      detail: "使用本地预设 hass 数据，适合看 UI 和交互。",
+      title: "当前预览：Mock 数据",
+      detail: "使用本地预设 hass 数据，适合查看预览页 UI 和交互。",
     });
   });
 
-  it("describes real API preview mode when base_url is provided", () => {
+  it("describes real API preview page mode when base_url is provided", () => {
     expect(
       describePreviewMode({
         baseUrl: "https://watcher.huajiejun.cn",
         messagesLimit: 30,
       }),
     ).toEqual({
-      title: "当前模式：真实 API",
-      detail: "正在直连 https://watcher.huajiejun.cn，弹窗首次加载 30 条消息。",
+      title: "当前预览：真实 API",
+      detail: "预览页正在直连 https://watcher.huajiejun.cn，弹窗首次加载 30 条消息。",
     });
   });
 

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kanban Watcher Card Preview</title>
+    <style>
+      :root {
+        --bg-gradient-1: rgba(245, 158, 11, 0.08);
+        --bg-gradient-2: #0f172a;
+        --bg-gradient-3: #1e293b;
+        --text-primary: #e2e8f0;
+        --text-secondary: #94a3b8;
+        --eyebrow-color: #fbbf24;
+        --tip-bg: rgba(30, 41, 59, 0.7);
+        --tip-border: rgba(71, 85, 105, 0.5);
+        --tip-text: #cbd5e1;
+        --shell-bg: rgba(30, 41, 59, 0.7);
+        --shell-border: rgba(51, 65, 85, 0.8);
+        --shell-shadow: rgba(0, 0, 0, 0.3);
+        --success-color: #4ade80;
+        --success-text: #22c55e;
+        --error-color: #f87171;
+        --error-text: #ef4444;
+        --muted-color: #64748b;
+        --ha-card-background: #1e293b;
+        --card-background-color: #1e293b;
+        --primary-text-color: #e2e8f0;
+        --secondary-text-color: #94a3b8;
+        --divider-color: #334155;
+        --secondary-background-color: #0f172a;
+        --primary-color: #f59e0b;
+        --warning-color: #fbbf24;
+        --success-color: #34d399;
+        --ha-card-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        color-scheme: dark;
+        font-family: "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background:
+          radial-gradient(circle at top, var(--bg-gradient-1), transparent 35%),
+          linear-gradient(180deg, var(--bg-gradient-2) 0%, var(--bg-gradient-3) 48%, var(--bg-gradient-2) 100%);
+        color: var(--text-primary);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 40px 20px 56px;
+      }
+
+      main {
+        width: min(960px, 100%);
+        margin: 0 auto;
+        display: grid;
+        gap: 18px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 10px;
+      }
+
+      .eyebrow {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--eyebrow-color);
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 4vw, 2.6rem);
+        line-height: 1.1;
+      }
+
+      .tip {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: var(--tip-bg);
+        border: 1px solid var(--tip-border);
+        color: var(--tip-text);
+        font-size: 0.9rem;
+      }
+
+      .preview-mode-tip,
+      .preview-request-tip {
+        display: grid;
+        gap: 4px;
+        border-radius: 16px;
+        padding: 12px 14px;
+      }
+
+      .preview-shell {
+        padding: 18px;
+        border-radius: 28px;
+        background: var(--shell-bg);
+        border: 1px solid var(--shell-border);
+        box-shadow: 0 24px 60px var(--shell-shadow);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Preview Route</div>
+        <h1>Kanban Watcher Card 本地预览</h1>
+        <div data-preview-mode></div>
+        <div data-preview-request></div>
+      </section>
+
+      <section class="preview-shell">
+        <div data-preview-root></div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/playground.ts"></script>
+  </body>
+</html>
