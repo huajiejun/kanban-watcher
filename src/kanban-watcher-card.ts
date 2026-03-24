@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
+import "./components/workspace-conversation-pane";
 import {
   cancelWorkspaceQueue,
   fetchActiveWorkspaces,
@@ -25,9 +26,8 @@ import {
   renderDiffWithHighlight,
   renderCodeWithHighlight,
 } from "./lib/highlight-code";
-import {
-  type WorkspaceSectionKey,
-} from "./components/workspace-section-list";
+import "./components/workspace-section-list";
+import type { WorkspaceSectionKey } from "./components/workspace-section-list";
 import { cardStyles } from "./styles";
 import type {
   ActiveWorkspacesResponse,
@@ -330,8 +330,6 @@ export class KanbanWatcherCard extends LitElement {
     const isRunning = workspace.status === "running";
     const canQueue = isRunning || this.optimisticQueueWorkspaceIds.has(workspace.id);
     const queueStatus = this.queueStatusByWorkspace[workspace.id];
-    const isQueued = canQueue && queueStatus?.status === "queued";
-
     return html`
       <div class="dialog-shell" role="presentation">
         <button
@@ -346,68 +344,25 @@ export class KanbanWatcherCard extends LitElement {
           aria-modal="true"
           aria-label="${workspace.name} 工作区详情"
         >
-          <div class="dialog-header">
-            <div class="dialog-heading">
-              <h2 class="dialog-title">${workspace.name}</h2>
-            </div>
-            <button
-              class="dialog-close"
-              type="button"
-              aria-label="关闭"
-              @click=${this.closeWorkspaceDialog}
-            >
-              ✕
-            </button>
-          </div>
-
-          <section class="dialog-messages">
-            <div class="dialog-panel-title">对话消息</div>
-            <div class="message-list">
-              ${messages.map((message) => this.renderDialogEntry(message))}
-            </div>
-          </section>
-
-          <div class="dialog-composer">
-            ${isQueued
-              ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
-              : nothing}
-            ${this.renderQuickButtons(workspace)}
-            <textarea
-              class="message-input"
-              rows="2"
-              placeholder="输入消息"
-              .value=${this.messageDraft}
-              @input=${this.handleMessageInput}
-            ></textarea>
-            <div class="dialog-actions">
-              <button
-                class="dialog-action dialog-action-primary"
-                type="button"
-                @click=${() => void this.handleActionClick(isRunning ? "stop" : "send")}
-              >
-                ${isRunning
-                  ? html`
-                      <span class="action-spinner" aria-hidden="true"></span>
-                      <span>停止</span>
-                    `
-                  : "发送消息"}
-              </button>
-              ${canQueue
-                ? html`
-                    <button
-                      class="dialog-action dialog-action-secondary"
-                      type="button"
-                      @click=${() => void this.handleActionClick(isQueued ? "stop" : "queue")}
-                    >
-                      ${isQueued ? "取消队列" : "加入队列"}
-                    </button>
-                  `
-                : nothing}
-            </div>
-            <div class="dialog-feedback" aria-live="polite">
-              ${this.currentFeedback}
-            </div>
-          </div>
+          <workspace-conversation-pane
+            .workspaceName=${workspace.name}
+            .messages=${messages}
+            .messageDraft=${this.messageDraft}
+            .currentFeedback=${this.currentFeedback}
+            .queueStatus=${queueStatus}
+            .isRunning=${isRunning}
+            .canQueue=${canQueue}
+            .renderMessage=${(message: DialogMessage) => this.renderDialogEntry(message)}
+            .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
+            @pane-close=${this.closeWorkspaceDialog}
+            @draft-change=${(event: CustomEvent<string>) => {
+              this.messageDraft = event.detail;
+            }}
+            @action-click=${(event: CustomEvent<DialogAction>) =>
+              void this.handleActionClick(event.detail)}
+            @quick-button-click=${(event: CustomEvent<string>) =>
+              void this.handleQuickButtonClick(event.detail)}
+          ></workspace-conversation-pane>
         </section>
       </div>
     `;
