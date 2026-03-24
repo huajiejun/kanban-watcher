@@ -398,9 +398,9 @@ export class KanbanWatcherCard extends LitElement {
     this.actionFeedback = "";
     this.dialogError = "";
     if (this.isApiMode) {
-      const shouldRefresh = this.shouldRefreshWorkspaceMessages(workspace);
-      void this.loadWorkspaceMessages(workspace.id, shouldRefresh);
-      if (workspace.status === "running" && (shouldRefresh || !this.queueStatusByWorkspace[workspace.id])) {
+      const shouldRefreshQueueStatus = this.shouldRefreshWorkspaceMessages(workspace);
+      void this.loadWorkspaceMessages(workspace.id, true);
+      if (workspace.status === "running" && (shouldRefreshQueueStatus || !this.queueStatusByWorkspace[workspace.id])) {
         void this.loadWorkspaceQueueStatus(workspace.id);
       }
     }

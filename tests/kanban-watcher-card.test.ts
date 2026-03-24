@@ -1216,7 +1216,7 @@ describe("kanban-watcher-card", () => {
     );
   });
 
-  it("reuses cached dialog messages when reopening the same workspace without new updates", async () => {
+  it("reloads dialog messages when reopening the same workspace", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
@@ -1225,7 +1225,7 @@ describe("kanban-watcher-card", () => {
             {
               id: "api-reopen",
               name: "API Reopen Workspace",
-              status: "running",
+              status: "completed",
               latest_session_id: "session-api-reopen",
               updated_at: "2026-03-21T11:58:00Z",
             },
@@ -1251,8 +1251,19 @@ describe("kanban-watcher-card", () => {
       )
       .mockResolvedValueOnce(
         mockJSONResponse({
-          status: "empty",
           session_id: "session-api-reopen",
+          workspace_name: "API Reopen Workspace",
+          messages: [
+            {
+              id: 2,
+              session_id: "session-api-reopen",
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "第二次打开时重新拉取到的最新消息",
+              timestamp: "2026-03-21T11:58:30Z",
+            },
+          ],
+          has_more: false,
         }),
       );
 
@@ -1270,7 +1281,7 @@ describe("kanban-watcher-card", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(3);
     expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
-      "第一次打开时看到的消息",
+      "第二次打开时重新拉取到的最新消息",
     );
   });
 
