@@ -208,7 +208,7 @@ func runDaemon() error {
 		cfg.ConversationSync.RecentToolCallLimit,
 	)
 	wechatNotifier := wechat.NewNotifier(cfg.WeChat)
-	tracker := wechat.NewTracker(persistedState, cfg.WeChat.NotifyThresholdMinutes)
+	tracker := wechat.NewTracker(persistedState, cfg.Notify.ApprovalThreshold, cfg.Notify.MessageThreshold, cfg.Notify.RepeatInterval)
 	trayApp := tray.New()
 
 	// 初始化数据库 Store（如果配置了）
@@ -296,7 +296,7 @@ func runHeadless() error {
 		cfg.ConversationSync.RecentToolCallLimit,
 	)
 	wechatNotifier := wechat.NewNotifier(cfg.WeChat)
-	tracker := wechat.NewTracker(persistedState, cfg.WeChat.NotifyThresholdMinutes)
+	tracker := wechat.NewTracker(persistedState, cfg.Notify.ApprovalThreshold, cfg.Notify.MessageThreshold, cfg.Notify.RepeatInterval)
 
 	var dbStore *store.Store
 	var realtimePublisher *api.RealtimePublisher

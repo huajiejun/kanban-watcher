@@ -151,7 +151,7 @@ func TestRunSyncNowReturnsErrorWhenDatabaseNotConfigured(t *testing.T) {
 }
 
 func TestHandlePollResultProcessesWorkspaces(t *testing.T) {
-	tracker := wechat.NewTracker(state.NewAppState(), 10)
+	tracker := wechat.NewTracker(state.NewAppState(), 5, 10, 5)
 	notifier := wechat.NewNotifier(config.WeChatConfig{})
 
 	handlePollResult(
