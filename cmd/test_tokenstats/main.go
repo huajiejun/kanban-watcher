@@ -84,13 +84,13 @@ func main() {
 		fmt.Printf("  ... 还有 %d 条记录\n", len(deltas)-10)
 	}
 
-	// 按小时聚合
-	aggregated := aggregateDeltasByHour(deltas)
+	// 按天聚合
+	aggregated := aggregateDeltasByDay(deltas)
 	fmt.Printf("聚合后 %d 条记录\n", len(aggregated))
 
 	for _, a := range aggregated {
-		fmt.Printf("  Hour=%s, Executor=%s, Input=%d, Output=%d, Total=%d, Sessions=%d\n",
-			a.StatHour.Format("2006-01-02 15:04"), a.Executor,
+		fmt.Printf("  Day=%s, Executor=%s, Input=%d, Output=%d, Total=%d, Sessions=%d\n",
+			a.StatDate.Format("2006-01-02"), a.Executor,
 			a.InputTokens, a.OutputTokens, a.TotalTokens, a.SessionCount)
 	}
 
@@ -105,19 +105,19 @@ func main() {
 	}
 }
 
-// aggregateDeltasByHour 按 (小时, executor) 聚合 token 增量
-func aggregateDeltasByHour(deltas []tokenstats.TokenDelta) []*tokenstats.AggregatedUsage {
+// aggregateDeltasByDay 按 (天, executor) 聚合 token 增量
+func aggregateDeltasByDay(deltas []tokenstats.TokenDelta) []*tokenstats.AggregatedUsage {
 	type key struct {
-		hour     time.Time
+		day      time.Time
 		executor string
 	}
 	agg := make(map[key]*tokenstats.AggregatedUsage)
 
 	for _, d := range deltas {
-		// 标准化到小时
-		hour := time.Date(d.Timestamp.Year(), d.Timestamp.Month(), d.Timestamp.Day(),
-			d.Timestamp.Hour(), 0, 0, 0, d.Timestamp.Location())
-		k := key{hour: hour, executor: d.Executor}
+		// 标准化到天
+		day := time.Date(d.Timestamp.Year(), d.Timestamp.Month(), d.Timestamp.Day(),
+			0, 0, 0, 0, d.Timestamp.Location())
+		k := key{day: day, executor: d.Executor}
 		if a, ok := agg[k]; ok {
 			a.InputTokens += d.InputDelta
 			a.OutputTokens += d.OutputDelta
@@ -125,7 +125,7 @@ func aggregateDeltasByHour(deltas []tokenstats.TokenDelta) []*tokenstats.Aggrega
 			a.SessionCount++
 		} else {
 			agg[k] = &tokenstats.AggregatedUsage{
-				StatHour:     k.hour,
+				StatDate:     k.day,
 				Executor:     d.Executor,
 				InputTokens:  d.InputDelta,
 				OutputTokens: d.OutputDelta,

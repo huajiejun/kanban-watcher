@@ -95,13 +95,12 @@ func (c *Collector) collect() {
 		for i := range deltas {
 			if meta, ok := sessionMetas[deltas[i].SessionID]; ok {
 				deltas[i].Executor = meta.Executor
-				deltas[i].Timestamp = meta.CreatedAt
 			}
 		}
 	}
 
-	// 按 (小时, executor) 聚合
-	aggregated := aggregateDeltasByHour(deltas)
+	// 按 (天, executor) 聚合
+	aggregated := aggregateDeltasByDay(deltas)
 
 	// 存入 MariaDB
 	if err := SaveUsage(ctx, c.db, aggregated); err != nil {
@@ -111,19 +110,19 @@ func (c *Collector) collect() {
 	log.Printf("[tokenstats] 成功存储 %d 条聚合记录", len(aggregated))
 }
 
-func aggregateDeltasByHour(deltas []TokenDelta) []*AggregatedUsage {
-	// 按 (hour, executor) 聚合
+func aggregateDeltasByDay(deltas []TokenDelta) []*AggregatedUsage {
+	// 按 (day, executor) 聚合
 	type key struct {
-		hour     time.Time
+		day      time.Time
 		executor string
 	}
 	agg := make(map[key]*AggregatedUsage)
 
 	for _, d := range deltas {
-		// 标准化到小时
-		hour := time.Date(d.Timestamp.Year(), d.Timestamp.Month(), d.Timestamp.Day(),
-			d.Timestamp.Hour(), 0, 0, 0, d.Timestamp.Location())
-		k := key{hour: hour, executor: d.Executor}
+		// 标准化到天
+		day := time.Date(d.Timestamp.Year(), d.Timestamp.Month(), d.Timestamp.Day(),
+			0, 0, 0, 0, d.Timestamp.Location())
+		k := key{day: day, executor: d.Executor}
 		if a, ok := agg[k]; ok {
 			a.InputTokens += d.InputDelta
 			a.OutputTokens += d.OutputDelta
@@ -131,7 +130,7 @@ func aggregateDeltasByHour(deltas []TokenDelta) []*AggregatedUsage {
 			a.SessionCount++
 		} else {
 			agg[k] = &AggregatedUsage{
-				StatHour:     k.hour,
+				StatDate:     k.day,
 				Executor:     d.Executor,
 				InputTokens:  d.InputDelta,
 				OutputTokens: d.OutputDelta,

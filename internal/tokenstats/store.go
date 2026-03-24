@@ -9,7 +9,7 @@ import (
 
 // AggregatedUsage 聚合后的 token 用量
 type AggregatedUsage struct {
-	StatHour     time.Time
+	StatDate     time.Time
 	Executor     string
 	InputTokens  int64
 	OutputTokens int64
@@ -23,10 +23,10 @@ func SaveUsage(ctx context.Context, db *store.Store, usages []*AggregatedUsage) 
 		return nil
 	}
 
-	dbUsages := make([]*store.TokenUsageHourly, 0, len(usages))
+	dbUsages := make([]*store.TokenUsageDaily, 0, len(usages))
 	for _, u := range usages {
-		dbUsages = append(dbUsages, &store.TokenUsageHourly{
-			StatHour:     u.StatHour,
+		dbUsages = append(dbUsages, &store.TokenUsageDaily{
+			StatDate:     u.StatDate,
 			Executor:     u.Executor,
 			InputTokens:  u.InputTokens,
 			OutputTokens: u.OutputTokens,
@@ -34,5 +34,5 @@ func SaveUsage(ctx context.Context, db *store.Store, usages []*AggregatedUsage) 
 			SessionCount: u.SessionCount,
 		})
 	}
-	return db.BatchUpsertTokenUsageHourly(ctx, dbUsages)
+	return db.BatchUpsertTokenUsageDaily(ctx, dbUsages)
 }

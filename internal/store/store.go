@@ -157,9 +157,7 @@ func (s *Store) InitSchema(ctx context.Context) error {
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS files_changed INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_added INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_removed INT NOT NULL DEFAULT 0`,
-<<<<<<< HEAD
 		`ALTER TABLE kw_process_entries ADD INDEX IF NOT EXISTS idx_kw_entries_session_type_time (session_id, entry_type, entry_timestamp)`,
-=======
 		`CREATE TABLE IF NOT EXISTS kw_token_usage_daily (
 			id BIGINT AUTO_INCREMENT PRIMARY KEY,
 			stat_date DATE NOT NULL,
@@ -174,7 +172,6 @@ func (s *Store) InitSchema(ctx context.Context) error {
 			INDEX idx_token_daily_stat (stat_date),
 			INDEX idx_token_daily_executor (executor)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
->>>>>>> a422abf (feat: 添加 UpsertTokenUsageHourly 方法)
 	}
 
 	for _, stmt := range statements {
