@@ -252,7 +252,7 @@ export async function getQuickButtonsWithLLM(
 ): Promise<QuickButtonsResult> {
   const { message, workspaceStatus, llmEnabled, llmConfig } = request;
 
-  // 运行中只返回静态按钮
+  // 运行中只返回静态按钮（隐藏所有动态按钮）
   if (workspaceStatus === "running") {
     return {
       staticButtons: [...STATIC_BUTTONS],
@@ -260,14 +260,7 @@ export async function getQuickButtonsWithLLM(
     };
   }
 
-  // 非 attention 状态，只返回静态按钮
-  if (workspaceStatus !== "attention") {
-    return {
-      staticButtons: [...STATIC_BUTTONS],
-      dynamicButtons: [],
-    };
-  }
-
+  // idle / completed / attention 状态都显示动态按钮
   // LLM 未启用，使用正则匹配
   if (!llmEnabled) {
     const dynamicButtons = extractDynamicButtons(message);
@@ -278,7 +271,11 @@ export async function getQuickButtonsWithLLM(
   }
 
   // 使用 LLM 分析
-  const dynamicButtons = await analyzeButtonsWithLLM(message, llmConfig?.baseUrl);
+  const dynamicButtons = await analyzeButtonsWithLLM(
+    message,
+    llmConfig?.baseUrl,
+    llmConfig?.model
+  );
 
   // LLM 返回空，回退到正则
   if (dynamicButtons.length === 0) {

@@ -147,6 +147,8 @@ export class KanbanWatcherCard extends LitElement {
   private dialogMessageVersionsByWorkspace: Record<string, string> = {};
   private expandedToolMessageKeys = new Set<string>();
   private dynamicButtonsByWorkspace: Record<string, string[]> = {};
+  /** 缓存每个工作区最后分析的消息 hash，避免重复调用 LLM */
+  private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
 
   connectedCallback() {
     super.connectedCallback();
@@ -1448,7 +1450,21 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   /**
+   * 计算字符串的简单 hash（用于缓存判断）
+   */
+  private simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // 转为 32 位整数
+    }
+    return hash.toString(16);
+  }
+
+  /**
    * 分析动态按钮（使用 LLM 或正则匹配）
+   * 带缓存：相同消息内容不重复调用 LLM
    */
   private async analyzeDynamicButtons(workspace: KanbanWorkspace) {
     const messages = this.dialogMessagesByWorkspace[workspace.id] || [];
@@ -1463,10 +1479,19 @@ export class KanbanWatcherCard extends LitElement {
         ...this.dynamicButtonsByWorkspace,
         [workspace.id]: [],
       };
+      // 清除缓存
+      delete this.dynamicButtonsMessageHashByWorkspace[workspace.id];
       return;
     }
 
     const message = lastAiMessage.text;
+    const messageHash = this.simpleHash(message);
+    const cachedHash = this.dynamicButtonsMessageHashByWorkspace[workspace.id];
+
+    // 如果消息内容相同，使用缓存结果
+    if (cachedHash === messageHash) {
+      return;
+    }
 
     // 使用 LLM 分析
     const result = await getQuickButtonsWithLLM({
@@ -1479,6 +1504,8 @@ export class KanbanWatcherCard extends LitElement {
       },
     });
 
+    // 更新缓存
+    this.dynamicButtonsMessageHashByWorkspace[workspace.id] = messageHash;
     this.dynamicButtonsByWorkspace = {
       ...this.dynamicButtonsByWorkspace,
       [workspace.id]: result.dynamicButtons,
