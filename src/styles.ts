@@ -10,6 +10,19 @@ export const cardStyles = css`
     --font-size-base: 1rem;
     --font-size-sm: 0.85rem;
     --font-size-xs: 0.75rem;
+
+    /* 继承外部 CSS 变量以支持主题切换 */
+    --ha-card-background: var(--ha-card-background, #1e293b);
+    --card-background-color: var(--card-background-color, #1e293b);
+    --primary-text-color: var(--primary-text-color, #e2e8f0);
+    --secondary-text-color: var(--secondary-text-color, #94a3b8);
+    --divider-color: var(--divider-color, #334155);
+    --secondary-background-color: var(--secondary-background-color, #0f172a);
+    --primary-color: var(--primary-color, #f59e0b);
+    --warning-color: var(--warning-color, #fbbf24);
+    --error-color: var(--error-color, #ef4444);
+    --success-color: var(--success-color, #34d399);
+    --ha-card-box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0, 0, 0, 0.3));
   }
 
   /* 平板端 (768px - 1024px) */
