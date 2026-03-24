@@ -6,16 +6,16 @@
     <title>Kanban Watcher Card Preview</title>
     <style>
       :root {
-        color-scheme: light;
+        color-scheme: dark;
         font-family:
           "SF Pro Display",
           "PingFang SC",
           "Microsoft YaHei",
           sans-serif;
         background:
-          radial-gradient(circle at top, rgba(245, 158, 11, 0.18), transparent 35%),
-          linear-gradient(180deg, #fffaf0 0%, #f8fafc 48%, #eef2ff 100%);
-        color: #0f172a;
+          radial-gradient(circle at top, rgba(245, 158, 11, 0.08), transparent 35%),
+          linear-gradient(180deg, #0f172a 0%, #1e293b 48%, #0f172a 100%);
+        color: #e2e8f0;
       }
 
       * {
@@ -44,7 +44,7 @@
         font-size: 0.78rem;
         text-transform: uppercase;
         letter-spacing: 0.14em;
-        color: #b45309;
+        color: #fbbf24;
         font-weight: 700;
       }
 
@@ -57,7 +57,7 @@
       p {
         margin: 0;
         max-width: 56rem;
-        color: #475569;
+        color: #94a3b8;
         line-height: 1.6;
       }
 
@@ -70,9 +70,9 @@
       .tip {
         padding: 10px 14px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.7);
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        color: #334155;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(71, 85, 105, 0.5);
+        color: #cbd5e1;
         font-size: 0.9rem;
       }
 
@@ -96,11 +96,11 @@
 
       .preview-mode-tip strong {
         font-size: 0.92rem;
-        color: #92400e;
+        color: #fbbf24;
       }
 
       .preview-mode-tip span {
-        color: #475569;
+        color: #94a3b8;
         line-height: 1.5;
       }
 
@@ -114,31 +114,31 @@
 
       .preview-request-tip.tone-muted strong,
       .preview-request-tip.tone-muted span {
-        color: #475569;
+        color: #64748b;
       }
 
       .preview-request-tip.tone-success strong {
-        color: #166534;
+        color: #4ade80;
       }
 
       .preview-request-tip.tone-success span {
-        color: #15803d;
+        color: #22c55e;
       }
 
       .preview-request-tip.tone-error strong {
-        color: #b91c1c;
+        color: #f87171;
       }
 
       .preview-request-tip.tone-error span {
-        color: #991b1b;
+        color: #ef4444;
       }
 
       .preview-shell {
         padding: 18px;
         border-radius: 28px;
-        background: rgba(255, 255, 255, 0.7);
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(51, 65, 85, 0.8);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
       }
 
       [data-preview-root] {
