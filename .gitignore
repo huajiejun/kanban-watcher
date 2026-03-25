@@ -17,3 +17,4 @@ coverage/
 .env.local
 .env.*.local
 .playwright-mcp/
+test-images/
