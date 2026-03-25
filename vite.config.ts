@@ -20,6 +20,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:7778',
         changeOrigin: true,
+        ws: true, // 启用 WebSocket 代理
       },
       // 代理 LLM API 请求到 LM Studio，解决 CORS 问题
       '/llm-api': {
