@@ -1,8 +1,8 @@
 import { LitElement, html, nothing } from "lit";
-import { unsafeHTML } from "lit/directives/unsafe-html.js";
 
 import "../index";
 import "../components/workspace-conversation-pane";
+import "../components/workspace-preview-card";
 import type {
   ConversationPaneAction,
   WorkspaceConversationPane,
@@ -11,7 +11,6 @@ import { renderWorkspaceSectionList } from "../components/workspace-section-list
 import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
 import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
-import { renderMessageMarkdown } from "../lib/render-message-markdown";
 import { getStatusMeta } from "../lib/status-meta";
 import {
   getDialogMessageIdentity,
@@ -1034,22 +1033,12 @@ export class KanbanWorkspaceHome extends LitElement {
     const previewLines = summarizeWorkspacePreview(this.messagesByWorkspace[workspace.id] ?? []);
 
     return html`
-      <button
-        class="workspace-preview-card ${statusAccentClass}"
-        type="button"
-        @click=${() => this.handleOpenWorkspace(workspace)}
-      >
-        <div class="workspace-preview-title">${workspace.name}</div>
-        <div class="workspace-preview-lines">
-          ${previewLines.length > 0
-            ? previewLines.map((line) => html`
-                <div class="workspace-preview-line workspace-preview-markdown">
-                  ${unsafeHTML(renderMessageMarkdown(line))}
-                </div>
-              `)
-            : html`<p class="workspace-preview-line is-empty">暂无可预览文本消息</p>`}
-        </div>
-      </button>
+      <workspace-preview-card
+        .workspaceName=${workspace.name}
+        .statusAccentClass=${statusAccentClass}
+        .previewLines=${previewLines}
+        @preview-activate=${() => this.handleOpenWorkspace(workspace)}
+      ></workspace-preview-card>
     `;
   }
 

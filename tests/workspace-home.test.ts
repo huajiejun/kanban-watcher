@@ -209,7 +209,10 @@ describe("workspace home helpers", () => {
 
     expect(element.shadowRoot?.querySelector(".workspace-home-pane-focus-layout")).not.toBeNull();
     expect(element.shadowRoot?.querySelectorAll("workspace-conversation-pane")).toHaveLength(1);
-    expect(element.shadowRoot?.textContent).toContain("这里是工作区一最近的一条关键结论。");
+    const previewCard = element.shadowRoot?.querySelector("workspace-preview-card") as
+      | (HTMLElement & { shadowRoot: ShadowRoot })
+      | null;
+    expect(previewCard?.shadowRoot?.textContent).toContain("这里是工作区一最近的一条关键结论。");
   });
 
   it("keeps grid layout on very wide screens", async () => {
