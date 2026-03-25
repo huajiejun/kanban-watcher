@@ -60,7 +60,8 @@ function readStringParam(params: URLSearchParams, key: string) {
 // 默认配置（优先级：URL 参数 > 环境变量 > 硬编码默认值）
 // 注：在测试环境中 import.meta.env 可能不存在，使用空对象作为 fallback
 const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
-const DEFAULT_BASE_URL = env.VITE_BASE_URL || "http://127.0.0.1:7778";
+// 默认使用空字符串（相对路径），通过 Vite 代理访问后端，解决移动端跨网络访问问题
+const DEFAULT_BASE_URL = env.VITE_BASE_URL || "";
 const DEFAULT_API_KEY = env.VITE_API_KEY || "";
 
 export function readPreviewApiOptions(url = new URL(window.location.href)): PreviewApiOptions {
@@ -83,7 +84,8 @@ export function buildPreviewCardConfig(
 ): PlaygroundCardConfig {
   return {
     entity: previewEntityId,
-    ...(options.baseUrl ? { base_url: options.baseUrl } : {}),
+    // baseUrl 为 undefined 时省略（mock 模式），空字符串时传递（Vite 代理模式）
+    ...(options.baseUrl !== undefined ? { base_url: options.baseUrl } : {}),
     ...(options.apiKey ? { api_key: options.apiKey } : {}),
     ...(options.messagesLimit ? { messages_limit: options.messagesLimit } : {}),
     // 启用 LLM 推荐按钮（使用 Vite 代理解决 CORS）
@@ -93,7 +95,8 @@ export function buildPreviewCardConfig(
 }
 
 export function describePreviewMode(options: PreviewApiOptions): PreviewModeInfo {
-  if (!options.baseUrl) {
+  // baseUrl 为 undefined 时表示 Mock 模式，空字符串表示使用相对路径（Vite 代理模式）
+  if (options.baseUrl === undefined) {
     return {
       title: "当前预览：Mock 数据",
       detail: "使用本地预设 hass 数据，适合查看预览页 UI 和交互。",
@@ -104,9 +107,12 @@ export function describePreviewMode(options: PreviewApiOptions): PreviewModeInfo
     ? `，弹窗首次加载 ${options.messagesLimit} 条消息。`
     : "。";
 
+  // 空字符串表示使用相对路径（Vite 代理）
+  const connectionText = options.baseUrl || "（通过 Vite 代理）";
+
   return {
     title: "当前预览：真实 API",
-    detail: `预览页正在直连 ${options.baseUrl}${limitText}`,
+    detail: `预览页正在直连 ${connectionText}${limitText}`,
   };
 }
 
@@ -171,7 +177,9 @@ function renderPreviewRequestState(
     return;
   }
 
-  const request = describePreviewRequestState(Boolean(options.baseUrl), statusMessage);
+  // baseUrl 不为 undefined 时表示 API 模式（包括空字符串相对路径模式）
+  const isApiMode = options.baseUrl !== undefined;
+  const request = describePreviewRequestState(isApiMode, statusMessage);
   mountPoint.innerHTML = `
     <div class="tip preview-request-tip tone-${request.tone}">
       <strong>${request.title}</strong>
@@ -203,7 +211,8 @@ if (mountPoint) {
   const card = document.createElement("kanban-watcher-card") as PlaygroundCard;
   card.setConfig(buildPreviewCardConfig(previewOptions));
 
-  if (!previewOptions.baseUrl) {
+  // baseUrl 为 undefined 时使用 mock 数据，空字符串表示使用相对路径（Vite 代理）
+  if (previewOptions.baseUrl === undefined) {
     card.hass = createPreviewHass();
   }
 

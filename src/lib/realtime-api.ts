@@ -10,7 +10,8 @@ type RealtimeOptions = {
 };
 
 function toRealtimeUrl(baseUrl: string, apiKey?: string, sessionId?: string) {
-  const normalized = baseUrl.replace(/\/+$/, "");
+  // 如果 baseUrl 为空（相对路径），使用当前页面的 origin
+  const normalized = baseUrl ? baseUrl.replace(/\/+$/, "") : window.location.origin;
   const url = new URL(`${normalized}/api/realtime/ws`);
   if (apiKey) {
     url.searchParams.set("api_key", apiKey);
