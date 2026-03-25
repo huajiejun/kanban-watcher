@@ -50,16 +50,16 @@ export class TodoProgressPopup extends LitElement {
       height: 32px;
       border: none;
       border-radius: 6px;
-      background: rgba(255, 255, 255, 0.05);
-      color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.9);
       cursor: pointer;
       transition: all 0.2s;
       position: relative;
     }
 
     .todo-button:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 1);
     }
 
     .todo-button:active {
@@ -67,13 +67,12 @@ export class TodoProgressPopup extends LitElement {
     }
 
     .todo-button.empty {
-      opacity: 0.4;
-      cursor: not-allowed;
+      opacity: 0.6;
     }
 
     .todo-button.empty:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.95);
     }
 
     .todo-icon {
@@ -487,7 +486,6 @@ export class TodoProgressPopup extends LitElement {
       <button
         class="todo-button ${isEmpty ? 'empty' : ''}"
         @click=${this.handleToggle}
-        ?disabled=${isEmpty}
       >
         <span class="todo-icon">${unsafeSVG(ICONS.listChecks)}</span>
         ${!isEmpty
