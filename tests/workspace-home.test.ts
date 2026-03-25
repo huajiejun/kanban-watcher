@@ -96,6 +96,7 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain(".workspace-home-pane-grid");
     expect(homeCssText).toContain("height: min(72vh, 960px)");
     expect(listCssText).toContain("var(--card-background-color, #111827)");
+    expect(listCssText).toContain("var(--secondary-background-color, #111827)");
   });
 
   it("refreshes latest messages for every opened pane on the desktop interval", async () => {

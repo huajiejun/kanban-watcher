@@ -96,5 +96,6 @@ describe("workspace-conversation-pane", () => {
     expect(cssText).toContain("overflow-y: auto");
     expect(cssText).toContain("height: 100%");
     expect(cssText).toContain("var(--card-background-color, #111827)");
+    expect(cssText).toContain("var(--secondary-background-color, #1e293b)");
   });
 });

@@ -4,7 +4,7 @@ export const workspaceSectionListStyles = css`
   .section {
     border-radius: 14px;
     overflow: hidden;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 65%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 72%, transparent);
     border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 65%, transparent);
   }
 
@@ -173,7 +173,7 @@ export const workspaceSectionListStyles = css`
     border-radius: 14px;
     text-align: center;
     color: var(--secondary-text-color, #94a3b8);
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 65%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 72%, transparent);
     border: 1px dashed color-mix(in srgb, var(--divider-color, #cbd5e1) 70%, transparent);
   }
 `;
@@ -323,7 +323,7 @@ export const cardStyles = css`
   .section {
     border-radius: 14px;
     overflow: hidden;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 65%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 72%, transparent);
     border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 65%, transparent);
   }
 
@@ -487,7 +487,7 @@ export const cardStyles = css`
     border-radius: 14px;
     text-align: center;
     color: var(--secondary-text-color, #94a3b8);
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 65%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 72%, transparent);
     border: 1px dashed color-mix(in srgb, var(--divider-color, #cbd5e1) 70%, transparent);
   }
 
@@ -602,7 +602,7 @@ export const cardStyles = css`
     padding: 6px 8px;
     border-radius: 8px;
     border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 22%, transparent);
-    background: color-mix(in srgb, var(--secondary-background-color, #f8fafc) 16%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 42%, transparent);
     color: color-mix(in srgb, var(--primary-text-color) 60%, var(--secondary-text-color, #94a3b8));
     text-align: left;
     cursor: pointer;
@@ -676,7 +676,7 @@ export const cardStyles = css`
   .message-tool-detail {
     padding: 8px 10px;
     border-radius: 8px;
-    background: color-mix(in srgb, var(--secondary-background-color, #f8fafc) 28%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 58%, transparent);
     border: 1px solid color-mix(in srgb, var(--divider-color, #e2e8f0) 20%, transparent);
     color: color-mix(in srgb, var(--primary-text-color) 78%, var(--secondary-text-color, #64748b));
     word-break: break-word;
@@ -894,7 +894,7 @@ export const cardStyles = css`
     line-height: 1.35;
     white-space: normal;
     word-break: break-word;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 72%, transparent);
     color: inherit;
     text-align: left;
   }
@@ -1016,7 +1016,7 @@ export const cardStyles = css`
   }
 
   .message-bubble.is-ai {
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 72%, transparent);
   }
 
   /* 快捷按钮区域 */
@@ -1054,7 +1054,7 @@ export const cardStyles = css`
   }
 
   .quick-button.is-dynamic:hover {
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 50%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 72%, transparent);
   }
 
   /* 从消息中提取的选项按钮 */
@@ -1152,7 +1152,7 @@ export const cardStyles = css`
     gap: 4px;
     padding: 8px 10px;
     border-radius: 10px;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 72%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 72%, transparent);
     border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 60%, transparent);
   }
 
