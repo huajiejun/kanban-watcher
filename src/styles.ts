@@ -300,6 +300,7 @@ export const workspaceHomeStyles = css`
     width: 100%;
     padding: 12px;
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 8px;
     border-radius: 16px;
     border: 1px solid var(--workspace-preview-accent);
@@ -342,6 +343,7 @@ export const workspaceHomeStyles = css`
     display: grid;
     gap: 6px;
     min-height: 0;
+    align-content: start;
   }
 
   .workspace-preview-line {
@@ -351,7 +353,7 @@ export const workspaceHomeStyles = css`
     color: var(--secondary-text-color, #cbd5e1);
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 4;
     overflow: hidden;
     word-break: break-word;
   }

@@ -3,8 +3,8 @@ import type { DialogMessage } from "../lib/dialog-messages";
 export type WorkspacePaneLayoutMode = "grid" | "focus";
 
 const FOCUS_LAYOUT_BREAKPOINT = 1280;
-const PREVIEW_LINE_LIMIT = 3;
-const PREVIEW_TEXT_LIMIT = 72;
+const PREVIEW_LINE_LIMIT = 4;
+const PREVIEW_TEXT_LIMIT = 160;
 
 export function resolveWorkspacePaneLayoutMode(width: number, openPaneCount: number): WorkspacePaneLayoutMode {
   if (openPaneCount <= 1 || width >= FOCUS_LAYOUT_BREAKPOINT) {
