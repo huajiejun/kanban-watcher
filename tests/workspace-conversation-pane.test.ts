@@ -44,6 +44,8 @@ function createElement() {
   element.quickButtons = ["继续执行", "总结状态"];
   element.messageDraft = "先看一下日志";
   element.currentFeedback = "消息已同步";
+  (element as WorkspaceConversationPane & { statusAccentClass?: string }).statusAccentClass =
+    "is-running";
   element.queueStatus = {
     status: "empty",
   } as WorkspaceQueueStatusResponse;
@@ -67,6 +69,18 @@ describe("workspace-conversation-pane", () => {
     expect(element.shadowRoot?.textContent).toContain("继续执行");
     expect(element.shadowRoot?.querySelector(".message-input")).not.toBeNull();
     expect(element.shadowRoot?.textContent).toContain("消息已同步");
+  });
+
+  it("applies status accent class to the pane shell", async () => {
+    const element = createElement();
+    (element as WorkspaceConversationPane & { statusAccentClass?: string }).statusAccentClass =
+      "is-attention";
+
+    await element.updateComplete;
+
+    expect(
+      element.shadowRoot?.querySelector(".workspace-pane-shell")?.classList.contains("is-attention"),
+    ).toBe(true);
   });
 
   it("keeps feedback space reserved when there is no current feedback", async () => {
@@ -115,6 +129,9 @@ describe("workspace-conversation-pane", () => {
     expect(cssText).toContain("height: 100%");
     expect(cssText).toContain("var(--card-background-color, #111827)");
     expect(cssText).toContain("var(--secondary-background-color, #1e293b)");
+    expect(cssText).toContain(".workspace-pane-shell.is-idle");
+    expect(cssText).toContain(".workspace-pane-shell.is-running");
+    expect(cssText).toContain(".workspace-pane-shell.is-attention");
   });
 
   it("renders tool messages with expandable detail and file changes", async () => {

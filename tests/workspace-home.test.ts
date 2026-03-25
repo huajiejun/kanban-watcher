@@ -994,6 +994,54 @@ describe("workspace home helpers", () => {
     expect(pane.messageDraft).toBe("跑完后继续补全");
   });
 
+  it("applies workspace status accent to the opened pane shell", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-attention",
+              name: "需要注意的任务",
+              status: "completed",
+              has_unseen_turns: true,
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "需要尽快确认。",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+
+    await waitForWorkspaceList(element);
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement & { shadowRoot: ShadowRoot };
+    const paneShell = pane.shadowRoot.querySelector(".workspace-pane-shell");
+
+    expect(paneShell?.classList.contains("is-attention")).toBe(true);
+  });
+
   it("cancels queued work instead of stopping execution when the queued action is closed", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = readRequestUrl(input);

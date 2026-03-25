@@ -22,6 +22,7 @@ export class WorkspaceConversationPane extends LitElement {
     quickButtonsTemplate: { attribute: false },
     expandedToolMessageKeys: { attribute: false },
     smoothRevealMessageKey: { attribute: false },
+    statusAccentClass: { attribute: false },
     isRunning: { type: Boolean },
     canQueue: { type: Boolean },
   };
@@ -36,6 +37,7 @@ export class WorkspaceConversationPane extends LitElement {
   quickButtonsTemplate?: unknown;
   expandedToolMessageKeys = new Set<string>();
   smoothRevealMessageKey?: string;
+  statusAccentClass = "is-idle";
   isRunning = false;
   canQueue = false;
 
@@ -43,7 +45,7 @@ export class WorkspaceConversationPane extends LitElement {
     const isQueued = this.queueStatus?.status === "queued";
 
     return html`
-      <section class="workspace-pane-shell">
+      <section class="workspace-pane-shell ${this.statusAccentClass}">
       <div class="dialog-header">
         <div class="dialog-heading">
           <h2 class="dialog-title">${this.workspaceName}</h2>

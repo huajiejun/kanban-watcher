@@ -580,11 +580,37 @@ export const cardStyles = css`
   }
 
   .workspace-pane-shell {
+    --workspace-pane-accent: color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
     height: 100%;
     min-height: 0;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 12px;
+    padding: 14px;
+    border-radius: 18px;
+    border: 1px solid var(--workspace-pane-accent);
+    border-left-width: 3px;
+    background: color-mix(
+      in srgb,
+      var(--ha-card-background, var(--card-background-color, #111827)) 90%,
+      var(--secondary-background-color, #0f172a)
+    );
+    box-sizing: border-box;
+  }
+
+  .workspace-pane-shell.is-attention {
+    --workspace-pane-accent: color-mix(in srgb, var(--error-color, #f87171) 58%, transparent);
+    border-left-color: var(--error-color, #f87171);
+  }
+
+  .workspace-pane-shell.is-running {
+    --workspace-pane-accent: color-mix(in srgb, var(--success-color, #10b981) 58%, transparent);
+    border-left-color: var(--success-color, #10b981);
+  }
+
+  .workspace-pane-shell.is-idle {
+    --workspace-pane-accent: color-mix(in srgb, var(--warning-color, #f59e0b) 58%, transparent);
+    border-left-color: var(--warning-color, #f59e0b);
   }
 
   .message-list {

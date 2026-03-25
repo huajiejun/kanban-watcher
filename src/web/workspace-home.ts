@@ -7,6 +7,7 @@ import { renderWorkspaceSectionList } from "../components/workspace-section-list
 import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
 import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
+import { getStatusMeta } from "../lib/status-meta";
 import {
   getDialogMessageIdentity,
   normalizeApiMessages,
@@ -195,6 +196,7 @@ export class KanbanWorkspaceHome extends LitElement {
                   (workspace) => {
                     const queueStatus = this.queueStatusByWorkspace[workspace.id];
                     const isRunning = workspace.status === "running";
+                    const statusAccentClass = getStatusMeta(workspace).accentClass;
 
                     return html`
                     <workspace-conversation-pane
@@ -203,6 +205,7 @@ export class KanbanWorkspaceHome extends LitElement {
                       .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
                       .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}
                       .smoothRevealMessageKey=${this.smoothRevealMessageKeyByWorkspace[workspace.id]}
+                      .statusAccentClass=${statusAccentClass}
                       .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
                       .queueStatus=${queueStatus}
                       .isRunning=${isRunning}
