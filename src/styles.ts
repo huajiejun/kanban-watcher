@@ -194,13 +194,17 @@ export const workspaceHomeStyles = css`
 
   .workspace-home-layout {
     display: grid;
-    grid-template-columns: clamp(180px, 16vw, 220px) minmax(0, 1fr);
+    grid-template-columns: 320px minmax(0, 1fr);
     gap: 20px;
     align-items: stretch;
   }
 
   .workspace-home-layout[data-sidebar-collapsed="true"] {
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: clamp(180px, 16vw, 220px) minmax(0, 1fr);
+  }
+
+  .workspace-home-layout[data-sidebar-collapsed="false"] {
+    grid-template-columns: 320px minmax(0, 1fr);
   }
 
   .workspace-home-sidebar,
@@ -224,13 +228,12 @@ export const workspaceHomeStyles = css`
 
   .workspace-home-sidebar[data-collapsed="true"] {
     align-content: start;
-    overflow: hidden;
   }
 
   .workspace-home-sidebar-toggle {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     gap: 6px;
     width: 100%;
     min-height: 36px;
@@ -240,6 +243,48 @@ export const workspaceHomeStyles = css`
     color: inherit;
     font: inherit;
     cursor: pointer;
+  }
+
+  .task-card.is-compact {
+    display: block;
+    padding: 9px 12px;
+  }
+
+  .task-card.is-expanded {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+
+  .task-meta {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.82rem;
+    line-height: 1.2;
+  }
+
+  .meta-status,
+  .meta-files {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .relative-time {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  .status-icon {
+    font-weight: 700;
+    line-height: 1;
   }
 
   .workspace-home-pane-grid {

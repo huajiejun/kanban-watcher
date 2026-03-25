@@ -22,6 +22,7 @@ type WorkspaceDisplayMeta = {
 type RenderWorkspaceSectionListOptions = {
   sections: WorkspaceSection[];
   collapsedSections: Set<WorkspaceSectionKey>;
+  compact?: boolean;
   selectedWorkspaceId?: string;
   getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => WorkspaceDisplayMeta;
   onToggleSection: (key: WorkspaceSectionKey) => void;
@@ -31,6 +32,7 @@ type RenderWorkspaceSectionListOptions = {
 export function renderWorkspaceSectionList({
   sections,
   collapsedSections,
+  compact = false,
   selectedWorkspaceId,
   getWorkspaceDisplayMeta,
   onToggleSection,
@@ -56,6 +58,7 @@ export function renderWorkspaceSectionList({
                   renderWorkspaceCard(
                     workspace,
                     selectedWorkspaceId,
+                    compact,
                     getWorkspaceDisplayMeta,
                     onSelectWorkspace,
                   ),
@@ -73,12 +76,14 @@ export class WorkspaceSectionList extends LitElement {
   static properties = {
     sections: { attribute: false },
     collapsedSections: { attribute: false },
+    compact: { type: Boolean },
     selectedWorkspaceId: { attribute: false },
     getWorkspaceDisplayMeta: { attribute: false },
   };
 
   sections: WorkspaceSection[] = [];
   collapsedSections = new Set<WorkspaceSectionKey>();
+  compact = false;
   selectedWorkspaceId?: string;
   getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => WorkspaceDisplayMeta = (workspace) => ({
     relativeTime: workspace.relative_time ?? "刚刚",
@@ -95,6 +100,7 @@ export class WorkspaceSectionList extends LitElement {
     return renderWorkspaceSectionList({
       sections: this.sections,
       collapsedSections: this.collapsedSections,
+      compact: this.compact,
       selectedWorkspaceId: this.selectedWorkspaceId,
       getWorkspaceDisplayMeta: this.getWorkspaceDisplayMeta,
       onToggleSection: (key) => this.handleToggleSection(key),
@@ -136,19 +142,42 @@ if (!customElements.get("workspace-section-list")) {
 function renderWorkspaceCard(
   workspace: KanbanWorkspace,
   selectedWorkspaceId: string | undefined,
+  compact: boolean,
   getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => WorkspaceDisplayMeta,
   onSelectWorkspace: (workspace: KanbanWorkspace) => void,
 ) {
   const statusMeta = getStatusMeta(workspace);
+  const { relativeTime, filesChanged, linesAdded, linesRemoved } =
+    getWorkspaceDisplayMeta(workspace);
 
   return html`
     <button
-      class="task-card ${statusMeta.accentClass}"
+      class="task-card ${statusMeta.accentClass} ${compact ? "is-compact" : "is-expanded"}"
       type="button"
       data-selected=${workspace.id === selectedWorkspaceId ? "true" : "false"}
       @click=${() => onSelectWorkspace(workspace)}
     >
       <div class="workspace-name">${workspace.name}</div>
+      ${compact
+        ? nothing
+        : html`
+            <div class="task-meta">
+              <span class="meta-status">
+                ${statusMeta.icons.map(
+                  (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
+                    >${icon.symbol}</span
+                  >`,
+                )}
+              </span>
+              <span class="relative-time">${relativeTime}</span>
+              <span class="meta-files"
+                ><span class="file-count">📄 ${filesChanged}</span> <span class="lines-added"
+                  >+${linesAdded}</span
+                >
+                <span class="lines-removed">-${linesRemoved}</span></span
+              >
+            </div>
+          `}
     </button>
   `;
 }

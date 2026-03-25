@@ -98,7 +98,7 @@ export class KanbanWorkspaceHome extends LitElement {
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
-  isSidebarCollapsed = false;
+  isSidebarCollapsed = true;
   workspaces: KanbanWorkspace[] = [];
   pageState: WorkspacePageState = createWorkspacePageState(readPersistedWorkspacePageState());
   messagesByWorkspace: Record<string, DialogMessage[]> = {};
@@ -195,27 +195,24 @@ export class KanbanWorkspaceHome extends LitElement {
               aria-label=${this.isSidebarCollapsed ? "展开工作区状态栏" : "收起工作区状态栏"}
             >
               <span aria-hidden="true">${this.isSidebarCollapsed ? "»" : "«"}</span>
-              ${this.isSidebarCollapsed ? nothing : html`<span>收起</span>`}
+              <span>${this.isSidebarCollapsed ? "展开" : "收起"}</span>
             </button>
-            ${this.isSidebarCollapsed
-              ? nothing
-              : html`
-                  ${this.loading ? html`<div class="empty-state">正在加载工作区...</div>` : nothing}
-                  ${this.error ? html`<div class="empty-state">${this.error}</div>` : nothing}
-                  ${renderWorkspaceSectionList({
-                    sections,
-                    collapsedSections: this.collapsedSections,
-                    selectedWorkspaceId: this.pageState.activeWorkspaceId,
-                    getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => ({
-                      relativeTime: workspace.relative_time ?? formatRelativeTime(workspace.updated_at),
-                      filesChanged: workspace.files_changed ?? 0,
-                      linesAdded: workspace.lines_added ?? 0,
-                      linesRemoved: workspace.lines_removed ?? 0,
-                    }),
-                    onToggleSection: (key) => this.toggleSection(key),
-                    onSelectWorkspace: (workspace) => this.handleOpenWorkspace(workspace),
-                  })}
-                `}
+            ${this.loading ? html`<div class="empty-state">正在加载工作区...</div>` : nothing}
+            ${this.error ? html`<div class="empty-state">${this.error}</div>` : nothing}
+            ${renderWorkspaceSectionList({
+              sections,
+              collapsedSections: this.collapsedSections,
+              compact: this.isSidebarCollapsed,
+              selectedWorkspaceId: this.pageState.activeWorkspaceId,
+              getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => ({
+                relativeTime: workspace.relative_time ?? formatRelativeTime(workspace.updated_at),
+                filesChanged: workspace.files_changed ?? 0,
+                linesAdded: workspace.lines_added ?? 0,
+                linesRemoved: workspace.lines_removed ?? 0,
+              }),
+              onToggleSection: (key) => this.toggleSection(key),
+              onSelectWorkspace: (workspace) => this.handleOpenWorkspace(workspace),
+            })}
           </aside>
           ${this.renderWorkspacePanes(openWorkspaces, paneLayoutMode)}
         </section>

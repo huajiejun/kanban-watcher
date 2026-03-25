@@ -134,9 +134,10 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain(".workspace-home-pane-grid");
     expect(homeCssText).toContain("height: min(72vh, 960px)");
     expect(homeCssText).toContain("width: 100%");
-    expect(homeCssText).toContain("grid-template-columns: clamp(180px, 16vw, 220px) minmax(0, 1fr)");
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"true\"]");
-    expect(homeCssText).toContain("grid-template-columns: 56px minmax(0, 1fr)");
+    expect(homeCssText).toContain("grid-template-columns: clamp(180px, 16vw, 220px) minmax(0, 1fr)");
+    expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"false\"]");
+    expect(homeCssText).toContain("grid-template-columns: 320px minmax(0, 1fr)");
     expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px)");
     expect(homeCssText).not.toContain("width: min(1440px, 100%)");
     expect(homeCssText).not.toContain("margin: 0 auto");
@@ -253,18 +254,22 @@ describe("workspace home helpers", () => {
     const toggle = element.shadowRoot?.querySelector(".workspace-home-sidebar-toggle") as HTMLButtonElement | null;
     const layout = element.shadowRoot?.querySelector(".workspace-home-layout") as HTMLElement | null;
 
-    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
-    toggle?.click();
-    await flushElement(element);
-
     expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("true");
-    expect(element.shadowRoot?.querySelector(".task-card")).toBeNull();
-
+    expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
+    expect(element.shadowRoot?.querySelector(".task-meta")).toBeNull();
     toggle?.click();
     await flushElement(element);
 
     expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
     expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
+    expect(element.shadowRoot?.querySelector(".task-meta")).not.toBeNull();
+
+    toggle?.click();
+    await flushElement(element);
+
+    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("true");
+    expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
+    expect(element.shadowRoot?.querySelector(".task-meta")).toBeNull();
   });
 
   it("closes a secondary workspace from the summary rail", async () => {

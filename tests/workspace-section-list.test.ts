@@ -23,6 +23,7 @@ function createElement(
   sections: TestSection[],
   options?: {
     collapsedSections?: Set<string>;
+    compact?: boolean;
     selectedWorkspaceId?: string;
   },
 ) {
@@ -31,6 +32,7 @@ function createElement(
   ) as WorkspaceSectionList;
   element.sections = sections;
   element.collapsedSections = options?.collapsedSections ?? new Set();
+  element.compact = options?.compact ?? false;
   element.selectedWorkspaceId = options?.selectedWorkspaceId;
   element.getWorkspaceDisplayMeta = (workspace) => ({
     relativeTime: workspace.relative_time ?? "刚刚",
@@ -49,7 +51,7 @@ describe("workspace-section-list", () => {
     document.body.innerHTML = "";
   });
 
-  it("renders grouped sections and workspace cards", async () => {
+  it("renders compact workspace cards with only names", async () => {
     const element = createElement([
       {
         key: "attention",
@@ -61,7 +63,7 @@ describe("workspace-section-list", () => {
         label: "运行中",
         workspaces: [createWorkspace({ id: "ws-2", name: "Workspace 2", status: "running" })],
       },
-    ]);
+    ], { compact: true });
 
     await element.updateComplete;
 
@@ -73,6 +75,21 @@ describe("workspace-section-list", () => {
     expect(shadowRoot?.textContent).toContain("Workspace 2");
     expect(shadowRoot?.querySelector(".task-meta")).toBeNull();
     expect(shadowRoot?.textContent).not.toContain("刚刚");
+  });
+
+  it("renders expanded workspace cards with full meta information", async () => {
+    const element = createElement([
+      {
+        key: "idle",
+        label: "空闲",
+        workspaces: [createWorkspace({ id: "ws-3", name: "Workspace 3" })],
+      },
+    ]);
+
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.querySelector(".task-meta")).not.toBeNull();
+    expect(element.shadowRoot?.textContent).toContain("刚刚");
   });
 
   it("applies status accent classes for attention, running and idle workspaces", async () => {
