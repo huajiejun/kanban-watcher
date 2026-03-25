@@ -1596,7 +1596,9 @@ export const cardStyles = css`
       height: 100dvh;
       min-height: 100dvh;
       padding: 0px;
+      border: 0;
       border-radius: 0;
+      box-shadow: none;
       box-sizing: border-box;
     }
 

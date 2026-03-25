@@ -938,7 +938,9 @@ describe("kanban-watcher-card", () => {
     expect(cssText).toContain("max-width: 100vw;");
     expect(cssText).toContain("height: 100dvh;");
     expect(cssText).toContain("min-height: 100dvh;");
+    expect(cssText).toContain("border: 0;");
     expect(cssText).toContain("border-radius: 0;");
+    expect(cssText).toContain("box-shadow: none;");
   });
 
   it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {
