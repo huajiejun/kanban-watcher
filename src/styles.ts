@@ -440,6 +440,14 @@ export const workspaceHomeStyles = css`
     .workspace-home-layout {
       grid-template-columns: 1fr;
     }
+
+    .workspace-home-placeholder {
+      border: 0;
+      padding: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
   }
 
 `;

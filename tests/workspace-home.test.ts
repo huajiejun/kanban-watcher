@@ -177,6 +177,12 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px)");
     expect(homeCssText).not.toContain("width: min(1440px, 100%)");
     expect(homeCssText).not.toContain("margin: 0 auto");
+    expect(homeCssText).toContain("@media (max-width: 768px)");
+    expect(homeCssText).toContain(".workspace-home-placeholder {\n      border: 0;");
+    expect(homeCssText).toContain("padding: 0;");
+    expect(homeCssText).toContain("background: transparent;");
+    expect(homeCssText).toContain("box-shadow: none;");
+    expect(homeCssText).toContain("backdrop-filter: none;");
     expect(listCssText).toContain(".task-card");
     expect(listCssText).toContain("border: 1px solid");
     expect(listCssText).toContain(".task-card[data-selected=\"true\"]");
