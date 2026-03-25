@@ -131,8 +131,9 @@ describe("workspace home helpers", () => {
       ? workspaceSectionListStyles.map((style) => style.cssText).join("\n")
       : workspaceSectionListStyles.cssText;
 
+    expect(homeCssText).toContain("--workspace-home-panel-height: calc(100vh - 72px)");
     expect(homeCssText).toContain(".workspace-home-pane-grid");
-    expect(homeCssText).toContain("height: min(72vh, 960px)");
+    expect(homeCssText).toContain("height: var(--workspace-home-panel-height)");
     expect(homeCssText).toContain("width: 100%");
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"true\"]");
     expect(homeCssText).toContain("grid-template-columns: clamp(156px, 14vw, 184px) minmax(0, 1fr)");
