@@ -4,7 +4,6 @@ import "../components/workspace-conversation-pane";
 import "../components/workspace-preview-card";
 import type {
   ConversationPaneAction,
-  WorkspaceConversationPane,
 } from "../components/workspace-conversation-pane";
 import { renderWorkspaceSectionList } from "../components/workspace-section-list";
 import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
@@ -503,7 +502,6 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private handleOpenWorkspace(workspace: KanbanWorkspace) {
-    const wasOpen = this.pageState.openWorkspaceIds.includes(workspace.id);
     const nextMessagesByWorkspace = { ...this.messagesByWorkspace };
     delete nextMessagesByWorkspace[workspace.id];
     this.messagesByWorkspace = nextMessagesByWorkspace;
@@ -511,9 +509,6 @@ export class KanbanWorkspaceHome extends LitElement {
     void this.loadWorkspaceMessages(workspace.id, true);
     if (workspace.status === "running") {
       void this.loadWorkspaceQueueStatus(workspace.id);
-    }
-    if (wasOpen) {
-      void this.focusWorkspaceComposer(workspace.id);
     }
   }
 
@@ -1136,26 +1131,6 @@ export class KanbanWorkspaceHome extends LitElement {
     return this.pageState.activeWorkspaceId
       ? this.workspaces.find((workspace) => workspace.id === this.pageState.activeWorkspaceId)
       : undefined;
-  }
-
-  private async focusWorkspaceComposer(workspaceId: string) {
-    await this.updateComplete;
-    await Promise.resolve();
-
-    const panes = [
-      ...(this.renderRoot.querySelectorAll("workspace-conversation-pane") ?? []),
-    ] as Array<WorkspaceConversationPane>;
-    if (panes.length === 1) {
-      panes[0]?.focusComposer();
-      return;
-    }
-
-    const paneIndex = this.pageState.openWorkspaceIds.indexOf(workspaceId);
-    if (paneIndex < 0) {
-      return;
-    }
-
-    panes[paneIndex]?.focusComposer();
   }
 
   private renderWorkspacePanes(

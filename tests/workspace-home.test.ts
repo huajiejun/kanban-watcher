@@ -1223,7 +1223,7 @@ describe("workspace home helpers", () => {
     expect(paneShadowRoot?.textContent).toContain("实时追加消息");
   });
 
-  it("keeps pane order and focuses the composer when reselecting an already opened workspace", async () => {
+  it("keeps pane order and switches the active workspace without focusing the composer", async () => {
     setWindowWidth(1920);
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -1305,7 +1305,7 @@ describe("workspace home helpers", () => {
 
     expect(paneTitles).toEqual(["任务一", "任务二"]);
     expect(firstPaneInput).not.toBeNull();
-    expect(panes[0]?.shadowRoot?.activeElement).toBe(firstPaneInput);
+    expect(panes[0]?.shadowRoot?.activeElement).not.toBe(firstPaneInput);
   });
 
   it("persists opened panes and restores them after recreating the page", async () => {
