@@ -286,6 +286,10 @@ export const workspaceHomeStyles = css`
     overflow: hidden;
   }
 
+  .workspace-home-pane-main workspace-conversation-pane {
+    --workspace-pane-font-size: 0.92rem;
+  }
+
   .workspace-home-pane-preview-rail {
     padding: 12px;
     display: flex;
@@ -446,6 +450,7 @@ export const cardStyles = css`
     display: block;
     height: 100%;
     min-height: 0;
+    font-size: var(--workspace-pane-font-size, 1rem);
   }
 
   /* 响应式字体大小变量 */
@@ -715,7 +720,7 @@ export const cardStyles = css`
 
   .dialog-title {
     margin: 0;
-    font-size: 1.08rem;
+    font-size: 1.08em;
     line-height: 1.2;
   }
 
@@ -738,7 +743,7 @@ export const cardStyles = css`
   }
 
   .dialog-panel-title {
-    font-size: 0.9rem;
+    font-size: 0.9em;
     font-weight: 700;
     color: var(--secondary-text-color, #64748b);
   }
@@ -1392,7 +1397,7 @@ export const cardStyles = css`
     background: color-mix(in srgb, var(--primary-color, #f59e0b) 12%, transparent);
     border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 28%, transparent);
     color: inherit;
-    font-size: 0.84rem;
+    font-size: 0.84em;
     line-height: 1.4;
   }
 
