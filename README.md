@@ -30,6 +30,27 @@ npm run build:web
 - `dist/web/index.html`
 - `dist/web/preview/index.html`
 
+### Deploy Web Release
+
+如果需要把网页版正式产物同步到本机发布目录，并刷新对应的 `nginx`，可以直接使用脚本：
+
+```bash
+./scripts/deploy_web_release.sh
+```
+
+默认行为：
+
+- 执行 `npm run build:web`
+- 同步 `dist/web/` 到 `~/github/knban-watcher-release`
+- 如果 `~/github/knban-watcher-release/nginx.conf` 对应的 nginx 已在运行，则执行 reload
+- 如果未运行，则直接用该配置启动 nginx
+
+如果要改发布目录，可以传入目标路径：
+
+```bash
+./scripts/deploy_web_release.sh ~/github/kanban-watcher-release
+```
+
 ### Build All
 
 ```bash
