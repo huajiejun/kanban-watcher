@@ -34,11 +34,15 @@ describe("workspace-preview-card", () => {
     const element = createElement();
     await element.updateComplete;
 
+    const header = element.shadowRoot?.querySelector(".workspace-preview-header");
     const banner = element.shadowRoot?.querySelector(".workspace-preview-title-banner");
     const trigger = element.shadowRoot?.querySelector(".workspace-preview-activate");
+    const closeButton = element.shadowRoot?.querySelector(".workspace-preview-close");
 
+    expect(header).not.toBeNull();
     expect(banner).not.toBeNull();
     expect(trigger?.classList.contains("is-full-bleed")).toBe(true);
+    expect(closeButton?.closest(".workspace-preview-activate")).toBeNull();
   });
 
   it("emits a close event from the preview card close button", async () => {

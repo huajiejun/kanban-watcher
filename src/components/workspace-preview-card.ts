@@ -59,16 +59,17 @@ export class WorkspacePreviewCard extends LitElement {
     }
 
     .workspace-preview-activate.is-full-bleed {
-      border-bottom: 1px solid color-mix(in srgb, var(--workspace-preview-accent) 72%, transparent);
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
-    .workspace-preview-title-banner {
+    .workspace-preview-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
       gap: 10px;
       padding: 12px 14px;
       border-radius: 15px 15px 0 0;
+      border-bottom: 1px solid color-mix(in srgb, var(--workspace-preview-accent) 72%, transparent);
       background: color-mix(
         in srgb,
         var(--workspace-preview-accent) 24%,
@@ -78,18 +79,21 @@ export class WorkspacePreviewCard extends LitElement {
       transition: background-color 160ms ease, transform 160ms ease;
     }
 
-    .workspace-preview-activate:hover .workspace-preview-title-banner,
-    .workspace-preview-activate:focus-visible .workspace-preview-title-banner {
+    .workspace-preview-header:hover,
+    .workspace-preview-header:focus-within {
       background: color-mix(
         in srgb,
         var(--workspace-preview-accent) 30%,
         var(--primary-background-color, #0f172a)
       );
-      transform: translateY(-1px);
     }
 
     .workspace-preview-activate:focus-visible {
       outline: none;
+    }
+
+    .workspace-preview-title-banner {
+      min-width: 0;
     }
 
     .workspace-preview-title {
@@ -237,23 +241,25 @@ export class WorkspacePreviewCard extends LitElement {
   protected render() {
     return html`
       <section class="workspace-preview-card ${this.statusAccentClass}">
-        <button
-          class="workspace-preview-activate is-full-bleed"
-          type="button"
-          @click=${this.handleActivate}
-        >
-          <div class="workspace-preview-title-banner">
-            <div class="workspace-preview-title">${this.workspaceName}</div>
-            <button
-              class="workspace-preview-close"
-              type="button"
-              aria-label="关闭工作区"
-              @click=${this.handleClose}
-            >
-              ×
-            </button>
-          </div>
-        </button>
+        <div class="workspace-preview-header">
+          <button
+            class="workspace-preview-activate is-full-bleed"
+            type="button"
+            @click=${this.handleActivate}
+          >
+            <div class="workspace-preview-title-banner">
+              <div class="workspace-preview-title">${this.workspaceName}</div>
+            </div>
+          </button>
+          <button
+            class="workspace-preview-close"
+            type="button"
+            aria-label="关闭工作区"
+            @click=${this.handleClose}
+          >
+            ×
+          </button>
+        </div>
         <div class="workspace-preview-lines" @scroll=${this.handleScroll}>
           ${this.previewLines.length > 0
             ? this.previewLines.map((line) => html`
