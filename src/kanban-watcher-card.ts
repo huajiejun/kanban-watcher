@@ -43,10 +43,16 @@ import type {
   LocalWorkspaceSummary,
   RealtimeEvent,
   SessionMessageResponse,
+  TodoItem,
   WorkspaceQueueStatusResponse,
 } from "./types";
 
 type SectionKey = WorkspaceSectionKey;
+// Import todo-related components
+import "./components/todo-progress-popup";
+import "./components/chat-todo-list";
+
+type SectionKey = "attention" | "running" | "idle";
 
 type HomeAssistantState = {
   attributes?: KanbanEntityAttributes | KanbanSessionAttributes;
@@ -98,6 +104,7 @@ export class KanbanWatcherCard extends LitElement {
     optimisticQueueWorkspaceIds: { state: true },
     autoScrollEnabled: { state: true },
     dynamicButtonsByWorkspace: { state: true },
+    todosByWorkspace: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -136,6 +143,8 @@ export class KanbanWatcherCard extends LitElement {
   private suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   /** 缓存每个工作区最后分析的消息 hash，避免重复调用 LLM */
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
+  /** 每个工作区的待办事项列表 */
+  private todosByWorkspace: Record<string, TodoItem[]> = {};
 
   connectedCallback() {
     super.connectedCallback();
@@ -293,6 +302,9 @@ export class KanbanWatcherCard extends LitElement {
     const isRunning = workspace.status === "running";
     const canQueue = isRunning || this.optimisticQueueWorkspaceIds.has(workspace.id);
     const queueStatus = this.queueStatusByWorkspace[workspace.id];
+    const isQueued = canQueue && queueStatus?.status === "queued";
+    const currentTodos = this.getCurrentTodos(workspace.id);
+
     return html`
       <div class="dialog-shell" role="presentation">
         <button
@@ -1080,6 +1092,19 @@ export class KanbanWatcherCard extends LitElement {
     const previousLatestTimestamp = this.getLatestDialogTimestamp(existingFlat);
     let hasNewLatestMessage = false;
 
+    // 提取待办事项
+    if (Array.isArray(messages)) {
+      for (const message of messages) {
+        const todos = this.extractTodosFromMessage(message);
+        if (todos.length > 0) {
+          this.todosByWorkspace = {
+            ...this.todosByWorkspace,
+            [workspace.id]: todos,
+          };
+        }
+      }
+    }
+
     for (const message of this.normalizeApiMessagesFlat(messages)) {
       const key = this.getDialogMessageIdentity(message);
       const optimisticIndex = this.findMatchingOptimisticUserMessageIndex(merged, message);
@@ -1354,6 +1379,79 @@ export class KanbanWatcherCard extends LitElement {
 
   private normalizeApiMessagesFlat(messages: SessionMessageResponse[] | undefined) {
     return normalizeApiMessagesFlat(messages);
+  }
+
+  /**
+   * 从消息中提取待办事项
+   * 如果消息包含 todo_management 工具调用，则返回待办事项列表
+   */
+  private extractTodosFromMessage(message: SessionMessageResponse): TodoItem[] {
+    if (message.tool_info?.action_type?.action === 'todo_management') {
+      return message.tool_info.action_type.todos || [];
+    }
+    return [];
+  }
+
+  /**
+   * 获取指定工作区的当前待办事项
+   */
+  private getCurrentTodos(workspaceId: string): TodoItem[] {
+    return this.todosByWorkspace[workspaceId] || [];
+  }
+
+  /**
+   * 获取正在进行中的待办事项
+   */
+  private getInProgressTodo(todos: TodoItem[]): TodoItem | null {
+    return todos.find(t => t.status?.toLowerCase() === 'in_progress') || null;
+  }
+
+  /**
+   * 保存 todo 历史记录
+   */
+  private saveTodoHistory(workspaceId: string, workspaceName: string, todos: TodoItem[]) {
+    if (todos.length === 0) return;
+
+    const completedCount = todos.filter(t => t.status?.toLowerCase() === 'completed').length;
+
+    // 从 localStorage 读取历史记录
+    const historyKey = 'kanban-watcher-todo-history';
+    let history: TodoHistoryEntry[] = [];
+
+    try {
+      const stored = localStorage.getItem(historyKey);
+      if (stored) {
+        history = JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Failed to load todo history:', error);
+    }
+
+    // 添加新记录
+    const newEntry: TodoHistoryEntry = {
+      workspaceId,
+      workspaceName,
+      todos,
+      timestamp: Date.now(),
+      completedCount,
+      totalCount: todos.length,
+    };
+
+    // 去重：移除同一工作区的旧记录
+    history = history.filter(entry => entry.workspaceId !== workspaceId);
+
+    // 添加新记录到开头
+    history.unshift(newEntry);
+
+    // 限制历史记录数量（最多保存 20 条）
+    history = history.slice(0, 20);
+
+    // 保存到 localStorage
+    try {
+      localStorage.setItem(historyKey, JSON.stringify(history));
+    } catch (error) {
+      console.error('Failed to save todo history:', error);
+    }
   }
 
   private getDialogMessageIdentity(message: DialogMessage) {

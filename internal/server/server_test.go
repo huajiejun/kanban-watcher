@@ -8,7 +8,7 @@ import (
 )
 
 func TestAuthMiddlewareRejectsRealtimeRouteWithoutAPIKey(t *testing.T) {
-	srv := NewServer(nil, 0, "test-key")
+	srv := NewServer(nil, 0, "test-key", nil, nil)
 	nextCalled := false
 
 	handler := srv.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +30,7 @@ func TestAuthMiddlewareRejectsRealtimeRouteWithoutAPIKey(t *testing.T) {
 }
 
 func TestAuthMiddlewareAllowsRealtimeRouteWithAPIKeyQuery(t *testing.T) {
-	srv := NewServer(nil, 0, "test-key")
+	srv := NewServer(nil, 0, "test-key", nil, nil)
 	nextCalled := false
 
 	handler := srv.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

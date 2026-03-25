@@ -1,4 +1,4 @@
-import type { SessionMessageResponse, ToolActionInfo, ToolInfo, ToolStatusInfo } from "../types";
+import type { SessionMessageResponse, ToolActionInfo, ToolInfo, ToolStatusInfo, TodoItem } from "../types";
 
 export type DialogToolStatus = "running" | "success" | "pending" | "error" | "denied" | "idle";
 
@@ -29,10 +29,15 @@ export function summarizeToolCall(message: SessionMessageResponse): DialogToolSu
   const command = getCommand(toolInfo);
   const changes = getChanges(toolInfo);
 
+  // 针对 todo_management 工具生成特定的详情
+  const detail = action === "todo_management"
+    ? getTodoDetail(toolInfo, message.content)
+    : compactText(message.content ?? "");
+
   return {
     toolName,
     summary: getToolSummary(toolInfo, toolName),
-    detail: compactText(message.content ?? ""),
+    detail,
     status: getToolStatus(toolInfo),
     statusLabel: getToolStatusLabel(toolInfo),
     icon: getToolIcon(action),
@@ -92,10 +97,16 @@ function getToolSummary(toolInfo: ToolInfo, toolName: string) {
       return typeof action.description === "string" && action.description.trim()
         ? action.description.trim()
         : toolName;
-    case "todo_management":
+    case "todo_management": {
+      const todos = action.todos || [];
+      if (todos.length > 0) {
+        const completed = todos.filter(t => t.status?.toLowerCase() === 'completed').length;
+        return `更新待办事项 (${completed}/${todos.length})`;
+      }
       return typeof action.operation === "string" && action.operation.trim()
         ? action.operation.trim()
         : toolName;
+    }
     default:
       return toolName;
   }
@@ -193,4 +204,26 @@ function compactText(text: string) {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/**
+ * 获取 todo_management 工具的详情
+ * 将待办事项列表格式化为可读的文本
+ */
+function getTodoDetail(toolInfo: ToolInfo, originalContent?: string): string {
+  const todos = toolInfo.action_type?.todos;
+
+  if (!todos || !Array.isArray(todos) || todos.length === 0) {
+    // 如果没有待办事项数据，返回原始内容
+    return compactText(originalContent ?? "");
+  }
+
+  // 格式化待办事项列表
+  const todoLines = todos.map((todo: TodoItem) => {
+    const status = todo.status || 'pending';
+    const statusIcon = status.toLowerCase() === 'completed' ? 'x' : ' ';
+    return `- [${statusIcon}] ${todo.content}`;
+  });
+
+  return todoLines.join('\n');
 }

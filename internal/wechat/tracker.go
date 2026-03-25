@@ -94,15 +94,33 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 
 		// 工作区需要关注：检查是否已跟踪
 		existing, found := updated.Entries[key]
-		if !found && key.UpdatedAt != "" {
-			legacyKey := key
-			legacyKey.UpdatedAt = ""
-			if legacyEntry, ok := updated.Entries[legacyKey]; ok {
-				updated = updated.WithoutKey(legacyKey)
-				legacyEntry.Key = key
-				updated = updated.WithEntry(key, legacyEntry)
-				existing = legacyEntry
-				found = true
+		if !found {
+			// 尝试查找同一工作区的任何现有条目（忽略 UpdatedAt 的差异）
+			for existingKey, existingEntry := range updated.Entries {
+				if existingKey.WorkspaceID == w.ID && existingKey.CompletedAt == key.CompletedAt {
+					// 找到了同一工作区的现有条目
+					if existingKey.UpdatedAt != key.UpdatedAt {
+						// UpdatedAt 变化了（有新内容）：重置通知状态，允许重新通知
+						updated = updated.WithoutKey(existingKey)
+						updated = updated.WithEntry(key, state.AttentionEntry{
+							Key:         key,
+							FirstSeenAt: existingEntry.FirstSeenAt, // 保留首次发现时间
+							// NotifiedAt 和 LastAlertedAt 不保留，允许重新通知
+						})
+						existing = state.AttentionEntry{
+							Key:         key,
+							FirstSeenAt: existingEntry.FirstSeenAt,
+						}
+					} else {
+						// UpdatedAt 没有变化：保持原有条目
+						updated = updated.WithoutKey(existingKey)
+						existingEntry.Key = key
+						updated = updated.WithEntry(key, existingEntry)
+						existing = existingEntry
+					}
+					found = true
+					break
+				}
 			}
 		}
 		if !found {
@@ -117,10 +135,8 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 
 		// 已存在条目
 		if existing.NotifiedAt != nil {
-			// 检查是否应该弹框（叠加提醒）
-			if !t.shouldShowDialog(existing, now) {
-				continue
-			}
+			// 已经通知过，不再重复通知（除非 UpdatedAt 变化，已在上面处理）
+			continue
 		}
 
 		// 检查是否已确认稳定
@@ -161,19 +177,13 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 			continue
 		}
 
-		// 检查是否应该弹框（叠加提醒）
-		if !t.shouldShowDialog(existing, now) {
-			continue
-		}
-
 		// 达到阈值：标记为已通知，加入待通知列表
 		notifiedAt := now
 		updated = updated.WithEntry(key, state.AttentionEntry{
-			Key:           existing.Key,
-			FirstSeenAt:   existing.FirstSeenAt,
-			ConfirmedAt:   existing.ConfirmedAt,
-			NotifiedAt:    &notifiedAt,
-			LastAlertedAt: &now,
+			Key:         existing.Key,
+			FirstSeenAt: existing.FirstSeenAt,
+			ConfirmedAt: existing.ConfirmedAt,
+			NotifiedAt:  &notifiedAt,
 		})
 		// 通知时计算从首次发现到现在的总时长
 		totalElapsed := now.Sub(existing.FirstSeenAt)
@@ -215,13 +225,4 @@ func (t *Tracker) getThreshold(w api.EnrichedWorkspace) int {
 		return t.messageThreshold
 	}
 	return 0 // 不需要关注
-}
-
-// shouldShowDialog 检查是否应该弹框（基于 LastAlertedAt 和 repeatInterval）
-func (t *Tracker) shouldShowDialog(entry state.AttentionEntry, now time.Time) bool {
-	if entry.LastAlertedAt == nil {
-		return true
-	}
-	elapsed := now.Sub(*entry.LastAlertedAt)
-	return elapsed >= time.Duration(t.repeatInterval)*time.Minute
 }

@@ -2,10 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"embed"
+	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +19,7 @@ import (
 	"github.com/getlantern/systray"
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
+	"github.com/huajiejun/kanban-watcher/internal/auth"
 	"github.com/huajiejun/kanban-watcher/internal/config"
 	"github.com/huajiejun/kanban-watcher/internal/notify"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
@@ -29,6 +35,9 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/tray"
 	"github.com/huajiejun/kanban-watcher/internal/wechat"
 )
+
+//go:embed web
+var webFS embed.FS
 
 type commandDeps struct {
 	runSyncNow  func() error
@@ -252,7 +261,29 @@ func runDaemon() error {
 	}
 
 	proxyClient := api.NewProxyClient(cfg.KanbanAPIURL)
-	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey)
+
+	// 初始化 JWT 服务
+	jwtSecret := cfg.Auth.JWTSecret
+	if jwtSecret == "" {
+		// 自动生成密钥
+		jwtSecret = generateRandomSecret()
+		log.Printf("[Main] 自动生成 JWT 密钥")
+	}
+	jwtService := auth.NewJWTService(jwtSecret, cfg.Auth.TokenExpireDays)
+
+	// 获取嵌入的静态文件系统
+	staticFS, _ := fs.Sub(webFS, "web")
+
+	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, jwtService, staticFS)
+
+	// 设置认证处理器
+	authHandler := &server.AuthHandler{
+		JWTService: jwtService,
+		APIKey:     cfg.HTTPAPI.APIKey,
+		Users:      convertUsers(cfg.Auth.Users),
+	}
+	httpServer.SetAuthHandler(authHandler)
+
 	if dbStore != nil {
 		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
 	}
@@ -345,9 +376,31 @@ func runHeadless() error {
 	}
 
 	proxyClient := api.NewProxyClient(cfg.KanbanAPIURL)
-	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey)
+
+	// 初始化 JWT 服务
+	jwtSecret := cfg.Auth.JWTSecret
+	if jwtSecret == "" {
+		jwtSecret = generateRandomSecret()
+		log.Printf("[Main] 自动生成 JWT 密钥 (headless)")
+	}
+	jwtService := auth.NewJWTService(jwtSecret, cfg.Auth.TokenExpireDays)
+
+	// 获取嵌入的静态文件系统
+	staticFS, _ := fs.Sub(webFS, "web")
+
+	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, jwtService, staticFS)
+
+	// 设置认证处理器
+	authHandler := &server.AuthHandler{
+		JWTService: jwtService,
+		APIKey:     cfg.HTTPAPI.APIKey,
+		Users:      convertUsers(cfg.Auth.Users),
+	}
+	httpServer.SetAuthHandler(authHandler)
+
 	if dbStore != nil {
 		routes := api.GetMessageRoutes(dbStore, realtimePublisher)
+    httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
 		for pattern, handler := range routes {
 			httpServer.RegisterRoute(pattern, handler)
 		}
@@ -405,4 +458,25 @@ func collectSnapshots(extractor *sessionlog.Extractor, workspaces []api.Enriched
 		snapshots = append(snapshots, snapshot)
 	}
 	return snapshots, errCount
+}
+
+// generateRandomSecret 生成随机密钥
+func generateRandomSecret() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatalf("生成随机密钥失败: %v", err)
+	}
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+// convertUsers 转换用户配置
+func convertUsers(users []config.UserConfig) []server.UserCredentials {
+	result := make([]server.UserCredentials, len(users))
+	for i, u := range users {
+		result[i] = server.UserCredentials{
+			Username:     u.Username,
+			PasswordHash: u.PasswordHash,
+		}
+	}
+	return result
 }

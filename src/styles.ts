@@ -715,6 +715,14 @@ export const cardStyles = css`
 
   .dialog-heading {
     min-width: 0;
+    flex: 1;
+  }
+
+  .dialog-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
   }
 
   .dialog-title {
@@ -1761,6 +1769,39 @@ export const cardStyles = css`
 
     .code-line .line-content {
       color: #e2e8f0;
+    }
+  }
+`;
+
+/**
+ * Todo 相关的动画和过渡效果
+ */
+export const todoStyles = css`
+  /* Todo 动画 - 滑入效果 */
+  @keyframes todoSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .todo-animation {
+    animation: todoSlideIn 0.3s ease-out;
+  }
+`;
+
+/**
+ * Todo 响应式布局样式
+ */
+export const todoResponsiveStyles = css`
+  @media (max-width: 600px) {
+    todo-progress-popup .todo-popover {
+      width: 250px;
+      right: -50px;
     }
   }
 `;
