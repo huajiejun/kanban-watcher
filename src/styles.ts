@@ -57,10 +57,9 @@ export const workspaceSectionListStyles = css`
 
   .task-card {
     --task-card-accent: color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
-    display: grid;
-    gap: 6px;
+    display: block;
     width: 100%;
-    padding: 10px 12px;
+    padding: 9px 12px;
     border-radius: 12px;
     background: color-mix(
       in srgb,
@@ -104,37 +103,6 @@ export const workspaceSectionListStyles = css`
     font-size: 0.98rem;
     font-weight: 600;
     line-height: 1.2;
-  }
-
-  .task-meta {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    color: var(--secondary-text-color, #94a3b8);
-    font-size: 0.82rem;
-    line-height: 1.2;
-  }
-
-  .meta-status,
-  .meta-files {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-  }
-
-  .relative-time {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: left;
-  }
-
-  .status-icon {
-    font-weight: 700;
-    line-height: 1;
   }
 
   .tone-brand {
@@ -425,10 +393,9 @@ export const cardStyles = css`
 
   .task-card {
     --task-card-accent: color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
-    display: grid;
-    gap: 6px;
+    display: block;
     width: 100%;
-    padding: 10px 12px;
+    padding: 9px 12px;
     border-radius: 12px;
     background: color-mix(
       in srgb,
@@ -467,37 +434,6 @@ export const cardStyles = css`
     font-size: 0.98rem;
     font-weight: 600;
     line-height: 1.2;
-  }
-
-  .task-meta {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    color: var(--secondary-text-color, #94a3b8);
-    font-size: 0.82rem;
-    line-height: 1.2;
-  }
-
-  .meta-status,
-  .meta-files {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-  }
-
-  .relative-time {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: left;
-  }
-
-  .status-icon {
-    font-weight: 700;
-    line-height: 1;
   }
 
   .tone-brand {

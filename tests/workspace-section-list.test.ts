@@ -71,6 +71,8 @@ describe("workspace-section-list", () => {
     expect(shadowRoot?.textContent).toContain("运行中");
     expect(shadowRoot?.textContent).toContain("Workspace 1");
     expect(shadowRoot?.textContent).toContain("Workspace 2");
+    expect(shadowRoot?.querySelector(".task-meta")).toBeNull();
+    expect(shadowRoot?.textContent).not.toContain("刚刚");
   });
 
   it("applies status accent classes for attention, running and idle workspaces", async () => {

@@ -140,8 +140,6 @@ function renderWorkspaceCard(
   onSelectWorkspace: (workspace: KanbanWorkspace) => void,
 ) {
   const statusMeta = getStatusMeta(workspace);
-  const { relativeTime, filesChanged, linesAdded, linesRemoved } =
-    getWorkspaceDisplayMeta(workspace);
 
   return html`
     <button
@@ -151,22 +149,6 @@ function renderWorkspaceCard(
       @click=${() => onSelectWorkspace(workspace)}
     >
       <div class="workspace-name">${workspace.name}</div>
-      <div class="task-meta">
-        <span class="meta-status">
-          ${statusMeta.icons.map(
-            (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
-              >${icon.symbol}</span
-            >`,
-          )}
-        </span>
-        <span class="relative-time">${relativeTime}</span>
-        <span class="meta-files"
-          ><span class="file-count">📄 ${filesChanged}</span> <span class="lines-added"
-            >+${linesAdded}</span
-          >
-          <span class="lines-removed">-${linesRemoved}</span></span
-        >
-      </div>
     </button>
   `;
 }
