@@ -1,6 +1,5 @@
 import { LitElement, html, nothing } from "lit";
 
-import "../index";
 import "../components/workspace-conversation-pane";
 import "../components/workspace-preview-card";
 import type {
@@ -73,6 +72,18 @@ const MOBILE_BREAKPOINT = 768;
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 3_000;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
+
+let kanbanWatcherCardDefinitionPromise: Promise<void> | undefined;
+
+async function ensureKanbanWatcherCardDefined() {
+  if (customElements.get("kanban-watcher-card")) {
+    return;
+  }
+  if (!kanbanWatcherCardDefinitionPromise) {
+    kanbanWatcherCardDefinitionPromise = import("../index").then(() => undefined);
+  }
+  await kanbanWatcherCardDefinitionPromise;
+}
 
 export function resolveWorkspaceHomeMode(width: number): WorkspaceHomeMode {
   return width <= MOBILE_BREAKPOINT ? "mobile-card" : "desktop";
@@ -153,7 +164,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   protected updated(changedProperties: Map<PropertyKey, unknown>) {
     if (this.mode === "mobile-card") {
-      this.setupMobileCard();
+      void this.setupMobileCard();
     }
     if (changedProperties.has("pageState")) {
       writePersistedWorkspacePageState(this.pageState);
@@ -742,7 +753,9 @@ export class KanbanWorkspaceHome extends LitElement {
     this.loadingWorkspaceIds = next;
   }
 
-  private setupMobileCard() {
+  private async setupMobileCard() {
+    await ensureKanbanWatcherCardDefined();
+
     const card = this.renderRoot.querySelector("kanban-watcher-card") as
       | (HTMLElement & {
           hass?: ReturnType<typeof createPreviewHass>;
