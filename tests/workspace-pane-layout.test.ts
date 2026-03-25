@@ -40,4 +40,12 @@ describe("workspace pane layout", () => {
 
     expect(summarizeWorkspacePreview(messages)).toEqual(["最近活动: Edit"]);
   });
+
+  it("preserves markdown structure in preview text", () => {
+    const messages: DialogMessage[] = [
+      { kind: "message", sender: "ai", text: "# 标题\n- 列表一\n- 列表二" },
+    ];
+
+    expect(summarizeWorkspacePreview(messages)).toEqual(["# 标题\n- 列表一\n- 列表二"]);
+  });
 });

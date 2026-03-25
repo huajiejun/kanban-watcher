@@ -37,7 +37,10 @@ export function summarizeWorkspacePreview(messages: DialogMessage[], maxLines = 
 }
 
 function compactPreviewText(text: string) {
-  const compact = text.replace(/\s+/g, " ").trim();
+  const compact = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
   if (!compact) {
     return "";
   }

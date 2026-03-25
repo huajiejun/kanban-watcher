@@ -344,6 +344,8 @@ export const workspaceHomeStyles = css`
     gap: 6px;
     min-height: 0;
     align-content: start;
+    overflow-y: auto;
+    padding-right: 4px;
   }
 
   .workspace-preview-line {
@@ -351,15 +353,76 @@ export const workspaceHomeStyles = css`
     font-size: 0.76rem;
     line-height: 1.45;
     color: var(--secondary-text-color, #cbd5e1);
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
-    overflow: hidden;
+    overflow: visible;
     word-break: break-word;
   }
 
   .workspace-preview-line.is-empty {
     color: var(--secondary-text-color, #94a3b8);
+  }
+
+  .workspace-preview-markdown > :first-child {
+    margin-top: 0;
+  }
+
+  .workspace-preview-markdown > :last-child {
+    margin-bottom: 0;
+  }
+
+  .workspace-preview-markdown p,
+  .workspace-preview-markdown ul,
+  .workspace-preview-markdown ol {
+    margin: 0;
+  }
+
+  .workspace-preview-markdown p + p,
+  .workspace-preview-markdown p + ul,
+  .workspace-preview-markdown ul + p,
+  .workspace-preview-markdown ol + p,
+  .workspace-preview-markdown ul + ul,
+  .workspace-preview-markdown ol + ol {
+    margin-top: 6px;
+  }
+
+  .workspace-preview-markdown ul,
+  .workspace-preview-markdown ol {
+    padding-left: 1.1rem;
+  }
+
+  .workspace-preview-markdown li + li {
+    margin-top: 4px;
+  }
+
+  .workspace-preview-markdown h1,
+  .workspace-preview-markdown h2,
+  .workspace-preview-markdown h3,
+  .workspace-preview-markdown h4,
+  .workspace-preview-markdown h5,
+  .workspace-preview-markdown h6 {
+    margin: 0;
+    font-size: 0.9em;
+    line-height: 1.35;
+  }
+
+  .workspace-preview-markdown h1 + p,
+  .workspace-preview-markdown h2 + p,
+  .workspace-preview-markdown h3 + p,
+  .workspace-preview-markdown h4 + p,
+  .workspace-preview-markdown h5 + p,
+  .workspace-preview-markdown h6 + p {
+    margin-top: 6px;
+  }
+
+  .workspace-preview-markdown pre {
+    margin: 0;
+    padding: 8px;
+    border-radius: 8px;
+    overflow-x: auto;
+    background: color-mix(in srgb, var(--primary-background-color, #0f172a) 82%, transparent);
+  }
+
+  .workspace-preview-markdown code {
+    font-size: 0.92em;
   }
 
   .workspace-home-placeholder {
