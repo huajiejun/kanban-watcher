@@ -19,6 +19,13 @@ type PaneMessage =
       status: "running" | "success" | "error";
       statusLabel: string;
       icon: string;
+      command?: string;
+      changes?: Array<{
+        action: "write" | "edit" | "delete" | "rename";
+        unified_diff?: string;
+        content?: string;
+        new_path?: string;
+      }>;
     };
 
 function createElement() {
@@ -97,5 +104,40 @@ describe("workspace-conversation-pane", () => {
     expect(cssText).toContain("height: 100%");
     expect(cssText).toContain("var(--card-background-color, #111827)");
     expect(cssText).toContain("var(--secondary-background-color, #1e293b)");
+  });
+
+  it("renders tool messages with expandable detail and file changes", async () => {
+    const element = createElement();
+    element.messages = [
+      {
+        kind: "tool",
+        toolName: "修改文件",
+        summary: "src/demo.ts",
+        detail: "已更新按钮文案",
+        status: "success",
+        statusLabel: "完成",
+        icon: "✏️",
+        changes: [
+          {
+            action: "edit",
+            unified_diff: "@@ -1 +1 @@\n-console.log('old')\n+console.log('new')",
+          },
+        ],
+      } satisfies PaneMessage,
+    ];
+
+    await element.updateComplete;
+
+    const toggle = element.shadowRoot?.querySelector(".message-tool-button");
+    expect(toggle?.textContent).toContain("修改文件");
+    expect(toggle?.textContent).toContain("src/demo.ts");
+    expect(element.shadowRoot?.textContent).not.toContain("console.log('new')");
+
+    (toggle as HTMLButtonElement).click();
+    await element.updateComplete;
+
+    expect(element.shadowRoot?.textContent).toContain("已更新按钮文案");
+    expect(element.shadowRoot?.textContent).toContain("编辑");
+    expect(element.shadowRoot?.textContent).toContain("console.log");
   });
 });

@@ -7,6 +7,7 @@ import { renderWorkspaceSectionList } from "../components/workspace-section-list
 import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
 import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
+import { normalizeApiMessages, normalizeSessionMessage, type DialogMessage } from "../lib/dialog-messages";
 import {
   cancelWorkspaceQueue,
   fetchActiveWorkspaces,
@@ -63,7 +64,7 @@ export class KanbanWorkspaceHome extends LitElement {
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
   workspaces: KanbanWorkspace[] = [];
   pageState: WorkspacePageState = createWorkspacePageState();
-  messagesByWorkspace: Record<string, Array<{ kind: "message"; sender: "user" | "ai"; text: string }>> = {};
+  messagesByWorkspace: Record<string, DialogMessage[]> = {};
   loading = false;
   error = "";
   collapsedSections = new Set<"attention" | "running" | "idle">();
@@ -273,14 +274,8 @@ export class KanbanWorkspaceHome extends LitElement {
         this.messagesByWorkspace = {
           ...this.messagesByWorkspace,
           [workspaceId]: recentMessages
-            .filter((message): message is NonNullable<typeof recentMessages>[number] =>
-              Boolean(message?.content),
-            )
-            .map((message) => ({
-              kind: "message" as const,
-              sender: message.role === "user" ? "user" : "ai",
-              text: message.content!,
-            })),
+            .map((message) => normalizeSessionMessage(message))
+            .filter((message): message is DialogMessage => Boolean(message)),
         };
         return;
       }
@@ -294,13 +289,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
       this.messagesByWorkspace = {
         ...this.messagesByWorkspace,
-        [workspaceId]: (response.messages ?? [])
-          .filter((message): message is typeof message & { content: string } => Boolean(message.content))
-          .map((message) => ({
-            kind: "message" as const,
-            sender: message.role === "user" ? "user" : "ai",
-            text: message.content,
-          })),
+        [workspaceId]: normalizeApiMessages(response.messages),
       };
     } catch (error) {
       this.messageErrorByWorkspace = {

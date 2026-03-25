@@ -1,52 +1,12 @@
 import { LitElement, html, nothing } from "lit";
-import { unsafeHTML } from "lit/directives/unsafe-html.js";
 
-import { renderMessageMarkdown } from "../lib/render-message-markdown";
+import { detectDialogEditLanguage, renderDialogMessage } from "./dialog-message-renderer";
 import { cardStyles } from "../styles";
+import type { DialogMessage } from "../lib/dialog-messages";
 import type { WorkspaceQueueStatusResponse } from "../types";
 
 export type ConversationPaneAction = "send" | "queue" | "stop";
-
-export type ConversationPaneMessage =
-  | {
-      key?: string;
-      kind: "message";
-      sender: "user" | "ai";
-      text: string;
-      timestamp?: string;
-    }
-  | {
-      key?: string;
-      kind: "tool";
-      toolName: string;
-      summary: string;
-      detail: string;
-      status: "running" | "success" | "error";
-      statusLabel: string;
-      icon: string;
-      timestamp?: string;
-    }
-  | {
-      key?: string;
-      kind: "tool-group";
-      toolName: string;
-      summary: string;
-      status: "running" | "success" | "error";
-      statusLabel: string;
-      icon: string;
-      items: Array<{
-        key?: string;
-        kind: "tool";
-        toolName: string;
-        summary: string;
-        detail: string;
-        status: "running" | "success" | "error";
-        statusLabel: string;
-        icon: string;
-        timestamp?: string;
-      }>;
-      timestamp?: string;
-    };
+export type ConversationPaneMessage = DialogMessage;
 
 export class WorkspaceConversationPane extends LitElement {
   static styles = cardStyles;
@@ -60,6 +20,7 @@ export class WorkspaceConversationPane extends LitElement {
     queueStatus: { attribute: false },
     renderMessage: { attribute: false },
     quickButtonsTemplate: { attribute: false },
+    expandedToolMessageKeys: { attribute: false },
     isRunning: { type: Boolean },
     canQueue: { type: Boolean },
   };
@@ -72,6 +33,7 @@ export class WorkspaceConversationPane extends LitElement {
   queueStatus?: WorkspaceQueueStatusResponse;
   renderMessage?: (message: ConversationPaneMessage) => unknown;
   quickButtonsTemplate?: unknown;
+  expandedToolMessageKeys = new Set<string>();
   isRunning = false;
   canQueue = false;
 
@@ -170,43 +132,11 @@ export class WorkspaceConversationPane extends LitElement {
   }
 
   private renderEntry(message: ConversationPaneMessage) {
-    if (message.kind === "tool") {
-      return html`
-        <div class="message-tool">
-          <div class="message-tool-button is-${message.status}">
-            <span class="message-tool-icon" aria-hidden="true">${message.icon}</span>
-            <span class="message-tool-summary">
-              <span class="message-tool-name">${message.toolName}</span>
-              <span class="message-tool-text">${message.summary}</span>
-            </span>
-            <span class="message-tool-status">${message.statusLabel}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    if (message.kind === "tool-group") {
-      return html`
-        <div class="message-tool">
-          <div class="message-tool-button is-${message.status}">
-            <span class="message-tool-icon" aria-hidden="true">${message.icon}</span>
-            <span class="message-tool-summary">
-              <span class="message-tool-name">${message.toolName}</span>
-              <span class="message-tool-text">${message.summary}</span>
-            </span>
-            <span class="message-tool-status">${message.statusLabel}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="message-row">
-        <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">
-          ${unsafeHTML(renderMessageMarkdown(message.text))}
-        </div>
-      </div>
-    `;
+    return renderDialogMessage(message, {
+      expandedToolMessageKeys: this.expandedToolMessageKeys,
+      onToggleToolMessage: this.toggleToolMessage,
+      editLanguage: detectDialogEditLanguage(this.messages),
+    });
   }
 
   private handleInput(event: Event) {
@@ -255,6 +185,16 @@ export class WorkspaceConversationPane extends LitElement {
     }
     messageList.scrollTop = messageList.scrollHeight;
   }
+
+  private toggleToolMessage = (toolKey: string) => {
+    const next = new Set(this.expandedToolMessageKeys);
+    if (next.has(toolKey)) {
+      next.delete(toolKey);
+    } else {
+      next.add(toolKey);
+    }
+    this.expandedToolMessageKeys = next;
+  };
 }
 
 declare global {
