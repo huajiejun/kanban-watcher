@@ -36,8 +36,13 @@ import type {
   LocalWorkspaceSummary,
   RealtimeEvent,
   SessionMessageResponse,
+  TodoItem,
   WorkspaceQueueStatusResponse,
 } from "./types";
+
+// Import todo-related components
+import "./components/todo-progress-popup";
+import "./components/chat-todo-list";
 
 type SectionKey = "attention" | "running" | "idle";
 
@@ -128,6 +133,7 @@ export class KanbanWatcherCard extends LitElement {
     optimisticQueueWorkspaceIds: { state: true },
     autoScrollEnabled: { state: true },
     dynamicButtonsByWorkspace: { state: true },
+    todosByWorkspace: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -166,6 +172,8 @@ export class KanbanWatcherCard extends LitElement {
   private suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   /** 缓存每个工作区最后分析的消息 hash，避免重复调用 LLM */
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
+  /** 每个工作区的待办事项列表 */
+  private todosByWorkspace: Record<string, TodoItem[]> = {};
 
   connectedCallback() {
     super.connectedCallback();
@@ -383,6 +391,7 @@ export class KanbanWatcherCard extends LitElement {
     const canQueue = isRunning || this.optimisticQueueWorkspaceIds.has(workspace.id);
     const queueStatus = this.queueStatusByWorkspace[workspace.id];
     const isQueued = canQueue && queueStatus?.status === "queued";
+    const currentTodos = this.getCurrentTodos(workspace.id);
 
     return html`
       <div class="dialog-shell" role="presentation">
@@ -401,6 +410,11 @@ export class KanbanWatcherCard extends LitElement {
           <div class="dialog-header">
             <div class="dialog-heading">
               <h2 class="dialog-title">${workspace.name}</h2>
+            </div>
+            <div class="dialog-header-actions">
+              <todo-progress-popup
+                .todos=${currentTodos}
+              ></todo-progress-popup>
             </div>
             <button
               class="dialog-close"
@@ -1424,6 +1438,19 @@ export class KanbanWatcherCard extends LitElement {
     const previousLatestTimestamp = this.getLatestDialogTimestamp(existingFlat);
     let hasNewLatestMessage = false;
 
+    // 提取待办事项
+    if (Array.isArray(messages)) {
+      for (const message of messages) {
+        const todos = this.extractTodosFromMessage(message);
+        if (todos.length > 0) {
+          this.todosByWorkspace = {
+            ...this.todosByWorkspace,
+            [workspace.id]: todos,
+          };
+        }
+      }
+    }
+
     for (const message of this.normalizeApiMessagesFlat(messages)) {
       const key = this.getDialogMessageIdentity(message);
       const optimisticIndex = this.findMatchingOptimisticUserMessageIndex(merged, message);
@@ -1735,6 +1762,31 @@ export class KanbanWatcherCard extends LitElement {
       changes: summary.changes,
       timestamp: message.timestamp,
     } satisfies DialogMessage;
+  }
+
+  /**
+   * 从消息中提取待办事项
+   * 如果消息包含 todo_management 工具调用，则返回待办事项列表
+   */
+  private extractTodosFromMessage(message: SessionMessageResponse): TodoItem[] {
+    if (message.tool_info?.action_type?.action === 'todo_management') {
+      return message.tool_info.action_type.todos || [];
+    }
+    return [];
+  }
+
+  /**
+   * 获取指定工作区的当前待办事项
+   */
+  private getCurrentTodos(workspaceId: string): TodoItem[] {
+    return this.todosByWorkspace[workspaceId] || [];
+  }
+
+  /**
+   * 获取正在进行中的待办事项
+   */
+  private getInProgressTodo(todos: TodoItem[]): TodoItem | null {
+    return todos.find(t => t.status?.toLowerCase() === 'in_progress') || null;
   }
 
   private getDialogMessageIdentity(message: DialogMessage) {

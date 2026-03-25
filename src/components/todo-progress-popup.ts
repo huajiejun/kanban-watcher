@@ -139,7 +139,7 @@ export class TodoProgressPopup extends LitElement {
   todos: TodoItem[] = [];
   open = false;
 
-  private togglePopover() {
+  private handleToggle() {
     if (this.todos.length === 0) return;
     this.open = !this.open;
   }
@@ -183,7 +183,7 @@ export class TodoProgressPopup extends LitElement {
       <button
         class="todo-button"
         ?disabled=${isEmpty}
-        @click=${this.togglePopover}
+        @click=${this.handleToggle}
       >
         <span class="todo-icon">☑</span>
         ${!isEmpty

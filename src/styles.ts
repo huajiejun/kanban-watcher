@@ -258,6 +258,14 @@ export const cardStyles = css`
 
   .dialog-heading {
     min-width: 0;
+    flex: 1;
+  }
+
+  .dialog-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
   }
 
   .dialog-title {
