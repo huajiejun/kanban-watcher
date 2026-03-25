@@ -1497,15 +1497,28 @@ export const cardStyles = css`
       padding: 8px;
     }
 
-     .task-meta {
-       grid-template-columns: 1fr;
-       gap: 6px;
-       font-size: 0.75rem;
-     }
+    .task-meta {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.72rem;
+    }
 
-     .meta-files {
+    .meta-status {
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .relative-time {
+      min-width: 0;
+      font-size: 0.72rem;
+    }
+
+    .meta-files {
       justify-self: end;
-     }
+      gap: 4px;
+      font-size: 0.7rem;
+    }
 
     /* 弹窗样式 */
     .dialog-shell {

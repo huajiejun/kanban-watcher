@@ -139,6 +139,8 @@ describe("workspace-conversation-pane", () => {
     expect(cssText).toContain(".workspace-pane-shell.is-idle");
     expect(cssText).toContain(".workspace-pane-shell.is-running");
     expect(cssText).toContain(".workspace-pane-shell.is-attention");
+    expect(cssText).toContain("@media (max-width: 640px)");
+    expect(cssText).not.toContain(".task-meta {\n       grid-template-columns: 1fr;");
     expect(cssText).not.toContain(".meta-files {\n      justify-self: start;");
   });
 
