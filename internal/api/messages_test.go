@@ -5,9 +5,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/huajiejun/kanban-watcher/internal/realtime"
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
 
@@ -187,5 +192,93 @@ func TestBuildLocalMenuSummaryPrefersLastMessageOverUnreadReason(t *testing.T) {
 
 	if got != lastMessage {
 		t.Fatalf("menu summary = %q, want %q", got, lastMessage)
+	}
+}
+
+func setStoreDB(t *testing.T, dbStore *store.Store, db interface{}) {
+	t.Helper()
+
+	field := reflect.ValueOf(dbStore).Elem().FieldByName("db")
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(db))
+}
+
+func TestGetWorkspaceViewRouteReturnsPersistedLayout(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("创建 sqlmock 失败: %v", err)
+	}
+	defer db.Close()
+
+	dbStore := &store.Store{}
+	setStoreDB(t, dbStore, db)
+
+	rows := sqlmock.NewRows([]string{
+		"scope_key", "open_workspace_ids_json", "active_workspace_id", "dismissed_attention_ids_json", "version", "updated_at", "created_at",
+	}).AddRow("global", `["ws-1","ws-2"]`, "ws-2", `["ws-3"]`, 7, time.Now(), time.Now())
+
+	mock.ExpectQuery("SELECT scope_key, open_workspace_ids_json, active_workspace_id, dismissed_attention_ids_json, version, updated_at, created_at FROM kw_workspace_views").
+		WithArgs("global").
+		WillReturnRows(rows)
+
+	routes := GetMessageRoutes(dbStore, nil)
+	handler := routes["/api/workspace-view"]
+	if handler == nil {
+		t.Fatal("workspace view 路由未注册")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/workspace-view", nil)
+	recorder := httptest.NewRecorder()
+	handler(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"open_workspace_ids":["ws-1","ws-2"]`) {
+		t.Fatalf("响应未包含 open_workspace_ids: %s", recorder.Body.String())
+	}
+}
+
+func TestPutWorkspaceViewPersistsLayoutAndBroadcastsRealtimeEvent(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("创建 sqlmock 失败: %v", err)
+	}
+	defer db.Close()
+
+	dbStore := &store.Store{}
+	setStoreDB(t, dbStore, db)
+
+	hub := realtime.NewHub()
+	publisher := NewRealtimePublisher(dbStore, hub)
+
+	mock.ExpectExec("INSERT INTO kw_workspace_views").
+		WithArgs("global", `["ws-1"]`, "ws-1", `["ws-attention"]`, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT scope_key, open_workspace_ids_json, active_workspace_id, dismissed_attention_ids_json, version, updated_at, created_at FROM kw_workspace_views").
+		WithArgs("global").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"scope_key", "open_workspace_ids_json", "active_workspace_id", "dismissed_attention_ids_json", "version", "updated_at", "created_at",
+		}).AddRow("global", `["ws-1"]`, "ws-1", `["ws-attention"]`, 1, time.Now(), time.Now()))
+
+	routes := GetMessageRoutes(dbStore, publisher)
+	handler := routes["/api/workspace-view"]
+	if handler == nil {
+		t.Fatal("workspace view 路由未注册")
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPut,
+		"/api/workspace-view",
+		strings.NewReader(`{"open_workspace_ids":["ws-1"],"active_workspace_id":"ws-1","dismissed_attention_ids":["ws-attention"]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"dismissed_attention_ids":["ws-attention"]`) {
+		t.Fatalf("响应未包含 dismissed_attention_ids: %s", recorder.Body.String())
 	}
 }

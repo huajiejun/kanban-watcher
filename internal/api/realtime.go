@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"sync"
@@ -21,10 +22,10 @@ type RealtimePublisher struct {
 }
 
 type throttledSessionMessage struct {
-	sessionID   string
-	lastSentAt  time.Time
-	pending     *realtime.MessagePayload
-	flushTimer  *time.Timer
+	sessionID  string
+	lastSentAt time.Time
+	pending    *realtime.MessagePayload
+	flushTimer *time.Timer
 }
 
 func NewRealtimePublisher(dbStore *store.Store, hub *realtime.Hub) *RealtimePublisher {
@@ -72,6 +73,35 @@ func (p *RealtimePublisher) PublishSessionMessagesAppended(_ context.Context, se
 	for _, entry := range entries {
 		p.publishSessionMessage(sessionID, toRealtimeMessage(entry))
 	}
+	return nil
+}
+
+func (p *RealtimePublisher) PublishWorkspaceViewUpdated(view *store.WorkspaceView) error {
+	if p == nil || p.hub == nil || view == nil {
+		return nil
+	}
+
+	var openWorkspaceIDs []string
+	if err := json.Unmarshal([]byte(view.OpenWorkspaceIDsJSON), &openWorkspaceIDs); err != nil {
+		return err
+	}
+
+	var dismissedAttentionIDs []string
+	if err := json.Unmarshal([]byte(view.DismissedAttentionIDsJSON), &dismissedAttentionIDs); err != nil {
+		return err
+	}
+
+	payload := realtime.WorkspaceViewPayload{
+		OpenWorkspaceIDs:      openWorkspaceIDs,
+		DismissedAttentionIDs: dismissedAttentionIDs,
+		Version:               view.Version,
+		UpdatedAt:             view.UpdatedAt.Format(time.RFC3339Nano),
+	}
+	if view.ActiveWorkspaceID != nil {
+		payload.ActiveWorkspaceID = *view.ActiveWorkspaceID
+	}
+
+	p.hub.BroadcastWorkspaceViewUpdated(payload)
 	return nil
 }
 

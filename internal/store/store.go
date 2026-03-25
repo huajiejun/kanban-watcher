@@ -151,6 +151,15 @@ func (s *Store) InitSchema(ctx context.Context) error {
 			CONSTRAINT fk_kw_msg_contexts_workspace
 				FOREIGN KEY (workspace_id) REFERENCES kw_workspaces(id) ON DELETE CASCADE
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+		`CREATE TABLE IF NOT EXISTS kw_workspace_views (
+			scope_key VARCHAR(32) PRIMARY KEY,
+			open_workspace_ids_json JSON NOT NULL,
+			active_workspace_id VARCHAR(36) NULL,
+			dismissed_attention_ids_json JSON NOT NULL,
+			version BIGINT NOT NULL DEFAULT 1,
+			updated_at TIMESTAMP(3) NOT NULL,
+			created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_pending_approval BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_unseen_turns BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_running_dev_server BOOLEAN NOT NULL DEFAULT FALSE`,
@@ -183,6 +192,72 @@ func (s *Store) InitSchema(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// UpsertWorkspaceView 保存服务级共享布局
+func (s *Store) UpsertWorkspaceView(ctx context.Context, view *WorkspaceView) error {
+	query := `
+		INSERT INTO kw_workspace_views (
+			scope_key, open_workspace_ids_json, active_workspace_id, dismissed_attention_ids_json, version, updated_at
+		) VALUES (?, ?, ?, ?, 1, ?)
+		ON DUPLICATE KEY UPDATE
+			open_workspace_ids_json = VALUES(open_workspace_ids_json),
+			active_workspace_id = VALUES(active_workspace_id),
+			dismissed_attention_ids_json = VALUES(dismissed_attention_ids_json),
+			version = kw_workspace_views.version + 1,
+			updated_at = VALUES(updated_at)
+	`
+
+	_, err := s.execWithRetry(
+		ctx,
+		query,
+		view.ScopeKey,
+		view.OpenWorkspaceIDsJSON,
+		view.ActiveWorkspaceID,
+		view.DismissedAttentionIDsJSON,
+		view.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert workspace view: %w", err)
+	}
+
+	latest, err := s.GetWorkspaceView(ctx, view.ScopeKey)
+	if err != nil {
+		return err
+	}
+	if latest != nil {
+		view.Version = latest.Version
+		view.CreatedAt = latest.CreatedAt
+	}
+	return nil
+}
+
+// GetWorkspaceView 获取服务级共享布局
+func (s *Store) GetWorkspaceView(ctx context.Context, scopeKey string) (*WorkspaceView, error) {
+	query := `
+		SELECT scope_key, open_workspace_ids_json, active_workspace_id, dismissed_attention_ids_json, version, updated_at, created_at
+		FROM kw_workspace_views
+		WHERE scope_key = ?
+		LIMIT 1
+	`
+
+	var view WorkspaceView
+	if err := s.db.QueryRowContext(ctx, query, scopeKey).Scan(
+		&view.ScopeKey,
+		&view.OpenWorkspaceIDsJSON,
+		&view.ActiveWorkspaceID,
+		&view.DismissedAttentionIDsJSON,
+		&view.Version,
+		&view.UpdatedAt,
+		&view.CreatedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get workspace view: %w", err)
+	}
+
+	return &view, nil
 }
 
 // UpsertWorkspace 插入或更新工作区

@@ -13,8 +13,9 @@ import (
 type EventType string
 
 const (
-	EventTypeWorkspaceSnapshot        EventType = "workspace_snapshot"
-	EventTypeSessionMessagesAppended  EventType = "session_messages_appended"
+	EventTypeWorkspaceSnapshot       EventType = "workspace_snapshot"
+	EventTypeSessionMessagesAppended EventType = "session_messages_appended"
+	EventTypeWorkspaceViewUpdated    EventType = "workspace_view_updated"
 )
 
 type WorkspacePayload struct {
@@ -46,11 +47,20 @@ type MessagePayload struct {
 	Timestamp  string                 `json:"timestamp"`
 }
 
+type WorkspaceViewPayload struct {
+	OpenWorkspaceIDs      []string `json:"open_workspace_ids,omitempty"`
+	ActiveWorkspaceID     string   `json:"active_workspace_id,omitempty"`
+	DismissedAttentionIDs []string `json:"dismissed_attention_ids,omitempty"`
+	Version               int64    `json:"version,omitempty"`
+	UpdatedAt             string   `json:"updated_at,omitempty"`
+}
+
 type Event struct {
-	Type      EventType          `json:"type"`
-	Workspaces []WorkspacePayload `json:"workspaces,omitempty"`
-	SessionID string             `json:"session_id,omitempty"`
-	Messages  []MessagePayload   `json:"messages,omitempty"`
+	Type          EventType             `json:"type"`
+	Workspaces    []WorkspacePayload    `json:"workspaces,omitempty"`
+	SessionID     string                `json:"session_id,omitempty"`
+	Messages      []MessagePayload      `json:"messages,omitempty"`
+	WorkspaceView *WorkspaceViewPayload `json:"workspace_view,omitempty"`
 }
 
 type client struct {
@@ -131,6 +141,13 @@ func (h *Hub) BroadcastSessionMessagesAppended(sessionID string, messages []Mess
 		Type:      EventTypeSessionMessagesAppended,
 		SessionID: sessionID,
 		Messages:  messages,
+	})
+}
+
+func (h *Hub) BroadcastWorkspaceViewUpdated(view WorkspaceViewPayload) {
+	h.broadcast(Event{
+		Type:          EventTypeWorkspaceViewUpdated,
+		WorkspaceView: &view,
 	})
 }
 

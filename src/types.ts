@@ -74,6 +74,14 @@ export interface ActiveWorkspacesResponse {
   workspaces?: LocalWorkspaceSummary[];
 }
 
+export interface WorkspaceViewResponse {
+  open_workspace_ids?: string[];
+  active_workspace_id?: string;
+  dismissed_attention_ids?: string[];
+  version?: number;
+  updated_at?: string;
+}
+
 export interface SessionMessageResponse {
   id?: number;
   session_id?: string;
@@ -98,6 +106,7 @@ export interface RealtimeEvent {
   workspaces?: LocalWorkspaceSummary[];
   session_id?: string;
   messages?: SessionMessageResponse[];
+  workspace_view?: WorkspaceViewResponse;
 }
 
 export interface WorkspaceMessageResponse {

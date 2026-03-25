@@ -103,6 +103,17 @@ type ActiveWorkspaceSummary struct {
 	LastMessage              *string    `db:"last_message"`
 }
 
+// WorkspaceView 服务级共享工作区布局
+type WorkspaceView struct {
+	ScopeKey                  string     `db:"scope_key"`
+	OpenWorkspaceIDsJSON      string     `db:"open_workspace_ids_json"`
+	ActiveWorkspaceID         *string    `db:"active_workspace_id"`
+	DismissedAttentionIDsJSON string     `db:"dismissed_attention_ids_json"`
+	Version                   int64      `db:"version"`
+	UpdatedAt                 time.Time  `db:"updated_at"`
+	CreatedAt                 *time.Time `db:"created_at"`
+}
+
 // SyncSubscription 同步订阅状态
 type SyncSubscription struct {
 	SubscriptionKey  string    `db:"subscription_key"`

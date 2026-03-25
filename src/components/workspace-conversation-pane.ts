@@ -1,0 +1,236 @@
+import { LitElement, html, nothing } from "lit";
+
+import { detectDialogEditLanguage, renderDialogMessage } from "./dialog-message-renderer";
+import { cardStyles } from "../styles";
+import type { DialogMessage } from "../lib/dialog-messages";
+import type { WorkspaceQueueStatusResponse } from "../types";
+
+export type ConversationPaneAction = "send" | "queue" | "stop";
+export type ConversationPaneMessage = DialogMessage;
+
+export class WorkspaceConversationPane extends LitElement {
+  static styles = cardStyles;
+
+  static properties = {
+    workspaceName: { attribute: false },
+    messages: { attribute: false },
+    quickButtons: { attribute: false },
+    messageDraft: { attribute: false },
+    currentFeedback: { attribute: false },
+    queueStatus: { attribute: false },
+    renderMessage: { attribute: false },
+    quickButtonsTemplate: { attribute: false },
+    expandedToolMessageKeys: { attribute: false },
+    smoothRevealMessageKey: { attribute: false },
+    statusAccentClass: { attribute: false },
+    isRunning: { type: Boolean },
+    canQueue: { type: Boolean },
+  };
+
+  workspaceName = "";
+  messages: ConversationPaneMessage[] = [];
+  quickButtons: string[] = [];
+  messageDraft = "";
+  currentFeedback = "";
+  queueStatus?: WorkspaceQueueStatusResponse;
+  renderMessage?: (message: ConversationPaneMessage) => unknown;
+  quickButtonsTemplate?: unknown;
+  expandedToolMessageKeys = new Set<string>();
+  smoothRevealMessageKey?: string;
+  statusAccentClass = "is-idle";
+  isRunning = false;
+  canQueue = false;
+
+  protected render() {
+    const isQueued = this.queueStatus?.status === "queued";
+
+    return html`
+      <section class="workspace-pane-shell ${this.statusAccentClass}">
+      <div class="dialog-header">
+        <div class="dialog-heading">
+          <h2 class="dialog-title">${this.workspaceName}</h2>
+        </div>
+        <button
+          class="dialog-close"
+          type="button"
+          aria-label="关闭"
+          @click=${this.handleClose}
+        >
+          ✕
+        </button>
+      </div>
+
+      <section class="dialog-messages">
+        <div class="dialog-panel-title">对话消息</div>
+        <div class="message-list">
+          ${this.messages.map((message) =>
+            this.renderMessage ? this.renderMessage(message) : this.renderEntry(message),
+          )}
+        </div>
+      </section>
+
+      <div class="dialog-composer">
+        ${isQueued
+          ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
+          : nothing}
+        ${this.quickButtonsTemplate ?? this.renderQuickButtons()}
+        <textarea
+          class="message-input"
+          rows="2"
+          placeholder="输入消息"
+          .value=${this.messageDraft}
+          @input=${this.handleInput}
+          @keydown=${this.handleComposerKeydown}
+        ></textarea>
+        <div class="dialog-actions">
+          <button
+            class="dialog-action dialog-action-primary"
+            type="button"
+            @click=${() => this.emitAction(this.isRunning ? "stop" : "send")}
+          >
+            ${this.isRunning ? "停止" : "发送消息"}
+          </button>
+          ${this.canQueue
+            ? html`
+                <button
+                  class="dialog-action dialog-action-secondary"
+                  type="button"
+                  @click=${() => this.emitAction(isQueued ? "stop" : "queue")}
+                >
+                  ${isQueued ? "取消队列" : "加入队列"}
+                </button>
+              `
+            : nothing}
+        </div>
+        <div
+          class=${this.currentFeedback ? "dialog-feedback" : "dialog-feedback is-empty"}
+          aria-live="polite"
+        >
+          ${this.currentFeedback || "\u00a0"}
+        </div>
+      </div>
+      </section>
+    `;
+  }
+
+  protected updated(changedProperties: Map<PropertyKey, unknown>) {
+    if (changedProperties.has("messages")) {
+      this.scrollMessagesToBottom();
+    }
+  }
+
+  focusComposer() {
+    const input = this.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    if (!input) {
+      return;
+    }
+    input.focus();
+    const cursor = input.value.length;
+    input.setSelectionRange(cursor, cursor);
+  }
+
+  private renderQuickButtons() {
+    if (this.quickButtons.length === 0) {
+      return nothing;
+    }
+
+    return html`
+      <div class="quick-buttons">
+        ${this.quickButtons.map((text) => html`
+          <button
+            class="quick-button is-static"
+            type="button"
+            @click=${() => this.handleQuickButton(text)}
+          >
+            ${text}
+          </button>
+        `)}
+      </div>
+    `;
+  }
+
+  private renderEntry(message: ConversationPaneMessage) {
+    return renderDialogMessage(message, {
+      expandedToolMessageKeys: this.expandedToolMessageKeys,
+      onToggleToolMessage: this.toggleToolMessage,
+      editLanguage: detectDialogEditLanguage(this.messages),
+      smoothRevealMessageKey: this.smoothRevealMessageKey,
+    });
+  }
+
+  private handleInput(event: Event) {
+    this.dispatchEvent(
+      new CustomEvent<string>("draft-change", {
+        detail: (event.target as HTMLTextAreaElement).value,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private handleComposerKeydown(event: KeyboardEvent) {
+    if (this.isRunning || event.key !== "Enter" || !event.metaKey) {
+      return;
+    }
+
+    event.preventDefault();
+    this.emitAction("send");
+  }
+
+  private handleQuickButton(text: string) {
+    this.dispatchEvent(
+      new CustomEvent<string>("quick-button-click", {
+        detail: text,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private emitAction(action: ConversationPaneAction) {
+    this.dispatchEvent(
+      new CustomEvent<ConversationPaneAction>("action-click", {
+        detail: action,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private handleClose = () => {
+    this.dispatchEvent(
+      new CustomEvent("pane-close", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private scrollMessagesToBottom() {
+    const messageList = this.shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+    if (!messageList) {
+      return;
+    }
+    messageList.scrollTop = messageList.scrollHeight;
+  }
+
+  private toggleToolMessage = (toolKey: string) => {
+    const next = new Set(this.expandedToolMessageKeys);
+    if (next.has(toolKey)) {
+      next.delete(toolKey);
+    } else {
+      next.add(toolKey);
+    }
+    this.expandedToolMessageKeys = next;
+  };
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "workspace-conversation-pane": WorkspaceConversationPane;
+  }
+}
+
+if (!customElements.get("workspace-conversation-pane")) {
+  customElements.define("workspace-conversation-pane", WorkspaceConversationPane);
+}

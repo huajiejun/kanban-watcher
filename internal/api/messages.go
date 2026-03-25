@@ -36,6 +36,20 @@ type ActiveWorkspaceResponse struct {
 	Workspaces []LocalWorkspaceSummary `json:"workspaces"`
 }
 
+type WorkspaceViewResponse struct {
+	OpenWorkspaceIDs      []string `json:"open_workspace_ids"`
+	ActiveWorkspaceID     string   `json:"active_workspace_id,omitempty"`
+	DismissedAttentionIDs []string `json:"dismissed_attention_ids"`
+	Version               int64    `json:"version,omitempty"`
+	UpdatedAt             string   `json:"updated_at,omitempty"`
+}
+
+type workspaceViewRequest struct {
+	OpenWorkspaceIDs      []string `json:"open_workspace_ids"`
+	ActiveWorkspaceID     string   `json:"active_workspace_id"`
+	DismissedAttentionIDs []string `json:"dismissed_attention_ids"`
+}
+
 // LocalWorkspaceSummary 本地数据库中的工作区摘要
 type LocalWorkspaceSummary struct {
 	ID                       string `json:"id"`
@@ -57,10 +71,17 @@ type LocalWorkspaceSummary struct {
 }
 
 // GetMessageRoutes 注册消息 API 路由
-func GetMessageRoutes(dbStore *store.Store) map[string]http.HandlerFunc {
+func GetMessageRoutes(dbStore *store.Store, publishers ...*RealtimePublisher) map[string]http.HandlerFunc {
+	var realtimePublisher *RealtimePublisher
+	if len(publishers) > 0 {
+		realtimePublisher = publishers[0]
+	}
 	return map[string]http.HandlerFunc{
 		"/api/sessions/": func(w http.ResponseWriter, r *http.Request) {
 			handleSessionMessages(w, r, dbStore)
+		},
+		"/api/workspace-view": func(w http.ResponseWriter, r *http.Request) {
+			handleWorkspaceView(w, r, dbStore, realtimePublisher)
 		},
 		"/api/workspaces/active": func(w http.ResponseWriter, r *http.Request) {
 			handleActiveWorkspaces(w, r, dbStore)
@@ -69,6 +90,91 @@ func GetMessageRoutes(dbStore *store.Store) map[string]http.HandlerFunc {
 			handleWorkspaceLatestMessages(w, r, dbStore)
 		},
 	}
+}
+
+func handleWorkspaceView(
+	w http.ResponseWriter,
+	r *http.Request,
+	dbStore *store.Store,
+	realtimePublisher *RealtimePublisher,
+) {
+	if dbStore == nil {
+		http.Error(w, "数据库未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		view, err := dbStore.GetWorkspaceView(r.Context(), "global")
+		if err != nil {
+			http.Error(w, "获取工作区布局失败", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, toWorkspaceViewResponse(view))
+	case http.MethodPut:
+		var req workspaceViewRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		openWorkspaceIDsJSON, err := json.Marshal(req.OpenWorkspaceIDs)
+		if err != nil {
+			http.Error(w, "序列化布局失败", http.StatusInternalServerError)
+			return
+		}
+		dismissedAttentionIDsJSON, err := json.Marshal(req.DismissedAttentionIDs)
+		if err != nil {
+			http.Error(w, "序列化布局失败", http.StatusInternalServerError)
+			return
+		}
+
+		view := &store.WorkspaceView{
+			ScopeKey:                  "global",
+			OpenWorkspaceIDsJSON:      string(openWorkspaceIDsJSON),
+			DismissedAttentionIDsJSON: string(dismissedAttentionIDsJSON),
+			UpdatedAt:                 time.Now(),
+		}
+		if req.ActiveWorkspaceID != "" {
+			view.ActiveWorkspaceID = &req.ActiveWorkspaceID
+		}
+
+		if err := dbStore.UpsertWorkspaceView(r.Context(), view); err != nil {
+			http.Error(w, "保存工作区布局失败", http.StatusInternalServerError)
+			return
+		}
+		if realtimePublisher != nil {
+			if err := realtimePublisher.PublishWorkspaceViewUpdated(view); err != nil {
+				http.Error(w, "广播工作区布局失败", http.StatusInternalServerError)
+				return
+			}
+		}
+		writeJSON(w, toWorkspaceViewResponse(view))
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func toWorkspaceViewResponse(view *store.WorkspaceView) WorkspaceViewResponse {
+	if view == nil {
+		return WorkspaceViewResponse{
+			OpenWorkspaceIDs:      []string{},
+			DismissedAttentionIDs: []string{},
+		}
+	}
+
+	resp := WorkspaceViewResponse{
+		OpenWorkspaceIDs:      []string{},
+		DismissedAttentionIDs: []string{},
+		Version:               view.Version,
+	}
+	_ = json.Unmarshal([]byte(view.OpenWorkspaceIDsJSON), &resp.OpenWorkspaceIDs)
+	_ = json.Unmarshal([]byte(view.DismissedAttentionIDsJSON), &resp.DismissedAttentionIDs)
+	if view.ActiveWorkspaceID != nil {
+		resp.ActiveWorkspaceID = *view.ActiveWorkspaceID
+	}
+	resp.UpdatedAt = view.UpdatedAt.Format(time.RFC3339Nano)
+	return resp
 }
 
 func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {

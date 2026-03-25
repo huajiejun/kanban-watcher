@@ -48,16 +48,31 @@ zsh scripts/test_build_macos_app.sh
 
 ## Local Preview
 
-To preview the card UI locally without Home Assistant:
+本地启动前端预览：
 
 ```bash
 npm install
 npm run preview
 ```
 
-Then open the local Vite URL in your browser. The preview page injects a mock
-`hass` payload so you can inspect the three workspace sections and click into
-the workspace dialog.
+启动后有两个入口：
+
+- 首页 `/`：网页版工作区主入口，桌面端显示“左侧状态栏 + 右侧多窗格工作区”，手机端退回 Home Assistant 卡片交互
+- 预览页 `/preview`：保留原来的卡片预览页，用于单卡片样式和弹窗交互验证
+
+如果本地 `kanban-watcher` HTTP API 开启了鉴权，访问时请带上 `api_key` 参数：
+
+```text
+http://127.0.0.1:5173/?api_key=your-api-key
+http://127.0.0.1:5173/preview?api_key=your-api-key
+```
+
+如需显式指定后端地址和消息条数，可继续追加：
+
+```text
+http://127.0.0.1:5173/?base_url=http://127.0.0.1:7778&api_key=your-api-key&messages_limit=50
+http://127.0.0.1:5173/preview?base_url=http://127.0.0.1:7778&api_key=your-api-key&messages_limit=50
+```
 
 ## Install In Home Assistant
 
@@ -98,6 +113,9 @@ entity: sensor.kanban_watcher_kanban_watcher
 - In API mode, the board requests `/api/workspaces/active` on load and refreshes periodically
 - In API mode, clicking a workspace requests `/api/workspaces/{workspace_id}/latest-messages`
 - Sending a message in the dialog calls `/api/workspace/{workspace_id}/follow-up`
+- 网页版工作区首页支持最多同时打开 4 个窗格，第 5 个会顶替最早打开的窗格
+- 任务从其他状态进入 `需要注意` 时，会自动加入桌面端右侧打开区
+- 手动关闭的关注窗格不会在普通刷新时重新自动弹出，除非它之后再次从其他状态回到 `需要注意`
 
 ## Todo List 功能
 

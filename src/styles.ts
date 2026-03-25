@@ -1,8 +1,455 @@
 import { css } from "lit";
 
+export const workspaceSectionListStyles = css`
+  .section {
+    border-radius: 14px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 72%, transparent);
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 65%, transparent);
+  }
+
+  .section-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    padding: 12px 14px;
+    font: inherit;
+    text-align: left;
+  }
+
+  .section-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+  }
+
+  .section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .section-count {
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.85rem;
+  }
+
+  .chevron {
+    color: var(--secondary-text-color, #94a3b8);
+    transition: transform 160ms ease;
+  }
+
+  .section[collapsed] .chevron {
+    transform: rotate(-90deg);
+  }
+
+  .section-body {
+    display: grid;
+    gap: 8px;
+    padding: 0 10px 10px;
+  }
+
+  .task-card {
+    --task-card-accent: color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: color-mix(
+      in srgb,
+      var(--ha-card-background, var(--card-background-color, #111827)) 82%,
+      var(--secondary-background-color, #0f172a)
+    );
+    border: 1px solid var(--task-card-accent);
+    border-left-width: 3px;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .task-card[data-selected="true"] {
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--primary-color, #f59e0b) 55%, transparent);
+  }
+
+  .task-card.is-attention {
+    --task-card-accent: color-mix(in srgb, var(--error-color, #f87171) 58%, transparent);
+    border-left-color: var(--error-color, #f87171);
+  }
+
+  .task-card.is-running {
+    --task-card-accent: color-mix(in srgb, var(--success-color, #10b981) 58%, transparent);
+    border-left-color: var(--success-color, #10b981);
+  }
+
+  .task-card.is-idle {
+    --task-card-accent: color-mix(in srgb, var(--warning-color, #f59e0b) 58%, transparent);
+    border-left-color: var(--warning-color, #f59e0b);
+  }
+
+  .workspace-name {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.98rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .tone-brand {
+    color: var(--primary-color, #f59e0b);
+  }
+
+  .tone-error {
+    color: var(--error-color, #f87171);
+  }
+
+  .tone-success {
+    color: var(--success-color, #34d399);
+  }
+
+  .tone-merged {
+    color: #a78bfa;
+  }
+
+  .tone-muted {
+    color: var(--secondary-text-color, #94a3b8);
+  }
+
+  .file-count {
+    color: var(--secondary-text-color, #94a3b8);
+  }
+
+  .meta-files {
+    justify-self: end;
+    white-space: nowrap;
+  }
+
+  .lines-added {
+    color: #34d399;
+  }
+
+  .lines-removed {
+    color: #f87171;
+  }
+
+  .empty-state {
+    padding: 22px 12px;
+    border-radius: 14px;
+    text-align: center;
+    color: var(--secondary-text-color, #94a3b8);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 72%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--divider-color, #cbd5e1) 70%, transparent);
+  }
+`;
+
+export const workspaceHomeStyles = css`
+  :host {
+    --workspace-home-panel-height: calc(100vh - 72px);
+    --workspace-home-pane-height: calc(var(--workspace-home-panel-height) + 12px);
+    display: block;
+    min-height: 100vh;
+    padding: 32px 24px 40px;
+    color: #e5e7eb;
+  }
+
+  .workspace-home-shell {
+    display: grid;
+    gap: 20px;
+    width: 100%;
+  }
+
+  .workspace-home-hero {
+    display: grid;
+    gap: 8px;
+  }
+
+  .workspace-home-eyebrow {
+    font-size: 0.76rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #f59e0b;
+    font-weight: 700;
+  }
+
+  .workspace-home-hero h1 {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.05;
+  }
+
+  .workspace-home-hero p {
+    margin: 0;
+    max-width: 56rem;
+    color: #94a3b8;
+    line-height: 1.6;
+  }
+
+  .workspace-home-layout {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    min-height: var(--workspace-home-pane-height);
+    overflow: hidden;
+  }
+
+  .workspace-home-layout[data-sidebar-collapsed="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-home-layout[data-sidebar-collapsed="false"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-home-layout[data-sidebar-docked="true"][data-sidebar-collapsed="false"] {
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+  }
+
+  .workspace-home-sidebar,
+  .workspace-home-pane-grid,
+  .workspace-home-placeholder {
+    border-radius: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.72);
+    box-shadow: 0 20px 48px rgba(2, 6, 23, 0.32);
+    backdrop-filter: blur(14px);
+  }
+
+  .workspace-home-sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    width: min(320px, calc(100vw - 48px));
+    padding: 14px;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    height: var(--workspace-home-panel-height);
+    min-height: var(--workspace-home-panel-height);
+    overflow: hidden;
+    transition: transform 180ms ease, opacity 180ms ease;
+  }
+
+  .workspace-home-sidebar[data-collapsed="true"] {
+    transform: translateX(calc(-100% - 16px));
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .workspace-home-sidebar[data-collapsed="false"] {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  .workspace-home-sidebar[data-docked="true"] {
+    position: static;
+    inset: auto;
+    z-index: auto;
+    width: auto;
+  }
+
+  .workspace-home-sidebar[data-docked="true"][data-collapsed="true"] {
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+    display: none;
+  }
+
+  .workspace-home-sidebar[data-docked="true"][data-collapsed="false"] {
+    height: var(--workspace-home-pane-height);
+    min-height: var(--workspace-home-pane-height);
+  }
+
+  .workspace-home-sidebar-content {
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: 8px;
+    align-content: start;
+  }
+
+  .workspace-home-sidebar-toggle {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 30;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    width: auto;
+    min-height: 36px;
+    padding: 0;
+    border-radius: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.82rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .workspace-home-sidebar-toggle.is-collapsed {
+    min-width: 36px;
+    justify-content: center;
+  }
+
+  .workspace-home-sidebar-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    border: 0;
+    background: rgba(15, 23, 42, 0.22);
+    cursor: pointer;
+  }
+
+  .task-card.is-compact {
+    display: block;
+    padding: 7px 9px;
+  }
+
+  .task-card.is-expanded {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+
+  .task-card.is-compact .workspace-name {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-size: 0.8rem;
+    line-height: 1.15;
+  }
+
+  .task-card.is-expanded .workspace-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.98rem;
+    line-height: 1.2;
+  }
+
+  .task-meta {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.82rem;
+    line-height: 1.2;
+  }
+
+  .meta-status,
+  .meta-files {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .relative-time {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  .status-icon {
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .workspace-home-pane-grid {
+    height: var(--workspace-home-pane-height);
+    min-height: var(--workspace-home-pane-height);
+    padding: 14px;
+    display: grid;
+    grid-template-columns: repeat(var(--workspace-pane-columns, 1), minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .workspace-home-pane-focus-layout {
+    height: var(--workspace-home-pane-height);
+    min-height: var(--workspace-home-pane-height);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px);
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .workspace-home-pane-main,
+  .workspace-home-pane-preview-rail {
+    border-radius: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.72);
+    box-shadow: 0 20px 48px rgba(2, 6, 23, 0.32);
+    backdrop-filter: blur(14px);
+  }
+
+  .workspace-home-pane-main {
+    padding: 14px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .workspace-home-pane-main workspace-conversation-pane {
+    --workspace-pane-font-size: 0.92rem;
+  }
+
+  .workspace-home-pane-preview-rail {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .workspace-home-pane-preview-rail workspace-preview-card {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .workspace-home-placeholder {
+    padding: 24px;
+  }
+
+  @media (max-width: 768px) {
+    :host {
+      padding: 20px 14px 28px;
+    }
+
+    .workspace-home-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+`;
+
 export const cardStyles = css`
   :host {
     display: block;
+    height: 100%;
+    min-height: 0;
+    font-size: var(--workspace-pane-font-size, 1rem);
   }
 
   /* 响应式字体大小变量 */
@@ -33,7 +480,7 @@ export const cardStyles = css`
   ha-card {
     background:
       radial-gradient(circle at top right, color-mix(in srgb, var(--warning-color, #f59e0b) 12%, transparent), transparent 25%),
-      var(--ha-card-background, var(--card-background-color, #ffffff));
+      var(--ha-card-background, var(--card-background-color, #111827));
     border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 70%, transparent);
     border-radius: 20px;
     box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0, 0, 0, 0.12));
@@ -49,7 +496,7 @@ export const cardStyles = css`
   .section {
     border-radius: 14px;
     overflow: hidden;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 65%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 72%, transparent);
     border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 65%, transparent);
   }
 
@@ -101,16 +548,19 @@ export const cardStyles = css`
   }
 
   .task-card {
+    --task-card-accent: color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
     display: grid;
     gap: 6px;
     width: 100%;
     padding: 10px 12px;
     border-radius: 12px;
-    background: color-mix(in srgb, var(--ha-card-background, var(--card-background-color, #ffffff)) 82%, var(--secondary-background-color, #f3f4f6));
-    border-left: 3px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 85%, transparent);
-    border-top: 0;
-    border-right: 0;
-    border-bottom: 0;
+    background: color-mix(
+      in srgb,
+      var(--ha-card-background, var(--card-background-color, #111827)) 82%,
+      var(--secondary-background-color, #0f172a)
+    );
+    border: 1px solid var(--task-card-accent);
+    border-left-width: 3px;
     text-align: left;
     color: inherit;
     font: inherit;
@@ -118,11 +568,18 @@ export const cardStyles = css`
   }
 
   .task-card.is-attention {
-    border-left-color: #f59e0b;
+    --task-card-accent: color-mix(in srgb, var(--error-color, #f87171) 58%, transparent);
+    border-left-color: var(--error-color, #f87171);
   }
 
   .task-card.is-running {
-    border-left-color: #10b981;
+    --task-card-accent: color-mix(in srgb, var(--success-color, #10b981) 58%, transparent);
+    border-left-color: var(--success-color, #10b981);
+  }
+
+  .task-card.is-idle {
+    --task-card-accent: color-mix(in srgb, var(--warning-color, #f59e0b) 58%, transparent);
+    border-left-color: var(--warning-color, #f59e0b);
   }
 
   .workspace-name {
@@ -209,7 +666,7 @@ export const cardStyles = css`
     border-radius: 14px;
     text-align: center;
     color: var(--secondary-text-color, #94a3b8);
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 65%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 72%, transparent);
     border: 1px dashed color-mix(in srgb, var(--divider-color, #cbd5e1) 70%, transparent);
   }
 
@@ -270,7 +727,7 @@ export const cardStyles = css`
 
   .dialog-title {
     margin: 0;
-    font-size: 1.08rem;
+    font-size: 1.08em;
     line-height: 1.2;
   }
 
@@ -293,9 +750,43 @@ export const cardStyles = css`
   }
 
   .dialog-panel-title {
-    font-size: 0.9rem;
+    font-size: 0.9em;
     font-weight: 700;
     color: var(--secondary-text-color, #64748b);
+  }
+
+  .workspace-pane-shell {
+    --workspace-pane-accent: color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 18px;
+    border: 1px solid var(--workspace-pane-accent);
+    border-left-width: 3px;
+    background: color-mix(
+      in srgb,
+      var(--ha-card-background, var(--card-background-color, #111827)) 90%,
+      var(--secondary-background-color, #0f172a)
+    );
+    box-sizing: border-box;
+  }
+
+  .workspace-pane-shell.is-attention {
+    --workspace-pane-accent: color-mix(in srgb, var(--error-color, #f87171) 58%, transparent);
+    border-left-color: var(--error-color, #f87171);
+  }
+
+  .workspace-pane-shell.is-running {
+    --workspace-pane-accent: color-mix(in srgb, var(--success-color, #10b981) 58%, transparent);
+    border-left-color: var(--success-color, #10b981);
+  }
+
+  .workspace-pane-shell.is-idle {
+    --workspace-pane-accent: color-mix(in srgb, var(--warning-color, #f59e0b) 58%, transparent);
+    border-left-color: var(--warning-color, #f59e0b);
   }
 
   .message-list {
@@ -324,7 +815,7 @@ export const cardStyles = css`
     padding: 6px 8px;
     border-radius: 8px;
     border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 22%, transparent);
-    background: color-mix(in srgb, var(--secondary-background-color, #f8fafc) 16%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 42%, transparent);
     color: color-mix(in srgb, var(--primary-text-color) 60%, var(--secondary-text-color, #94a3b8));
     text-align: left;
     cursor: pointer;
@@ -398,7 +889,7 @@ export const cardStyles = css`
   .message-tool-detail {
     padding: 8px 10px;
     border-radius: 8px;
-    background: color-mix(in srgb, var(--secondary-background-color, #f8fafc) 28%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 58%, transparent);
     border: 1px solid color-mix(in srgb, var(--divider-color, #e2e8f0) 20%, transparent);
     color: color-mix(in srgb, var(--primary-text-color) 78%, var(--secondary-text-color, #64748b));
     word-break: break-word;
@@ -616,7 +1107,7 @@ export const cardStyles = css`
     line-height: 1.35;
     white-space: normal;
     word-break: break-word;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 72%, transparent);
     color: inherit;
     text-align: left;
   }
@@ -738,7 +1229,25 @@ export const cardStyles = css`
   }
 
   .message-bubble.is-ai {
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 44%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 72%, transparent);
+  }
+
+  .message-bubble.is-smooth-reveal {
+    animation: message-smooth-reveal 220ms ease-out;
+    transform-origin: left top;
+  }
+
+  @keyframes message-smooth-reveal {
+    0% {
+      opacity: 0;
+      transform: translateY(4px) scale(0.985);
+      filter: saturate(0.92);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: saturate(1);
+    }
   }
 
   /* 快捷按钮区域 */
@@ -776,7 +1285,7 @@ export const cardStyles = css`
   }
 
   .quick-button.is-dynamic:hover {
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 50%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 72%, transparent);
   }
 
   /* 从消息中提取的选项按钮 */
@@ -874,7 +1383,7 @@ export const cardStyles = css`
     gap: 4px;
     padding: 8px 10px;
     border-radius: 10px;
-    background: color-mix(in srgb, var(--secondary-background-color, #f3f4f6) 72%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 72%, transparent);
     border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 60%, transparent);
   }
 
@@ -895,7 +1404,7 @@ export const cardStyles = css`
     background: color-mix(in srgb, var(--primary-color, #f59e0b) 12%, transparent);
     border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 28%, transparent);
     color: inherit;
-    font-size: 0.84rem;
+    font-size: 0.84em;
     line-height: 1.4;
   }
 
@@ -907,7 +1416,7 @@ export const cardStyles = css`
     padding: 10px 12px;
     border-radius: 10px;
     border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 72%, transparent);
-    background: color-mix(in srgb, var(--ha-card-background, #ffffff) 92%, transparent);
+    background: color-mix(in srgb, var(--ha-card-background, #111827) 92%, transparent);
     color: inherit;
     font: inherit;
     line-height: 1.4;
@@ -968,6 +1477,10 @@ export const cardStyles = css`
     line-height: 1.4;
   }
 
+  .dialog-feedback.is-empty {
+    visibility: hidden;
+  }
+
   @keyframes spinner-rotate {
     to {
       transform: rotate(360deg);
@@ -1016,13 +1529,26 @@ export const cardStyles = css`
     }
 
     .task-meta {
-      grid-template-columns: 1fr;
-      gap: 6px;
-      font-size: 0.75rem;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.72rem;
+    }
+
+    .meta-status {
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .relative-time {
+      min-width: 0;
+      font-size: 0.72rem;
     }
 
     .meta-files {
-      justify-self: start;
+      justify-self: end;
+      gap: 4px;
+      font-size: 0.7rem;
     }
 
     /* 弹窗样式 */

@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -47,5 +48,25 @@ func TestAuthMiddlewareAllowsRealtimeRouteWithAPIKeyQuery(t *testing.T) {
 	}
 	if rr.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusNoContent)
+	}
+}
+
+func TestCorsMiddlewareAllowsPutPreflightForWorkspaceView(t *testing.T) {
+	srv := NewServer(nil, 0, "test-key")
+
+	handler := srv.corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/workspace-view", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusOK)
+	}
+	if !strings.Contains(rr.Header().Get("Access-Control-Allow-Methods"), "PUT") {
+		t.Fatalf("Access-Control-Allow-Methods = %q, want include PUT", rr.Header().Get("Access-Control-Allow-Methods"))
 	}
 }

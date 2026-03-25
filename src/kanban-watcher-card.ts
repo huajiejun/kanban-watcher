@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from "lit";
-import { unsafeHTML } from "lit/directives/unsafe-html.js";
+import "./components/workspace-conversation-pane";
+import { detectDialogEditLanguage, renderDialogMessage } from "./components/dialog-message-renderer";
 import {
   cancelWorkspaceQueue,
   fetchActiveWorkspaces,
@@ -9,11 +10,18 @@ import {
   stopWorkspaceExecution,
 } from "./lib/http-api";
 import { connectRealtime } from "./lib/realtime-api";
+import {
+  compactDialogMessageText,
+  getDialogMessageIdentity,
+  normalizeApiMessages,
+  normalizeApiMessagesFlat,
+  normalizeSessionMessage,
+  type DialogMessage,
+  type DialogTextMessage,
+  type DialogToolMessage,
+} from "./lib/dialog-messages";
 import { groupWorkspaces } from "./lib/group-workspaces";
 import { formatRelativeTime } from "./lib/format-relative-time";
-import { renderMessageMarkdown } from "./lib/render-message-markdown";
-import { getStatusMeta } from "./lib/status-meta";
-import { summarizeToolCall, type DialogToolStatus } from "./lib/tool-call";
 import {
   extractDynamicButtons,
   getQuickButtonsWithLLM,
@@ -22,10 +30,9 @@ import {
 } from "./lib/quick-buttons";
 import type { ButtonWithReason } from "./types";
 import {
-  detectLanguageFromPath,
-  renderDiffWithHighlight,
-  renderCodeWithHighlight,
-} from "./lib/highlight-code";
+  renderWorkspaceSectionList,
+  type WorkspaceSectionKey,
+} from "./components/workspace-section-list";
 import { cardStyles } from "./styles";
 import type {
   ActiveWorkspacesResponse,
@@ -40,6 +47,7 @@ import type {
   WorkspaceQueueStatusResponse,
 } from "./types";
 
+type SectionKey = WorkspaceSectionKey;
 // Import todo-related components
 import "./components/todo-progress-popup";
 import "./components/chat-todo-list";
@@ -65,43 +73,6 @@ type CardConfig = {
 };
 
 type DialogAction = "send" | "queue" | "stop";
-type DialogTextMessage = {
-  key?: string;
-  kind: "message";
-  sender: "user" | "ai";
-  text: string;
-  timestamp?: string;
-};
-type DialogToolMessage = {
-  key?: string;
-  kind: "tool";
-  toolName: string;
-  summary: string;
-  detail: string;
-  status: DialogToolStatus;
-  statusLabel: string;
-  icon: string;
-  command?: string;
-  timestamp?: string;
-  changes?: Array<{
-    action: "write" | "edit" | "delete" | "rename";
-    content?: string;
-    unified_diff?: string;
-    new_path?: string;
-  }>;
-};
-type DialogToolGroupMessage = {
-  key?: string;
-  kind: "tool-group";
-  toolName: string;
-  summary: string;
-  status: DialogToolStatus;
-  statusLabel: string;
-  icon: string;
-  items: DialogToolMessage[];
-  timestamp?: string;
-};
-type DialogMessage = DialogTextMessage | DialogToolMessage | DialogToolGroupMessage;
 
 const SECTION_ORDER: Array<{ key: SectionKey; label: string }> = [
   { key: "attention", label: "需要注意" },
@@ -239,73 +210,14 @@ export class KanbanWatcherCard extends LitElement {
       return html`<div class="empty-state">当前没有任务</div>`;
     }
 
-    return sections.map(({ key, label, workspaces }) =>
-      this.renderSection(key, label, workspaces),
-    );
-  }
-
-  private renderSection(
-    key: SectionKey,
-    label: string,
-    workspaces: KanbanWorkspace[],
-  ) {
-    const collapsed = this.collapsedSections.has(key);
-
-    return html`
-      <section class="section" ?collapsed=${collapsed}>
-        <button
-          class="section-toggle"
-          type="button"
-          @click=${() => this.toggleSection(key)}
-        >
-          <span class="section-title-row">
-            <span class="section-title">${label}</span>
-            <span class="section-count">${workspaces.length}</span>
-          </span>
-          <span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        ${collapsed
-          ? nothing
-          : html`
-              <div class="section-body">
-                ${workspaces.map((workspace) => this.renderWorkspace(workspace))}
-              </div>
-            `}
-      </section>
-    `;
-  }
-
-  private renderWorkspace(workspace: KanbanWorkspace) {
-    const statusMeta = getStatusMeta(workspace);
-    const { relativeTime, filesChanged, linesAdded, linesRemoved } =
-      this.getWorkspaceDisplayMeta(workspace);
-
-    return html`
-      <button
-        class="task-card ${statusMeta.accentClass}"
-        type="button"
-        @click=${() => this.openWorkspaceDialog(workspace)}
-      >
-        <div class="workspace-name">${workspace.name}</div>
-        <div class="task-meta">
-          <span class="meta-status">
-            ${statusMeta.icons.map(
-              (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
-                >${icon.symbol}</span
-              >`,
-            )}
-          </span>
-          <span class="relative-time">${relativeTime}</span>
-          <span class="meta-files"
-            ><span class="file-count">📄 ${filesChanged}</span> <span
-              class="lines-added"
-              >+${linesAdded}</span
-            >
-            <span class="lines-removed">-${linesRemoved}</span></span
-          >
-        </div>
-      </button>
-    `;
+    return renderWorkspaceSectionList({
+      sections,
+      collapsedSections: this.collapsedSections,
+      selectedWorkspaceId: this.selectedWorkspaceId,
+      getWorkspaceDisplayMeta: (workspace) => this.getWorkspaceDisplayMeta(workspace),
+      onToggleSection: (key) => this.toggleSection(key),
+      onSelectWorkspace: (workspace) => this.openWorkspaceDialog(workspace),
+    });
   }
 
   private renderQuickButtons(workspace: KanbanWorkspace) {
@@ -407,73 +319,25 @@ export class KanbanWatcherCard extends LitElement {
           aria-modal="true"
           aria-label="${workspace.name} 工作区详情"
         >
-          <div class="dialog-header">
-            <div class="dialog-heading">
-              <h2 class="dialog-title">${workspace.name}</h2>
-            </div>
-            <div class="dialog-header-actions">
-              <todo-progress-popup
-                .todos=${currentTodos}
-              ></todo-progress-popup>
-            </div>
-            <button
-              class="dialog-close"
-              type="button"
-              aria-label="关闭"
-              @click=${this.closeWorkspaceDialog}
-            >
-              ✕
-            </button>
-          </div>
-
-          <section class="dialog-messages">
-            <div class="dialog-panel-title">对话消息</div>
-            <div class="message-list">
-              ${messages.map((message) => this.renderDialogEntry(message))}
-            </div>
-          </section>
-
-          <div class="dialog-composer">
-            ${isQueued
-              ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
-              : nothing}
-            ${this.renderQuickButtons(workspace)}
-            <textarea
-              class="message-input"
-              rows="2"
-              placeholder="输入消息"
-              .value=${this.messageDraft}
-              @input=${this.handleMessageInput}
-            ></textarea>
-            <div class="dialog-actions">
-              <button
-                class="dialog-action dialog-action-primary"
-                type="button"
-                @click=${() => void this.handleActionClick(isRunning ? "stop" : "send")}
-              >
-                ${isRunning
-                  ? html`
-                      <span class="action-spinner" aria-hidden="true"></span>
-                      <span>停止</span>
-                    `
-                  : "发送消息"}
-              </button>
-              ${canQueue
-                ? html`
-                    <button
-                      class="dialog-action dialog-action-secondary"
-                      type="button"
-                      @click=${() => void this.handleActionClick(isQueued ? "stop" : "queue")}
-                    >
-                      ${isQueued ? "取消队列" : "加入队列"}
-                    </button>
-                  `
-                : nothing}
-            </div>
-            <div class="dialog-feedback" aria-live="polite">
-              ${this.currentFeedback}
-            </div>
-          </div>
+          <workspace-conversation-pane
+            .workspaceName=${workspace.name}
+            .messages=${messages}
+            .messageDraft=${this.messageDraft}
+            .currentFeedback=${this.currentFeedback}
+            .queueStatus=${queueStatus}
+            .isRunning=${isRunning}
+            .canQueue=${canQueue}
+            .renderMessage=${(message: DialogMessage) => this.renderDialogEntry(message)}
+            .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
+            @pane-close=${this.closeWorkspaceDialog}
+            @draft-change=${(event: CustomEvent<string>) => {
+              this.messageDraft = event.detail;
+            }}
+            @action-click=${(event: CustomEvent<DialogAction>) =>
+              void this.handleActionClick(event.detail)}
+            @quick-button-click=${(event: CustomEvent<string>) =>
+              void this.handleQuickButtonClick(event.detail)}
+          ></workspace-conversation-pane>
         </section>
       </div>
     `;
@@ -514,6 +378,9 @@ export class KanbanWatcherCard extends LitElement {
     this.messageDraft = "";
     this.actionFeedback = "";
     this.dialogError = "";
+    const nextDialogMessagesByWorkspace = { ...this.dialogMessagesByWorkspace };
+    delete nextDialogMessagesByWorkspace[workspace.id];
+    this.dialogMessagesByWorkspace = nextDialogMessagesByWorkspace;
     if (this.isApiMode) {
       const shouldRefreshQueueStatus = this.shouldRefreshWorkspaceMessages(workspace);
       void this.loadWorkspaceMessages(workspace.id, true);
@@ -539,197 +406,13 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private renderDialogEntry(message: DialogMessage) {
-    if (message.kind === "tool") {
-      return this.renderToolMessage(message);
-    }
-    if (message.kind === "tool-group") {
-      return this.renderToolGroupMessage(message);
-    }
-
-    return html`
-      <div class="message-row">
-        <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">
-          ${unsafeHTML(renderMessageMarkdown(this.compactMessageText(message.text)))}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderToolMessage(message: DialogToolMessage) {
-    const toolKey = this.getDialogMessageIdentity(message);
-    const expanded = this.expandedToolMessageKeys.has(toolKey);
-
-    return html`
-      <div class="message-tool">
-        <button
-          class="message-tool-button is-${message.status}"
-          type="button"
-          @click=${() => this.toggleToolMessage(toolKey)}
-        >
-          <span class="message-tool-icon" aria-hidden="true">${message.icon}</span>
-          <span class="message-tool-summary">
-            <span class="message-tool-name">${message.toolName}</span>
-            <span class="message-tool-text">${message.summary}</span>
-          </span>
-          <span class="message-tool-status">${message.statusLabel}</span>
-        </button>
-        ${expanded
-          ? html`
-              <div class="message-tool-detail">
-                ${message.command
-                  ? html`<div class="message-tool-command">${message.command}</div>`
-                  : nothing}
-                ${message.changes && message.changes.length > 0
-                  ? message.changes.map((change) => this.renderFileChange(change))
-                  : nothing}
-                ${message.detail && (!message.changes || message.changes.length === 0)
-                  ? html`${unsafeHTML(renderMessageMarkdown(message.detail))}`
-                  : nothing}
-              </div>
-            `
-          : nothing}
-      </div>
-    `;
-  }
-
-  private renderFileChange(change: NonNullable<DialogToolMessage["changes"]>[number]) {
-    const actionLabel: Record<string, string> = {
-      write: "写入",
-      edit: "编辑",
-      delete: "删除",
-      rename: "重命名",
-    };
-
-    if (change.action === "edit" && change.unified_diff) {
-      const language = this.currentEditLanguage;
-      const highlightedDiff = renderDiffWithHighlight(change.unified_diff, language);
-      return html`
-        <div class="file-change">
-          <div class="file-change-header">
-            <span class="file-change-action">${actionLabel[change.action]}</span>
-          </div>
-          <div class="file-change-diff">${unsafeHTML(highlightedDiff)}</div>
-        </div>
-      `;
-    }
-
-    if (change.action === "write" && change.content) {
-      const lines = change.content.split("\n").length;
-      const language = this.currentEditLanguage;
-      const highlightedCode = renderCodeWithHighlight(this.truncateContent(change.content, 50), language);
-      return html`
-        <div class="file-change">
-          <div class="file-change-header">
-            <span class="file-change-action">${actionLabel[change.action]}</span>
-            <span class="file-change-lines">${lines} 行</span>
-          </div>
-          <div class="file-change-code">${unsafeHTML(highlightedCode)}</div>
-        </div>
-      `;
-    }
-
-    if (change.action === "delete") {
-      return html`
-        <div class="file-change">
-          <div class="file-change-header">
-            <span class="file-change-action">${actionLabel[change.action]}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    if (change.action === "rename" && change.new_path) {
-      return html`
-        <div class="file-change">
-          <div class="file-change-header">
-            <span class="file-change-action">${actionLabel[change.action]}</span>
-            <span class="file-change-new-path">→ ${change.new_path}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    return nothing;
-  }
-
-  private get currentEditLanguage(): string | undefined {
-    const messages = this.selectedWorkspaceId
-      ? this.dialogMessagesByWorkspace[this.selectedWorkspaceId]
-      : [];
-    for (const message of messages) {
-      if (message.kind === "tool" && message.toolName === "修改文件" && message.summary) {
-        return detectLanguageFromPath(message.summary);
-      }
-    }
-    return undefined;
-  }
-
-  private formatUnifiedDiff(diff: string): string {
-    return diff
-      .split("\n")
-      .map((line) => {
-        if (line.startsWith("+") && !line.startsWith("+++")) {
-          return `+ ${line.slice(1)}`;
-        }
-        if (line.startsWith("-") && !line.startsWith("---")) {
-          return `- ${line.slice(1)}`;
-        }
-        if (line.startsWith("@@")) {
-          return `@@ ${line.slice(2)}`;
-        }
-        return line;
-      })
-      .join("\n");
-  }
-
-  private truncateContent(content: string, maxLines: number): string {
-    const lines = content.split("\n");
-    if (lines.length <= maxLines) {
-      return content;
-    }
-    return lines.slice(0, maxLines).join("\n") + `\n... (${lines.length - maxLines} 行已省略)`;
-  }
-
-  private renderToolGroupMessage(message: DialogToolGroupMessage) {
-    const toolKey = this.getDialogMessageIdentity(message);
-    const expanded = this.expandedToolMessageKeys.has(toolKey);
-
-    return html`
-      <div class="message-tool">
-        <button
-          class="message-tool-button is-${message.status}"
-          type="button"
-          @click=${() => this.toggleToolMessage(toolKey)}
-        >
-          <span class="message-tool-icon" aria-hidden="true">${message.icon}</span>
-          <span class="message-tool-summary">
-            <span class="message-tool-name">${message.toolName}</span>
-            <span class="message-tool-text">${message.summary}</span>
-          </span>
-          <span class="message-tool-status">${message.statusLabel}</span>
-        </button>
-        ${expanded
-          ? html`
-              <div class="message-tool-detail">
-                ${message.items.map((item) => this.renderGroupedToolDetail(item))}
-              </div>
-            `
-          : nothing}
-      </div>
-    `;
-  }
-
-  private renderGroupedToolDetail(message: DialogToolMessage) {
-    return html`
-      <div class="message-tool-group-item">
-        <div class="message-tool-group-item-summary">
-          ${message.command ?? message.summary}
-        </div>
-        ${message.detail
-          ? html`${unsafeHTML(renderMessageMarkdown(message.detail))}`
-          : nothing}
-      </div>
-    `;
+    return renderDialogMessage(message, {
+      expandedToolMessageKeys: this.expandedToolMessageKeys,
+      onToggleToolMessage: (toolKey) => this.toggleToolMessage(toolKey),
+      editLanguage: detectDialogEditLanguage(
+        this.selectedWorkspaceId ? this.dialogMessagesByWorkspace[this.selectedWorkspaceId] ?? [] : [],
+      ),
+    });
   }
 
   private toggleToolMessage(toolKey: string) {
@@ -1097,7 +780,7 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     return parsed
-      .map((message) => this.normalizeSessionMessage(message))
+      .map((message) => normalizeSessionMessage(message))
       .filter((message): message is DialogMessage => Boolean(message));
   }
 
@@ -1107,35 +790,6 @@ export class KanbanWatcherCard extends LitElement {
     } catch {
       return [];
     }
-  }
-
-  private normalizeSessionMessage(message: KanbanSessionMessage): DialogMessage | undefined {
-    if (!message || typeof message.content !== "string") {
-      return undefined;
-    }
-
-    const text = message.content.trim();
-
-    if (!text) {
-      return undefined;
-    }
-
-    return {
-      kind: "message",
-      sender: message.role === "user" ? "user" : "ai",
-      text: this.compactMessageText(text),
-      timestamp: message.timestamp,
-    };
-  }
-
-  private compactMessageText(text: string) {
-    return text
-      .replace(/\r\n/g, "\n")
-      .split("\n")
-      .map((line) => line.trim().replace(/[ \t]{2,}/g, " "))
-      .join("\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
   }
 
   private scrollMessagesToBottom() {
@@ -1720,48 +1374,11 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private normalizeApiMessages(messages: SessionMessageResponse[] | undefined) {
-    return this.groupConsecutiveToolMessages(this.normalizeApiMessagesFlat(messages));
+    return normalizeApiMessages(messages);
   }
 
   private normalizeApiMessagesFlat(messages: SessionMessageResponse[] | undefined) {
-    return (Array.isArray(messages) ? messages : [])
-      .map((message) => {
-        if (message.entry_type === "tool_use") {
-          return this.normalizeApiToolMessage(message);
-        }
-        if (typeof message.content !== "string" || !message.content.trim()) {
-          return undefined;
-        }
-        return {
-          key: this.buildMessageKey(message),
-          kind: "message",
-          sender: message.role === "user" ? "user" : "ai",
-          text: this.compactMessageText(message.content),
-          timestamp: message.timestamp,
-        } satisfies DialogMessage;
-      })
-      .filter((message): message is DialogTextMessage | DialogToolMessage => Boolean(message));
-  }
-
-  private normalizeApiToolMessage(message: SessionMessageResponse) {
-    const summary = summarizeToolCall(message);
-    if (!summary) {
-      return undefined;
-    }
-
-    return {
-      key: this.buildMessageKey(message),
-      kind: "tool",
-      toolName: summary.toolName,
-      summary: summary.summary,
-      detail: summary.detail,
-      status: summary.status,
-      statusLabel: summary.statusLabel,
-      icon: summary.icon,
-      command: summary.command,
-      changes: summary.changes,
-      timestamp: message.timestamp,
-    } satisfies DialogMessage;
+    return normalizeApiMessagesFlat(messages);
   }
 
   /**
@@ -1838,77 +1455,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private getDialogMessageIdentity(message: DialogMessage) {
-    if (message.key) {
-      return message.key;
-    }
-    if (message.kind === "tool-group") {
-      return `tool-group:${message.toolName}:${message.summary}:${message.status}`;
-    }
-    if (message.kind === "tool") {
-      return `tool:${message.toolName}:${message.summary}:${message.status}`;
-    }
-    return `${message.sender}:${message.text}`;
-  }
-
-  private groupConsecutiveToolMessages(messages: DialogMessage[]) {
-    const grouped: DialogMessage[] = [];
-
-    for (const message of messages) {
-      const previous = grouped.at(-1);
-      if (
-        message.kind === "tool" &&
-        previous?.kind === "tool-group" &&
-        previous.toolName === message.toolName
-      ) {
-        previous.items = [...previous.items, message];
-        previous.summary = `${previous.items.length} commands`;
-        previous.status = this.getGroupedToolStatus(previous.items);
-        previous.statusLabel = previous.items.length > 1 ? `${previous.items.length} 条` : previous.statusLabel;
-        previous.timestamp = this.getLatestDialogTimestamp(previous.items);
-        continue;
-      }
-
-      if (
-        message.kind === "tool" &&
-        previous?.kind === "tool" &&
-        previous.toolName === message.toolName
-      ) {
-        grouped[grouped.length - 1] = {
-          kind: "tool-group",
-          toolName: message.toolName,
-          summary: "2 commands",
-          status: this.getGroupedToolStatus([previous, message]),
-          statusLabel: "2 条",
-          icon: message.icon,
-          items: [previous, message],
-          timestamp: this.getLatestDialogTimestamp([previous, message]),
-        } satisfies DialogToolGroupMessage;
-        continue;
-      }
-
-      grouped.push(message);
-    }
-
-    return grouped;
-  }
-
-  private getGroupedToolStatus(items: DialogToolMessage[]): DialogToolStatus {
-    if (items.some((item) => item.status === "error")) {
-      return "error";
-    }
-    if (items.some((item) => item.status === "pending")) {
-      return "pending";
-    }
-    if (items.some((item) => item.status === "running")) {
-      return "running";
-    }
-    if (items.some((item) => item.status === "denied")) {
-      return "denied";
-    }
-    if (items.every((item) => item.status === "success")) {
-      return "success";
-    }
-    return "idle";
+    return getDialogMessageIdentity(message);
   }
 
   private flattenDialogMessages(messages: DialogMessage[]) {
@@ -2028,7 +1575,7 @@ export class KanbanWatcherCard extends LitElement {
       key: `local:${Date.now()}:${text}`,
       kind: "message",
       sender: "user",
-      text: this.compactMessageText(text),
+      text: compactDialogMessageText(text),
       timestamp: new Date().toISOString(),
     };
     const existing = this.dialogMessagesByWorkspace[workspaceId] ?? [];
@@ -2077,22 +1624,6 @@ export class KanbanWatcherCard extends LitElement {
         message.key.startsWith("local:") &&
         message.text === incoming.text,
     );
-  }
-
-  private buildMessageKey(message: SessionMessageResponse) {
-    if (
-      typeof message.process_id === "string" &&
-      typeof message.entry_index === "number"
-    ) {
-      return `${message.process_id}:${message.entry_index}`;
-    }
-    if (typeof message.id === "number") {
-      return `id:${message.id}`;
-    }
-    if (typeof message.timestamp === "string" && typeof message.content === "string") {
-      return `${message.timestamp}:${message.content}`;
-    }
-    return undefined;
   }
 
   private toErrorMessage(error: unknown, fallback: string) {
