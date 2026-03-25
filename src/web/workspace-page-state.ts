@@ -32,7 +32,15 @@ function trimOpenWorkspaceIds(
 }
 
 function isAttentionWorkspace(workspace: KanbanWorkspace) {
-  return Boolean(workspace.needs_attention || workspace.has_pending_approval);
+  if (workspace.has_pending_approval) {
+    return true;
+  }
+
+  if (workspace.status === "running") {
+    return false;
+  }
+
+  return Boolean(workspace.needs_attention || workspace.has_unseen_turns);
 }
 
 export function createWorkspacePageState(

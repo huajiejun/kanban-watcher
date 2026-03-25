@@ -16,7 +16,7 @@ function createWorkspace(
   return {
     id,
     name: `任务 ${id}`,
-    status: "running",
+    status: "completed",
     updated_at: "2026-03-24T12:00:00Z",
     ...overrides,
   };
@@ -65,6 +65,27 @@ describe("workspace page state", () => {
     ]);
 
     expect(next.openWorkspaceIds).toEqual(["ws-1", "ws-2"]);
+    expect(next.activeWorkspaceId).toBe("ws-1");
+  });
+
+  it("does not auto-open a running workspace that only has unseen turns", () => {
+    const initial = reconcileWorkspacePageState(
+      createWorkspacePageState({
+        openWorkspaceIds: ["ws-1"],
+        activeWorkspaceId: "ws-1",
+      }),
+      [
+        createWorkspace("ws-1", { needs_attention: false }),
+        createWorkspace("ws-2", { status: "completed", has_unseen_turns: false }),
+      ],
+    );
+
+    const next = reconcileWorkspacePageState(initial, [
+      createWorkspace("ws-1", { needs_attention: false }),
+      createWorkspace("ws-2", { status: "running", has_unseen_turns: true }),
+    ]);
+
+    expect(next.openWorkspaceIds).toEqual(["ws-1"]);
     expect(next.activeWorkspaceId).toBe("ws-1");
   });
 
