@@ -146,6 +146,123 @@ describe("workspace home helpers", () => {
     expect(listCssText).toContain("var(--secondary-background-color, #111827)");
   });
 
+  it("uses focus layout on smaller desktop screens while keeping a summary rail", async () => {
+    setWindowWidth(1200);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "工作区一",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "工作区二",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "这里是工作区一最近的一条关键结论。",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "这里是工作区二最近的一条关键结论。",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+    (cards[1] as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(element.shadowRoot?.querySelector(".workspace-home-pane-focus-layout")).not.toBeNull();
+    expect(element.shadowRoot?.querySelectorAll("workspace-conversation-pane")).toHaveLength(1);
+    expect(element.shadowRoot?.textContent).toContain("这里是工作区一最近的一条关键结论。");
+  });
+
+  it("keeps grid layout on very wide screens", async () => {
+    setWindowWidth(1920);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "工作区一",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "工作区二",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息二" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+    (cards[1] as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(element.shadowRoot?.querySelector(".workspace-home-pane-focus-layout")).toBeNull();
+    expect(element.shadowRoot?.querySelectorAll("workspace-conversation-pane")).toHaveLength(2);
+  });
+
   it("keeps polling opened panes when websocket is unavailable", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);

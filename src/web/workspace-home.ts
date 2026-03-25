@@ -2,7 +2,10 @@ import { LitElement, html, nothing } from "lit";
 
 import "../index";
 import "../components/workspace-conversation-pane";
-import type { ConversationPaneAction } from "../components/workspace-conversation-pane";
+import type {
+  ConversationPaneAction,
+  WorkspaceConversationPane,
+} from "../components/workspace-conversation-pane";
 import { renderWorkspaceSectionList } from "../components/workspace-section-list";
 import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
 import { formatRelativeTime } from "../lib/format-relative-time";
@@ -52,6 +55,10 @@ import {
   readPersistedWorkspacePageState,
   writePersistedWorkspacePageState,
 } from "./workspace-page-state-storage";
+import {
+  resolveWorkspacePaneLayoutMode,
+  summarizeWorkspacePreview,
+} from "./workspace-pane-layout";
 import { buildPreviewCardConfig, readPreviewApiOptions } from "../playground";
 
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
@@ -160,6 +167,7 @@ export class KanbanWorkspaceHome extends LitElement {
     const openWorkspaces = this.pageState.openWorkspaceIds
       .map((id) => this.workspaces.find((workspace) => workspace.id === id))
       .filter((workspace): workspace is KanbanWorkspace => Boolean(workspace));
+    const paneLayoutMode = resolveWorkspacePaneLayoutMode(window.innerWidth, openWorkspaces.length);
 
     return html`
       <main class="workspace-home-shell" data-mode="desktop">
@@ -186,40 +194,7 @@ export class KanbanWorkspaceHome extends LitElement {
               onSelectWorkspace: (workspace) => this.handleOpenWorkspace(workspace),
             })}
           </aside>
-          <section
-            class="workspace-home-pane-grid"
-            style=${`--workspace-pane-columns: ${getPaneColumns(openWorkspaces.length, window.innerWidth)};`}
-          >
-            ${openWorkspaces.length === 0
-              ? html`<div class="empty-state">从左侧选择工作区后，这里会显示对话内容。</div>`
-              : openWorkspaces.map(
-                  (workspace) => {
-                    const queueStatus = this.queueStatusByWorkspace[workspace.id];
-                    const isRunning = workspace.status === "running";
-                    const statusAccentClass = getStatusMeta(workspace).accentClass;
-
-                    return html`
-                    <workspace-conversation-pane
-                      .workspaceName=${workspace.name}
-                      .messages=${this.messagesByWorkspace[workspace.id] ?? []}
-                      .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
-                      .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}
-                      .smoothRevealMessageKey=${this.smoothRevealMessageKeyByWorkspace[workspace.id]}
-                      .statusAccentClass=${statusAccentClass}
-                      .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
-                      .queueStatus=${queueStatus}
-                      .isRunning=${isRunning}
-                      .canQueue=${Boolean(isRunning || queueStatus?.status === "queued")}
-                      @draft-change=${(event: CustomEvent<string>) =>
-                        this.handleDraftChange(workspace.id, event.detail)}
-                      @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
-                        void this.handlePaneAction(workspace, event.detail)}
-                      @pane-close=${() => this.handleCloseWorkspace(workspace)}
-                    ></workspace-conversation-pane>
-                  `;
-                  },
-                )}
-          </section>
+          ${this.renderWorkspacePanes(openWorkspaces, paneLayoutMode)}
         </section>
       </main>
     `;
@@ -972,15 +947,104 @@ export class KanbanWorkspaceHome extends LitElement {
     await this.updateComplete;
     await Promise.resolve();
 
+    const panes = [
+      ...(this.renderRoot.querySelectorAll("workspace-conversation-pane") ?? []),
+    ] as Array<WorkspaceConversationPane>;
+    if (panes.length === 1) {
+      panes[0]?.focusComposer();
+      return;
+    }
+
     const paneIndex = this.pageState.openWorkspaceIds.indexOf(workspaceId);
     if (paneIndex < 0) {
       return;
     }
 
-    const panes = [
-      ...(this.renderRoot.querySelectorAll("workspace-conversation-pane") ?? []),
-    ] as Array<WorkspaceConversationPane>;
     panes[paneIndex]?.focusComposer();
+  }
+
+  private renderWorkspacePanes(
+    openWorkspaces: KanbanWorkspace[],
+    paneLayoutMode: "grid" | "focus",
+  ) {
+    if (openWorkspaces.length === 0) {
+      return html`<section class="workspace-home-pane-grid">
+        <div class="empty-state">从左侧选择工作区后，这里会显示对话内容。</div>
+      </section>`;
+    }
+
+    if (paneLayoutMode === "focus" && this.activeWorkspace) {
+      const secondaryWorkspaces = openWorkspaces.filter((workspace) => workspace.id !== this.activeWorkspace?.id);
+      return html`
+        <section class="workspace-home-pane-focus-layout">
+          <div class="workspace-home-pane-main">
+            ${this.renderWorkspacePane(this.activeWorkspace)}
+          </div>
+          ${secondaryWorkspaces.length > 0
+            ? html`
+                <aside class="workspace-home-pane-preview-rail">
+                  ${secondaryWorkspaces.map((workspace) => this.renderWorkspacePreviewCard(workspace))}
+                </aside>
+              `
+            : nothing}
+        </section>
+      `;
+    }
+
+    return html`
+      <section
+        class="workspace-home-pane-grid"
+        style=${`--workspace-pane-columns: ${getPaneColumns(openWorkspaces.length, window.innerWidth)};`}
+      >
+        ${openWorkspaces.map((workspace) => this.renderWorkspacePane(workspace))}
+      </section>
+    `;
+  }
+
+  private renderWorkspacePane(workspace: KanbanWorkspace) {
+    const queueStatus = this.queueStatusByWorkspace[workspace.id];
+    const isRunning = workspace.status === "running";
+    const statusAccentClass = getStatusMeta(workspace).accentClass;
+
+    return html`
+      <workspace-conversation-pane
+        .workspaceName=${workspace.name}
+        .messages=${this.messagesByWorkspace[workspace.id] ?? []}
+        .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
+        .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}
+        .smoothRevealMessageKey=${this.smoothRevealMessageKeyByWorkspace[workspace.id]}
+        .statusAccentClass=${statusAccentClass}
+        .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
+        .queueStatus=${queueStatus}
+        .isRunning=${isRunning}
+        .canQueue=${Boolean(isRunning || queueStatus?.status === "queued")}
+        @draft-change=${(event: CustomEvent<string>) =>
+          this.handleDraftChange(workspace.id, event.detail)}
+        @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
+          void this.handlePaneAction(workspace, event.detail)}
+        @pane-close=${() => this.handleCloseWorkspace(workspace)}
+      ></workspace-conversation-pane>
+    `;
+  }
+
+  private renderWorkspacePreviewCard(workspace: KanbanWorkspace) {
+    const statusAccentClass = getStatusMeta(workspace).accentClass;
+    const previewLines = summarizeWorkspacePreview(this.messagesByWorkspace[workspace.id] ?? []);
+
+    return html`
+      <button
+        class="workspace-preview-card ${statusAccentClass}"
+        type="button"
+        @click=${() => this.handleOpenWorkspace(workspace)}
+      >
+        <div class="workspace-preview-title">${workspace.name}</div>
+        <div class="workspace-preview-lines">
+          ${previewLines.length > 0
+            ? previewLines.map((line) => html`<p class="workspace-preview-line">${line}</p>`)
+            : html`<p class="workspace-preview-line is-empty">暂无可预览文本消息</p>`}
+        </div>
+      </button>
+    `;
   }
 
   private renderQuickButtons(workspace: KanbanWorkspace) {
