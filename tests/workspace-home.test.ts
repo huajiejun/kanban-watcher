@@ -6,6 +6,7 @@ import {
   getPaneColumns,
   resolveWorkspaceHomeMode,
 } from "../src/web/workspace-home";
+import { workspaceHomeStyles, workspaceSectionListStyles } from "../src/styles";
 
 function setWindowWidth(width: number) {
   Object.defineProperty(window, "innerWidth", {
@@ -82,6 +83,19 @@ describe("workspace home helpers", () => {
     expect(getPaneColumns(3)).toBe(3);
     expect(getPaneColumns(4)).toBe(4);
     expect(getPaneColumns(5)).toBe(4);
+  });
+
+  it("keeps desktop panes inside a fixed-height grid and uses dark card fallbacks", () => {
+    const homeCssText = Array.isArray(workspaceHomeStyles)
+      ? workspaceHomeStyles.map((style) => style.cssText).join("\n")
+      : workspaceHomeStyles.cssText;
+    const listCssText = Array.isArray(workspaceSectionListStyles)
+      ? workspaceSectionListStyles.map((style) => style.cssText).join("\n")
+      : workspaceSectionListStyles.cssText;
+
+    expect(homeCssText).toContain(".workspace-home-pane-grid");
+    expect(homeCssText).toContain("height: min(72vh, 960px)");
+    expect(listCssText).toContain("var(--card-background-color, #111827)");
   });
 
   it("refreshes latest messages for every opened pane on the desktop interval", async () => {

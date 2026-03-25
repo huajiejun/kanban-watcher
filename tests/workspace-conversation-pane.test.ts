@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import "../src/components/workspace-conversation-pane";
 import type { WorkspaceConversationPane } from "../src/components/workspace-conversation-pane";
+import { cardStyles } from "../src/styles";
 import type { WorkspaceQueueStatusResponse } from "../src/types";
 
 type PaneMessage =
@@ -59,5 +60,41 @@ describe("workspace-conversation-pane", () => {
     expect(element.shadowRoot?.textContent).toContain("继续执行");
     expect(element.shadowRoot?.querySelector(".message-input")).not.toBeNull();
     expect(element.shadowRoot?.textContent).toContain("消息已同步");
+  });
+
+  it("scrolls the message list to the bottom when messages change", async () => {
+    const element = createElement();
+
+    await element.updateComplete;
+
+    const messageList = element.shadowRoot?.querySelector(".message-list") as HTMLDivElement;
+    Object.defineProperty(messageList, "scrollHeight", {
+      configurable: true,
+      value: 480,
+    });
+    messageList.scrollTop = 0;
+
+    element.messages = [
+      ...element.messages,
+      {
+        kind: "message",
+        sender: "ai",
+        text: "新的同步消息",
+      } satisfies PaneMessage,
+    ];
+    await element.updateComplete;
+
+    expect(messageList.scrollTop).toBe(480);
+  });
+
+  it("uses dark-friendly pane styles with fixed-height scrolling content", () => {
+    const cssText = Array.isArray(cardStyles)
+      ? cardStyles.map((style) => style.cssText).join("\n")
+      : cardStyles.cssText;
+
+    expect(cssText).toContain(".message-list");
+    expect(cssText).toContain("overflow-y: auto");
+    expect(cssText).toContain("height: 100%");
+    expect(cssText).toContain("var(--card-background-color, #111827)");
   });
 });

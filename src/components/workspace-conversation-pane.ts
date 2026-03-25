@@ -79,6 +79,7 @@ export class WorkspaceConversationPane extends LitElement {
     const isQueued = this.queueStatus?.status === "queued";
 
     return html`
+      <section class="workspace-pane-shell">
       <div class="dialog-header">
         <div class="dialog-heading">
           <h2 class="dialog-title">${this.workspaceName}</h2>
@@ -138,7 +139,14 @@ export class WorkspaceConversationPane extends LitElement {
           ${this.currentFeedback}
         </div>
       </div>
+      </section>
     `;
+  }
+
+  protected updated(changedProperties: Map<PropertyKey, unknown>) {
+    if (changedProperties.has("messages")) {
+      this.scrollMessagesToBottom();
+    }
   }
 
   private renderQuickButtons() {
@@ -239,6 +247,14 @@ export class WorkspaceConversationPane extends LitElement {
       }),
     );
   };
+
+  private scrollMessagesToBottom() {
+    const messageList = this.shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+    if (!messageList) {
+      return;
+    }
+    messageList.scrollTop = messageList.scrollHeight;
+  }
 }
 
 declare global {

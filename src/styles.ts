@@ -61,7 +61,11 @@ export const workspaceSectionListStyles = css`
     width: 100%;
     padding: 10px 12px;
     border-radius: 12px;
-    background: color-mix(in srgb, var(--ha-card-background, var(--card-background-color, #ffffff)) 82%, var(--secondary-background-color, #f3f4f6));
+    background: color-mix(
+      in srgb,
+      var(--ha-card-background, var(--card-background-color, #111827)) 82%,
+      var(--secondary-background-color, #0f172a)
+    );
     border-left: 3px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 85%, transparent);
     border-top: 0;
     border-right: 0;
@@ -219,7 +223,7 @@ export const workspaceHomeStyles = css`
     display: grid;
     grid-template-columns: 320px minmax(0, 1fr);
     gap: 20px;
-    align-items: start;
+    align-items: stretch;
   }
 
   .workspace-home-sidebar,
@@ -236,15 +240,21 @@ export const workspaceHomeStyles = css`
     padding: 14px;
     display: grid;
     gap: 12px;
-    min-height: 60vh;
+    height: min(72vh, 960px);
+    min-height: min(72vh, 960px);
+    overflow-y: auto;
   }
 
   .workspace-home-pane-grid {
-    min-height: 60vh;
+    height: min(72vh, 960px);
+    min-height: min(72vh, 960px);
     padding: 14px;
     display: grid;
     grid-template-columns: repeat(var(--workspace-pane-columns, 1), minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    align-items: stretch;
     gap: 12px;
+    overflow: hidden;
   }
 
   .workspace-home-placeholder {
@@ -265,6 +275,8 @@ export const workspaceHomeStyles = css`
 export const cardStyles = css`
   :host {
     display: block;
+    height: 100%;
+    min-height: 0;
   }
 
   /* 响应式字体大小变量 */
@@ -295,7 +307,7 @@ export const cardStyles = css`
   ha-card {
     background:
       radial-gradient(circle at top right, color-mix(in srgb, var(--warning-color, #f59e0b) 12%, transparent), transparent 25%),
-      var(--ha-card-background, var(--card-background-color, #ffffff));
+      var(--ha-card-background, var(--card-background-color, #111827));
     border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 70%, transparent);
     border-radius: 20px;
     box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0, 0, 0, 0.12));
@@ -368,7 +380,11 @@ export const cardStyles = css`
     width: 100%;
     padding: 10px 12px;
     border-radius: 12px;
-    background: color-mix(in srgb, var(--ha-card-background, var(--card-background-color, #ffffff)) 82%, var(--secondary-background-color, #f3f4f6));
+    background: color-mix(
+      in srgb,
+      var(--ha-card-background, var(--card-background-color, #111827)) 82%,
+      var(--secondary-background-color, #0f172a)
+    );
     border-left: 3px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 85%, transparent);
     border-top: 0;
     border-right: 0;
@@ -550,6 +566,14 @@ export const cardStyles = css`
     font-size: 0.9rem;
     font-weight: 700;
     color: var(--secondary-text-color, #64748b);
+  }
+
+  .workspace-pane-shell {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 12px;
   }
 
   .message-list {
@@ -1161,7 +1185,7 @@ export const cardStyles = css`
     padding: 10px 12px;
     border-radius: 10px;
     border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 72%, transparent);
-    background: color-mix(in srgb, var(--ha-card-background, #ffffff) 92%, transparent);
+    background: color-mix(in srgb, var(--ha-card-background, #111827) 92%, transparent);
     color: inherit;
     font: inherit;
     line-height: 1.4;
