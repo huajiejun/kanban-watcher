@@ -49,6 +49,7 @@ export class WorkspacePreviewCard extends LitElement {
     }
 
     .workspace-preview-activate {
+      width: 100%;
       margin: 0;
       padding: 0;
       border: 0;
@@ -57,6 +58,34 @@ export class WorkspacePreviewCard extends LitElement {
       text-align: left;
       font: inherit;
       cursor: pointer;
+    }
+
+    .workspace-preview-title-banner {
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--workspace-preview-accent) 70%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--workspace-preview-accent) 18%,
+        var(--primary-background-color, #0f172a)
+      );
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+    }
+
+    .workspace-preview-activate:hover .workspace-preview-title-banner,
+    .workspace-preview-activate:focus-visible .workspace-preview-title-banner {
+      border-color: color-mix(in srgb, var(--workspace-preview-accent) 88%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--workspace-preview-accent) 24%,
+        var(--primary-background-color, #0f172a)
+      );
+      transform: translateY(-1px);
+    }
+
+    .workspace-preview-activate:focus-visible {
+      outline: none;
     }
 
     .workspace-preview-title {
@@ -184,7 +213,9 @@ export class WorkspacePreviewCard extends LitElement {
           type="button"
           @click=${this.handleActivate}
         >
-          <div class="workspace-preview-title">${this.workspaceName}</div>
+          <div class="workspace-preview-title-banner">
+            <div class="workspace-preview-title">${this.workspaceName}</div>
+          </div>
         </button>
         <div class="workspace-preview-lines" @scroll=${this.handleScroll}>
           ${this.previewLines.length > 0

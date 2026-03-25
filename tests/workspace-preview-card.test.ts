@@ -30,6 +30,15 @@ describe("workspace-preview-card", () => {
     expect(blocks).toHaveLength(3);
   });
 
+  it("renders the title inside a clickable banner", async () => {
+    const element = createElement();
+    await element.updateComplete;
+
+    const banner = element.shadowRoot?.querySelector(".workspace-preview-title-banner");
+
+    expect(banner).not.toBeNull();
+  });
+
   it("auto scrolls to bottom when preview lines update", async () => {
     const element = createElement();
     await element.updateComplete;
