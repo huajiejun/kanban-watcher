@@ -13,9 +13,9 @@ import (
 type EventType string
 
 const (
-	EventTypeWorkspaceSnapshot        EventType = "workspace_snapshot"
-	EventTypeSessionMessagesAppended  EventType = "session_messages_appended"
-	EventTypeWorkspaceViewUpdated     EventType = "workspace_view_updated"
+	EventTypeWorkspaceSnapshot       EventType = "workspace_snapshot"
+	EventTypeSessionMessagesAppended EventType = "session_messages_appended"
+	EventTypeWorkspaceViewUpdated    EventType = "workspace_view_updated"
 )
 
 type WorkspacePayload struct {
@@ -56,10 +56,10 @@ type WorkspaceViewPayload struct {
 }
 
 type Event struct {
-	Type          EventType            `json:"type"`
-	Workspaces    []WorkspacePayload   `json:"workspaces,omitempty"`
-	SessionID     string               `json:"session_id,omitempty"`
-	Messages      []MessagePayload     `json:"messages,omitempty"`
+	Type          EventType             `json:"type"`
+	Workspaces    []WorkspacePayload    `json:"workspaces,omitempty"`
+	SessionID     string                `json:"session_id,omitempty"`
+	Messages      []MessagePayload      `json:"messages,omitempty"`
 	WorkspaceView *WorkspaceViewPayload `json:"workspace_view,omitempty"`
 }
 

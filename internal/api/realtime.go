@@ -22,10 +22,10 @@ type RealtimePublisher struct {
 }
 
 type throttledSessionMessage struct {
-	sessionID   string
-	lastSentAt  time.Time
-	pending     *realtime.MessagePayload
-	flushTimer  *time.Timer
+	sessionID  string
+	lastSentAt time.Time
+	pending    *realtime.MessagePayload
+	flushTimer *time.Timer
 }
 
 func NewRealtimePublisher(dbStore *store.Store, hub *realtime.Hub) *RealtimePublisher {
