@@ -157,8 +157,7 @@ describe("workspace home helpers", () => {
     expect(listCssText).toContain(".task-card.is-running");
     expect(listCssText).toContain(".task-card.is-attention");
     expect(listCssText).toContain(".section-toggle");
-    expect(listCssText).toContain("linear-gradient(");
-    expect(listCssText).toContain("135deg");
+    expect(listCssText).toContain("background: transparent");
     expect(listCssText).toContain("white-space: nowrap");
     expect(listCssText).toContain("var(--card-background-color, #111827)");
     expect(listCssText).toContain("var(--secondary-background-color, #111827)");

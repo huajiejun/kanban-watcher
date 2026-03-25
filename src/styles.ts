@@ -15,18 +15,12 @@ export const workspaceSectionListStyles = css`
     justify-content: space-between;
     gap: 12px;
     border: 0;
-    background:
-      linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--primary-color, #f59e0b) 22%, transparent),
-        color-mix(in srgb, var(--secondary-background-color, #111827) 88%, transparent)
-      );
+    background: transparent;
     color: inherit;
     cursor: pointer;
     padding: 12px 14px;
     font: inherit;
     text-align: left;
-    border-bottom: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 55%, transparent);
   }
 
   .section-title-row {
