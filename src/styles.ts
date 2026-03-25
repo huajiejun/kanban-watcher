@@ -156,6 +156,7 @@ export const workspaceSectionListStyles = css`
 export const workspaceHomeStyles = css`
   :host {
     --workspace-home-panel-height: calc(100vh - 72px);
+    --workspace-home-pane-height: calc(var(--workspace-home-panel-height) + 12px);
     display: block;
     min-height: 100vh;
     padding: 32px 24px 40px;
@@ -321,8 +322,8 @@ export const workspaceHomeStyles = css`
   }
 
   .workspace-home-pane-grid {
-    height: var(--workspace-home-panel-height);
-    min-height: var(--workspace-home-panel-height);
+    height: var(--workspace-home-pane-height);
+    min-height: var(--workspace-home-pane-height);
     padding: 14px;
     display: grid;
     grid-template-columns: repeat(var(--workspace-pane-columns, 1), minmax(0, 1fr));
@@ -333,8 +334,8 @@ export const workspaceHomeStyles = css`
   }
 
   .workspace-home-pane-focus-layout {
-    height: var(--workspace-home-panel-height);
-    min-height: var(--workspace-home-panel-height);
+    height: var(--workspace-home-pane-height);
+    min-height: var(--workspace-home-pane-height);
     display: grid;
     grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px);
     gap: 12px;
