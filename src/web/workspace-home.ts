@@ -739,7 +739,8 @@ export class KanbanWorkspaceHome extends LitElement {
     }
 
     card.setConfig(buildPreviewCardConfig(this.previewOptions));
-    if (!this.previewOptions.baseUrl) {
+    // baseUrl 为 undefined 时使用 mock 数据，空字符串表示使用相对路径（Vite 代理模式）
+    if (this.previewOptions.baseUrl === undefined) {
       card.hass = createPreviewHass();
     }
   }

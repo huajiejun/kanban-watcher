@@ -84,7 +84,8 @@ export function buildPreviewCardConfig(
 ): PlaygroundCardConfig {
   return {
     entity: previewEntityId,
-    ...(options.baseUrl ? { base_url: options.baseUrl } : {}),
+    // baseUrl 为 undefined 时省略（mock 模式），空字符串时传递（Vite 代理模式）
+    ...(options.baseUrl !== undefined ? { base_url: options.baseUrl } : {}),
     ...(options.apiKey ? { api_key: options.apiKey } : {}),
     ...(options.messagesLimit ? { messages_limit: options.messagesLimit } : {}),
     // 启用 LLM 推荐按钮（使用 Vite 代理解决 CORS）
