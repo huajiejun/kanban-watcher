@@ -288,11 +288,11 @@ export const workspaceHomeStyles = css`
 
   .workspace-home-pane-preview-rail {
     padding: 12px;
-    display: grid;
-    grid-auto-rows: minmax(0, max-content);
-    align-content: start;
+    display: flex;
+    flex-direction: column;
     gap: 10px;
-    overflow-y: auto;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .workspace-preview-card {
@@ -313,6 +313,8 @@ export const workspaceHomeStyles = css`
     color: inherit;
     font: inherit;
     cursor: pointer;
+    flex: 1 1 0;
+    min-height: 0;
   }
 
   .workspace-preview-card.is-attention {
@@ -339,6 +341,7 @@ export const workspaceHomeStyles = css`
   .workspace-preview-lines {
     display: grid;
     gap: 6px;
+    min-height: 0;
   }
 
   .workspace-preview-line {
