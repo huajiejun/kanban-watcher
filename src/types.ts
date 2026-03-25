@@ -139,6 +139,7 @@ export interface ToolActionInfo {
     unified_diff?: string;
     new_path?: string;
   }>;
+  todos?: TodoItem[];
   [key: string]: unknown;
 }
 
@@ -179,3 +180,21 @@ export interface DecisionButtonsResponse {
 
 /** LLM 按钮响应（联合类型） */
 export type LLMButtonsResponse = ProposalButtonsResponse | DecisionButtonsResponse;
+
+/** 待办事项状态 */
+export type TodoStatus = 'completed' | 'in_progress' | 'cancelled' | 'pending';
+
+/** 待办事项 */
+export interface TodoItem {
+  content: string;
+  status?: TodoStatus | null;
+  id?: string;
+}
+
+/** 待办事项列表 */
+export interface TodoList {
+  items: TodoItem[];
+  completedCount: number;
+  totalCount: number;
+  percentage: number;
+}
