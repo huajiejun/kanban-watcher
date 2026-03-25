@@ -17,10 +17,8 @@ export class WorkspacePreviewCard extends LitElement {
       width: 100%;
       height: 100%;
       box-sizing: border-box;
-      padding: 12px;
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
-      gap: 8px;
       border-radius: 16px;
       border: 1px solid var(--workspace-preview-accent);
       border-left-width: 3px;
@@ -60,25 +58,27 @@ export class WorkspacePreviewCard extends LitElement {
       cursor: pointer;
     }
 
+    .workspace-preview-activate.is-full-bleed {
+      border-bottom: 1px solid color-mix(in srgb, var(--workspace-preview-accent) 72%, transparent);
+    }
+
     .workspace-preview-title-banner {
-      padding: 9px 10px;
-      border-radius: 12px;
-      border: 1px solid color-mix(in srgb, var(--workspace-preview-accent) 70%, transparent);
+      padding: 12px 14px;
+      border-radius: 15px 15px 0 0;
       background: color-mix(
         in srgb,
-        var(--workspace-preview-accent) 18%,
+        var(--workspace-preview-accent) 24%,
         var(--primary-background-color, #0f172a)
       );
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-      transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      transition: background-color 160ms ease, transform 160ms ease;
     }
 
     .workspace-preview-activate:hover .workspace-preview-title-banner,
     .workspace-preview-activate:focus-visible .workspace-preview-title-banner {
-      border-color: color-mix(in srgb, var(--workspace-preview-accent) 88%, transparent);
       background: color-mix(
         in srgb,
-        var(--workspace-preview-accent) 24%,
+        var(--workspace-preview-accent) 30%,
         var(--primary-background-color, #0f172a)
       );
       transform: translateY(-1px);
@@ -100,7 +100,7 @@ export class WorkspacePreviewCard extends LitElement {
       min-height: 0;
       align-content: start;
       overflow-y: auto;
-      padding-right: 4px;
+      padding: 12px;
     }
 
     .workspace-preview-message {
@@ -209,7 +209,7 @@ export class WorkspacePreviewCard extends LitElement {
     return html`
       <section class="workspace-preview-card ${this.statusAccentClass}">
         <button
-          class="workspace-preview-activate"
+          class="workspace-preview-activate is-full-bleed"
           type="button"
           @click=${this.handleActivate}
         >

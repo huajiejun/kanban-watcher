@@ -35,8 +35,10 @@ describe("workspace-preview-card", () => {
     await element.updateComplete;
 
     const banner = element.shadowRoot?.querySelector(".workspace-preview-title-banner");
+    const trigger = element.shadowRoot?.querySelector(".workspace-preview-activate");
 
     expect(banner).not.toBeNull();
+    expect(trigger?.classList.contains("is-full-bleed")).toBe(true);
   });
 
   it("auto scrolls to bottom when preview lines update", async () => {
