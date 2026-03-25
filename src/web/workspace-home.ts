@@ -142,6 +142,7 @@ export class KanbanWorkspaceHome extends LitElement {
   private isApplyingRemoteWorkspaceView = false;
   private lastPushedWorkspaceViewSignature = "";
   private apiAccessBlocked = false;
+  private mobileCardConfigSignature = "";
 
   connectedCallback() {
     super.connectedCallback();
@@ -762,7 +763,14 @@ export class KanbanWorkspaceHome extends LitElement {
       return;
     }
 
-    card.setConfig(buildPreviewCardConfigFromOptions(previewEntityId, this.previewOptions));
+    const nextConfig = buildPreviewCardConfigFromOptions(previewEntityId, this.previewOptions);
+    const nextConfigSignature = JSON.stringify(nextConfig);
+
+    if (this.mobileCardConfigSignature !== nextConfigSignature) {
+      card.setConfig(nextConfig);
+      this.mobileCardConfigSignature = nextConfigSignature;
+    }
+
     // baseUrl 为 undefined 时使用 mock 数据，空字符串表示使用相对路径（Vite 代理模式）
     if (this.previewOptions.baseUrl === undefined) {
       card.hass = createPreviewHass();

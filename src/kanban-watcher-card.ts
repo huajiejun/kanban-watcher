@@ -489,6 +489,7 @@ export class KanbanWatcherCard extends LitElement {
         message,
         mode: action,
       });
+      this.applyWorkspaceSessionId(this.selectedWorkspaceId, response.session_id);
       if (action === "send") {
         this.appendOptimisticUserMessage(this.selectedWorkspaceId, message);
       }
@@ -557,6 +558,7 @@ export class KanbanWatcherCard extends LitElement {
         mode: "send",
       });
 
+      this.applyWorkspaceSessionId(this.selectedWorkspaceId, response.session_id);
       this.appendOptimisticUserMessage(this.selectedWorkspaceId, text);
       this.actionFeedback = response.message?.trim()
         ? `发送成功：${response.message.trim()}`
@@ -1256,6 +1258,35 @@ export class KanbanWatcherCard extends LitElement {
 
   private getWorkspaceMessageVersion(workspace: KanbanWorkspace) {
     return workspace.last_message_at || workspace.updated_at || workspace.latest_session_id || "";
+  }
+
+  private applyWorkspaceSessionId(workspaceId: string, sessionId?: string) {
+    if (!sessionId) {
+      return;
+    }
+
+    let didChange = false;
+    this.apiWorkspaces = this.apiWorkspaces.map((workspace) => {
+      if (workspace.id !== workspaceId) {
+        return workspace;
+      }
+      if (workspace.latest_session_id === sessionId && workspace.last_session_id === sessionId) {
+        return workspace;
+      }
+      didChange = true;
+      return {
+        ...workspace,
+        latest_session_id: sessionId,
+        last_session_id: sessionId,
+      };
+    });
+
+    if (!didChange || this.selectedWorkspaceId !== workspaceId || !this.isApiMode) {
+      return;
+    }
+
+    this.restartRealtimeConnection();
+    this.updateDialogPolling();
   }
 
   private resolveSmoothRevealMessageKey(

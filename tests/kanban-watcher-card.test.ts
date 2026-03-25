@@ -2326,6 +2326,175 @@ describe("kanban-watcher-card", () => {
     expect(smoothReveal?.textContent).toContain("实现和验证都已经收口");
   });
 
+  it("auto-scrolls the mobile dialog message list when realtime content keeps streaming", async () => {
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollHeight",
+    );
+
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get() {
+        return this.classList?.contains("message-list") ? 720 : 0;
+      },
+    });
+
+    try {
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          mockJSONResponse({
+            workspaces: [
+              {
+                id: "api-mobile-stream",
+                name: "API Mobile Stream Workspace",
+                status: "running",
+                latest_session_id: "session-api-mobile-stream",
+                updated_at: "2026-03-21T11:58:00Z",
+              },
+            ],
+          }),
+        )
+        .mockResolvedValueOnce(
+          mockJSONResponse({
+            session_id: "session-api-mobile-stream",
+            workspace_name: "API Mobile Stream Workspace",
+            messages: [
+              {
+                id: 1,
+                process_id: "proc-history",
+                entry_index: 0,
+                session_id: "session-api-mobile-stream",
+                entry_type: "assistant_message",
+                role: "assistant",
+                content: "开头消息",
+                timestamp: "2026-03-21T11:58:00Z",
+              },
+            ],
+            has_more: false,
+          }),
+        )
+        .mockResolvedValueOnce(
+          mockJSONResponse({
+            workspace_id: "api-mobile-stream",
+            status: "running",
+            position: 1,
+          }),
+        );
+
+      const card = await renderApiCard();
+      const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+      taskCard?.click();
+      await settleCard(card);
+
+      const messageList = getDialogMessageList(card.shadowRoot);
+      expect(messageList?.scrollTop).toBe(720);
+
+      if (messageList) {
+        messageList.scrollTop = 0;
+      }
+
+      const realtimeSocket = MockWebSocket.instances.at(-1);
+      realtimeSocket?.emitMessage({
+        type: "session_messages_appended",
+        session_id: "session-api-mobile-stream",
+        messages: [
+          {
+            id: 2,
+            session_id: "session-api-mobile-stream",
+            process_id: "process-stream",
+            entry_index: 1,
+            entry_type: "assistant_message",
+            role: "assistant",
+            content: "实现",
+            timestamp: "2026-03-21T11:59:00Z",
+          },
+        ],
+      });
+      await settleCard(card);
+
+      expect(getDialogMessageList(card.shadowRoot)?.scrollTop).toBe(720);
+    } finally {
+      if (originalScrollHeight) {
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", originalScrollHeight);
+      } else {
+        delete (HTMLElement.prototype as Partial<HTMLElement>).scrollHeight;
+      }
+    }
+  });
+
+  it("reconnects the mobile dialog realtime socket when sending starts a new session", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-new-session",
+              name: "API New Session Workspace",
+              status: "completed",
+              latest_session_id: "session-api-old",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-old",
+          workspace_name: "API New Session Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          workspace_id: "api-new-session",
+          session_id: "session-api-new",
+          message: "消息已发送",
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-new",
+          workspace_name: "API New Session Workspace",
+          messages: [
+            {
+              id: 1,
+              session_id: "session-api-new",
+              process_id: "proc-new",
+              entry_index: 0,
+              entry_type: "user_message",
+              role: "user",
+              content: "开始新会话",
+              timestamp: "2026-03-21T11:59:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const pane = getDialogPane(card.shadowRoot);
+    const input = pane?.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    input!.value = "开始新会话";
+    input?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await settleCard(card);
+
+    const sendButton = pane?.shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    sendButton?.click();
+    await settleCard(card);
+
+    expect(MockWebSocket.instances).toHaveLength(3);
+    expect(MockWebSocket.instances[1]?.url).toContain("session_id=session-api-old");
+    expect(MockWebSocket.instances[2]?.url).toContain("session_id=session-api-new");
+  });
+
   it("updates workspace status through the board realtime WebSocket", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       mockJSONResponse({

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import "../src/index";
 import "../src/web/workspace-home";
 import {
   KanbanWorkspaceHome,
@@ -618,6 +619,49 @@ describe("workspace home helpers", () => {
     await flushElement(element);
 
     expect(element.shadowRoot?.textContent).toContain("实时任务");
+  });
+
+  it("does not reconfigure the mobile card on unrelated workspace-home updates", async () => {
+    setWindowWidth(390);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-mobile",
+              name: "移动端任务",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await flushElement(element);
+    const baselineActiveRequests = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/active"),
+    ).length;
+    expect(baselineActiveRequests).toBeGreaterThan(0);
+
+    element.pageState = {
+      ...element.pageState,
+      dismissedAttentionIds: ["ws-mobile"],
+    };
+    await flushElement(element);
+
+    const nextActiveRequests = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/active"),
+    ).length;
+    expect(nextActiveRequests).toBe(baselineActiveRequests);
   });
 
   it("stops realtime startup when initial workspace load is unauthorized", async () => {
