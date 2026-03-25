@@ -111,6 +111,16 @@ export class WorkspaceConversationPane extends LitElement {
     }
   }
 
+  focusComposer() {
+    const input = this.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    if (!input) {
+      return;
+    }
+    input.focus();
+    const cursor = input.value.length;
+    input.setSelectionRange(cursor, cursor);
+  }
+
   private renderQuickButtons() {
     if (this.quickButtons.length === 0) {
       return nothing;

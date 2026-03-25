@@ -334,6 +334,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private handleOpenWorkspace(workspace: KanbanWorkspace) {
+    const wasOpen = this.pageState.openWorkspaceIds.includes(workspace.id);
     const nextMessagesByWorkspace = { ...this.messagesByWorkspace };
     delete nextMessagesByWorkspace[workspace.id];
     this.messagesByWorkspace = nextMessagesByWorkspace;
@@ -341,6 +342,9 @@ export class KanbanWorkspaceHome extends LitElement {
     void this.loadWorkspaceMessages(workspace.id, true);
     if (workspace.status === "running") {
       void this.loadWorkspaceQueueStatus(workspace.id);
+    }
+    if (wasOpen) {
+      void this.focusWorkspaceComposer(workspace.id);
     }
   }
 
@@ -901,6 +905,21 @@ export class KanbanWorkspaceHome extends LitElement {
     return this.pageState.activeWorkspaceId
       ? this.workspaces.find((workspace) => workspace.id === this.pageState.activeWorkspaceId)
       : undefined;
+  }
+
+  private async focusWorkspaceComposer(workspaceId: string) {
+    await this.updateComplete;
+    await Promise.resolve();
+
+    const paneIndex = this.pageState.openWorkspaceIds.indexOf(workspaceId);
+    if (paneIndex < 0) {
+      return;
+    }
+
+    const panes = [
+      ...(this.renderRoot.querySelectorAll("workspace-conversation-pane") ?? []),
+    ] as Array<WorkspaceConversationPane>;
+    panes[paneIndex]?.focusComposer();
   }
 
   private renderQuickButtons(workspace: KanbanWorkspace) {

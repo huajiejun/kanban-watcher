@@ -94,4 +94,16 @@ describe("workspace page state", () => {
     expect(next.openWorkspaceIds).toEqual(["ws-2", "ws-3", "ws-4", "ws-5"]);
     expect(next.activeWorkspaceId).toBe("ws-5");
   });
+
+  it("keeps the existing pane order when reopening an already opened workspace", () => {
+    const base = createWorkspacePageState({
+      openWorkspaceIds: ["ws-1", "ws-2", "ws-3"],
+      activeWorkspaceId: "ws-3",
+    });
+
+    const next = openWorkspacePane(base, "ws-1");
+
+    expect(next.openWorkspaceIds).toEqual(["ws-1", "ws-2", "ws-3"]);
+    expect(next.activeWorkspaceId).toBe("ws-1");
+  });
 });

@@ -34,8 +34,9 @@ export function openWorkspacePane(
   state: WorkspacePageState,
   workspaceId: string,
 ): WorkspacePageState {
-  const existingIds = state.openWorkspaceIds.filter((id) => id !== workspaceId);
-  const nextOpenWorkspaceIds = uniqueIds([...existingIds, workspaceId]);
+  const nextOpenWorkspaceIds = state.openWorkspaceIds.includes(workspaceId)
+    ? state.openWorkspaceIds
+    : uniqueIds([...state.openWorkspaceIds, workspaceId]);
   const trimmedOpenWorkspaceIds =
     nextOpenWorkspaceIds.length > 4
       ? nextOpenWorkspaceIds.slice(nextOpenWorkspaceIds.length - 4)

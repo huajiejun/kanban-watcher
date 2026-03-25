@@ -659,6 +659,89 @@ describe("workspace home helpers", () => {
     expect(paneShadowRoot?.textContent).toContain("实时追加消息");
   });
 
+  it("keeps pane order and focuses the composer when reselecting an already opened workspace", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "任务一",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "任务二",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "任务一消息",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "任务二消息",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+    (cards[1] as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(element.pageState.openWorkspaceIds).toEqual(["ws-1", "ws-2"]);
+    expect(element.pageState.activeWorkspaceId).toBe("ws-2");
+
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(element.pageState.openWorkspaceIds).toEqual(["ws-1", "ws-2"]);
+    expect(element.pageState.activeWorkspaceId).toBe("ws-1");
+
+    const panes = [
+      ...(element.shadowRoot?.querySelectorAll("workspace-conversation-pane") ?? []),
+    ] as Array<HTMLElement & { shadowRoot: ShadowRoot }>;
+    const paneTitles = panes.map((pane) =>
+      pane.shadowRoot?.querySelector(".dialog-title")?.textContent?.trim(),
+    );
+    const firstPaneInput = panes[0]?.shadowRoot?.querySelector(".message-input") as
+      | HTMLTextAreaElement
+      | null;
+
+    expect(paneTitles).toEqual(["任务一", "任务二"]);
+    expect(firstPaneInput).not.toBeNull();
+    expect(panes[0]?.shadowRoot?.activeElement).toBe(firstPaneInput);
+  });
+
   it("hydrates running panes with stop and queue controls", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
