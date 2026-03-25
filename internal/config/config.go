@@ -194,7 +194,7 @@ func defaultConfig() *Config {
 		Notify: NotifyConfig{
 			ApprovalThreshold: 15,  // 待审批 15 分钟
 			MessageThreshold:  15, // 未读消息 15 分钟
-			RepeatInterval:    15,  // 叠加提醒间隔 15 分钟
+			RepeatInterval:    5,  // 叠加提醒间隔 5 分钟
 			Enabled:           true,
 		},
 		WorkingHours: WorkingHours{
@@ -263,7 +263,7 @@ func applyDefaults(cfg *Config) {
 		cfg.Notify.MessageThreshold = 15
 	}
 	if cfg.Notify.RepeatInterval <= 0 {
-		cfg.Notify.RepeatInterval = 15
+		cfg.Notify.RepeatInterval = 5
 	}
 	if cfg.TokenStats.SyncIntervalHours <= 0 {
 		cfg.TokenStats.SyncIntervalHours = 1 // 默认每小时同步
