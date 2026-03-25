@@ -138,9 +138,15 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain("grid-template-columns: clamp(136px, 12vw, 168px) minmax(0, 1fr)");
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"false\"]");
     expect(homeCssText).toContain("grid-template-columns: 320px minmax(0, 1fr)");
+    expect(homeCssText).toContain("grid-template-rows: auto minmax(0, 1fr)");
+    expect(homeCssText).toContain(".workspace-home-sidebar-content");
+    expect(homeCssText).toContain("overflow-y: auto");
     expect(homeCssText).toContain(".workspace-home-sidebar-toggle");
     expect(homeCssText).toContain("min-height: 36px");
-    expect(homeCssText).toContain("padding: 0 10px");
+    expect(homeCssText).toContain("width: auto");
+    expect(homeCssText).toContain("padding: 0");
+    expect(homeCssText).toContain("border: 0");
+    expect(homeCssText).toContain("background: transparent");
     expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px)");
     expect(homeCssText).not.toContain("width: min(1440px, 100%)");
     expect(homeCssText).not.toContain("margin: 0 auto");
@@ -256,8 +262,10 @@ describe("workspace home helpers", () => {
 
     const toggle = element.shadowRoot?.querySelector(".workspace-home-sidebar-toggle") as HTMLButtonElement | null;
     const layout = element.shadowRoot?.querySelector(".workspace-home-layout") as HTMLElement | null;
+    const sidebarContent = element.shadowRoot?.querySelector(".workspace-home-sidebar-content");
 
     expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("true");
+    expect(sidebarContent).not.toBeNull();
     expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
     expect(element.shadowRoot?.querySelector(".task-meta")).toBeNull();
     toggle?.click();

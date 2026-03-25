@@ -220,13 +220,22 @@ export const workspaceHomeStyles = css`
   .workspace-home-sidebar {
     padding: 14px;
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 12px;
     height: min(72vh, 960px);
     min-height: min(72vh, 960px);
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .workspace-home-sidebar[data-collapsed="true"] {
+    align-content: start;
+  }
+
+  .workspace-home-sidebar-content {
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: 8px;
     align-content: start;
   }
 
@@ -235,17 +244,18 @@ export const workspaceHomeStyles = css`
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    width: 100%;
+    width: auto;
     min-height: 36px;
-    padding: 0 10px;
-    border-radius: 10px;
-    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
-    background: color-mix(in srgb, var(--primary-background-color, #0f172a) 70%, transparent);
+    padding: 0;
+    border-radius: 0;
+    border: 0;
+    background: transparent;
     color: inherit;
     font: inherit;
     font-size: 0.82rem;
     line-height: 1;
     cursor: pointer;
+    justify-self: start;
   }
 
   .task-card.is-compact {
