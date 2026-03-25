@@ -27,9 +27,9 @@ describe("workspace pane layout", () => {
     ];
 
     expect(summarizeWorkspacePreview(messages)).toEqual([
-      "第一条关键进展",
-      "第二条补充说明",
       "第三条最终结论",
+      "第二条补充说明",
+      "第一条关键进展",
     ]);
   });
 

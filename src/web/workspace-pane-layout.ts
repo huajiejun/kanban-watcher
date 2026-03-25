@@ -21,7 +21,7 @@ export function summarizeWorkspacePreview(messages: DialogMessage[], maxLines = 
     .filter(Boolean);
 
   if (textMessages.length > 0) {
-    return textMessages.slice(-maxLines);
+    return textMessages.slice(-maxLines).reverse();
   }
 
   const latestMessage = messages.at(-1);
