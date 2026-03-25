@@ -120,7 +120,7 @@ describe("workspace home helpers", () => {
     expect(getPaneColumns(5)).toBe(4);
   });
 
-  it("keeps desktop panes inside a fixed-height grid and uses dark card fallbacks", () => {
+  it("uses the full desktop width without centering the workspace shell", () => {
     const homeCssText = Array.isArray(workspaceHomeStyles)
       ? workspaceHomeStyles.map((style) => style.cssText).join("\n")
       : workspaceHomeStyles.cssText;
@@ -130,6 +130,9 @@ describe("workspace home helpers", () => {
 
     expect(homeCssText).toContain(".workspace-home-pane-grid");
     expect(homeCssText).toContain("height: min(72vh, 960px)");
+    expect(homeCssText).toContain("width: 100%");
+    expect(homeCssText).not.toContain("width: min(1440px, 100%)");
+    expect(homeCssText).not.toContain("margin: 0 auto");
     expect(listCssText).toContain("var(--card-background-color, #111827)");
     expect(listCssText).toContain("var(--secondary-background-color, #111827)");
   });

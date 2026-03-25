@@ -189,8 +189,7 @@ export const workspaceHomeStyles = css`
   .workspace-home-shell {
     display: grid;
     gap: 20px;
-    width: min(1440px, 100%);
-    margin: 0 auto;
+    width: 100%;
   }
 
   .workspace-home-hero {
