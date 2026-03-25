@@ -266,7 +266,7 @@ export const workspaceHomeStyles = css`
     height: min(72vh, 960px);
     min-height: min(72vh, 960px);
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px);
     gap: 12px;
     overflow: hidden;
   }

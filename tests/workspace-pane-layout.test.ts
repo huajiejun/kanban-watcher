@@ -7,14 +7,15 @@ import {
 } from "../src/web/workspace-pane-layout";
 
 describe("workspace pane layout", () => {
-  it("keeps grid layout for wide screens or a single pane", () => {
-    expect(resolveWorkspacePaneLayoutMode(1440, 4)).toBe("grid");
+  it("keeps grid layout for ultra-wide screens or a single pane", () => {
+    expect(resolveWorkspacePaneLayoutMode(1920, 4)).toBe("grid");
     expect(resolveWorkspacePaneLayoutMode(1440, 1)).toBe("grid");
   });
 
-  it("uses focus layout for smaller desktop screens with multiple panes", () => {
+  it("uses focus layout for smaller and mid-wide desktop screens with multiple panes", () => {
     expect(resolveWorkspacePaneLayoutMode(1279, 2)).toBe("focus");
     expect(resolveWorkspacePaneLayoutMode(1200, 4)).toBe("focus");
+    expect(resolveWorkspacePaneLayoutMode(1440, 4)).toBe("focus");
   });
 
   it("summarizes the latest plain text messages and skips tool noise", () => {

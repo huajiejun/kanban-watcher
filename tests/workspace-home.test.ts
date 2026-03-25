@@ -134,6 +134,7 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain(".workspace-home-pane-grid");
     expect(homeCssText).toContain("height: min(72vh, 960px)");
     expect(homeCssText).toContain("width: 100%");
+    expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px)");
     expect(homeCssText).not.toContain("width: min(1440px, 100%)");
     expect(homeCssText).not.toContain("margin: 0 auto");
     expect(listCssText).toContain(".task-card");
@@ -787,6 +788,8 @@ describe("workspace home helpers", () => {
   });
 
   it("keeps pane order and focuses the composer when reselecting an already opened workspace", async () => {
+    setWindowWidth(1920);
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -870,6 +873,8 @@ describe("workspace home helpers", () => {
   });
 
   it("persists opened panes and restores them after recreating the page", async () => {
+    setWindowWidth(1920);
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -952,6 +957,8 @@ describe("workspace home helpers", () => {
   });
 
   it("polls other opened panes while the active pane stays on websocket updates", async () => {
+    setWindowWidth(1920);
+
     let ws2MessageRevision = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);

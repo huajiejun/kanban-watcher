@@ -2,7 +2,7 @@ import type { DialogMessage } from "../lib/dialog-messages";
 
 export type WorkspacePaneLayoutMode = "grid" | "focus";
 
-const FOCUS_LAYOUT_BREAKPOINT = 1280;
+const FOCUS_LAYOUT_BREAKPOINT = 1800;
 const PREVIEW_LINE_LIMIT = 10;
 const PREVIEW_TEXT_LIMIT = 250;
 
