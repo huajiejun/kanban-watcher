@@ -76,6 +76,7 @@ export class WorkspaceConversationPane extends LitElement {
           placeholder="输入消息"
           .value=${this.messageDraft}
           @input=${this.handleInput}
+          @keydown=${this.handleComposerKeydown}
         ></textarea>
         <div class="dialog-actions">
           <button
@@ -157,6 +158,15 @@ export class WorkspaceConversationPane extends LitElement {
         composed: true,
       }),
     );
+  }
+
+  private handleComposerKeydown(event: KeyboardEvent) {
+    if (this.isRunning || event.key !== "Enter" || !event.metaKey) {
+      return;
+    }
+
+    event.preventDefault();
+    this.emitAction("send");
   }
 
   private handleQuickButton(text: string) {

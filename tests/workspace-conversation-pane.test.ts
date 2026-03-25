@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import "../src/components/workspace-conversation-pane";
 import type { WorkspaceConversationPane } from "../src/components/workspace-conversation-pane";
@@ -139,5 +139,30 @@ describe("workspace-conversation-pane", () => {
     expect(element.shadowRoot?.textContent).toContain("已更新按钮文案");
     expect(element.shadowRoot?.textContent).toContain("编辑");
     expect(element.shadowRoot?.textContent).toContain("console.log");
+  });
+
+  it("emits send when pressing cmd+enter in the composer", async () => {
+    const element = createElement();
+    const actionListener = vi.fn();
+    element.addEventListener("action-click", actionListener);
+
+    await element.updateComplete;
+
+    const input = element.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement;
+    const keydownEvent = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      metaKey: true,
+    });
+
+    input.dispatchEvent(keydownEvent);
+
+    expect(actionListener).toHaveBeenCalledTimes(1);
+    expect(actionListener.mock.calls[0]?.[0]).toMatchObject({
+      detail: "send",
+    });
+    expect(keydownEvent.defaultPrevented).toBe(true);
   });
 });
