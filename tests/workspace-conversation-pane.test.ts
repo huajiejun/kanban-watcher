@@ -69,6 +69,17 @@ describe("workspace-conversation-pane", () => {
     expect(element.shadowRoot?.textContent).toContain("消息已同步");
   });
 
+  it("keeps feedback space reserved when there is no current feedback", async () => {
+    const element = createElement();
+    element.currentFeedback = "";
+
+    await element.updateComplete;
+
+    const feedback = element.shadowRoot?.querySelector(".dialog-feedback.is-empty");
+    expect(feedback).not.toBeNull();
+    expect(feedback?.textContent).toContain("\u00a0");
+  });
+
   it("scrolls the message list to the bottom when messages change", async () => {
     const element = createElement();
 

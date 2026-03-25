@@ -1260,6 +1260,10 @@ export const cardStyles = css`
     line-height: 1.4;
   }
 
+  .dialog-feedback.is-empty {
+    visibility: hidden;
+  }
+
   @keyframes spinner-rotate {
     to {
       transform: rotate(360deg);

@@ -100,9 +100,12 @@ export class WorkspaceConversationPane extends LitElement {
               `
             : nothing}
         </div>
-        ${this.currentFeedback
-          ? html`<div class="dialog-feedback" aria-live="polite">${this.currentFeedback}</div>`
-          : nothing}
+        <div
+          class=${this.currentFeedback ? "dialog-feedback" : "dialog-feedback is-empty"}
+          aria-live="polite"
+        >
+          ${this.currentFeedback || "\u00a0"}
+        </div>
       </div>
       </section>
     `;
