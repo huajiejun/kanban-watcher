@@ -66,10 +66,8 @@ export const workspaceSectionListStyles = css`
       var(--ha-card-background, var(--card-background-color, #111827)) 82%,
       var(--secondary-background-color, #0f172a)
     );
-    border-left: 3px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 85%, transparent);
-    border-top: 0;
-    border-right: 0;
-    border-bottom: 0;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
+    border-left-width: 3px;
     text-align: left;
     color: inherit;
     font: inherit;
@@ -77,6 +75,7 @@ export const workspaceSectionListStyles = css`
   }
 
   .task-card[data-selected="true"] {
+    border-color: color-mix(in srgb, var(--primary-color, #f59e0b) 48%, transparent);
     box-shadow: inset 0 0 0 1px
       color-mix(in srgb, var(--primary-color, #f59e0b) 55%, transparent);
   }
@@ -384,10 +383,8 @@ export const cardStyles = css`
       var(--ha-card-background, var(--card-background-color, #111827)) 82%,
       var(--secondary-background-color, #0f172a)
     );
-    border-left: 3px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 85%, transparent);
-    border-top: 0;
-    border-right: 0;
-    border-bottom: 0;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
+    border-left-width: 3px;
     text-align: left;
     color: inherit;
     font: inherit;

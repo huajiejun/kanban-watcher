@@ -133,6 +133,9 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain("width: 100%");
     expect(homeCssText).not.toContain("width: min(1440px, 100%)");
     expect(homeCssText).not.toContain("margin: 0 auto");
+    expect(listCssText).toContain(".task-card");
+    expect(listCssText).toContain("border: 1px solid");
+    expect(listCssText).toContain(".task-card[data-selected=\"true\"]");
     expect(listCssText).toContain("var(--card-background-color, #111827)");
     expect(listCssText).toContain("var(--secondary-background-color, #111827)");
   });
