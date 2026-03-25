@@ -21,6 +21,7 @@ export class WorkspaceConversationPane extends LitElement {
     renderMessage: { attribute: false },
     quickButtonsTemplate: { attribute: false },
     expandedToolMessageKeys: { attribute: false },
+    smoothRevealMessageKey: { attribute: false },
     isRunning: { type: Boolean },
     canQueue: { type: Boolean },
   };
@@ -34,6 +35,7 @@ export class WorkspaceConversationPane extends LitElement {
   renderMessage?: (message: ConversationPaneMessage) => unknown;
   quickButtonsTemplate?: unknown;
   expandedToolMessageKeys = new Set<string>();
+  smoothRevealMessageKey?: string;
   isRunning = false;
   canQueue = false;
 
@@ -147,6 +149,7 @@ export class WorkspaceConversationPane extends LitElement {
       expandedToolMessageKeys: this.expandedToolMessageKeys,
       onToggleToolMessage: this.toggleToolMessage,
       editLanguage: detectDialogEditLanguage(this.messages),
+      smoothRevealMessageKey: this.smoothRevealMessageKey,
     });
   }
 

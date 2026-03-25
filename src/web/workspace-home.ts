@@ -8,6 +8,7 @@ import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
 import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
 import {
+  getDialogMessageIdentity,
   normalizeApiMessages,
   normalizeApiMessagesFlat,
   normalizeSessionMessage,
@@ -56,7 +57,7 @@ export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
 const MOBILE_BREAKPOINT = 768;
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
-const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 5_000;
+const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 3_000;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
 
 export function resolveWorkspaceHomeMode(width: number): WorkspaceHomeMode {
@@ -81,6 +82,7 @@ export class KanbanWorkspaceHome extends LitElement {
     messageDraftByWorkspace: { attribute: false },
     actionFeedbackByWorkspace: { attribute: false },
     queueStatusByWorkspace: { attribute: false },
+    smoothRevealMessageKeyByWorkspace: { attribute: false },
     extractedButtonsByWorkspace: { attribute: false },
     suggestedButtonsByWorkspace: { attribute: false },
   };
@@ -97,6 +99,7 @@ export class KanbanWorkspaceHome extends LitElement {
   messageDraftByWorkspace: Record<string, string> = {};
   actionFeedbackByWorkspace: Record<string, string> = {};
   queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
+  smoothRevealMessageKeyByWorkspace: Record<string, string> = {};
   extractedButtonsByWorkspace: Record<string, string[]> = {};
   suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
@@ -199,6 +202,7 @@ export class KanbanWorkspaceHome extends LitElement {
                       .messages=${this.messagesByWorkspace[workspace.id] ?? []}
                       .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
                       .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}
+                      .smoothRevealMessageKey=${this.smoothRevealMessageKeyByWorkspace[workspace.id]}
                       .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
                       .queueStatus=${queueStatus}
                       .isRunning=${isRunning}
@@ -324,10 +328,20 @@ export class KanbanWorkspaceHome extends LitElement {
         workspaceId,
         limit: this.previewOptions.messagesLimit ?? 50,
       });
+      const previousMessages = this.messagesByWorkspace[workspaceId] ?? [];
+      const nextMessages = normalizeApiMessages(response.messages);
 
       this.messagesByWorkspace = {
         ...this.messagesByWorkspace,
-        [workspaceId]: normalizeApiMessages(response.messages),
+        [workspaceId]: nextMessages,
+      };
+      this.smoothRevealMessageKeyByWorkspace = {
+        ...this.smoothRevealMessageKeyByWorkspace,
+        [workspaceId]: this.resolveSmoothRevealMessageKey(
+          workspaceId,
+          previousMessages,
+          nextMessages,
+        ),
       };
       this.analyzeDynamicButtons(workspaceId);
     } catch (error) {
@@ -904,6 +918,28 @@ export class KanbanWorkspaceHome extends LitElement {
       return leftValue - rightValue;
     }
     return left.localeCompare(right);
+  }
+
+  private resolveSmoothRevealMessageKey(
+    workspaceId: string,
+    previousMessages: DialogMessage[],
+    nextMessages: DialogMessage[],
+  ) {
+    if (workspaceId === this.activeWorkspace?.id) {
+      return "";
+    }
+
+    const nextLastMessage = nextMessages.at(-1);
+    const previousLastMessage = previousMessages.at(-1);
+
+    if (!nextLastMessage || nextLastMessage.kind !== "message" || nextLastMessage.sender !== "ai") {
+      return "";
+    }
+
+    const nextIdentity = getDialogMessageIdentity(nextLastMessage);
+    const previousIdentity = previousLastMessage ? getDialogMessageIdentity(previousLastMessage) : "";
+
+    return nextIdentity !== previousIdentity ? nextIdentity : "";
   }
 
   private getDialogPollingWorkspaces() {

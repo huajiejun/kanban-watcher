@@ -827,6 +827,7 @@ describe("workspace home helpers", () => {
   });
 
   it("polls other opened panes while the active pane stays on websocket updates", async () => {
+    let ws2MessageRevision = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -863,11 +864,14 @@ describe("workspace home helpers", () => {
       }
 
       if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        ws2MessageRevision += 1;
         return createJsonResponse({
           messages: [
             {
               role: "assistant",
-              content: "任务二消息",
+              process_id: "proc-ws-2",
+              entry_index: ws2MessageRevision,
+              content: ws2MessageRevision > 1 ? "任务二消息已刷新" : "任务二消息",
             },
           ],
         });
@@ -900,7 +904,7 @@ describe("workspace home helpers", () => {
       String(url).includes("/api/workspaces/ws-2/latest-messages"),
     );
 
-    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.advanceTimersByTimeAsync(3_000);
     await flushElement(element);
 
     const ws1AfterTick = fetchMock.mock.calls.filter(([url]) =>
@@ -909,9 +913,14 @@ describe("workspace home helpers", () => {
     const ws2AfterTick = fetchMock.mock.calls.filter(([url]) =>
       String(url).includes("/api/workspaces/ws-2/latest-messages"),
     );
+    const panes = [
+      ...(element.shadowRoot?.querySelectorAll("workspace-conversation-pane") ?? []),
+    ] as Array<HTMLElement & { shadowRoot: ShadowRoot }>;
+    const secondPaneReveal = panes[1]?.shadowRoot?.querySelector(".message-bubble.is-smooth-reveal");
 
     expect(ws1AfterTick).toHaveLength(ws1BeforeTick.length);
     expect(ws2AfterTick.length).toBeGreaterThan(ws2BeforeTick.length);
+    expect(secondPaneReveal?.textContent).toContain("任务二消息已刷新");
   });
 
   it("hydrates running panes with stop and queue controls", async () => {

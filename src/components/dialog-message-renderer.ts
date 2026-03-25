@@ -13,6 +13,7 @@ type DialogRendererOptions = {
   expandedToolMessageKeys?: ReadonlySet<string>;
   onToggleToolMessage?: (toolKey: string) => void;
   editLanguage?: string;
+  smoothRevealMessageKey?: string;
 };
 
 export function renderDialogMessage(message: DialogMessage, options: DialogRendererOptions = {}) {
@@ -25,7 +26,15 @@ export function renderDialogMessage(message: DialogMessage, options: DialogRende
 
   return html`
     <div class="message-row">
-      <div class="message-bubble ${message.sender === "user" ? "is-user" : "is-ai"}">
+      <div
+        class=${[
+          "message-bubble",
+          message.sender === "user" ? "is-user" : "is-ai",
+          message.sender === "ai" && options.smoothRevealMessageKey === getDialogMessageIdentity(message)
+            ? "is-smooth-reveal"
+            : "",
+        ].filter(Boolean).join(" ")}
+      >
         ${unsafeHTML(renderMessageMarkdown(message.text))}
       </div>
     </div>

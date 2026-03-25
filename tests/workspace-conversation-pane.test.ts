@@ -165,4 +165,22 @@ describe("workspace-conversation-pane", () => {
     });
     expect(keydownEvent.defaultPrevented).toBe(true);
   });
+
+  it("marks a targeted assistant message with smooth reveal styling", async () => {
+    const element = createElement();
+    element.messages = [
+      {
+        key: "msg-1",
+        kind: "message",
+        sender: "ai",
+        text: "新的后台同步消息",
+      } satisfies PaneMessage & { key: string },
+    ];
+    (element as WorkspaceConversationPane & { smoothRevealMessageKey?: string }).smoothRevealMessageKey = "msg-1";
+
+    await element.updateComplete;
+
+    const bubble = element.shadowRoot?.querySelector(".message-bubble.is-smooth-reveal");
+    expect(bubble?.textContent).toContain("新的后台同步消息");
+  });
 });

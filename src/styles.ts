@@ -1015,6 +1015,24 @@ export const cardStyles = css`
     background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 72%, transparent);
   }
 
+  .message-bubble.is-smooth-reveal {
+    animation: message-smooth-reveal 220ms ease-out;
+    transform-origin: left top;
+  }
+
+  @keyframes message-smooth-reveal {
+    0% {
+      opacity: 0;
+      transform: translateY(4px) scale(0.985);
+      filter: saturate(0.92);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: saturate(1);
+    }
+  }
+
   /* 快捷按钮区域 */
   .quick-buttons {
     display: flex;
