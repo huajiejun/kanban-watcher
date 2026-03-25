@@ -1586,16 +1586,17 @@ export const cardStyles = css`
 
     /* 弹窗样式 */
     .dialog-shell {
-      padding: 12px 8px;
-      align-items: center;
+      padding: 0;
+      align-items: stretch;
     }
 
     .workspace-dialog {
-      width: 100%;
-      max-width: 100%;
-      height: min(82vh, 900px);
+      width: 100vw;
+      max-width: 100vw;
+      height: 100dvh;
+      min-height: 100dvh;
       padding: 0px;
-      border-radius: 18px;
+      border-radius: 0;
       box-sizing: border-box;
     }
 

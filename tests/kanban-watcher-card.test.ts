@@ -929,14 +929,16 @@ describe("kanban-watcher-card", () => {
     expect(cssText).toContain("overflow: visible;");
   });
 
-  it("centers the mobile dialog higher instead of pinning it to the bottom edge", () => {
+  it("expands the mobile dialog to a full-screen overlay", () => {
     const cssText = cardStyles.cssText;
 
     expect(cssText).toContain("@media (max-width: 640px)");
-    expect(cssText).toContain(".dialog-shell {\n      padding: 12px 8px;\n      align-items: center;");
-    expect(cssText).toContain(".workspace-dialog {\n      width: 100%;");
-    expect(cssText).toContain("height: min(82vh, 900px);");
-    expect(cssText).toContain("border-radius: 18px;");
+    expect(cssText).toContain(".dialog-shell {\n      padding: 0;\n      align-items: stretch;");
+    expect(cssText).toContain(".workspace-dialog {\n      width: 100vw;");
+    expect(cssText).toContain("max-width: 100vw;");
+    expect(cssText).toContain("height: 100dvh;");
+    expect(cssText).toContain("min-height: 100dvh;");
+    expect(cssText).toContain("border-radius: 0;");
   });
 
   it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {
