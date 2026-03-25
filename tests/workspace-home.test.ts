@@ -158,6 +158,10 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"true\"]");
     expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr)");
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"false\"]");
+    expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-docked=\"true\"][data-sidebar-collapsed=\"false\"]");
+    expect(homeCssText).toContain("grid-template-columns: minmax(280px, 320px) minmax(0, 1fr)");
+    expect(homeCssText).toContain(".workspace-home-sidebar[data-docked=\"true\"]");
+    expect(homeCssText).toContain("position: static");
     expect(homeCssText).toContain(".workspace-home-sidebar-content");
     expect(homeCssText).toContain("overflow-y: auto");
     expect(homeCssText).toContain(".workspace-home-sidebar-toggle");
@@ -255,7 +259,7 @@ describe("workspace home helpers", () => {
     expect(previewCard?.shadowRoot?.textContent).toContain("这里是工作区一最近的一条关键结论。");
   });
 
-  it("collapses and expands the left workspace sidebar", async () => {
+  it("keeps the left workspace sidebar expanded and docked when zero or one pane is open", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -290,27 +294,98 @@ describe("workspace home helpers", () => {
     const layout = element.shadowRoot?.querySelector(".workspace-home-layout") as HTMLElement | null;
     const sidebar = element.shadowRoot?.querySelector(".workspace-home-sidebar") as HTMLElement | null;
 
-    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("true");
-    expect(sidebar?.getAttribute("data-collapsed")).toBe("true");
+    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
+    expect(layout?.getAttribute("data-sidebar-docked")).toBe("true");
+    expect(sidebar?.getAttribute("data-collapsed")).toBe("false");
+    expect(sidebar?.getAttribute("data-docked")).toBe("true");
     expect(toggle?.textContent).not.toContain("项目状态");
     expect(element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop")).toBeNull();
-    toggle?.click();
-    await flushElement(element);
-
-    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
-    expect(sidebar?.getAttribute("data-collapsed")).toBe("false");
-    expect(toggle?.textContent).toContain("收起");
-    expect(element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop")).not.toBeNull();
     expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
     expect(element.shadowRoot?.querySelector(".task-meta")).not.toBeNull();
 
-    (element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop") as HTMLButtonElement | null)
-      ?.click();
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null)?.click();
+    await flushElement(element);
+
+    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
+    expect(layout?.getAttribute("data-sidebar-docked")).toBe("true");
+    expect(sidebar?.getAttribute("data-collapsed")).toBe("false");
+    expect(sidebar?.getAttribute("data-docked")).toBe("true");
+    expect(element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop")).toBeNull();
+  });
+
+  it("auto-collapses the left workspace sidebar when more than one pane is open and re-expands when returning to one", async () => {
+    setWindowWidth(1920);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "工作区一",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "工作区二",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息二" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    const layout = element.shadowRoot?.querySelector(".workspace-home-layout") as HTMLElement | null;
+    const sidebar = element.shadowRoot?.querySelector(".workspace-home-sidebar") as HTMLElement | null;
+
+    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
+    expect(layout?.getAttribute("data-sidebar-docked")).toBe("true");
+
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
+    expect(layout?.getAttribute("data-sidebar-docked")).toBe("true");
+    expect(sidebar?.getAttribute("data-docked")).toBe("true");
+
+    (cards[1] as HTMLButtonElement).click();
     await flushElement(element);
 
     expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("true");
+    expect(layout?.getAttribute("data-sidebar-docked")).toBe("false");
     expect(sidebar?.getAttribute("data-collapsed")).toBe("true");
-    expect(element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop")).toBeNull();
+    expect(sidebar?.getAttribute("data-docked")).toBe("false");
+
+    const panes = [
+      ...(element.shadowRoot?.querySelectorAll("workspace-conversation-pane") ?? []),
+    ] as HTMLElement[];
+    panes[1]?.dispatchEvent(new CustomEvent("pane-close", { bubbles: true, composed: true }));
+    await flushElement(element);
+
+    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
+    expect(layout?.getAttribute("data-sidebar-docked")).toBe("true");
+    expect(sidebar?.getAttribute("data-collapsed")).toBe("false");
+    expect(sidebar?.getAttribute("data-docked")).toBe("true");
   });
 
   it("closes a secondary workspace from the summary rail", async () => {

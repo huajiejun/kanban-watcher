@@ -212,6 +212,10 @@ export const workspaceHomeStyles = css`
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .workspace-home-layout[data-sidebar-docked="true"][data-sidebar-collapsed="false"] {
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+  }
+
   .workspace-home-sidebar,
   .workspace-home-pane-grid,
   .workspace-home-placeholder {
@@ -245,6 +249,25 @@ export const workspaceHomeStyles = css`
   .workspace-home-sidebar[data-collapsed="false"] {
     transform: translateX(0);
     opacity: 1;
+  }
+
+  .workspace-home-sidebar[data-docked="true"] {
+    position: static;
+    inset: auto;
+    z-index: auto;
+    width: auto;
+  }
+
+  .workspace-home-sidebar[data-docked="true"][data-collapsed="true"] {
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+    display: none;
+  }
+
+  .workspace-home-sidebar[data-docked="true"][data-collapsed="false"] {
+    height: var(--workspace-home-pane-height);
+    min-height: var(--workspace-home-pane-height);
   }
 
   .workspace-home-sidebar-content {

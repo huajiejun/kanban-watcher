@@ -14,6 +14,23 @@ function uniqueIds(ids: string[]) {
   return [...new Set(ids)];
 }
 
+function trimOpenWorkspaceIds(
+  openWorkspaceIds: string[],
+  maxVisible: number,
+  activeWorkspaceId?: string,
+) {
+  if (openWorkspaceIds.length <= maxVisible) {
+    return openWorkspaceIds;
+  }
+
+  const nextOpenWorkspaceIds = [...openWorkspaceIds];
+  while (nextOpenWorkspaceIds.length > maxVisible) {
+    const removableIndex = nextOpenWorkspaceIds.findIndex((id) => id !== activeWorkspaceId);
+    nextOpenWorkspaceIds.splice(removableIndex >= 0 ? removableIndex : 0, 1);
+  }
+  return nextOpenWorkspaceIds;
+}
+
 function isAttentionWorkspace(workspace: KanbanWorkspace) {
   return Boolean(workspace.needs_attention || workspace.has_pending_approval);
 }
@@ -37,15 +54,33 @@ export function openWorkspacePane(
   const nextOpenWorkspaceIds = state.openWorkspaceIds.includes(workspaceId)
     ? state.openWorkspaceIds
     : uniqueIds([...state.openWorkspaceIds, workspaceId]);
-  const trimmedOpenWorkspaceIds =
-    nextOpenWorkspaceIds.length > 4
-      ? nextOpenWorkspaceIds.slice(nextOpenWorkspaceIds.length - 4)
-      : nextOpenWorkspaceIds;
+  const trimmedOpenWorkspaceIds = trimOpenWorkspaceIds(nextOpenWorkspaceIds, 4, workspaceId);
 
   return {
     ...state,
     openWorkspaceIds: trimmedOpenWorkspaceIds,
     activeWorkspaceId: workspaceId,
+    dismissedAttentionIds: state.dismissedAttentionIds.filter((id) => id !== workspaceId),
+  };
+}
+
+export function appendWorkspacePane(
+  state: WorkspacePageState,
+  workspaceId: string,
+): WorkspacePageState {
+  const nextOpenWorkspaceIds = state.openWorkspaceIds.includes(workspaceId)
+    ? state.openWorkspaceIds
+    : uniqueIds([...state.openWorkspaceIds, workspaceId]);
+  const trimmedOpenWorkspaceIds = trimOpenWorkspaceIds(
+    nextOpenWorkspaceIds,
+    4,
+    state.activeWorkspaceId,
+  );
+
+  return {
+    ...state,
+    openWorkspaceIds: trimmedOpenWorkspaceIds,
+    activeWorkspaceId: state.activeWorkspaceId ?? trimmedOpenWorkspaceIds.at(-1),
     dismissedAttentionIds: state.dismissedAttentionIds.filter((id) => id !== workspaceId),
   };
 }
@@ -104,7 +139,7 @@ export function reconcileWorkspacePageState(
     const isDismissed = nextState.dismissedAttentionIds.includes(workspace.id);
 
     if (isAttention && !wasAttention && !isDismissed) {
-      nextState = openWorkspacePane(nextState, workspace.id);
+      nextState = appendWorkspacePane(nextState, workspace.id);
     }
   }
 

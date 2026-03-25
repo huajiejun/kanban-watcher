@@ -98,9 +98,9 @@ export class KanbanWorkspaceHome extends LitElement {
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
-  isSidebarCollapsed = true;
   workspaces: KanbanWorkspace[] = [];
   pageState: WorkspacePageState = createWorkspacePageState(readPersistedWorkspacePageState());
+  isSidebarCollapsed = this.resolveSidebarCollapsed(this.pageState.openWorkspaceIds.length);
   messagesByWorkspace: Record<string, DialogMessage[]> = {};
   loading = false;
   error = "";
@@ -122,6 +122,7 @@ export class KanbanWorkspaceHome extends LitElement {
   private realtimeSocket?: WebSocket;
   private boardRealtimeConnected = false;
   private realtimeConnected = false;
+  private lastSidebarSyncPaneCount = this.pageState.openWorkspaceIds.length;
 
   connectedCallback() {
     super.connectedCallback();
@@ -135,6 +136,12 @@ export class KanbanWorkspaceHome extends LitElement {
     window.removeEventListener("resize", this.handleResize);
     this.stopRealtimeSync();
     super.disconnectedCallback();
+  }
+
+  protected willUpdate(changedProperties: Map<PropertyKey, unknown>) {
+    if (changedProperties.has("pageState")) {
+      this.syncSidebarCollapsed(this.pageState.openWorkspaceIds.length);
+    }
   }
 
   protected updated(changedProperties: Map<PropertyKey, unknown>) {
@@ -166,12 +173,14 @@ export class KanbanWorkspaceHome extends LitElement {
       .map((id) => this.workspaces.find((workspace) => workspace.id === id))
       .filter((workspace): workspace is KanbanWorkspace => Boolean(workspace));
     const paneLayoutMode = resolveWorkspacePaneLayoutMode(window.innerWidth, openWorkspaces.length);
+    const isSidebarDocked = openWorkspaces.length <= 1;
 
     return html`
       <main class="workspace-home-shell" data-mode="desktop">
         <section
           class="workspace-home-layout"
           data-sidebar-collapsed=${this.isSidebarCollapsed ? "true" : "false"}
+          data-sidebar-docked=${isSidebarDocked ? "true" : "false"}
         >
           <button
             class="workspace-home-sidebar-toggle ${this.isSidebarCollapsed ? "is-collapsed" : "is-expanded"}"
@@ -187,7 +196,7 @@ export class KanbanWorkspaceHome extends LitElement {
                   <span>收起</span>
                 `}
           </button>
-          ${this.isSidebarCollapsed
+          ${this.isSidebarCollapsed || isSidebarDocked
             ? nothing
             : html`<button
                 class="workspace-home-sidebar-backdrop"
@@ -198,6 +207,7 @@ export class KanbanWorkspaceHome extends LitElement {
           <aside
             class="workspace-home-sidebar"
             data-collapsed=${this.isSidebarCollapsed ? "true" : "false"}
+            data-docked=${isSidebarDocked ? "true" : "false"}
           >
             <div class="workspace-home-sidebar-content">
               ${this.loading ? html`<div class="empty-state">正在加载工作区...</div>` : nothing}
@@ -226,6 +236,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private handleSidebarToggle = () => {
     this.isSidebarCollapsed = !this.isSidebarCollapsed;
+    this.lastSidebarSyncPaneCount = this.pageState.openWorkspaceIds.length;
   };
 
   private handleResize = () => {
@@ -266,6 +277,18 @@ export class KanbanWorkspaceHome extends LitElement {
     } finally {
       this.loading = false;
     }
+  }
+
+  private resolveSidebarCollapsed(openPaneCount: number) {
+    return openPaneCount > 1;
+  }
+
+  private syncSidebarCollapsed(openPaneCount: number) {
+    if (this.lastSidebarSyncPaneCount === openPaneCount) {
+      return;
+    }
+    this.lastSidebarSyncPaneCount = openPaneCount;
+    this.isSidebarCollapsed = this.resolveSidebarCollapsed(openPaneCount);
   }
 
   private async fetchApiWorkspaces() {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  appendWorkspacePane,
   createWorkspacePageState,
   dismissWorkspacePane,
   openWorkspacePane,
@@ -43,6 +44,27 @@ describe("workspace page state", () => {
     ]);
 
     expect(next.openWorkspaceIds).toEqual(["ws-1"]);
+    expect(next.activeWorkspaceId).toBe("ws-1");
+  });
+
+  it("appends a newly entered attention workspace to the end without changing the current active pane", () => {
+    const initial = reconcileWorkspacePageState(
+      createWorkspacePageState({
+        openWorkspaceIds: ["ws-1"],
+        activeWorkspaceId: "ws-1",
+      }),
+      [
+        createWorkspace("ws-1", { needs_attention: false }),
+        createWorkspace("ws-2", { needs_attention: false }),
+      ],
+    );
+
+    const next = reconcileWorkspacePageState(initial, [
+      createWorkspace("ws-1", { needs_attention: false }),
+      createWorkspace("ws-2", { needs_attention: true }),
+    ]);
+
+    expect(next.openWorkspaceIds).toEqual(["ws-1", "ws-2"]);
     expect(next.activeWorkspaceId).toBe("ws-1");
   });
 
@@ -104,6 +126,18 @@ describe("workspace page state", () => {
     const next = openWorkspacePane(base, "ws-1");
 
     expect(next.openWorkspaceIds).toEqual(["ws-1", "ws-2", "ws-3"]);
+    expect(next.activeWorkspaceId).toBe("ws-1");
+  });
+
+  it("appends a workspace without changing the current active pane", () => {
+    const base = createWorkspacePageState({
+      openWorkspaceIds: ["ws-1"],
+      activeWorkspaceId: "ws-1",
+    });
+
+    const next = appendWorkspacePane(base, "ws-2");
+
+    expect(next.openWorkspaceIds).toEqual(["ws-1", "ws-2"]);
     expect(next.activeWorkspaceId).toBe("ws-1");
   });
 
