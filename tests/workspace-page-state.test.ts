@@ -106,4 +106,17 @@ describe("workspace page state", () => {
     expect(next.openWorkspaceIds).toEqual(["ws-1", "ws-2", "ws-3"]);
     expect(next.activeWorkspaceId).toBe("ws-1");
   });
+
+  it("falls back to the last valid open workspace when the active workspace disappears", () => {
+    const next = reconcileWorkspacePageState(
+      createWorkspacePageState({
+        openWorkspaceIds: ["ws-1", "ws-2"],
+        activeWorkspaceId: "ws-missing",
+      }),
+      [createWorkspace("ws-1"), createWorkspace("ws-2")],
+    );
+
+    expect(next.openWorkspaceIds).toEqual(["ws-1", "ws-2"]);
+    expect(next.activeWorkspaceId).toBe("ws-2");
+  });
 });

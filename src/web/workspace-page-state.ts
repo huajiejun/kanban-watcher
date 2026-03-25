@@ -55,11 +55,12 @@ export function dismissWorkspacePane(
   workspaceId: string,
   keepDismissed: boolean,
 ): WorkspacePageState {
+  const nextOpenWorkspaceIds = state.openWorkspaceIds.filter((id) => id !== workspaceId);
   return {
     ...state,
-    openWorkspaceIds: state.openWorkspaceIds.filter((id) => id !== workspaceId),
+    openWorkspaceIds: nextOpenWorkspaceIds,
     activeWorkspaceId:
-      state.activeWorkspaceId === workspaceId ? state.openWorkspaceIds.at(-1) : state.activeWorkspaceId,
+      state.activeWorkspaceId === workspaceId ? nextOpenWorkspaceIds.at(-1) : state.activeWorkspaceId,
     dismissedAttentionIds: keepDismissed
       ? uniqueIds([...state.dismissedAttentionIds, workspaceId])
       : state.dismissedAttentionIds.filter((id) => id !== workspaceId),
@@ -74,10 +75,16 @@ export function reconcileWorkspacePageState(
     workspaces.map((workspace) => [workspace.id, isAttentionWorkspace(workspace)]),
   );
   const activeWorkspaceIds = new Set(workspaces.map((workspace) => workspace.id));
+  const nextOpenWorkspaceIds = state.openWorkspaceIds.filter((id) => activeWorkspaceIds.has(id));
+  const nextActiveWorkspaceId =
+    state.activeWorkspaceId && nextOpenWorkspaceIds.includes(state.activeWorkspaceId)
+      ? state.activeWorkspaceId
+      : nextOpenWorkspaceIds.at(-1);
 
   let nextState: WorkspacePageState = {
     ...state,
-    openWorkspaceIds: state.openWorkspaceIds.filter((id) => activeWorkspaceIds.has(id)),
+    openWorkspaceIds: nextOpenWorkspaceIds,
+    activeWorkspaceId: nextActiveWorkspaceId,
     dismissedAttentionIds: state.dismissedAttentionIds.filter(
       (id) => activeWorkspaceIds.has(id) && attentionMap[id],
     ),

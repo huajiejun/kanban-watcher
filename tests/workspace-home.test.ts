@@ -6,6 +6,7 @@ import {
   getPaneColumns,
   resolveWorkspaceHomeMode,
 } from "../src/web/workspace-home";
+import { WORKSPACE_PAGE_STATE_STORAGE_KEY } from "../src/web/workspace-page-state-storage";
 import { workspaceHomeStyles, workspaceSectionListStyles } from "../src/styles";
 
 class FakeWebSocket {
@@ -102,6 +103,7 @@ describe("workspace home helpers", () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     FakeWebSocket.instances = [];
+    window.localStorage.clear();
     document.body.innerHTML = "";
   });
 
@@ -740,6 +742,88 @@ describe("workspace home helpers", () => {
     expect(paneTitles).toEqual(["任务一", "任务二"]);
     expect(firstPaneInput).not.toBeNull();
     expect(panes[0]?.shadowRoot?.activeElement).toBe(firstPaneInput);
+  });
+
+  it("persists opened panes and restores them after recreating the page", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "任务一",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "任务二",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "任务一消息",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "任务二消息",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const firstElement = createElement();
+    await waitForWorkspaceList(firstElement);
+
+    const cards = firstElement.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(firstElement);
+    (cards[1] as HTMLButtonElement).click();
+    await flushElement(firstElement);
+
+    const persisted = window.localStorage.getItem(WORKSPACE_PAGE_STATE_STORAGE_KEY);
+    expect(persisted).toContain("\"openWorkspaceIds\":[\"ws-1\",\"ws-2\"]");
+    expect(persisted).toContain("\"activeWorkspaceId\":\"ws-2\"");
+
+    firstElement.remove();
+
+    const secondElement = createElement();
+    await waitForWorkspaceList(secondElement);
+    await flushElement(secondElement);
+
+    expect(secondElement.pageState.openWorkspaceIds).toEqual(["ws-1", "ws-2"]);
+    expect(secondElement.pageState.activeWorkspaceId).toBe("ws-2");
+
+    const paneTitles = [
+      ...(secondElement.shadowRoot?.querySelectorAll("workspace-conversation-pane") ?? []),
+    ].map((pane) =>
+      (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot?.querySelector(".dialog-title")
+        ?.textContent?.trim(),
+    );
+
+    expect(paneTitles).toEqual(["任务一", "任务二"]);
   });
 
   it("hydrates running panes with stop and queue controls", async () => {

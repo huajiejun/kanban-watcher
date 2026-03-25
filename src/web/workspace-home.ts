@@ -46,6 +46,10 @@ import {
   reconcileWorkspacePageState,
   type WorkspacePageState,
 } from "./workspace-page-state";
+import {
+  readPersistedWorkspacePageState,
+  writePersistedWorkspacePageState,
+} from "./workspace-page-state-storage";
 import { buildPreviewCardConfig, readPreviewApiOptions } from "../playground";
 
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
@@ -83,7 +87,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
   workspaces: KanbanWorkspace[] = [];
-  pageState: WorkspacePageState = createWorkspacePageState();
+  pageState: WorkspacePageState = createWorkspacePageState(readPersistedWorkspacePageState());
   messagesByWorkspace: Record<string, DialogMessage[]> = {};
   loading = false;
   error = "";
@@ -123,9 +127,12 @@ export class KanbanWorkspaceHome extends LitElement {
     if (this.mode === "mobile-card") {
       this.setupMobileCard();
     }
-    if (changedProperties.has("pageState") && this.isApiMode) {
-      this.restartRealtimeConnection();
-      this.updateDialogPolling();
+    if (changedProperties.has("pageState")) {
+      writePersistedWorkspacePageState(this.pageState);
+      if (this.isApiMode) {
+        this.restartRealtimeConnection();
+        this.updateDialogPolling();
+      }
     }
   }
 
