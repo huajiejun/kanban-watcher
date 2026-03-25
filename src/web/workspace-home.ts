@@ -62,7 +62,10 @@ import {
   resolveWorkspacePaneLayoutMode,
   summarizeWorkspacePreview,
 } from "./workspace-pane-layout";
-import { buildPreviewCardConfig, readPreviewApiOptions } from "../playground";
+import {
+  buildPreviewCardConfig as buildPreviewCardConfigFromOptions,
+  readPreviewApiOptions,
+} from "../lib/preview-options";
 
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
@@ -128,6 +131,7 @@ export class KanbanWorkspaceHome extends LitElement {
   private hasHydratedRemoteWorkspaceView = false;
   private isApplyingRemoteWorkspaceView = false;
   private lastPushedWorkspaceViewSignature = "";
+  private apiAccessBlocked = false;
 
   connectedCallback() {
     super.connectedCallback();
@@ -276,8 +280,13 @@ export class KanbanWorkspaceHome extends LitElement {
           return jobs;
         }),
       );
+      this.apiAccessBlocked = false;
     } catch (error) {
       this.error = error instanceof Error ? error.message : "加载工作区失败";
+      if (this.isUnauthorizedError(error)) {
+        this.apiAccessBlocked = true;
+        this.stopRealtimeSync();
+      }
     } finally {
       this.loading = false;
     }
@@ -288,8 +297,10 @@ export class KanbanWorkspaceHome extends LitElement {
       await this.hydrateRemoteWorkspaceView();
     }
     await this.loadWorkspaces();
-    this.connectBoardRealtimeIfNeeded();
-    this.startBoardPolling();
+    if (!this.apiAccessBlocked) {
+      this.connectBoardRealtimeIfNeeded();
+      this.startBoardPolling();
+    }
   }
 
   private async hydrateRemoteWorkspaceView() {
@@ -699,6 +710,11 @@ export class KanbanWorkspaceHome extends LitElement {
     return this.previewOptions.baseUrl !== undefined;
   }
 
+  private isUnauthorizedError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    return /(?:^|\\b)(401|403)\\b/.test(message) || /Unauthorized/i.test(message);
+  }
+
   private getWorkspaceFeedback(workspaceId: string) {
     if (this.actionFeedbackByWorkspace[workspaceId]) {
       return this.actionFeedbackByWorkspace[workspaceId];
@@ -730,7 +746,7 @@ export class KanbanWorkspaceHome extends LitElement {
     const card = this.renderRoot.querySelector("kanban-watcher-card") as
       | (HTMLElement & {
           hass?: ReturnType<typeof createPreviewHass>;
-          setConfig: (config: ReturnType<typeof buildPreviewCardConfig>) => void;
+          setConfig: (config: ReturnType<typeof buildPreviewCardConfigFromOptions>) => void;
         })
       | null;
 
@@ -738,7 +754,7 @@ export class KanbanWorkspaceHome extends LitElement {
       return;
     }
 
-    card.setConfig(buildPreviewCardConfig(this.previewOptions));
+    card.setConfig(buildPreviewCardConfigFromOptions(previewEntityId, this.previewOptions));
     // baseUrl 为 undefined 时使用 mock 数据，空字符串表示使用相对路径（Vite 代理模式）
     if (this.previewOptions.baseUrl === undefined) {
       card.hass = createPreviewHass();
@@ -818,7 +834,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private connectBoardRealtimeIfNeeded() {
-    if (!this.isApiMode || typeof WebSocket === "undefined") {
+    if (!this.isApiMode || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
     }
     const socket = connectRealtime({
@@ -857,7 +873,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private connectRealtimeIfNeeded() {
-    if (!this.isApiMode || typeof WebSocket === "undefined") {
+    if (!this.isApiMode || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
     }
     const sessionId = this.activeWorkspace?.latest_session_id ?? this.activeWorkspace?.last_session_id;
@@ -915,7 +931,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private scheduleBoardRealtimeReconnect() {
-    if (this.boardRealtimeRetryTimer || !this.isApiMode) {
+    if (this.boardRealtimeRetryTimer || !this.isApiMode || this.apiAccessBlocked) {
       return;
     }
     this.boardRealtimeRetryTimer = window.setTimeout(() => {
@@ -930,7 +946,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private scheduleRealtimeReconnect() {
-    if (this.realtimeRetryTimer || !this.isApiMode) {
+    if (this.realtimeRetryTimer || !this.isApiMode || this.apiAccessBlocked) {
       return;
     }
     this.realtimeRetryTimer = window.setTimeout(() => {

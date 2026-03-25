@@ -612,6 +612,34 @@ describe("workspace home helpers", () => {
     expect(element.shadowRoot?.textContent).toContain("实时任务");
   });
 
+  it("stops realtime startup when initial workspace load is unauthorized", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return new Response("401 Unauthorized", { status: 401 });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceData(element);
+
+    expect(element.error).toContain("401 Unauthorized");
+    expect(FakeWebSocket.instances).toHaveLength(0);
+    const initialFetchCount = fetchMock.mock.calls.length;
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await flushElement(element);
+
+    expect(fetchMock).toHaveBeenCalledTimes(initialFetchCount);
+    expect(FakeWebSocket.instances).toHaveLength(0);
+  });
+
   it("keeps a manually closed attention pane closed until attention changes again", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);

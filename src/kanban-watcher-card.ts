@@ -13,6 +13,7 @@ import { connectRealtime } from "./lib/realtime-api";
 import {
   compactDialogMessageText,
   getDialogMessageIdentity,
+  groupConsecutiveToolMessages,
   normalizeApiMessages,
   normalizeApiMessagesFlat,
   normalizeSessionMessage,
@@ -1384,6 +1385,10 @@ export class KanbanWatcherCard extends LitElement {
 
   private normalizeApiMessagesFlat(messages: SessionMessageResponse[] | undefined) {
     return normalizeApiMessagesFlat(messages);
+  }
+
+  private groupConsecutiveToolMessages(messages: DialogMessage[]) {
+    return groupConsecutiveToolMessages(messages);
   }
 
   /**

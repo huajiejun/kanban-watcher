@@ -1,5 +1,5 @@
 import { marked, type Tokens } from "marked";
-import hljs from "highlight.js";
+import { highlightMarkup } from "./code-highlighter";
 
 // 自定义渲染器，支持代码高亮
 const renderer = {
@@ -7,16 +7,7 @@ const renderer = {
     const code = token.text;
     const lang = token.lang;
 
-    let highlighted: string;
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        highlighted = hljs.highlight(code, { language: lang }).value;
-      } catch {
-        highlighted = hljs.highlightAuto(code).value;
-      }
-    } else {
-      highlighted = hljs.highlightAuto(code).value;
-    }
+    const highlighted = highlightMarkup(code, lang) ?? escapeHtml(code);
 
     return `<pre><code class="hljs language-${lang || ""}">${highlighted}</code></pre>`;
   },
@@ -33,4 +24,13 @@ marked.use({ renderer });
 
 export function renderMessageMarkdown(value: string) {
   return marked.parse(value) as string;
+}
+
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
