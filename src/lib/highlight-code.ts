@@ -1,4 +1,4 @@
-import hljs from "highlight.js";
+import { highlightMarkup } from "./code-highlighter";
 
 /**
  * Detect language from file path
@@ -53,14 +53,8 @@ export function detectLanguageFromPath(path: string): string | undefined {
  * Highlight code with language detection
  */
 export function highlightCode(code: string, language?: string): string {
-  try {
-    if (language && hljs.getLanguage(language)) {
-      return hljs.highlight(code, { language }).value;
-    }
-    return hljs.highlightAuto(code).value;
-  } catch {
-    return escapeHtml(code);
-  }
+  const highlighted = highlightMarkup(code, language);
+  return highlighted ?? escapeHtml(code);
 }
 
 /**

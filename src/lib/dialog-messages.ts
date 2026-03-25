@@ -142,7 +142,7 @@ function buildDialogMessageKey(message: SessionMessageResponse) {
   return undefined;
 }
 
-function groupConsecutiveToolMessages(messages: DialogMessage[]) {
+export function groupConsecutiveToolMessages(messages: DialogMessage[]) {
   const grouped: DialogMessage[] = [];
 
   for (const message of messages) {

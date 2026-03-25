@@ -1,5 +1,10 @@
 import "./index";
 import { createPreviewHass, previewEntityId } from "./dev/preview-fixture";
+import {
+  buildPreviewCardConfig as buildPreviewCardConfigFromOptions,
+  readPreviewApiOptions,
+  type PreviewApiOptions,
+} from "./lib/preview-options";
 
 type PreviewHass = ReturnType<typeof createPreviewHass>;
 
@@ -16,12 +21,6 @@ type PlaygroundCardConfig = {
 type PlaygroundCard = HTMLElement & {
   hass?: PreviewHass;
   setConfig(config: PlaygroundCardConfig): void;
-};
-
-type PreviewApiOptions = {
-  baseUrl?: string;
-  apiKey?: string;
-  messagesLimit?: number;
 };
 
 type PreviewModeInfo = {
@@ -52,47 +51,13 @@ function isErrorStatusMessage(message?: string) {
   );
 }
 
-function readStringParam(params: URLSearchParams, key: string) {
-  const value = params.get(key)?.trim();
-  return value || undefined;
-}
-
-// 默认配置（优先级：URL 参数 > 环境变量 > 硬编码默认值）
-// 注：在测试环境中 import.meta.env 可能不存在，使用空对象作为 fallback
-const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
-// 默认使用空字符串（相对路径），通过 Vite 代理访问后端，解决移动端跨网络访问问题
-const DEFAULT_BASE_URL = env.VITE_BASE_URL || "";
-const DEFAULT_API_KEY = env.VITE_API_KEY || "";
-
-export function readPreviewApiOptions(url = new URL(window.location.href)): PreviewApiOptions {
-  // 优先级：URL 参数 > 环境变量(.env.local) > 硬编码默认值
-  const baseUrl = readStringParam(url.searchParams, "base_url") || DEFAULT_BASE_URL;
-  const apiKey = readStringParam(url.searchParams, "api_key") || DEFAULT_API_KEY;
-  const rawLimit = readStringParam(url.searchParams, "messages_limit");
-  const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : Number.NaN;
-
-  return {
-    baseUrl,
-    apiKey,
-    messagesLimit:
-      Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : undefined,
-  };
-}
-
 export function buildPreviewCardConfig(
   options: PreviewApiOptions,
 ): PlaygroundCardConfig {
-  return {
-    entity: previewEntityId,
-    // baseUrl 为 undefined 时省略（mock 模式），空字符串时传递（Vite 代理模式）
-    ...(options.baseUrl !== undefined ? { base_url: options.baseUrl } : {}),
-    ...(options.apiKey ? { api_key: options.apiKey } : {}),
-    ...(options.messagesLimit ? { messages_limit: options.messagesLimit } : {}),
-    // 启用 LLM 推荐按钮（使用 Vite 代理解决 CORS）
-    llm_enabled: true,
-    llm_base_url: "/llm-api",
-  };
+  return buildPreviewCardConfigFromOptions(previewEntityId, options);
 }
+
+export { readPreviewApiOptions };
 
 export function describePreviewMode(options: PreviewApiOptions): PreviewModeInfo {
   // baseUrl 为 undefined 时表示 Mock 模式，空字符串表示使用相对路径（Vite 代理模式）

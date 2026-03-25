@@ -1,11 +1,9 @@
 import { LitElement, html, nothing } from "lit";
 
-import "../index";
 import "../components/workspace-conversation-pane";
 import "../components/workspace-preview-card";
 import type {
   ConversationPaneAction,
-  WorkspaceConversationPane,
 } from "../components/workspace-conversation-pane";
 import { renderWorkspaceSectionList } from "../components/workspace-section-list";
 import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
@@ -62,7 +60,10 @@ import {
   resolveWorkspacePaneLayoutMode,
   summarizeWorkspacePreview,
 } from "./workspace-pane-layout";
-import { buildPreviewCardConfig, readPreviewApiOptions } from "../playground";
+import {
+  buildPreviewCardConfig as buildPreviewCardConfigFromOptions,
+  readPreviewApiOptions,
+} from "../lib/preview-options";
 
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
@@ -70,6 +71,18 @@ const MOBILE_BREAKPOINT = 768;
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 3_000;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
+
+let kanbanWatcherCardDefinitionPromise: Promise<void> | undefined;
+
+async function ensureKanbanWatcherCardDefined() {
+  if (customElements.get("kanban-watcher-card")) {
+    return;
+  }
+  if (!kanbanWatcherCardDefinitionPromise) {
+    kanbanWatcherCardDefinitionPromise = import("../index").then(() => undefined);
+  }
+  await kanbanWatcherCardDefinitionPromise;
+}
 
 export function resolveWorkspaceHomeMode(width: number): WorkspaceHomeMode {
   return width <= MOBILE_BREAKPOINT ? "mobile-card" : "desktop";
@@ -128,6 +141,8 @@ export class KanbanWorkspaceHome extends LitElement {
   private hasHydratedRemoteWorkspaceView = false;
   private isApplyingRemoteWorkspaceView = false;
   private lastPushedWorkspaceViewSignature = "";
+  private apiAccessBlocked = false;
+  private mobileCardConfigSignature = "";
 
   connectedCallback() {
     super.connectedCallback();
@@ -149,7 +164,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   protected updated(changedProperties: Map<PropertyKey, unknown>) {
     if (this.mode === "mobile-card") {
-      this.setupMobileCard();
+      void this.setupMobileCard();
     }
     if (changedProperties.has("pageState")) {
       writePersistedWorkspacePageState(this.pageState);
@@ -276,8 +291,13 @@ export class KanbanWorkspaceHome extends LitElement {
           return jobs;
         }),
       );
+      this.apiAccessBlocked = false;
     } catch (error) {
       this.error = error instanceof Error ? error.message : "加载工作区失败";
+      if (this.isUnauthorizedError(error)) {
+        this.apiAccessBlocked = true;
+        this.stopRealtimeSync();
+      }
     } finally {
       this.loading = false;
     }
@@ -288,8 +308,10 @@ export class KanbanWorkspaceHome extends LitElement {
       await this.hydrateRemoteWorkspaceView();
     }
     await this.loadWorkspaces();
-    this.connectBoardRealtimeIfNeeded();
-    this.startBoardPolling();
+    if (!this.apiAccessBlocked) {
+      this.connectBoardRealtimeIfNeeded();
+      this.startBoardPolling();
+    }
   }
 
   private async hydrateRemoteWorkspaceView() {
@@ -481,7 +503,6 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private handleOpenWorkspace(workspace: KanbanWorkspace) {
-    const wasOpen = this.pageState.openWorkspaceIds.includes(workspace.id);
     const nextMessagesByWorkspace = { ...this.messagesByWorkspace };
     delete nextMessagesByWorkspace[workspace.id];
     this.messagesByWorkspace = nextMessagesByWorkspace;
@@ -489,9 +510,6 @@ export class KanbanWorkspaceHome extends LitElement {
     void this.loadWorkspaceMessages(workspace.id, true);
     if (workspace.status === "running") {
       void this.loadWorkspaceQueueStatus(workspace.id);
-    }
-    if (wasOpen) {
-      void this.focusWorkspaceComposer(workspace.id);
     }
   }
 
@@ -699,6 +717,11 @@ export class KanbanWorkspaceHome extends LitElement {
     return this.previewOptions.baseUrl !== undefined;
   }
 
+  private isUnauthorizedError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    return /(?:^|\\b)(401|403)\\b/.test(message) || /Unauthorized/i.test(message);
+  }
+
   private getWorkspaceFeedback(workspaceId: string) {
     if (this.actionFeedbackByWorkspace[workspaceId]) {
       return this.actionFeedbackByWorkspace[workspaceId];
@@ -726,11 +749,13 @@ export class KanbanWorkspaceHome extends LitElement {
     this.loadingWorkspaceIds = next;
   }
 
-  private setupMobileCard() {
+  private async setupMobileCard() {
+    await ensureKanbanWatcherCardDefined();
+
     const card = this.renderRoot.querySelector("kanban-watcher-card") as
       | (HTMLElement & {
           hass?: ReturnType<typeof createPreviewHass>;
-          setConfig: (config: ReturnType<typeof buildPreviewCardConfig>) => void;
+          setConfig: (config: ReturnType<typeof buildPreviewCardConfigFromOptions>) => void;
         })
       | null;
 
@@ -738,7 +763,14 @@ export class KanbanWorkspaceHome extends LitElement {
       return;
     }
 
-    card.setConfig(buildPreviewCardConfig(this.previewOptions));
+    const nextConfig = buildPreviewCardConfigFromOptions(previewEntityId, this.previewOptions);
+    const nextConfigSignature = JSON.stringify(nextConfig);
+
+    if (this.mobileCardConfigSignature !== nextConfigSignature) {
+      card.setConfig(nextConfig);
+      this.mobileCardConfigSignature = nextConfigSignature;
+    }
+
     // baseUrl 为 undefined 时使用 mock 数据，空字符串表示使用相对路径（Vite 代理模式）
     if (this.previewOptions.baseUrl === undefined) {
       card.hass = createPreviewHass();
@@ -818,7 +850,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private connectBoardRealtimeIfNeeded() {
-    if (!this.isApiMode || typeof WebSocket === "undefined") {
+    if (!this.isApiMode || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
     }
     const socket = connectRealtime({
@@ -857,7 +889,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private connectRealtimeIfNeeded() {
-    if (!this.isApiMode || typeof WebSocket === "undefined") {
+    if (!this.isApiMode || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
     }
     const sessionId = this.activeWorkspace?.latest_session_id ?? this.activeWorkspace?.last_session_id;
@@ -915,7 +947,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private scheduleBoardRealtimeReconnect() {
-    if (this.boardRealtimeRetryTimer || !this.isApiMode) {
+    if (this.boardRealtimeRetryTimer || !this.isApiMode || this.apiAccessBlocked) {
       return;
     }
     this.boardRealtimeRetryTimer = window.setTimeout(() => {
@@ -930,7 +962,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private scheduleRealtimeReconnect() {
-    if (this.realtimeRetryTimer || !this.isApiMode) {
+    if (this.realtimeRetryTimer || !this.isApiMode || this.apiAccessBlocked) {
       return;
     }
     this.realtimeRetryTimer = window.setTimeout(() => {
@@ -1107,26 +1139,6 @@ export class KanbanWorkspaceHome extends LitElement {
     return this.pageState.activeWorkspaceId
       ? this.workspaces.find((workspace) => workspace.id === this.pageState.activeWorkspaceId)
       : undefined;
-  }
-
-  private async focusWorkspaceComposer(workspaceId: string) {
-    await this.updateComplete;
-    await Promise.resolve();
-
-    const panes = [
-      ...(this.renderRoot.querySelectorAll("workspace-conversation-pane") ?? []),
-    ] as Array<WorkspaceConversationPane>;
-    if (panes.length === 1) {
-      panes[0]?.focusComposer();
-      return;
-    }
-
-    const paneIndex = this.pageState.openWorkspaceIds.indexOf(workspaceId);
-    if (paneIndex < 0) {
-      return;
-    }
-
-    panes[paneIndex]?.focusComposer();
   }
 
   private renderWorkspacePanes(

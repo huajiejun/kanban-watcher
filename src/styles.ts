@@ -243,12 +243,14 @@ export const workspaceHomeStyles = css`
   .workspace-home-sidebar[data-collapsed="true"] {
     transform: translateX(calc(-100% - 16px));
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
   }
 
   .workspace-home-sidebar[data-collapsed="false"] {
     transform: translateX(0);
     opacity: 1;
+    visibility: visible;
   }
 
   .workspace-home-sidebar[data-docked="true"] {
@@ -439,6 +441,14 @@ export const workspaceHomeStyles = css`
 
     .workspace-home-layout {
       grid-template-columns: 1fr;
+    }
+
+    .workspace-home-placeholder {
+      border: 0;
+      padding: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
     }
   }
 
@@ -1489,6 +1499,29 @@ export const cardStyles = css`
 
   @media (max-width: 640px) {
     /* 卡片列表样式 */
+    ha-card {
+      padding: 12px 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .section {
+      border: 0;
+      background: transparent;
+      border-radius: 0;
+      overflow: visible;
+    }
+
+    .section-toggle {
+      padding: 10px 4px;
+    }
+
+    .section-body {
+      padding: 0;
+    }
+
     .section-title {
       font-size: 0.9rem;
     }
@@ -1553,16 +1586,19 @@ export const cardStyles = css`
 
     /* 弹窗样式 */
     .dialog-shell {
-      padding: 8px;
-      align-items: flex-end;
+      padding: 0;
+      align-items: stretch;
     }
 
     .workspace-dialog {
-      width: 100%;
-      max-width: 100%;
-      height: min(85vh, 900px);
-      padding: 10px;
-      border-radius: 18px 18px 0 0;
+      width: 100vw;
+      max-width: 100vw;
+      height: 100dvh;
+      min-height: 100dvh;
+      padding: 0px;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
       box-sizing: border-box;
     }
 

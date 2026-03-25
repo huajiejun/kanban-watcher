@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import "../src/index";
 import "../src/web/workspace-home";
 import {
   KanbanWorkspaceHome,
@@ -173,10 +174,18 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain("background: transparent");
     expect(homeCssText).toContain("transform: translateX(calc(-100% - 16px))");
     expect(homeCssText).toContain("transform: translateX(0)");
+    expect(homeCssText).toContain("visibility: hidden");
+    expect(homeCssText).toContain("visibility: visible");
     expect(homeCssText).toContain(".workspace-home-sidebar-backdrop");
     expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px)");
     expect(homeCssText).not.toContain("width: min(1440px, 100%)");
     expect(homeCssText).not.toContain("margin: 0 auto");
+    expect(homeCssText).toContain("@media (max-width: 768px)");
+    expect(homeCssText).toContain(".workspace-home-placeholder {\n      border: 0;");
+    expect(homeCssText).toContain("padding: 0;");
+    expect(homeCssText).toContain("background: transparent;");
+    expect(homeCssText).toContain("box-shadow: none;");
+    expect(homeCssText).toContain("backdrop-filter: none;");
     expect(listCssText).toContain(".task-card");
     expect(listCssText).toContain("border: 1px solid");
     expect(listCssText).toContain(".task-card[data-selected=\"true\"]");
@@ -610,6 +619,77 @@ describe("workspace home helpers", () => {
     await flushElement(element);
 
     expect(element.shadowRoot?.textContent).toContain("实时任务");
+  });
+
+  it("does not reconfigure the mobile card on unrelated workspace-home updates", async () => {
+    setWindowWidth(390);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-mobile",
+              name: "移动端任务",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await flushElement(element);
+    const baselineActiveRequests = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/active"),
+    ).length;
+    expect(baselineActiveRequests).toBeGreaterThan(0);
+
+    element.pageState = {
+      ...element.pageState,
+      dismissedAttentionIds: ["ws-mobile"],
+    };
+    await flushElement(element);
+
+    const nextActiveRequests = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/active"),
+    ).length;
+    expect(nextActiveRequests).toBe(baselineActiveRequests);
+  });
+
+  it("stops realtime startup when initial workspace load is unauthorized", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return new Response("401 Unauthorized", { status: 401 });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceData(element);
+
+    expect(element.error).toContain("401 Unauthorized");
+    expect(FakeWebSocket.instances).toHaveLength(0);
+    const initialFetchCount = fetchMock.mock.calls.length;
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await flushElement(element);
+
+    expect(fetchMock).toHaveBeenCalledTimes(initialFetchCount);
+    expect(FakeWebSocket.instances).toHaveLength(0);
   });
 
   it("keeps a manually closed attention pane closed until attention changes again", async () => {
@@ -1187,7 +1267,7 @@ describe("workspace home helpers", () => {
     expect(paneShadowRoot?.textContent).toContain("实时追加消息");
   });
 
-  it("keeps pane order and focuses the composer when reselecting an already opened workspace", async () => {
+  it("keeps pane order and switches the active workspace without focusing the composer", async () => {
     setWindowWidth(1920);
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -1269,7 +1349,7 @@ describe("workspace home helpers", () => {
 
     expect(paneTitles).toEqual(["任务一", "任务二"]);
     expect(firstPaneInput).not.toBeNull();
-    expect(panes[0]?.shadowRoot?.activeElement).toBe(firstPaneInput);
+    expect(panes[0]?.shadowRoot?.activeElement).not.toBe(firstPaneInput);
   });
 
   it("persists opened panes and restores them after recreating the page", async () => {

@@ -247,6 +247,21 @@ function normalizeText(value?: string | null) {
   return value?.replace(/\s+/g, " ").trim() ?? "";
 }
 
+function getDialogPane(root?: ShadowRoot | null) {
+  return root?.querySelector("workspace-conversation-pane") as
+    | (HTMLElement & { shadowRoot: ShadowRoot | null })
+    | null;
+}
+
+function getDialogMessageList(root?: ShadowRoot | null) {
+  const pane = getDialogPane(root);
+  return pane?.shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+}
+
+function getDialogText(root?: ShadowRoot | null) {
+  return normalizeText(getDialogMessageList(root)?.textContent);
+}
+
 function mockJSONResponse(payload: unknown) {
   return {
     ok: true,
@@ -787,7 +802,7 @@ describe("kanban-watcher-card", () => {
     expect(shadowRoot?.querySelectorAll(".message-row").length).toBe(2);
     expect(text).not.toContain("查看兑换内容");
     expect(shadowRoot?.querySelector(".dialog-summary")).toBeNull();
-    expect(shadowRoot?.querySelector(".message-list")).not.toBeNull();
+    expect(getDialogMessageList(shadowRoot)).not.toBeNull();
     expect(text).toContain("发送消息");
     expect(text).not.toContain("加入队列");
     expect(
@@ -862,10 +877,10 @@ describe("kanban-watcher-card", () => {
     expect(stopButton?.querySelector(".action-spinner")).not.toBeNull();
     expect(normalizeText(queueButton?.textContent)).toBe("加入队列");
     expect(
-      normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
+      getDialogText(shadowRoot),
     ).toContain("真实运行中用户消息");
     expect(
-      normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
+      getDialogText(shadowRoot),
     ).toContain("真实运行中助手消息");
 
     expect(
@@ -915,6 +930,34 @@ describe("kanban-watcher-card", () => {
     expect(dialogRule).toContain("color: var(--primary-text-color, #e5e7eb)");
   });
 
+  it("flattens the section shell on mobile to avoid duplicate left-side corner borders", () => {
+    const cssText = cardStyles.cssText;
+
+    expect(cssText).toContain("@media (max-width: 640px)");
+    expect(cssText).toContain("ha-card {\n      padding: 12px 0;");
+    expect(cssText).toContain("border-radius: 0;");
+    expect(cssText).toContain("background: transparent;");
+    expect(cssText).toContain("box-shadow: none;");
+    expect(cssText).toContain(".section {\n      border: 0;");
+    expect(cssText).toContain("background: transparent;");
+    expect(cssText).toContain("border-radius: 0;");
+    expect(cssText).toContain("overflow: visible;");
+  });
+
+  it("expands the mobile dialog to a full-screen overlay", () => {
+    const cssText = cardStyles.cssText;
+
+    expect(cssText).toContain("@media (max-width: 640px)");
+    expect(cssText).toContain(".dialog-shell {\n      padding: 0;\n      align-items: stretch;");
+    expect(cssText).toContain(".workspace-dialog {\n      width: 100vw;");
+    expect(cssText).toContain("max-width: 100vw;");
+    expect(cssText).toContain("height: 100dvh;");
+    expect(cssText).toContain("min-height: 100dvh;");
+    expect(cssText).toContain("border: 0;");
+    expect(cssText).toContain("border-radius: 0;");
+    expect(cssText).toContain("box-shadow: none;");
+  });
+
   it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {
     const card = await renderCard(createPreviewHass());
     const shadowRoot = card.shadowRoot;
@@ -924,7 +967,7 @@ describe("kanban-watcher-card", () => {
     await card.updateComplete;
 
     const messageRows = shadowRoot?.querySelectorAll(".message-row") ?? [];
-    const text = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+    const text = getDialogText(shadowRoot);
 
     expect(text).toContain("请先确认这个工作区的下一步安排。");
     expect(text).toContain("如果下午还没有结果，就先给我一个阻塞说明。");
@@ -944,7 +987,7 @@ describe("kanban-watcher-card", () => {
     designDialogCard?.click();
     await card.updateComplete;
 
-    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+    const dialogText = getDialogText(shadowRoot);
 
     expect(dialogText).toContain("我们用的id不是workspace_id 而是上层接口里的last_session_id");
     expect(dialogText).toContain("明白，这个约束现在很关键：");
@@ -970,7 +1013,7 @@ describe("kanban-watcher-card", () => {
     taskCards[0]?.click();
     await card.updateComplete;
 
-    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+    const dialogText = getDialogText(shadowRoot);
 
     expect(dialogText).toContain("真实 attention 用户消息");
     expect(dialogText).toContain("真实 attention 助手消息");
@@ -994,7 +1037,7 @@ describe("kanban-watcher-card", () => {
     taskCard?.click();
     await card.updateComplete;
 
-    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+    const dialogText = getDialogText(shadowRoot);
 
     expect(dialogText).toContain("暂无同步的对话消息");
     expect(dialogText).not.toContain("请先确认这个工作区的下一步安排。");
@@ -1030,13 +1073,13 @@ describe("kanban-watcher-card", () => {
       approvalCard?.click();
       await card.updateComplete;
 
-      const firstMessageList = shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+      const firstMessageList = getDialogMessageList(shadowRoot);
       expect(firstMessageList?.scrollTop).toBe(480);
 
       runningCard?.click();
       await card.updateComplete;
 
-      const secondMessageList = shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+      const secondMessageList = getDialogMessageList(shadowRoot);
       expect(secondMessageList?.scrollTop).toBe(480);
       expect(normalizeText(secondMessageList?.textContent)).toContain("继续跑，先不要中断。");
     } finally {
@@ -1200,6 +1243,35 @@ describe("kanban-watcher-card", () => {
     expect(MockWebSocket.instances[0]?.url).not.toContain("session_id=");
   });
 
+  it("stops realtime startup when the initial workspace request is unauthorized", async () => {
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url.includes("/api/workspaces/active")) {
+        return {
+          ok: false,
+          status: 401,
+          text: vi.fn().mockResolvedValue("401 Unauthorized"),
+        } as unknown as Response;
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const card = await renderApiCard();
+
+    expect(normalizeText(card.shadowRoot?.textContent)).toContain("401 Unauthorized");
+    expect(MockWebSocket.instances).toHaveLength(0);
+
+    const initialFetchCount = fetchSpy.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(30_000);
+    await settleCard(card);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(initialFetchCount);
+    expect(MockWebSocket.instances).toHaveLength(0);
+  });
+
   it("renders API workspaces with unseen turns under attention", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       mockJSONResponse({
@@ -1298,10 +1370,10 @@ describe("kanban-watcher-card", () => {
     taskCard?.click();
     await settleCard(card);
 
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "这是 API 用户消息",
     );
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "这是 API 助手消息",
     );
     expect(globalThis.fetch).toHaveBeenNthCalledWith(
@@ -1379,7 +1451,7 @@ describe("kanban-watcher-card", () => {
     await settleCard(card);
 
     expect(fetchSpy).toHaveBeenCalledTimes(3);
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "第二次打开时重新拉取到的最新消息",
     );
   });
@@ -1611,7 +1683,7 @@ describe("kanban-watcher-card", () => {
     expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
       "发送成功",
     );
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "继续推进这个任务",
     );
   });
@@ -2099,7 +2171,7 @@ describe("kanban-watcher-card", () => {
     });
     await settleCard(card);
 
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "实时新增消息",
     );
   });
@@ -2163,7 +2235,7 @@ describe("kanban-watcher-card", () => {
     });
     await settleCard(card);
 
-    const messageListText = normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent);
+    const messageListText = getDialogText(card.shadowRoot);
     expect(messageListText).toContain("当前较新的消息");
     expect(messageListText).not.toContain("更早的历史消息");
   });
@@ -2245,9 +2317,182 @@ describe("kanban-watcher-card", () => {
     });
     await settleCard(card);
 
-    const dialogText = normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent);
+    const dialogText = getDialogText(card.shadowRoot);
+    const smoothReveal = getDialogPane(card.shadowRoot)?.shadowRoot?.querySelector(
+      ".message-bubble.is-smooth-reveal",
+    );
     expect(dialogText).toContain("实现和验证都已经收口");
     expect(dialogText).not.toMatch(/开头消息 实(?!现和验证都已经收口)/);
+    expect(smoothReveal?.textContent).toContain("实现和验证都已经收口");
+  });
+
+  it("auto-scrolls the mobile dialog message list when realtime content keeps streaming", async () => {
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollHeight",
+    );
+
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get() {
+        return this.classList?.contains("message-list") ? 720 : 0;
+      },
+    });
+
+    try {
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          mockJSONResponse({
+            workspaces: [
+              {
+                id: "api-mobile-stream",
+                name: "API Mobile Stream Workspace",
+                status: "running",
+                latest_session_id: "session-api-mobile-stream",
+                updated_at: "2026-03-21T11:58:00Z",
+              },
+            ],
+          }),
+        )
+        .mockResolvedValueOnce(
+          mockJSONResponse({
+            session_id: "session-api-mobile-stream",
+            workspace_name: "API Mobile Stream Workspace",
+            messages: [
+              {
+                id: 1,
+                process_id: "proc-history",
+                entry_index: 0,
+                session_id: "session-api-mobile-stream",
+                entry_type: "assistant_message",
+                role: "assistant",
+                content: "开头消息",
+                timestamp: "2026-03-21T11:58:00Z",
+              },
+            ],
+            has_more: false,
+          }),
+        )
+        .mockResolvedValueOnce(
+          mockJSONResponse({
+            workspace_id: "api-mobile-stream",
+            status: "running",
+            position: 1,
+          }),
+        );
+
+      const card = await renderApiCard();
+      const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+      taskCard?.click();
+      await settleCard(card);
+
+      const messageList = getDialogMessageList(card.shadowRoot);
+      expect(messageList?.scrollTop).toBe(720);
+
+      if (messageList) {
+        messageList.scrollTop = 0;
+      }
+
+      const realtimeSocket = MockWebSocket.instances.at(-1);
+      realtimeSocket?.emitMessage({
+        type: "session_messages_appended",
+        session_id: "session-api-mobile-stream",
+        messages: [
+          {
+            id: 2,
+            session_id: "session-api-mobile-stream",
+            process_id: "process-stream",
+            entry_index: 1,
+            entry_type: "assistant_message",
+            role: "assistant",
+            content: "实现",
+            timestamp: "2026-03-21T11:59:00Z",
+          },
+        ],
+      });
+      await settleCard(card);
+
+      expect(getDialogMessageList(card.shadowRoot)?.scrollTop).toBe(720);
+    } finally {
+      if (originalScrollHeight) {
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", originalScrollHeight);
+      } else {
+        delete (HTMLElement.prototype as Partial<HTMLElement>).scrollHeight;
+      }
+    }
+  });
+
+  it("reconnects the mobile dialog realtime socket when sending starts a new session", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-new-session",
+              name: "API New Session Workspace",
+              status: "completed",
+              latest_session_id: "session-api-old",
+              updated_at: "2026-03-21T11:58:00Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-old",
+          workspace_name: "API New Session Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          workspace_id: "api-new-session",
+          session_id: "session-api-new",
+          message: "消息已发送",
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-new",
+          workspace_name: "API New Session Workspace",
+          messages: [
+            {
+              id: 1,
+              session_id: "session-api-new",
+              process_id: "proc-new",
+              entry_index: 0,
+              entry_type: "user_message",
+              role: "user",
+              content: "开始新会话",
+              timestamp: "2026-03-21T11:59:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const pane = getDialogPane(card.shadowRoot);
+    const input = pane?.shadowRoot?.querySelector(".message-input") as HTMLTextAreaElement | null;
+    input!.value = "开始新会话";
+    input?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await settleCard(card);
+
+    const sendButton = pane?.shadowRoot?.querySelector(
+      ".dialog-action-primary",
+    ) as HTMLButtonElement | null;
+    sendButton?.click();
+    await settleCard(card);
+
+    expect(MockWebSocket.instances).toHaveLength(3);
+    expect(MockWebSocket.instances[1]?.url).toContain("session_id=session-api-old");
+    expect(MockWebSocket.instances[2]?.url).toContain("session_id=session-api-new");
   });
 
   it("updates workspace status through the board realtime WebSocket", async () => {
@@ -2482,7 +2727,7 @@ describe("kanban-watcher-card", () => {
       "http://localhost:7778/api/workspaces/active",
       expect.anything(),
     );
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "轮询补偿消息",
     );
   });

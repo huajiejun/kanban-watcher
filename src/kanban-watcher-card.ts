@@ -13,6 +13,7 @@ import { connectRealtime } from "./lib/realtime-api";
 import {
   compactDialogMessageText,
   getDialogMessageIdentity,
+  groupConsecutiveToolMessages,
   normalizeApiMessages,
   normalizeApiMessagesFlat,
   normalizeSessionMessage,
@@ -103,6 +104,7 @@ export class KanbanWatcherCard extends LitElement {
     queueStatusByWorkspace: { state: true },
     optimisticQueueWorkspaceIds: { state: true },
     autoScrollEnabled: { state: true },
+    smoothRevealMessageKey: { state: true },
     dynamicButtonsByWorkspace: { state: true },
     todosByWorkspace: { state: true },
   };
@@ -118,6 +120,7 @@ export class KanbanWatcherCard extends LitElement {
   private realtimeSocket?: WebSocket;
   private boardRealtimeConnected = false;
   private realtimeConnected = false;
+  private apiAccessBlocked = false;
 
   private collapsedSections = new Set<SectionKey>();
   private selectedWorkspaceId?: string;
@@ -133,6 +136,7 @@ export class KanbanWatcherCard extends LitElement {
   private optimisticQueueWorkspaceIds = new Set<string>();
   private autoScrollEnabled = true;
   private messageListScrollHandler?: () => void;
+  private smoothRevealMessageKey = "";
   private dialogMessageVersionsByWorkspace: Record<string, string> = {};
   private expandedToolMessageKeys = new Set<string>();
   /** @deprecated 使用 extractedButtonsByWorkspace 和 suggestedButtonsByWorkspace 代替 */
@@ -322,6 +326,7 @@ export class KanbanWatcherCard extends LitElement {
           <workspace-conversation-pane
             .workspaceName=${workspace.name}
             .messages=${messages}
+            .smoothRevealMessageKey=${this.smoothRevealMessageKey}
             .messageDraft=${this.messageDraft}
             .currentFeedback=${this.currentFeedback}
             .queueStatus=${queueStatus}
@@ -378,6 +383,7 @@ export class KanbanWatcherCard extends LitElement {
     this.messageDraft = "";
     this.actionFeedback = "";
     this.dialogError = "";
+    this.smoothRevealMessageKey = "";
     const nextDialogMessagesByWorkspace = { ...this.dialogMessagesByWorkspace };
     delete nextDialogMessagesByWorkspace[workspace.id];
     this.dialogMessagesByWorkspace = nextDialogMessagesByWorkspace;
@@ -403,6 +409,7 @@ export class KanbanWatcherCard extends LitElement {
       this.optimisticQueueWorkspaceIds = next;
     }
     this.expandedToolMessageKeys = new Set();
+    this.smoothRevealMessageKey = "";
   };
 
   private renderDialogEntry(message: DialogMessage) {
@@ -412,6 +419,7 @@ export class KanbanWatcherCard extends LitElement {
       editLanguage: detectDialogEditLanguage(
         this.selectedWorkspaceId ? this.dialogMessagesByWorkspace[this.selectedWorkspaceId] ?? [] : [],
       ),
+      smoothRevealMessageKey: this.smoothRevealMessageKey,
     });
   }
 
@@ -481,6 +489,7 @@ export class KanbanWatcherCard extends LitElement {
         message,
         mode: action,
       });
+      this.applyWorkspaceSessionId(this.selectedWorkspaceId, response.session_id);
       if (action === "send") {
         this.appendOptimisticUserMessage(this.selectedWorkspaceId, message);
       }
@@ -549,6 +558,7 @@ export class KanbanWatcherCard extends LitElement {
         mode: "send",
       });
 
+      this.applyWorkspaceSessionId(this.selectedWorkspaceId, response.session_id);
       this.appendOptimisticUserMessage(this.selectedWorkspaceId, text);
       this.actionFeedback = response.message?.trim()
         ? `发送成功：${response.message.trim()}`
@@ -859,9 +869,15 @@ export class KanbanWatcherCard extends LitElement {
       return;
     }
 
-    void this.loadActiveWorkspaces();
-    this.connectBoardRealtimeIfNeeded();
-    this.startBoardPolling();
+    void this.initializeApiSync();
+  }
+
+  private async initializeApiSync() {
+    await this.loadActiveWorkspaces();
+    if (!this.apiAccessBlocked && this.isConnected) {
+      this.connectBoardRealtimeIfNeeded();
+      this.startBoardPolling();
+    }
   }
 
   private stopApiSync() {
@@ -935,7 +951,7 @@ export class KanbanWatcherCard extends LitElement {
 
   private connectBoardRealtimeIfNeeded() {
     // baseUrl 为 undefined 时表示 mock 模式，不连接实时 API
-    if (this.config?.base_url === undefined || typeof WebSocket === "undefined") {
+    if (this.config?.base_url === undefined || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
     }
     const socket = connectRealtime({
@@ -978,7 +994,7 @@ export class KanbanWatcherCard extends LitElement {
 
   private connectRealtimeIfNeeded() {
     // baseUrl 为 undefined 时表示 mock 模式，不连接实时 API
-    if (this.config?.base_url === undefined || typeof WebSocket === "undefined") {
+    if (this.config?.base_url === undefined || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
     }
 
@@ -1041,7 +1057,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private scheduleBoardRealtimeReconnect() {
-    if (this.boardRealtimeRetryTimer || !this.isApiMode) {
+    if (this.boardRealtimeRetryTimer || !this.isApiMode || this.apiAccessBlocked) {
       return;
     }
     this.boardRealtimeRetryTimer = window.setTimeout(() => {
@@ -1056,7 +1072,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private scheduleRealtimeReconnect() {
-    if (this.realtimeRetryTimer || !this.isApiMode) {
+    if (this.realtimeRetryTimer || !this.isApiMode || this.apiAccessBlocked) {
       return;
     }
     this.realtimeRetryTimer = window.setTimeout(() => {
@@ -1136,6 +1152,7 @@ export class KanbanWatcherCard extends LitElement {
       return;
     }
 
+    this.smoothRevealMessageKey = this.resolveSmoothRevealMessageKey(existingFlat, sortedMerged);
     this.dialogMessagesByWorkspace = {
       ...this.dialogMessagesByWorkspace,
       [workspace.id]: this.groupConsecutiveToolMessages(sortedMerged),
@@ -1161,15 +1178,25 @@ export class KanbanWatcherCard extends LitElement {
         apiKey: this.config.api_key,
       });
       this.apiWorkspaces = this.normalizeApiWorkspaces(response);
+      this.apiAccessBlocked = false;
       this.emitPreviewStatus();
     } catch (error) {
       this.apiWorkspaces = [];
       this.boardError = this.toErrorMessage(error, "加载工作区失败");
+      if (this.isUnauthorizedError(error)) {
+        this.apiAccessBlocked = true;
+        this.stopApiSync();
+      }
       this.emitPreviewStatus(this.boardError);
     } finally {
       this.boardLoading = false;
       this.requestUpdate();
     }
+  }
+
+  private isUnauthorizedError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    return /(?:^|\\b)(401|403)\\b/.test(message) || /Unauthorized/i.test(message);
   }
 
   private normalizeApiWorkspaces(response: ActiveWorkspacesResponse) {
@@ -1233,6 +1260,66 @@ export class KanbanWatcherCard extends LitElement {
     return workspace.last_message_at || workspace.updated_at || workspace.latest_session_id || "";
   }
 
+  private applyWorkspaceSessionId(workspaceId: string, sessionId?: string) {
+    if (!sessionId) {
+      return;
+    }
+
+    let didChange = false;
+    this.apiWorkspaces = this.apiWorkspaces.map((workspace) => {
+      if (workspace.id !== workspaceId) {
+        return workspace;
+      }
+      if (workspace.latest_session_id === sessionId && workspace.last_session_id === sessionId) {
+        return workspace;
+      }
+      didChange = true;
+      return {
+        ...workspace,
+        latest_session_id: sessionId,
+        last_session_id: sessionId,
+      };
+    });
+
+    if (!didChange || this.selectedWorkspaceId !== workspaceId || !this.isApiMode) {
+      return;
+    }
+
+    this.restartRealtimeConnection();
+    this.updateDialogPolling();
+  }
+
+  private resolveSmoothRevealMessageKey(
+    previousMessages: DialogMessage[],
+    nextMessages: DialogMessage[],
+  ) {
+    const nextLastMessage = nextMessages.at(-1);
+    const previousLastMessage = previousMessages.at(-1);
+
+    if (!nextLastMessage || nextLastMessage.kind !== "message" || nextLastMessage.sender !== "ai") {
+      return "";
+    }
+
+    const nextIdentity = this.getDialogMessageIdentity(nextLastMessage);
+    const previousIdentity = previousLastMessage
+      ? this.getDialogMessageIdentity(previousLastMessage)
+      : "";
+
+    if (nextIdentity !== previousIdentity) {
+      return nextIdentity;
+    }
+
+    if (
+      previousLastMessage?.kind === "message" &&
+      previousLastMessage.sender === "ai" &&
+      previousLastMessage.text !== nextLastMessage.text
+    ) {
+      return nextIdentity;
+    }
+
+    return "";
+  }
+
   private async loadWorkspaceMessages(workspaceId: string, forceRefresh = false) {
     // baseUrl 为 undefined 时表示 mock 模式，不加载真实消息
     if (this.config?.base_url === undefined) {
@@ -1252,7 +1339,12 @@ export class KanbanWatcherCard extends LitElement {
         workspaceId,
         limit: this.config.messages_limit ?? DEFAULT_MESSAGES_LIMIT,
       });
+      const previousMessages = this.flattenDialogMessages(this.dialogMessagesByWorkspace[workspaceId] ?? []);
       const normalizedMessages = this.normalizeApiMessages(response.messages);
+      this.smoothRevealMessageKey = this.resolveSmoothRevealMessageKey(
+        previousMessages,
+        normalizedMessages,
+      );
       this.dialogMessagesByWorkspace = {
         ...this.dialogMessagesByWorkspace,
         [workspaceId]: this.mergeOptimisticMessages(
@@ -1384,6 +1476,10 @@ export class KanbanWatcherCard extends LitElement {
 
   private normalizeApiMessagesFlat(messages: SessionMessageResponse[] | undefined) {
     return normalizeApiMessagesFlat(messages);
+  }
+
+  private groupConsecutiveToolMessages(messages: DialogMessage[]) {
+    return groupConsecutiveToolMessages(messages);
   }
 
   /**
