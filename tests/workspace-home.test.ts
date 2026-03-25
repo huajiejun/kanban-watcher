@@ -1356,6 +1356,184 @@ describe("workspace home helpers", () => {
     expect(paneTitles).toEqual(["任务一", "任务二"]);
   });
 
+  it("hydrates workspace view from the remote shared layout before using stale local storage", async () => {
+    window.localStorage.setItem(
+      WORKSPACE_PAGE_STATE_STORAGE_KEY,
+      JSON.stringify({
+        openWorkspaceIds: ["ws-local"],
+        activeWorkspaceId: "ws-local",
+        dismissedAttentionIds: ["ws-local-dismissed"],
+      }),
+    );
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspace-view")) {
+        return createJsonResponse({
+          open_workspace_ids: ["ws-remote"],
+          active_workspace_id: "ws-remote",
+          dismissed_attention_ids: ["ws-remote"],
+          version: 2,
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-remote",
+              name: "远端任务",
+              status: "completed",
+              has_unseen_turns: true,
+              updated_at: "2026-03-25T08:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-remote/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "来自远端共享布局",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+    await flushElement(element);
+
+    expect(fetchMock.mock.calls.some(([url]) => readRequestUrl(url as RequestInfo | URL).includes("/api/workspace-view"))).toBe(true);
+    expect(element.pageState.openWorkspaceIds).toEqual(["ws-remote"]);
+    expect(element.pageState.activeWorkspaceId).toBe("ws-remote");
+    expect(element.pageState.dismissedAttentionIds).toEqual(["ws-remote"]);
+  });
+
+  it("syncs the shared layout from realtime workspace_view_updated events", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspace-view")) {
+        return createJsonResponse({
+          open_workspace_ids: [],
+          dismissed_attention_ids: [],
+          version: 1,
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "任务一",
+              status: "completed",
+              updated_at: "2026-03-25T08:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "任务二",
+              status: "completed",
+              updated_at: "2026-03-25T08:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "任务二来自广播" }],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    FakeWebSocket.instances.at(0)?.emitOpen();
+    await flushElement(element);
+
+    FakeWebSocket.instances.at(0)?.emitMessage({
+      type: "workspace_view_updated",
+      workspace_view: {
+        open_workspace_ids: ["ws-2"],
+        active_workspace_id: "ws-2",
+        dismissed_attention_ids: ["ws-1"],
+        version: 3,
+      },
+    });
+    await flushElement(element);
+
+    expect(element.pageState.openWorkspaceIds).toEqual(["ws-2"]);
+    expect(element.pageState.activeWorkspaceId).toBe("ws-2");
+    expect(element.pageState.dismissedAttentionIds).toEqual(["ws-1"]);
+  });
+
+  it("persists dismissed attention ids to local storage when an attention pane is manually closed", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspace-view")) {
+        return createJsonResponse({
+          open_workspace_ids: [],
+          dismissed_attention_ids: [],
+          version: 1,
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-attention",
+              name: "需要注意任务",
+              status: "completed",
+              has_unseen_turns: true,
+              updated_at: "2026-03-25T08:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "需要处理" }],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement;
+    pane.dispatchEvent(new CustomEvent("pane-close", { bubbles: true, composed: true }));
+    await flushElement(element);
+
+    const persisted = window.localStorage.getItem(WORKSPACE_PAGE_STATE_STORAGE_KEY);
+    expect(persisted).toContain("\"dismissedAttentionIds\":[\"ws-attention\"]");
+  });
+
   it("polls other opened panes while the active pane stays on websocket updates", async () => {
     setWindowWidth(1920);
 

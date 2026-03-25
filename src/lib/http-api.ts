@@ -1,6 +1,7 @@
 import type {
   ActiveWorkspacesResponse,
   SessionMessagesResponse,
+  WorkspaceViewResponse,
   WorkspaceMessageResponse,
   WorkspaceQueueStatusResponse,
 } from "../types";
@@ -53,6 +54,44 @@ export async function fetchActiveWorkspaces({
     {
       method: "GET",
       headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function fetchWorkspaceView({
+  baseUrl,
+  apiKey,
+}: RequestOptions): Promise<WorkspaceViewResponse> {
+  return fetchJSON<WorkspaceViewResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace-view`,
+    {
+      method: "GET",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function updateWorkspaceView({
+  baseUrl,
+  apiKey,
+  openWorkspaceIds,
+  activeWorkspaceId,
+  dismissedAttentionIds,
+}: RequestOptions & {
+  openWorkspaceIds: string[];
+  activeWorkspaceId?: string;
+  dismissedAttentionIds: string[];
+}): Promise<WorkspaceViewResponse> {
+  return fetchJSON<WorkspaceViewResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace-view`,
+    {
+      method: "PUT",
+      headers: buildHeaders(apiKey, true),
+      body: JSON.stringify({
+        open_workspace_ids: openWorkspaceIds,
+        active_workspace_id: activeWorkspaceId,
+        dismissed_attention_ids: dismissedAttentionIds,
+      }),
     },
   );
 }

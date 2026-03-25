@@ -259,7 +259,7 @@ func runDaemon() error {
 
 	// 注册消息 API 路由（如果数据库已连接）
 	if dbStore != nil {
-		routes := api.GetMessageRoutes(dbStore)
+		routes := api.GetMessageRoutes(dbStore, realtimePublisher)
 		for pattern, handler := range routes {
 			httpServer.RegisterRoute(pattern, handler)
 		}
@@ -347,7 +347,7 @@ func runHeadless() error {
 	proxyClient := api.NewProxyClient(cfg.KanbanAPIURL)
 	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey)
 	if dbStore != nil {
-		routes := api.GetMessageRoutes(dbStore)
+		routes := api.GetMessageRoutes(dbStore, realtimePublisher)
 		for pattern, handler := range routes {
 			httpServer.RegisterRoute(pattern, handler)
 		}

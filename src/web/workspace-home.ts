@@ -29,10 +29,12 @@ import { connectRealtime } from "../lib/realtime-api";
 import {
   cancelWorkspaceQueue,
   fetchActiveWorkspaces,
+  fetchWorkspaceView,
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
   sendWorkspaceMessage,
   stopWorkspaceExecution,
+  updateWorkspaceView,
 } from "../lib/http-api";
 import type {
   KanbanSessionAttributes,
@@ -123,13 +125,14 @@ export class KanbanWorkspaceHome extends LitElement {
   private boardRealtimeConnected = false;
   private realtimeConnected = false;
   private lastSidebarSyncPaneCount = this.pageState.openWorkspaceIds.length;
+  private hasHydratedRemoteWorkspaceView = false;
+  private isApplyingRemoteWorkspaceView = false;
+  private lastPushedWorkspaceViewSignature = "";
 
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener("resize", this.handleResize);
-    void this.loadWorkspaces();
-    this.connectBoardRealtimeIfNeeded();
-    this.startBoardPolling();
+    void this.initializeWorkspaceHome();
   }
 
   disconnectedCallback() {
@@ -151,6 +154,7 @@ export class KanbanWorkspaceHome extends LitElement {
     if (changedProperties.has("pageState")) {
       writePersistedWorkspacePageState(this.pageState);
       if (this.isApiMode) {
+        void this.pushWorkspaceView();
         this.restartRealtimeConnection();
         this.updateDialogPolling();
       }
@@ -279,6 +283,27 @@ export class KanbanWorkspaceHome extends LitElement {
     }
   }
 
+  private async initializeWorkspaceHome() {
+    if (this.isApiMode) {
+      await this.hydrateRemoteWorkspaceView();
+    }
+    await this.loadWorkspaces();
+    this.connectBoardRealtimeIfNeeded();
+    this.startBoardPolling();
+  }
+
+  private async hydrateRemoteWorkspaceView() {
+    try {
+      const response = await fetchWorkspaceView({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+      });
+      this.applyRemoteWorkspaceView(response);
+    } catch {
+      this.hasHydratedRemoteWorkspaceView = true;
+    }
+  }
+
   private resolveSidebarCollapsed(openPaneCount: number) {
     return openPaneCount > 1;
   }
@@ -298,6 +323,73 @@ export class KanbanWorkspaceHome extends LitElement {
     });
 
     return (response.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));
+  }
+
+  private applyRemoteWorkspaceView(response: {
+    open_workspace_ids?: string[];
+    active_workspace_id?: string;
+    dismissed_attention_ids?: string[];
+  }) {
+    const openWorkspaceIds = Array.isArray(response.open_workspace_ids)
+      ? response.open_workspace_ids.filter((value): value is string => typeof value === "string").slice(0, 4)
+      : [];
+    const dismissedAttentionIds = Array.isArray(response.dismissed_attention_ids)
+      ? response.dismissed_attention_ids.filter((value): value is string => typeof value === "string")
+      : [];
+    const activeWorkspaceId =
+      typeof response.active_workspace_id === "string" ? response.active_workspace_id : undefined;
+
+    this.isApplyingRemoteWorkspaceView = true;
+    this.pageState = createWorkspacePageState({
+      ...this.pageState,
+      openWorkspaceIds,
+      activeWorkspaceId,
+      dismissedAttentionIds,
+      previousAttentionMap: this.pageState.previousAttentionMap,
+      hasHydratedAttentionSnapshot: this.pageState.hasHydratedAttentionSnapshot,
+    });
+    this.lastPushedWorkspaceViewSignature = this.getWorkspaceViewSignature(this.pageState);
+    this.hasHydratedRemoteWorkspaceView = true;
+    queueMicrotask(() => {
+      this.isApplyingRemoteWorkspaceView = false;
+    });
+  }
+
+  private getWorkspaceViewSignature(state: WorkspacePageState) {
+    return JSON.stringify({
+      openWorkspaceIds: state.openWorkspaceIds,
+      activeWorkspaceId: state.activeWorkspaceId ?? "",
+      dismissedAttentionIds: state.dismissedAttentionIds,
+    });
+  }
+
+  private async pushWorkspaceView() {
+    if (!this.hasHydratedRemoteWorkspaceView || this.isApplyingRemoteWorkspaceView) {
+      return;
+    }
+
+    const signature = this.getWorkspaceViewSignature(this.pageState);
+    if (signature === this.lastPushedWorkspaceViewSignature) {
+      return;
+    }
+
+    this.lastPushedWorkspaceViewSignature = signature;
+    try {
+      const response = await updateWorkspaceView({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        openWorkspaceIds: this.pageState.openWorkspaceIds,
+        activeWorkspaceId: this.pageState.activeWorkspaceId,
+        dismissedAttentionIds: this.pageState.dismissedAttentionIds,
+      });
+      this.lastPushedWorkspaceViewSignature = JSON.stringify({
+        openWorkspaceIds: response.open_workspace_ids ?? [],
+        activeWorkspaceId: response.active_workspace_id ?? "",
+        dismissedAttentionIds: response.dismissed_attention_ids ?? [],
+      });
+    } catch {
+      this.lastPushedWorkspaceViewSignature = "";
+    }
   }
 
   private toKanbanWorkspace(workspace: LocalWorkspaceSummary): KanbanWorkspace {
@@ -755,7 +847,7 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.boardRealtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        if (event.type === "workspace_snapshot") {
+        if (event.type === "workspace_snapshot" || event.type === "workspace_view_updated") {
           this.handleRealtimeEvent(event);
         }
       },
@@ -847,6 +939,17 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private handleRealtimeEvent(event: RealtimeEvent) {
+    if (event.type === "workspace_view_updated" && event.workspace_view) {
+      const previousOpenWorkspaceIds = [...this.pageState.openWorkspaceIds];
+      this.applyRemoteWorkspaceView(event.workspace_view);
+      const newlyOpenedWorkspaceIds = this.pageState.openWorkspaceIds.filter(
+        (workspaceId) => !previousOpenWorkspaceIds.includes(workspaceId),
+      );
+      newlyOpenedWorkspaceIds.forEach((workspaceId) => {
+        void this.loadWorkspaceMessages(workspaceId, true);
+      });
+      return;
+    }
     if (event.type === "workspace_snapshot") {
       const previousOpenWorkspaceIds = [...this.pageState.openWorkspaceIds];
       this.workspaces = (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));

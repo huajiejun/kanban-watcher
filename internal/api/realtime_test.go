@@ -88,6 +88,63 @@ func TestPublishSessionMessagesAppendedThrottlesSameEntryUpdates(t *testing.T) {
 	}
 }
 
+func TestPublishWorkspaceViewUpdatedBroadcastsToAllClients(t *testing.T) {
+	hub := realtime.NewHub()
+	server := httptest.NewServer(hubRouteHandler(hub))
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+	connA, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("连接 websocket A 失败: %v", err)
+	}
+	defer connA.Close()
+
+	connB, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("连接 websocket B 失败: %v", err)
+	}
+	defer connB.Close()
+
+	readEvent := func(t *testing.T, conn *websocket.Conn) realtime.Event {
+		t.Helper()
+		var event realtime.Event
+		if err := conn.SetReadDeadline(time.Now().Add(200 * time.Millisecond)); err != nil {
+			t.Fatalf("设置超时失败: %v", err)
+		}
+		if err := conn.ReadJSON(&event); err != nil {
+			t.Fatalf("读取 websocket 事件失败: %v", err)
+		}
+		return event
+	}
+
+	publisher := NewRealtimePublisher(nil, hub)
+	activeWorkspaceID := "ws-1"
+	if err := publisher.PublishWorkspaceViewUpdated(&store.WorkspaceView{
+		ScopeKey:                  "global",
+		OpenWorkspaceIDsJSON:      `["ws-1"]`,
+		ActiveWorkspaceID:         &activeWorkspaceID,
+		DismissedAttentionIDsJSON: `["ws-2"]`,
+		Version:                   3,
+		UpdatedAt:                 time.Now(),
+	}); err != nil {
+		t.Fatalf("广播共享布局失败: %v", err)
+	}
+
+	eventA := readEvent(t, connA)
+	eventB := readEvent(t, connB)
+
+	if eventA.Type != realtime.EventTypeWorkspaceViewUpdated {
+		t.Fatalf("A 端事件类型 = %q, want %q", eventA.Type, realtime.EventTypeWorkspaceViewUpdated)
+	}
+	if eventB.Type != realtime.EventTypeWorkspaceViewUpdated {
+		t.Fatalf("B 端事件类型 = %q, want %q", eventB.Type, realtime.EventTypeWorkspaceViewUpdated)
+	}
+	if eventA.WorkspaceView.ActiveWorkspaceID != "ws-1" {
+		t.Fatalf("A 端 active_workspace_id = %q, want ws-1", eventA.WorkspaceView.ActiveWorkspaceID)
+	}
+}
+
 func hubRouteHandler(hub *realtime.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		hub.HandleWebSocket(w, r)
