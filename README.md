@@ -98,3 +98,14 @@ entity: sensor.kanban_watcher_kanban_watcher
 - In API mode, the board requests `/api/workspaces/active` on load and refreshes periodically
 - In API mode, clicking a workspace requests `/api/workspaces/{workspace_id}/latest-messages`
 - Sending a message in the dialog calls `/api/workspace/{workspace_id}/follow-up`
+
+## Todo List 功能
+
+Kanban Watcher 现在支持待办事项显示功能：
+
+- **工具栏按钮**：显示当前待办进度，点击查看详细列表
+- **对话中显示**：在消息中展示待办事项更新
+- **状态图标**：支持已完成(✓)、进行中(⊙)、已取消(○)等状态
+- **进度显示**：实时显示完成进度和百分比
+
+详细文档请参阅 [Todo List 功能文档](docs/todo-list-feature.md)
