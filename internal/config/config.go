@@ -103,7 +103,7 @@ type WeChatConfig struct {
 // NotifyConfig 弹框通知配置
 type NotifyConfig struct {
 	// 分级超时阈值（分钟）
-	ApprovalThreshold int `yaml:"approval_threshold"` // 待审批超时：默认 5
+	ApprovalThreshold int `yaml:"approval_threshold"` // 待审批超时：默认 15
 	MessageThreshold int `yaml:"message_threshold"`  // 未读消息超时：默认 10
 
 	// 叠加提醒间隔（分钟）
@@ -192,8 +192,8 @@ func defaultConfig() *Config {
 			NotifyThresholdMinutes: 10, // 默认 10 分钟阈值
 		},
 		Notify: NotifyConfig{
-			ApprovalThreshold: 5,  // 待审批 5 分钟
-			MessageThreshold:  10, // 未读消息 10 分钟
+			ApprovalThreshold: 15,  // 待审批 15 分钟
+			MessageThreshold:  15, // 未读消息 15 分钟
 			RepeatInterval:    5,  // 叠加提醒间隔 5 分钟
 			Enabled:           true,
 		},
@@ -257,10 +257,10 @@ func applyDefaults(cfg *Config) {
 		cfg.HTTPAPI.APIKey = "change-me"
 	}
 	if cfg.Notify.ApprovalThreshold <= 0 {
-		cfg.Notify.ApprovalThreshold = 5
+		cfg.Notify.ApprovalThreshold = 15
 	}
 	if cfg.Notify.MessageThreshold <= 0 {
-		cfg.Notify.MessageThreshold = 10
+		cfg.Notify.MessageThreshold = 15
 	}
 	if cfg.Notify.RepeatInterval <= 0 {
 		cfg.Notify.RepeatInterval = 5
