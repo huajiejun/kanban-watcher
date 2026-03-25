@@ -26,6 +26,10 @@ function buildHeaders(apiKey?: string, hasBody = false) {
 }
 
 function normalizeBaseUrl(baseUrl: string) {
+  // 支持空字符串（相对路径），用于 Vite 代理模式
+  if (!baseUrl) {
+    return "";
+  }
   return baseUrl.replace(/\/+$/, "");
 }
 

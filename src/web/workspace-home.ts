@@ -696,7 +696,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private get isApiMode() {
-    return Boolean(this.previewOptions.baseUrl);
+    return this.previewOptions.baseUrl !== undefined;
   }
 
   private getWorkspaceFeedback(workspaceId: string) {
