@@ -74,6 +74,19 @@ export class WorkspacePreviewCard extends LitElement {
       padding-right: 4px;
     }
 
+    .workspace-preview-message {
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--divider-color, #334155) 42%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--primary-background-color, #0f172a) 76%,
+        var(--card-background-color, #111827)
+      );
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      min-width: 0;
+    }
+
     .workspace-preview-line {
       margin: 0;
       font-size: 0.76rem;
@@ -176,11 +189,17 @@ export class WorkspacePreviewCard extends LitElement {
         <div class="workspace-preview-lines" @scroll=${this.handleScroll}>
           ${this.previewLines.length > 0
             ? this.previewLines.map((line) => html`
-                <div class="workspace-preview-line workspace-preview-markdown">
-                  ${unsafeHTML(renderMessageMarkdown(line))}
+                <div class="workspace-preview-message">
+                  <div class="workspace-preview-line workspace-preview-markdown">
+                    ${unsafeHTML(renderMessageMarkdown(line))}
+                  </div>
                 </div>
               `)
-            : html`<p class="workspace-preview-line is-empty">暂无可预览文本消息</p>`}
+            : html`
+                <div class="workspace-preview-message">
+                  <p class="workspace-preview-line is-empty">暂无可预览文本消息</p>
+                </div>
+              `}
         </div>
       </section>
     `;

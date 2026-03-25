@@ -21,6 +21,15 @@ describe("workspace-preview-card", () => {
     document.body.innerHTML = "";
   });
 
+  it("renders each preview line inside a separate message block", async () => {
+    const element = createElement();
+    await element.updateComplete;
+
+    const blocks = element.shadowRoot?.querySelectorAll(".workspace-preview-message") ?? [];
+
+    expect(blocks).toHaveLength(3);
+  });
+
   it("auto scrolls to bottom when preview lines update", async () => {
     const element = createElement();
     await element.updateComplete;
