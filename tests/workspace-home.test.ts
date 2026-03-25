@@ -135,7 +135,7 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain("height: min(72vh, 960px)");
     expect(homeCssText).toContain("width: 100%");
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"true\"]");
-    expect(homeCssText).toContain("grid-template-columns: clamp(136px, 12vw, 168px) minmax(0, 1fr)");
+    expect(homeCssText).toContain("grid-template-columns: clamp(156px, 14vw, 184px) minmax(0, 1fr)");
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"false\"]");
     expect(homeCssText).toContain("grid-template-columns: 320px minmax(0, 1fr)");
     expect(homeCssText).toContain("grid-template-rows: auto minmax(0, 1fr)");
@@ -156,6 +156,10 @@ describe("workspace home helpers", () => {
     expect(listCssText).toContain(".task-card.is-idle");
     expect(listCssText).toContain(".task-card.is-running");
     expect(listCssText).toContain(".task-card.is-attention");
+    expect(listCssText).toContain(".section-toggle");
+    expect(listCssText).toContain("linear-gradient(");
+    expect(listCssText).toContain("135deg");
+    expect(listCssText).toContain("white-space: nowrap");
     expect(listCssText).toContain("var(--card-background-color, #111827)");
     expect(listCssText).toContain("var(--secondary-background-color, #111827)");
   });

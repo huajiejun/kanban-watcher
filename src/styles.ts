@@ -15,18 +15,25 @@ export const workspaceSectionListStyles = css`
     justify-content: space-between;
     gap: 12px;
     border: 0;
-    background: transparent;
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--primary-color, #f59e0b) 22%, transparent),
+        color-mix(in srgb, var(--secondary-background-color, #111827) 88%, transparent)
+      );
     color: inherit;
     cursor: pointer;
     padding: 12px 14px;
     font: inherit;
     text-align: left;
+    border-bottom: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 55%, transparent);
   }
 
   .section-title-row {
     display: flex;
     align-items: center;
     gap: 10px;
+    white-space: nowrap;
   }
 
   .section-title {
@@ -200,7 +207,7 @@ export const workspaceHomeStyles = css`
   }
 
   .workspace-home-layout[data-sidebar-collapsed="true"] {
-    grid-template-columns: clamp(136px, 12vw, 168px) minmax(0, 1fr);
+    grid-template-columns: clamp(156px, 14vw, 184px) minmax(0, 1fr);
   }
 
   .workspace-home-layout[data-sidebar-collapsed="false"] {
