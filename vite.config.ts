@@ -14,6 +14,7 @@ export default defineConfig({
     environment: "jsdom",
   },
   server: {
+    allowedHosts: ['ai.huajiejun.cn'],
     proxy: {
       // 代理 LLM API 请求到 LM Studio，解决 CORS 问题
       '/llm-api': {
