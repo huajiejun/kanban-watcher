@@ -1,5 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import type { TodoItem } from '../types';
+import { unsafeSVG } from 'lit/directives/unsafe-svg.js';
 
 interface TodoHistoryEntry {
   workspaceId: string;
@@ -9,6 +10,30 @@ interface TodoHistoryEntry {
   completedCount: number;
   totalCount: number;
 }
+
+// SVG Icons (based on Phosphor Icons and Lucide)
+const ICONS = {
+  listChecks: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor">
+    <path d="M216 128a8 8 0 0 1-8 8H128a8 8 0 0 1 0-16h80A8 8 0 0 1 216 128ZM128 72h80a8 8 0 0 0 0-16H128a8 8 0 0 0 0 16Zm80 112H128a8 8 0 0 0 0 16h80a8 8 0 0 0 0-16ZM82.34 42.34L56 68.69 45.66 58.34a8 8 0 0 0-11.32 11.32l16 16a8 8 0 0 0 11.32 0l32-32a8 8 0 0 0-11.32-11.32Zm0 64L56 132.69 45.66 122.34a8 8 0 0 0-11.32 11.32l16 16a8 8 0 0 0 11.32 0l32-32a8 8 0 0 0-11.32-11.32Zm0 64L56 196.69l-10.34-10.35a8 8 0 0 0-11.32 11.32l16 16a8 8 0 0 0 11.32 0l32-32a8 8 0 0 0-11.32-11.32Z"/>
+  </svg>`,
+
+  check: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg>`,
+
+  circle: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"></circle>
+  </svg>`,
+
+  circleDot: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"></circle>
+    <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+  </svg>`,
+
+  caretDown: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor">
+    <path d="M213.66 101.66a8 8 0 0 0-11.32 0L128 175.94 53.66 101.66a8 8 0 0 0-11.32 11.32l80 80a8 8 0 0 0 11.32 0l80-80a8 8 0 0 0 0-11.32Z"/>
+  </svg>`,
+};
 
 export class TodoProgressPopup extends LitElement {
   static styles = css`
@@ -20,47 +45,57 @@ export class TodoProgressPopup extends LitElement {
     .todo-button {
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 4px 8px;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      background: white;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.6);
       cursor: pointer;
-      font-size: 14px;
       transition: all 0.2s;
+      position: relative;
     }
 
     .todo-button:hover {
-      background: #f5f5f5;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .todo-button:active {
+      transform: scale(0.95);
     }
 
     .todo-button.empty {
-      opacity: 0.6;
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .todo-button.empty:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.6);
     }
 
     .todo-icon {
       width: 16px;
       height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .progress-text {
-      font-size: 12px;
-      color: #666;
+    .progress-dot {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #3b82f6;
     }
 
-    .progress-bar {
-      width: 100%;
-      height: 4px;
-      background: #e0e0e0;
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 8px;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: #4caf50;
-      transition: width 0.3s;
+    .progress-dot.completed {
+      background: #22c55e;
     }
 
     .todo-popover {
@@ -68,56 +103,121 @@ export class TodoProgressPopup extends LitElement {
       top: 100%;
       right: 0;
       margin-top: 8px;
-      width: 350px;
+      width: 360px;
       max-height: 500px;
-      overflow-y: auto;
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      overflow: hidden;
+      background: rgb(30, 30, 30);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       z-index: 1000;
       display: none;
+      animation: slideIn 0.2s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .todo-popover.open {
-      display: block;
+      display: flex;
+      flex-direction: column;
     }
 
     .popover-header {
-      padding: 12px 16px;
-      border-bottom: 1px solid #e0e0e0;
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .popover-title {
+      font-size: 14px;
       font-weight: 600;
-      background: #f9f9f9;
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 12px;
+    }
+
+    .popover-progress {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .progress-text {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      white-space: nowrap;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #60a5fa);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-fill.completed {
+      background: linear-gradient(90deg, #22c55e, #4ade80);
     }
 
     .popover-tabs {
       display: flex;
-      border-bottom: 1px solid #e0e0e0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.2);
     }
 
     .popover-tab {
       flex: 1;
-      padding: 8px 16px;
+      padding: 10px 16px;
       background: none;
       border: none;
-      cursor: pointer;
+      color: rgba(255, 255, 255, 0.5);
       font-size: 13px;
-      color: #666;
+      cursor: pointer;
       transition: all 0.2s;
+      position: relative;
     }
 
     .popover-tab:hover {
-      background: #f5f5f5;
+      color: rgba(255, 255, 255, 0.7);
+      background: rgba(255, 255, 255, 0.05);
     }
 
     .popover-tab.active {
-      color: #2196f3;
-      border-bottom: 2px solid #2196f3;
+      color: #60a5fa;
       font-weight: 600;
+    }
+
+    .popover-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #3b82f6;
     }
 
     .tab-content {
       display: none;
+      overflow-y: auto;
+      max-height: 350px;
     }
 
     .tab-content.active {
@@ -131,13 +231,13 @@ export class TodoProgressPopup extends LitElement {
     .todo-item {
       display: flex;
       align-items: flex-start;
-      gap: 8px;
-      padding: 8px 16px;
-      font-size: 14px;
+      gap: 12px;
+      padding: 10px 16px;
+      transition: background 0.2s;
     }
 
     .todo-item:hover {
-      background: #f5f5f5;
+      background: rgba(255, 255, 255, 0.03);
     }
 
     .status-icon {
@@ -145,37 +245,43 @@ export class TodoProgressPopup extends LitElement {
       width: 16px;
       height: 16px;
       margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .status-icon.completed {
-      color: #4caf50;
+      color: #22c55e;
     }
 
     .status-icon.in_progress {
-      color: #2196f3;
+      color: #3b82f6;
     }
 
     .status-icon.cancelled {
-      color: #9e9e9e;
+      color: rgba(255, 255, 255, 0.3);
     }
 
     .status-icon.pending {
-      color: #9e9e9e;
+      color: rgba(255, 255, 255, 0.3);
     }
 
     .todo-content {
       flex: 1;
-      line-height: 1.4;
+      font-size: 13px;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.8);
+      word-break: break-word;
     }
 
     .todo-content.cancelled {
       text-decoration: line-through;
-      color: #9e9e9e;
+      color: rgba(255, 255, 255, 0.3);
     }
 
     .history-entry {
-      padding: 12px 16px;
-      border-bottom: 1px solid #f0f0f0;
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .history-entry:last-child {
@@ -192,48 +298,60 @@ export class TodoProgressPopup extends LitElement {
     .history-workspace {
       font-weight: 600;
       font-size: 13px;
-      color: #333;
+      color: rgba(255, 255, 255, 0.9);
     }
 
     .history-time {
       font-size: 11px;
-      color: #999;
+      color: rgba(255, 255, 255, 0.4);
     }
 
     .history-progress {
       font-size: 12px;
-      color: #666;
-      margin-bottom: 8px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .history-progress.completed {
-      color: #4caf50;
+      color: #22c55e;
     }
 
     .empty-state {
-      padding: 24px 16px;
+      padding: 48px 16px;
       text-align: center;
-      color: #999;
+      color: rgba(255, 255, 255, 0.3);
       font-size: 13px;
     }
 
     .clear-history {
-      padding: 8px 16px;
+      padding: 12px 16px;
       text-align: center;
-      border-top: 1px solid #e0e0e0;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .clear-history button {
       background: none;
       border: none;
-      color: #f44336;
+      color: #ef4444;
       cursor: pointer;
       font-size: 12px;
       padding: 4px 8px;
+      transition: all 0.2s;
     }
 
     .clear-history button:hover {
+      color: #f87171;
       text-decoration: underline;
+    }
+
+    .more-items {
+      padding: 8px 16px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      text-align: center;
     }
   `;
 
@@ -276,16 +394,10 @@ export class TodoProgressPopup extends LitElement {
 
   private getStatusIcon(status?: string | null): string {
     const s = (status || '').toLowerCase();
-    if (s === 'completed') {
-      return '✓';
-    }
-    if (s === 'in_progress' || s === 'in-progress') {
-      return '⊙';
-    }
-    if (s === 'cancelled') {
-      return '○';
-    }
-    return '○';
+    if (s === 'completed') return ICONS.check;
+    if (s === 'in_progress' || s === 'in-progress') return ICONS.circleDot;
+    if (s === 'cancelled') return ICONS.circle;
+    return ICONS.circle;
   }
 
   private getStatusClass(status?: string | null): string {
@@ -311,7 +423,7 @@ export class TodoProgressPopup extends LitElement {
   private saveToHistory() {
     if (this.todos.length === 0 || !this.workspaceId) return;
 
-    const { completed, total, percentage } = this.getProgress();
+    const { completed, total } = this.getProgress();
     const entry: TodoHistoryEntry = {
       workspaceId: this.workspaceId,
       workspaceName: this.workspaceName || this.workspaceId,
@@ -321,13 +433,8 @@ export class TodoProgressPopup extends LitElement {
       totalCount: total,
     };
 
-    // 移除相同工作区的旧记录
     this.history = this.history.filter(h => h.workspaceId !== this.workspaceId);
-
-    // 添加新记录到开头
     this.history.unshift(entry);
-
-    // 只保留最近 20 条记录
     this.history = this.history.slice(0, 20);
 
     try {
@@ -380,16 +487,32 @@ export class TodoProgressPopup extends LitElement {
       <button
         class="todo-button ${isEmpty ? 'empty' : ''}"
         @click=${this.handleToggle}
+        ?disabled=${isEmpty}
       >
-        <span class="todo-icon">☑</span>
+        <span class="todo-icon">${unsafeSVG(ICONS.listChecks)}</span>
         ${!isEmpty
-          ? html`<span class="progress-text">${completed}/${total}</span>`
+          ? html`
+              <span class="progress-dot ${percentage === 100 ? 'completed' : ''}"></span>
+            `
           : nothing}
       </button>
 
       <div class="todo-popover ${this.open ? 'open' : ''}">
         <div class="popover-header">
-          <div>待办事项</div>
+          <div class="popover-title">待办事项</div>
+          ${!isEmpty
+            ? html`
+                <div class="popover-progress">
+                  <span class="progress-text">${completed}/${total} 完成</span>
+                  <div class="progress-bar">
+                    <div
+                      class="progress-fill ${percentage === 100 ? 'completed' : ''}"
+                      style="width: ${percentage}%"
+                    ></div>
+                  </div>
+                </div>
+              `
+            : nothing}
         </div>
 
         <div class="popover-tabs">
@@ -410,15 +533,6 @@ export class TodoProgressPopup extends LitElement {
         <div class="tab-content ${this.activeTab === 'current' ? 'active' : ''}">
           ${!isEmpty
             ? html`
-                <div style="padding: 12px 16px; border-bottom: 1px solid #e0e0e0;">
-                  <div class="progress-text">${completed}/${total} 完成 (${percentage}%)</div>
-                  <div class="progress-bar">
-                    <div
-                      class="progress-fill"
-                      style="width: ${percentage}%"
-                    ></div>
-                  </div>
-                </div>
                 <div class="todo-list">
                   ${this.todos.map(
                     todo => html`
@@ -426,7 +540,7 @@ export class TodoProgressPopup extends LitElement {
                         <span
                           class="status-icon ${this.getStatusClass(todo.status)}"
                         >
-                          ${this.getStatusIcon(todo.status)}
+                          ${unsafeSVG(this.getStatusIcon(todo.status))}
                         </span>
                         <span
                           class="todo-content ${todo.status?.toLowerCase() ===
@@ -469,7 +583,7 @@ export class TodoProgressPopup extends LitElement {
                               <span
                                 class="status-icon ${this.getStatusClass(todo.status)}"
                               >
-                                ${this.getStatusIcon(todo.status)}
+                                ${unsafeSVG(this.getStatusIcon(todo.status))}
                               </span>
                               <span
                                 class="todo-content ${todo.status?.toLowerCase() ===
@@ -484,7 +598,7 @@ export class TodoProgressPopup extends LitElement {
                         )}
                         ${entry.todos.length > 3
                           ? html`
-                              <div style="padding: 4px 16px; font-size: 12px; color: #999;">
+                              <div class="more-items">
                                 还有 ${entry.todos.length - 3} 项...
                               </div>
                             `
