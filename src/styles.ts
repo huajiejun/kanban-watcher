@@ -199,6 +199,10 @@ export const workspaceHomeStyles = css`
     align-items: stretch;
   }
 
+  .workspace-home-layout[data-sidebar-collapsed="true"] {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
   .workspace-home-sidebar,
   .workspace-home-pane-grid,
   .workspace-home-placeholder {
@@ -216,6 +220,26 @@ export const workspaceHomeStyles = css`
     height: min(72vh, 960px);
     min-height: min(72vh, 960px);
     overflow-y: auto;
+  }
+
+  .workspace-home-sidebar[data-collapsed="true"] {
+    align-content: start;
+    overflow: hidden;
+  }
+
+  .workspace-home-sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 36px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
+    background: color-mix(in srgb, var(--primary-background-color, #0f172a) 70%, transparent);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
   }
 
   .workspace-home-pane-grid {

@@ -135,6 +135,8 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain("height: min(72vh, 960px)");
     expect(homeCssText).toContain("width: 100%");
     expect(homeCssText).toContain("grid-template-columns: clamp(180px, 16vw, 220px) minmax(0, 1fr)");
+    expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"true\"]");
+    expect(homeCssText).toContain("grid-template-columns: 56px minmax(0, 1fr)");
     expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px)");
     expect(homeCssText).not.toContain("width: min(1440px, 100%)");
     expect(homeCssText).not.toContain("margin: 0 auto");
@@ -215,6 +217,54 @@ describe("workspace home helpers", () => {
       | (HTMLElement & { shadowRoot: ShadowRoot })
       | null;
     expect(previewCard?.shadowRoot?.textContent).toContain("这里是工作区一最近的一条关键结论。");
+  });
+
+  it("collapses and expands the left workspace sidebar", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "工作区一",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "工作区一消息" }],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const toggle = element.shadowRoot?.querySelector(".workspace-home-sidebar-toggle") as HTMLButtonElement | null;
+    const layout = element.shadowRoot?.querySelector(".workspace-home-layout") as HTMLElement | null;
+
+    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
+    toggle?.click();
+    await flushElement(element);
+
+    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("true");
+    expect(element.shadowRoot?.querySelector(".task-card")).toBeNull();
+
+    toggle?.click();
+    await flushElement(element);
+
+    expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
+    expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
   });
 
   it("closes a secondary workspace from the summary rail", async () => {

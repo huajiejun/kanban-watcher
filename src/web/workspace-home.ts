@@ -80,6 +80,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   static properties = {
     mode: { attribute: false },
+    isSidebarCollapsed: { type: Boolean },
     workspaces: { attribute: false },
     pageState: { attribute: false },
     messagesByWorkspace: { attribute: false },
@@ -97,6 +98,7 @@ export class KanbanWorkspaceHome extends LitElement {
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
+  isSidebarCollapsed = false;
   workspaces: KanbanWorkspace[] = [];
   pageState: WorkspacePageState = createWorkspacePageState(readPersistedWorkspacePageState());
   messagesByWorkspace: Record<string, DialogMessage[]> = {};
@@ -177,29 +179,53 @@ export class KanbanWorkspaceHome extends LitElement {
           <h1>Kanban Watcher 网页工作区</h1>
           <p>桌面端使用左侧项目状态栏和右侧多工作区内容区。</p>
         </section>
-        <section class="workspace-home-layout">
-          <aside class="workspace-home-sidebar">
-            ${this.loading ? html`<div class="empty-state">正在加载工作区...</div>` : nothing}
-            ${this.error ? html`<div class="empty-state">${this.error}</div>` : nothing}
-            ${renderWorkspaceSectionList({
-              sections,
-              collapsedSections: this.collapsedSections,
-              selectedWorkspaceId: this.pageState.activeWorkspaceId,
-              getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => ({
-                relativeTime: workspace.relative_time ?? formatRelativeTime(workspace.updated_at),
-                filesChanged: workspace.files_changed ?? 0,
-                linesAdded: workspace.lines_added ?? 0,
-                linesRemoved: workspace.lines_removed ?? 0,
-              }),
-              onToggleSection: (key) => this.toggleSection(key),
-              onSelectWorkspace: (workspace) => this.handleOpenWorkspace(workspace),
-            })}
+        <section
+          class="workspace-home-layout"
+          data-sidebar-collapsed=${this.isSidebarCollapsed ? "true" : "false"}
+        >
+          <aside
+            class="workspace-home-sidebar"
+            data-collapsed=${this.isSidebarCollapsed ? "true" : "false"}
+          >
+            <button
+              class="workspace-home-sidebar-toggle"
+              type="button"
+              @click=${this.handleSidebarToggle}
+              aria-expanded=${this.isSidebarCollapsed ? "false" : "true"}
+              aria-label=${this.isSidebarCollapsed ? "展开工作区状态栏" : "收起工作区状态栏"}
+            >
+              <span aria-hidden="true">${this.isSidebarCollapsed ? "»" : "«"}</span>
+              ${this.isSidebarCollapsed ? nothing : html`<span>收起</span>`}
+            </button>
+            ${this.isSidebarCollapsed
+              ? nothing
+              : html`
+                  ${this.loading ? html`<div class="empty-state">正在加载工作区...</div>` : nothing}
+                  ${this.error ? html`<div class="empty-state">${this.error}</div>` : nothing}
+                  ${renderWorkspaceSectionList({
+                    sections,
+                    collapsedSections: this.collapsedSections,
+                    selectedWorkspaceId: this.pageState.activeWorkspaceId,
+                    getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => ({
+                      relativeTime: workspace.relative_time ?? formatRelativeTime(workspace.updated_at),
+                      filesChanged: workspace.files_changed ?? 0,
+                      linesAdded: workspace.lines_added ?? 0,
+                      linesRemoved: workspace.lines_removed ?? 0,
+                    }),
+                    onToggleSection: (key) => this.toggleSection(key),
+                    onSelectWorkspace: (workspace) => this.handleOpenWorkspace(workspace),
+                  })}
+                `}
           </aside>
           ${this.renderWorkspacePanes(openWorkspaces, paneLayoutMode)}
         </section>
       </main>
     `;
   }
+
+  private handleSidebarToggle = () => {
+    this.isSidebarCollapsed = !this.isSidebarCollapsed;
+  };
 
   private handleResize = () => {
     const nextMode = resolveWorkspaceHomeMode(window.innerWidth);
