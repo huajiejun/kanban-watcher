@@ -9,12 +9,35 @@ This repository is currently set up for manual Home Assistant deployment rather 
 
 ## Build
 
+### Build Home Assistant Card
+
+```bash
+npm install
+npm run build:ha
+```
+
+产物会输出到 `dist/ha/kanban-watcher-card.js`。
+
+### Build Web App
+
+```bash
+npm install
+npm run build:web
+```
+
+网页版正式构建产物会输出到 `dist/web/`，包含：
+
+- `dist/web/index.html`
+- `dist/web/preview/index.html`
+
+### Build All
+
 ```bash
 npm install
 npm run build
 ```
 
-The production bundle is written to `dist/kanban-watcher-card.js`.
+该命令会依次执行 `build:ha` 和 `build:web`。
 
 ## Build macOS App
 
@@ -48,7 +71,7 @@ zsh scripts/test_build_macos_app.sh
 
 ## Local Preview
 
-本地启动前端预览：
+本地启动网页端开发预览：
 
 ```bash
 npm install
@@ -76,8 +99,8 @@ http://127.0.0.1:5173/preview?base_url=http://127.0.0.1:7778&api_key=your-api-ke
 
 ## Install In Home Assistant
 
-1. Build the card.
-2. Copy `dist/kanban-watcher-card.js` into your Home Assistant `www/` directory, for example `config/www/kanban-watcher-card.js`.
+1. Build the card with `npm run build:ha`.
+2. Copy `dist/ha/kanban-watcher-card.js` into your Home Assistant `www/` directory, for example `config/www/kanban-watcher-card.js`.
 3. Add the resource in Lovelace:
 
 ```yaml
