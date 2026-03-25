@@ -8,6 +8,39 @@ import {
 } from "../src/web/workspace-home";
 import { workspaceHomeStyles, workspaceSectionListStyles } from "../src/styles";
 
+class FakeWebSocket {
+  static instances: FakeWebSocket[] = [];
+
+  url: string;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: MessageEvent<string>) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+
+  constructor(url: string) {
+    this.url = url;
+    FakeWebSocket.instances.push(this);
+  }
+
+  close() {
+    this.onclose?.();
+  }
+
+  emitOpen() {
+    this.onopen?.();
+  }
+
+  emitMessage(payload: unknown) {
+    this.onmessage?.(new MessageEvent("message", {
+      data: JSON.stringify(payload),
+    }) as MessageEvent<string>);
+  }
+
+  emitClose() {
+    this.onclose?.();
+  }
+}
+
 function setWindowWidth(width: number) {
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
@@ -62,11 +95,13 @@ describe("workspace home helpers", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     setWindowWidth(1440);
+    vi.stubGlobal("WebSocket", undefined);
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    FakeWebSocket.instances = [];
     document.body.innerHTML = "";
   });
 
@@ -99,7 +134,7 @@ describe("workspace home helpers", () => {
     expect(listCssText).toContain("var(--secondary-background-color, #111827)");
   });
 
-  it("refreshes latest messages for every opened pane on the desktop interval", async () => {
+  it("keeps polling opened panes when websocket is unavailable", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -156,7 +191,58 @@ describe("workspace home helpers", () => {
     const latestMessageRequestsAfterTick = fetchMock.mock.calls.filter(([url]) =>
       String(url).includes("/api/workspaces/ws-attention/latest-messages"),
     );
-    expect(latestMessageRequestsAfterTick).toHaveLength(2);
+    expect(latestMessageRequestsAfterTick.length).toBeGreaterThan(1);
+  });
+
+  it("uses board websocket snapshots to update the workspace list in api mode", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-initial",
+              name: "初始任务",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-live/latest-messages")) {
+        return createJsonResponse({ messages: [] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    expect(element.shadowRoot?.textContent).toContain("初始任务");
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(FakeWebSocket.instances[0]?.url).toContain("/api/realtime/ws");
+
+    FakeWebSocket.instances[0]?.emitOpen();
+    FakeWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-live",
+          name: "实时任务",
+          status: "completed",
+          updated_at: "2026-03-24T12:10:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    expect(element.shadowRoot?.textContent).toContain("实时任务");
   });
 
   it("keeps a manually closed attention pane closed until attention changes again", async () => {
@@ -426,6 +512,79 @@ describe("workspace home helpers", () => {
     expect(staticButtons).toContain("继续");
     expect(staticButtons).toContain("同意");
     expect(paneShadowRoot?.textContent).toContain("消息已切换为本地持久化接口。");
+  });
+
+  it("uses websocket for the active pane and appends realtime session messages", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-attention",
+              name: "需要处理的任务",
+              status: "completed",
+              latest_session_id: "session-1",
+              has_pending_approval: true,
+              has_unseen_turns: true,
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              process_id: "proc-1",
+              entry_index: 1,
+              role: "assistant",
+              content: "初始消息",
+              timestamp: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    expect(FakeWebSocket.instances[1]?.url).toContain("session_id=session-1");
+
+    FakeWebSocket.instances[1]?.emitOpen();
+    FakeWebSocket.instances[1]?.emitMessage({
+      type: "session_messages_appended",
+      session_id: "session-1",
+      messages: [
+        {
+          process_id: "proc-1",
+          entry_index: 2,
+          role: "assistant",
+          content: "实时追加消息",
+          timestamp: "2026-03-24T12:01:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+    const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
+
+    expect(paneShadowRoot?.textContent).toContain("实时追加消息");
   });
 
   it("hydrates running panes with stop and queue controls", async () => {

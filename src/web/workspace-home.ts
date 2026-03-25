@@ -7,13 +7,19 @@ import { renderWorkspaceSectionList } from "../components/workspace-section-list
 import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
 import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
-import { normalizeApiMessages, normalizeSessionMessage, type DialogMessage } from "../lib/dialog-messages";
+import {
+  normalizeApiMessages,
+  normalizeApiMessagesFlat,
+  normalizeSessionMessage,
+  type DialogMessage,
+} from "../lib/dialog-messages";
 import {
   extractDynamicButtons,
   getQuickButtonsWithLLM,
   isValidButtonText,
   STATIC_BUTTONS,
 } from "../lib/quick-buttons";
+import { connectRealtime } from "../lib/realtime-api";
 import {
   cancelWorkspaceQueue,
   fetchActiveWorkspaces,
@@ -28,6 +34,8 @@ import type {
   LocalWorkspaceSummary,
   WorkspaceQueueStatusResponse,
   type ButtonWithReason,
+  type RealtimeEvent,
+  type SessionMessageResponse,
 } from "../types";
 import { workspaceHomeStyles, workspaceSectionListStyles } from "../styles";
 import { getPaneColumns } from "./workspace-home.utils";
@@ -43,6 +51,9 @@ import { buildPreviewCardConfig, readPreviewApiOptions } from "../playground";
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
 const MOBILE_BREAKPOINT = 768;
+const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
+const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 5_000;
+const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
 
 export function resolveWorkspaceHomeMode(width: number): WorkspaceHomeMode {
   return width <= MOBILE_BREAKPOINT ? "mobile-card" : "desktop";
@@ -86,28 +97,35 @@ export class KanbanWorkspaceHome extends LitElement {
   suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
   private refreshTimer?: number;
+  private dialogRefreshTimer?: number;
+  private boardRealtimeRetryTimer?: number;
+  private realtimeRetryTimer?: number;
+  private boardRealtimeSocket?: WebSocket;
+  private realtimeSocket?: WebSocket;
+  private boardRealtimeConnected = false;
+  private realtimeConnected = false;
 
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener("resize", this.handleResize);
     void this.loadWorkspaces();
-    this.refreshTimer = window.setInterval(() => {
-      void this.loadWorkspaces();
-    }, 30_000);
+    this.connectBoardRealtimeIfNeeded();
+    this.startBoardPolling();
   }
 
   disconnectedCallback() {
     window.removeEventListener("resize", this.handleResize);
-    if (this.refreshTimer) {
-      window.clearInterval(this.refreshTimer);
-      this.refreshTimer = undefined;
-    }
+    this.stopRealtimeSync();
     super.disconnectedCallback();
   }
 
-  protected updated() {
+  protected updated(changedProperties: Map<PropertyKey, unknown>) {
     if (this.mode === "mobile-card") {
       this.setupMobileCard();
+    }
+    if (changedProperties.has("pageState") && this.isApiMode) {
+      this.restartRealtimeConnection();
+      this.updateDialogPolling();
     }
   }
 
@@ -570,6 +588,316 @@ export class KanbanWorkspaceHome extends LitElement {
     if (!this.previewOptions.baseUrl) {
       card.hass = createPreviewHass();
     }
+  }
+
+  private stopRealtimeSync() {
+    this.stopBoardPolling();
+    this.stopDialogPolling();
+    if (this.boardRealtimeRetryTimer) {
+      window.clearTimeout(this.boardRealtimeRetryTimer);
+      this.boardRealtimeRetryTimer = undefined;
+    }
+    if (this.realtimeRetryTimer) {
+      window.clearTimeout(this.realtimeRetryTimer);
+      this.realtimeRetryTimer = undefined;
+    }
+    if (this.boardRealtimeSocket) {
+      const socket = this.boardRealtimeSocket;
+      this.boardRealtimeSocket = undefined;
+      socket.close();
+    }
+    if (this.realtimeSocket) {
+      const socket = this.realtimeSocket;
+      this.realtimeSocket = undefined;
+      socket.close();
+    }
+    this.boardRealtimeConnected = false;
+    this.realtimeConnected = false;
+  }
+
+  private startBoardPolling() {
+    if (this.refreshTimer) {
+      return;
+    }
+    this.refreshTimer = window.setInterval(() => {
+      void this.loadWorkspaces();
+    }, DEFAULT_REFRESH_INTERVAL_MS);
+  }
+
+  private stopBoardPolling() {
+    if (!this.refreshTimer) {
+      return;
+    }
+    window.clearInterval(this.refreshTimer);
+    this.refreshTimer = undefined;
+  }
+
+  private startDialogPolling() {
+    if (this.dialogRefreshTimer || !this.activeWorkspace) {
+      return;
+    }
+    this.dialogRefreshTimer = window.setInterval(() => {
+      const workspace = this.activeWorkspace;
+      if (!workspace) {
+        return;
+      }
+      void this.loadWorkspaceMessages(workspace.id, true);
+      if (workspace.status === "running") {
+        void this.loadWorkspaceQueueStatus(workspace.id);
+      }
+    }, DEFAULT_DIALOG_FALLBACK_INTERVAL_MS);
+  }
+
+  private stopDialogPolling() {
+    if (!this.dialogRefreshTimer) {
+      return;
+    }
+    window.clearInterval(this.dialogRefreshTimer);
+    this.dialogRefreshTimer = undefined;
+  }
+
+  private updateDialogPolling() {
+    if (this.realtimeConnected || !this.activeWorkspace || !this.isApiMode) {
+      this.stopDialogPolling();
+      return;
+    }
+    this.startDialogPolling();
+  }
+
+  private connectBoardRealtimeIfNeeded() {
+    if (!this.isApiMode || typeof WebSocket === "undefined") {
+      return;
+    }
+    const socket = connectRealtime({
+      baseUrl: this.previewOptions.baseUrl!,
+      apiKey: this.previewOptions.apiKey,
+      onOpen: () => {
+        if (this.boardRealtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        this.boardRealtimeConnected = true;
+        this.stopBoardPolling();
+        if (this.boardRealtimeRetryTimer) {
+          window.clearTimeout(this.boardRealtimeRetryTimer);
+          this.boardRealtimeRetryTimer = undefined;
+        }
+      },
+      onClose: () => {
+        if (this.boardRealtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        this.boardRealtimeConnected = false;
+        void this.loadWorkspaces();
+        this.startBoardPolling();
+        this.scheduleBoardRealtimeReconnect();
+      },
+      onMessage: (event) => {
+        if (this.boardRealtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        if (event.type === "workspace_snapshot") {
+          this.handleRealtimeEvent(event);
+        }
+      },
+    });
+    this.boardRealtimeSocket = socket;
+  }
+
+  private connectRealtimeIfNeeded() {
+    if (!this.isApiMode || typeof WebSocket === "undefined") {
+      return;
+    }
+    const sessionId = this.activeWorkspace?.latest_session_id ?? this.activeWorkspace?.last_session_id;
+    if (!sessionId) {
+      this.realtimeConnected = false;
+      return;
+    }
+    const socket = connectRealtime({
+      baseUrl: this.previewOptions.baseUrl!,
+      apiKey: this.previewOptions.apiKey,
+      sessionId,
+      onOpen: () => {
+        if (this.realtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        this.realtimeConnected = true;
+        this.stopDialogPolling();
+        if (this.realtimeRetryTimer) {
+          window.clearTimeout(this.realtimeRetryTimer);
+          this.realtimeRetryTimer = undefined;
+        }
+      },
+      onClose: () => {
+        if (this.realtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        this.realtimeConnected = false;
+        const workspace = this.activeWorkspace;
+        if (workspace) {
+          void this.loadWorkspaceMessages(workspace.id, true);
+        }
+        this.updateDialogPolling();
+        this.scheduleRealtimeReconnect();
+      },
+      onMessage: (event) => {
+        if (this.realtimeSocket !== socket || !this.isConnected) {
+          return;
+        }
+        this.handleRealtimeEvent(event);
+      },
+    });
+    this.realtimeSocket = socket;
+  }
+
+  private restartRealtimeConnection() {
+    if (!this.isApiMode) {
+      return;
+    }
+    if (this.realtimeSocket) {
+      const socket = this.realtimeSocket;
+      this.realtimeSocket = undefined;
+      socket.close();
+    }
+    this.connectRealtimeIfNeeded();
+  }
+
+  private scheduleBoardRealtimeReconnect() {
+    if (this.boardRealtimeRetryTimer || !this.isApiMode) {
+      return;
+    }
+    this.boardRealtimeRetryTimer = window.setTimeout(() => {
+      this.boardRealtimeRetryTimer = undefined;
+      if (this.boardRealtimeSocket) {
+        const socket = this.boardRealtimeSocket;
+        this.boardRealtimeSocket = undefined;
+        socket.close();
+      }
+      this.connectBoardRealtimeIfNeeded();
+    }, DEFAULT_REALTIME_RETRY_DELAY_MS);
+  }
+
+  private scheduleRealtimeReconnect() {
+    if (this.realtimeRetryTimer || !this.isApiMode) {
+      return;
+    }
+    this.realtimeRetryTimer = window.setTimeout(() => {
+      this.realtimeRetryTimer = undefined;
+      this.restartRealtimeConnection();
+    }, DEFAULT_REALTIME_RETRY_DELAY_MS);
+  }
+
+  private handleRealtimeEvent(event: RealtimeEvent) {
+    if (event.type === "workspace_snapshot") {
+      this.workspaces = (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));
+      this.pageState = reconcileWorkspacePageState(this.pageState, this.workspaces);
+      this.requestUpdate();
+      return;
+    }
+    if (event.type === "session_messages_appended" && event.session_id) {
+      this.appendRealtimeMessages(event.session_id, event.messages);
+    }
+  }
+
+  private appendRealtimeMessages(sessionId: string, messages: SessionMessageResponse[] | undefined) {
+    const workspace = this.workspaces.find(
+      (item) => item.latest_session_id === sessionId || item.last_session_id === sessionId,
+    );
+    if (!workspace) {
+      return;
+    }
+
+    const existing = this.flattenDialogMessages(this.messagesByWorkspace[workspace.id] ?? []);
+    const merged = [...existing];
+    const indexByKey = new Map(existing.map((item, index) => [item.key ?? `${item.timestamp}:${index}`, index]));
+
+    for (const message of normalizeApiMessagesFlat(messages)) {
+      const key = message.key ?? `${message.timestamp}:${message.kind}:${merged.length}`;
+      const existingIndex = indexByKey.get(key);
+      if (typeof existingIndex === "number") {
+        merged[existingIndex] = message;
+      } else {
+        indexByKey.set(key, merged.length);
+        merged.push(message);
+      }
+    }
+
+    merged.sort((left, right) => this.compareDialogTimestamps(left.timestamp, right.timestamp));
+    this.messagesByWorkspace = {
+      ...this.messagesByWorkspace,
+      [workspace.id]: this.groupDialogMessages(merged),
+    };
+    this.requestUpdate();
+  }
+
+  private flattenDialogMessages(messages: DialogMessage[]) {
+    return messages.flatMap((message) => {
+      if (message.kind === "tool-group") {
+        return message.items;
+      }
+      return [message];
+    });
+  }
+
+  private groupDialogMessages(messages: DialogMessage[]) {
+    const grouped: DialogMessage[] = [];
+
+    for (const message of messages) {
+      const previous = grouped.at(-1);
+      if (
+        message.kind === "tool" &&
+        previous?.kind === "tool-group" &&
+        previous.toolName === message.toolName
+      ) {
+        previous.items = [...previous.items, message];
+        previous.summary = `${previous.items.length} commands`;
+        previous.statusLabel = `${previous.items.length} 条`;
+        previous.timestamp = message.timestamp ?? previous.timestamp;
+        continue;
+      }
+
+      if (
+        message.kind === "tool" &&
+        previous?.kind === "tool" &&
+        previous.toolName === message.toolName
+      ) {
+        grouped[grouped.length - 1] = {
+          kind: "tool-group",
+          toolName: message.toolName,
+          summary: "2 commands",
+          status: message.status,
+          statusLabel: "2 条",
+          icon: message.icon,
+          items: [previous, message],
+          timestamp: message.timestamp ?? previous.timestamp,
+        };
+        continue;
+      }
+
+      grouped.push(message);
+    }
+
+    return grouped;
+  }
+
+  private compareDialogTimestamps(left?: string, right?: string) {
+    if (!left) {
+      return right ? -1 : 0;
+    }
+    if (!right) {
+      return 1;
+    }
+    const leftValue = Date.parse(left);
+    const rightValue = Date.parse(right);
+    if (!Number.isNaN(leftValue) && !Number.isNaN(rightValue) && leftValue !== rightValue) {
+      return leftValue - rightValue;
+    }
+    return left.localeCompare(right);
+  }
+
+  private get activeWorkspace() {
+    return this.pageState.activeWorkspaceId
+      ? this.workspaces.find((workspace) => workspace.id === this.pageState.activeWorkspaceId)
+      : undefined;
   }
 
   private renderQuickButtons(workspace: KanbanWorkspace) {
