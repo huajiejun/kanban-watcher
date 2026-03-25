@@ -826,6 +826,94 @@ describe("workspace home helpers", () => {
     expect(paneTitles).toEqual(["任务一", "任务二"]);
   });
 
+  it("polls other opened panes while the active pane stays on websocket updates", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "任务一",
+              status: "completed",
+              latest_session_id: "session-1",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "任务二",
+              status: "completed",
+              latest_session_id: "session-2",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "任务一消息",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "任务二消息",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+    (cards[1] as HTMLButtonElement).click();
+    await flushElement(element);
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+
+    FakeWebSocket.instances.at(-1)?.emitOpen();
+    await flushElement(element);
+
+    const ws1BeforeTick = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/ws-1/latest-messages"),
+    );
+    const ws2BeforeTick = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/ws-2/latest-messages"),
+    );
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await flushElement(element);
+
+    const ws1AfterTick = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/ws-1/latest-messages"),
+    );
+    const ws2AfterTick = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/ws-2/latest-messages"),
+    );
+
+    expect(ws1AfterTick).toHaveLength(ws1BeforeTick.length);
+    expect(ws2AfterTick.length).toBeGreaterThan(ws2BeforeTick.length);
+  });
+
   it("hydrates running panes with stop and queue controls", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);

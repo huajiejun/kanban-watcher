@@ -647,17 +647,15 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private startDialogPolling() {
-    if (this.dialogRefreshTimer || !this.activeWorkspace) {
+    if (this.dialogRefreshTimer) {
       return;
     }
     this.dialogRefreshTimer = window.setInterval(() => {
-      const workspace = this.activeWorkspace;
-      if (!workspace) {
-        return;
-      }
-      void this.loadWorkspaceMessages(workspace.id, true);
-      if (workspace.status === "running") {
-        void this.loadWorkspaceQueueStatus(workspace.id);
+      for (const workspace of this.getDialogPollingWorkspaces()) {
+        void this.loadWorkspaceMessages(workspace.id, true);
+        if (workspace.status === "running") {
+          void this.loadWorkspaceQueueStatus(workspace.id);
+        }
       }
     }, DEFAULT_DIALOG_FALLBACK_INTERVAL_MS);
   }
@@ -671,7 +669,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private updateDialogPolling() {
-    if (this.realtimeConnected || !this.activeWorkspace || !this.isApiMode) {
+    if (!this.isApiMode || this.getDialogPollingWorkspaces().length === 0) {
       this.stopDialogPolling();
       return;
     }
@@ -735,7 +733,7 @@ export class KanbanWorkspaceHome extends LitElement {
           return;
         }
         this.realtimeConnected = true;
-        this.stopDialogPolling();
+        this.updateDialogPolling();
         if (this.realtimeRetryTimer) {
           window.clearTimeout(this.realtimeRetryTimer);
           this.realtimeRetryTimer = undefined;
@@ -906,6 +904,18 @@ export class KanbanWorkspaceHome extends LitElement {
       return leftValue - rightValue;
     }
     return left.localeCompare(right);
+  }
+
+  private getDialogPollingWorkspaces() {
+    const openWorkspaces = this.pageState.openWorkspaceIds
+      .map((workspaceId) => this.workspaces.find((workspace) => workspace.id === workspaceId))
+      .filter((workspace): workspace is KanbanWorkspace => Boolean(workspace));
+
+    if (!this.realtimeConnected || !this.activeWorkspace) {
+      return openWorkspaces;
+    }
+
+    return openWorkspaces.filter((workspace) => workspace.id !== this.activeWorkspace?.id);
   }
 
   private get activeWorkspace() {
