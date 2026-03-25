@@ -201,6 +201,7 @@ export const workspaceHomeStyles = css`
     grid-template-columns: minmax(0, 1fr);
     align-items: stretch;
     min-height: var(--workspace-home-pane-height);
+    overflow: hidden;
   }
 
   .workspace-home-layout[data-sidebar-collapsed="true"] {

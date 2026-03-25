@@ -154,7 +154,7 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain("width: 100%");
     expect(homeCssText).toContain(".workspace-home-layout");
     expect(homeCssText).toContain("position: relative");
-    expect(homeCssText).toContain("min-height: var(--workspace-home-pane-height)");
+    expect(homeCssText).toContain("min-height: var(--workspace-home-pane-height);\n    overflow: hidden;");
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"true\"]");
     expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr)");
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"false\"]");
