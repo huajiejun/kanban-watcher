@@ -1464,15 +1464,15 @@ export const cardStyles = css`
       padding: 8px;
     }
 
-    .task-meta {
-      grid-template-columns: 1fr;
-      gap: 6px;
-      font-size: 0.75rem;
-    }
+     .task-meta {
+       grid-template-columns: 1fr;
+       gap: 6px;
+       font-size: 0.75rem;
+     }
 
-    .meta-files {
-      justify-self: start;
-    }
+     .meta-files {
+      justify-self: end;
+     }
 
     /* 弹窗样式 */
     .dialog-shell {

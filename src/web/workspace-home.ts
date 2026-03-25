@@ -154,11 +154,6 @@ export class KanbanWorkspaceHome extends LitElement {
     if (this.mode === "mobile-card") {
       return html`
         <main class="workspace-home-shell">
-          <section class="workspace-home-hero">
-            <div class="workspace-home-eyebrow">Mobile Fallback</div>
-            <h1>Kanban Watcher 卡片模式</h1>
-            <p>手机端继续保持 Home Assistant 卡片交互。</p>
-          </section>
           <section class="workspace-home-placeholder">
             <kanban-watcher-card></kanban-watcher-card>
           </section>

@@ -132,6 +132,7 @@ describe("workspace-conversation-pane", () => {
     expect(cssText).toContain(".workspace-pane-shell.is-idle");
     expect(cssText).toContain(".workspace-pane-shell.is-running");
     expect(cssText).toContain(".workspace-pane-shell.is-attention");
+    expect(cssText).not.toContain(".meta-files {\n      justify-self: start;");
   });
 
   it("renders tool messages with expandable detail and file changes", async () => {
