@@ -9,6 +9,12 @@ import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
 import { normalizeApiMessages, normalizeSessionMessage, type DialogMessage } from "../lib/dialog-messages";
 import {
+  extractDynamicButtons,
+  getQuickButtonsWithLLM,
+  isValidButtonText,
+  STATIC_BUTTONS,
+} from "../lib/quick-buttons";
+import {
   cancelWorkspaceQueue,
   fetchActiveWorkspaces,
   fetchWorkspaceLatestMessages,
@@ -21,6 +27,7 @@ import type {
   KanbanWorkspace,
   LocalWorkspaceSummary,
   WorkspaceQueueStatusResponse,
+  type ButtonWithReason,
 } from "../types";
 import { workspaceHomeStyles, workspaceSectionListStyles } from "../styles";
 import { getPaneColumns } from "./workspace-home.utils";
@@ -59,6 +66,8 @@ export class KanbanWorkspaceHome extends LitElement {
     messageDraftByWorkspace: { attribute: false },
     actionFeedbackByWorkspace: { attribute: false },
     queueStatusByWorkspace: { attribute: false },
+    extractedButtonsByWorkspace: { attribute: false },
+    suggestedButtonsByWorkspace: { attribute: false },
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
@@ -73,6 +82,9 @@ export class KanbanWorkspaceHome extends LitElement {
   messageDraftByWorkspace: Record<string, string> = {};
   actionFeedbackByWorkspace: Record<string, string> = {};
   queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
+  extractedButtonsByWorkspace: Record<string, string[]> = {};
+  suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
+  private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
   private refreshTimer?: number;
 
   connectedCallback() {
@@ -162,7 +174,7 @@ export class KanbanWorkspaceHome extends LitElement {
                       .messages=${this.messagesByWorkspace[workspace.id] ?? []}
                       .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
                       .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}
-                      .quickButtons=${[]}
+                      .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
                       .queueStatus=${queueStatus}
                       .isRunning=${isRunning}
                       .canQueue=${Boolean(isRunning || queueStatus?.status === "queued")}
@@ -277,6 +289,7 @@ export class KanbanWorkspaceHome extends LitElement {
             .map((message) => normalizeSessionMessage(message))
             .filter((message): message is DialogMessage => Boolean(message)),
         };
+        this.analyzeDynamicButtons(workspaceId);
         return;
       }
 
@@ -291,6 +304,7 @@ export class KanbanWorkspaceHome extends LitElement {
         ...this.messagesByWorkspace,
         [workspaceId]: normalizeApiMessages(response.messages),
       };
+      this.analyzeDynamicButtons(workspaceId);
     } catch (error) {
       this.messageErrorByWorkspace = {
         ...this.messageErrorByWorkspace,
@@ -517,13 +531,17 @@ export class KanbanWorkspaceHome extends LitElement {
     if (this.actionFeedbackByWorkspace[workspaceId]) {
       return this.actionFeedbackByWorkspace[workspaceId];
     }
+    const queueStatus = this.queueStatusByWorkspace[workspaceId];
+    if (queueStatus?.status === "queued") {
+      return "消息已排队 - 将在当前运行完成时执行";
+    }
     if (this.messageErrorByWorkspace[workspaceId]) {
       return this.messageErrorByWorkspace[workspaceId];
     }
     if (this.loadingWorkspaceIds.has(workspaceId)) {
       return "正在同步最新消息...";
     }
-    return "消息已同步。";
+    return this.isApiMode ? "消息已切换为本地持久化接口。" : "消息操作暂未接入真实接口。";
   }
 
   private setWorkspaceLoading(workspaceId: string, loading: boolean) {
@@ -552,6 +570,194 @@ export class KanbanWorkspaceHome extends LitElement {
     if (!this.previewOptions.baseUrl) {
       card.hass = createPreviewHass();
     }
+  }
+
+  private renderQuickButtons(workspace: KanbanWorkspace) {
+    if (workspace.status === "running") {
+      return nothing;
+    }
+
+    const extractedButtons = this.extractedButtonsByWorkspace[workspace.id] || [];
+    const suggestedButtons = this.suggestedButtonsByWorkspace[workspace.id] || [];
+    const staticButtons = STATIC_BUTTONS.filter(isValidButtonText);
+    const extracted = extractedButtons.filter(isValidButtonText);
+
+    if (staticButtons.length === 0 && extracted.length === 0 && suggestedButtons.length === 0) {
+      return nothing;
+    }
+
+    return html`
+      <div class="quick-buttons">
+        ${staticButtons.map((text) => html`
+          <button
+            class="quick-button is-static"
+            type="button"
+            @click=${() => void this.handleQuickButtonClick(workspace, text)}
+          >
+            ${text}
+          </button>
+        `)}
+        ${extracted.map((text) => html`
+          <button
+            class="quick-button is-extracted"
+            type="button"
+            @click=${() => void this.handleQuickButtonClick(workspace, text)}
+          >
+            ${text}
+          </button>
+        `)}
+        ${suggestedButtons.map((item) => html`
+          <div class="quick-button-wrapper">
+            <button
+              class="quick-button is-suggested"
+              type="button"
+              @click=${() => void this.handleQuickButtonClick(workspace, item.button)}
+            >
+              ${item.button}
+            </button>
+            <button
+              class="quick-button-info"
+              type="button"
+              title="点击查看理由"
+              @click=${(event: Event) => {
+                event.stopPropagation();
+                const wrapper = (event.target as HTMLElement).closest(".quick-button-wrapper");
+                const tooltip = wrapper?.querySelector(".quick-button-reason");
+                tooltip?.classList.toggle("is-visible");
+              }}
+            >
+              ℹ️
+            </button>
+            <div class="quick-button-reason">${item.reason}</div>
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
+  private async handleQuickButtonClick(workspace: KanbanWorkspace, text: string) {
+    if (workspace.status === "running") {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: "工作区正在运行，无法发送快捷消息。",
+      };
+      return;
+    }
+
+    if (!this.isApiMode) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: "发送消息功能暂未接入，当前仅展示界面。",
+      };
+      return;
+    }
+
+    this.actionFeedbackByWorkspace = {
+      ...this.actionFeedbackByWorkspace,
+      [workspace.id]: "正在发送快捷消息...",
+    };
+
+    try {
+      const response = await sendWorkspaceMessage({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId: workspace.id,
+        message: text,
+        mode: "send",
+      });
+      this.messageDraftByWorkspace = {
+        ...this.messageDraftByWorkspace,
+        [workspace.id]: "",
+      };
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: response.message?.trim() ? `发送成功：${response.message.trim()}` : "快捷消息已发送",
+      };
+      await this.loadWorkspaceMessages(workspace.id, true);
+    } catch (error) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: error instanceof Error ? error.message : "发送快捷消息失败",
+      };
+    }
+  }
+
+  private async analyzeDynamicButtons(workspaceId: string) {
+    const workspace = this.workspaces.find((item) => item.id === workspaceId);
+    if (!workspace || workspace.status === "running") {
+      return;
+    }
+
+    const messages = this.messagesByWorkspace[workspaceId] || [];
+    const lastAiMessage = [...messages]
+      .reverse()
+      .find((message) => message.kind === "message" && message.sender === "ai");
+
+    if (!lastAiMessage || !("text" in lastAiMessage)) {
+      this.extractedButtonsByWorkspace = {
+        ...this.extractedButtonsByWorkspace,
+        [workspaceId]: [],
+      };
+      this.suggestedButtonsByWorkspace = {
+        ...this.suggestedButtonsByWorkspace,
+        [workspaceId]: [],
+      };
+      delete this.dynamicButtonsMessageHashByWorkspace[workspaceId];
+      return;
+    }
+
+    const messageHash = this.simpleHash(lastAiMessage.text);
+    if (this.dynamicButtonsMessageHashByWorkspace[workspaceId] === messageHash) {
+      return;
+    }
+
+    const extractedButtons = extractDynamicButtons(lastAiMessage.text).filter(isValidButtonText);
+    this.extractedButtonsByWorkspace = {
+      ...this.extractedButtonsByWorkspace,
+      [workspaceId]: extractedButtons,
+    };
+
+    const recentMessages = messages
+      .filter((message): message is Extract<DialogMessage, { kind: "message"; sender: "ai" }> =>
+        message.kind === "message" && message.sender === "ai",
+      )
+      .slice(-5)
+      .map((message) => ({
+        role: "assistant",
+        content: message.text,
+        timestamp: message.timestamp,
+      }));
+
+    const result = await getQuickButtonsWithLLM({
+      message: lastAiMessage.text,
+      workspaceStatus: workspace.status,
+      llmEnabled: false,
+      llmConfig: {
+        baseUrl: undefined,
+        model: undefined,
+      },
+      recentMessages,
+    });
+
+    this.dynamicButtonsMessageHashByWorkspace[workspaceId] = messageHash;
+    this.extractedButtonsByWorkspace = {
+      ...this.extractedButtonsByWorkspace,
+      [workspaceId]: result.extractedButtons,
+    };
+    this.suggestedButtonsByWorkspace = {
+      ...this.suggestedButtonsByWorkspace,
+      [workspaceId]: result.suggestedButtons,
+    };
+  }
+
+  private simpleHash(str: string) {
+    let hash = 0;
+    for (let index = 0; index < str.length; index += 1) {
+      const char = str.charCodeAt(index);
+      hash = (hash << 5) - hash + char;
+      hash &= hash;
+    }
+    return hash.toString(16);
   }
 }
 

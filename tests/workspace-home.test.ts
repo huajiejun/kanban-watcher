@@ -375,6 +375,59 @@ describe("workspace home helpers", () => {
     expect(paneShadowRoot?.textContent).toContain("console.log");
   });
 
+  it("renders card-like quick buttons and feedback in desktop panes", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-attention",
+              name: "需要处理的任务",
+              status: "completed",
+              has_pending_approval: true,
+              has_unseen_turns: true,
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              content: "这里有两个方案，建议先继续，然后确认是否同意。",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+
+    await waitForWorkspaceList(element);
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+    const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
+    const staticButtons = [...(paneShadowRoot?.querySelectorAll(".quick-button.is-static") ?? [])]
+      .map((button) => button.textContent?.trim());
+
+    expect(staticButtons).toContain("继续");
+    expect(staticButtons).toContain("同意");
+    expect(paneShadowRoot?.textContent).toContain("消息已切换为本地持久化接口。");
+  });
+
   it("hydrates running panes with stop and queue controls", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
