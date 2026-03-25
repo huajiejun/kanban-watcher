@@ -194,7 +194,7 @@ export const workspaceHomeStyles = css`
 
   .workspace-home-layout {
     display: grid;
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: clamp(180px, 16vw, 220px) minmax(0, 1fr);
     gap: 20px;
     align-items: stretch;
   }

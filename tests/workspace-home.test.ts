@@ -134,6 +134,7 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain(".workspace-home-pane-grid");
     expect(homeCssText).toContain("height: min(72vh, 960px)");
     expect(homeCssText).toContain("width: 100%");
+    expect(homeCssText).toContain("grid-template-columns: clamp(180px, 16vw, 220px) minmax(0, 1fr)");
     expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px)");
     expect(homeCssText).not.toContain("width: min(1440px, 100%)");
     expect(homeCssText).not.toContain("margin: 0 auto");
