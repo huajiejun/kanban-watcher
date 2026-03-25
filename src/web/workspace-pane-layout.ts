@@ -4,7 +4,7 @@ export type WorkspacePaneLayoutMode = "grid" | "focus";
 
 const FOCUS_LAYOUT_BREAKPOINT = 1280;
 const PREVIEW_LINE_LIMIT = 10;
-const PREVIEW_TEXT_LIMIT = 160;
+const PREVIEW_TEXT_LIMIT = 250;
 
 export function resolveWorkspacePaneLayoutMode(width: number, openPaneCount: number): WorkspacePaneLayoutMode {
   if (openPaneCount <= 1 || width >= FOCUS_LAYOUT_BREAKPOINT) {
