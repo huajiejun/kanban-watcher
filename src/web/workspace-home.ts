@@ -334,6 +334,9 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private handleOpenWorkspace(workspace: KanbanWorkspace) {
+    const nextMessagesByWorkspace = { ...this.messagesByWorkspace };
+    delete nextMessagesByWorkspace[workspace.id];
+    this.messagesByWorkspace = nextMessagesByWorkspace;
     this.pageState = openWorkspacePane(this.pageState, workspace.id);
     void this.loadWorkspaceMessages(workspace.id, true);
     if (workspace.status === "running") {

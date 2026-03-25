@@ -366,6 +366,9 @@ export class KanbanWatcherCard extends LitElement {
     this.messageDraft = "";
     this.actionFeedback = "";
     this.dialogError = "";
+    const nextDialogMessagesByWorkspace = { ...this.dialogMessagesByWorkspace };
+    delete nextDialogMessagesByWorkspace[workspace.id];
+    this.dialogMessagesByWorkspace = nextDialogMessagesByWorkspace;
     if (this.isApiMode) {
       const shouldRefreshQueueStatus = this.shouldRefreshWorkspaceMessages(workspace);
       void this.loadWorkspaceMessages(workspace.id, true);
