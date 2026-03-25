@@ -200,7 +200,7 @@ export const workspaceHomeStyles = css`
   }
 
   .workspace-home-layout[data-sidebar-collapsed="true"] {
-    grid-template-columns: clamp(180px, 16vw, 220px) minmax(0, 1fr);
+    grid-template-columns: clamp(136px, 12vw, 168px) minmax(0, 1fr);
   }
 
   .workspace-home-layout[data-sidebar-collapsed="false"] {
@@ -237,23 +237,44 @@ export const workspaceHomeStyles = css`
     gap: 6px;
     width: 100%;
     min-height: 36px;
+    padding: 0 10px;
     border-radius: 10px;
     border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
     background: color-mix(in srgb, var(--primary-background-color, #0f172a) 70%, transparent);
     color: inherit;
     font: inherit;
+    font-size: 0.82rem;
+    line-height: 1;
     cursor: pointer;
   }
 
   .task-card.is-compact {
     display: block;
-    padding: 9px 12px;
+    padding: 7px 9px;
   }
 
   .task-card.is-expanded {
     display: grid;
     gap: 6px;
     padding: 10px 12px;
+  }
+
+  .task-card.is-compact .workspace-name {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-size: 0.8rem;
+    line-height: 1.15;
+  }
+
+  .task-card.is-expanded .workspace-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.98rem;
+    line-height: 1.2;
   }
 
   .task-meta {
