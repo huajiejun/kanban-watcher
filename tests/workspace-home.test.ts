@@ -216,6 +216,68 @@ describe("workspace home helpers", () => {
     expect(previewCard?.shadowRoot?.textContent).toContain("这里是工作区一最近的一条关键结论。");
   });
 
+  it("closes a secondary workspace from the summary rail", async () => {
+    setWindowWidth(1200);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "工作区一",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "工作区二",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "工作区一消息" }],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "工作区二消息" }],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+    (cards[1] as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const previewCard = element.shadowRoot?.querySelector("workspace-preview-card") as
+      | (HTMLElement & { shadowRoot: ShadowRoot })
+      | null;
+    const closeButton = previewCard?.shadowRoot?.querySelector(".workspace-preview-close") as HTMLButtonElement | null;
+    closeButton?.click();
+    await flushElement(element);
+
+    expect(element.pageState.openWorkspaceIds).toEqual(["ws-2"]);
+    expect(element.shadowRoot?.querySelector("workspace-preview-card")).toBeNull();
+  });
+
   it("keeps grid layout on very wide screens", async () => {
     setWindowWidth(1920);
 

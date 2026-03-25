@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, css, html } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 
 import { renderMessageMarkdown } from "../lib/render-message-markdown";
@@ -63,6 +63,10 @@ export class WorkspacePreviewCard extends LitElement {
     }
 
     .workspace-preview-title-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       padding: 12px 14px;
       border-radius: 15px 15px 0 0;
       background: color-mix(
@@ -92,6 +96,31 @@ export class WorkspacePreviewCard extends LitElement {
       font-size: 0.88rem;
       font-weight: 700;
       line-height: 1.3;
+      min-width: 0;
+    }
+
+    .workspace-preview-close {
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      border: 1px solid color-mix(in srgb, var(--workspace-preview-accent) 78%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--primary-background-color, #0f172a) 82%, transparent);
+      color: var(--secondary-text-color, #e2e8f0);
+      font: inherit;
+      font-size: 0.95rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .workspace-preview-close:hover,
+    .workspace-preview-close:focus-visible {
+      background: color-mix(in srgb, var(--workspace-preview-accent) 30%, var(--primary-background-color, #0f172a));
+      border-color: color-mix(in srgb, var(--workspace-preview-accent) 92%, transparent);
+    }
+
+    .workspace-preview-close:focus-visible {
+      outline: none;
     }
 
     .workspace-preview-lines {
@@ -215,6 +244,14 @@ export class WorkspacePreviewCard extends LitElement {
         >
           <div class="workspace-preview-title-banner">
             <div class="workspace-preview-title">${this.workspaceName}</div>
+            <button
+              class="workspace-preview-close"
+              type="button"
+              aria-label="关闭工作区"
+              @click=${this.handleClose}
+            >
+              ×
+            </button>
           </div>
         </button>
         <div class="workspace-preview-lines" @scroll=${this.handleScroll}>
@@ -244,6 +281,14 @@ export class WorkspacePreviewCard extends LitElement {
 
   private handleActivate = () => {
     this.dispatchEvent(new CustomEvent("preview-activate", {
+      bubbles: true,
+      composed: true,
+    }));
+  };
+
+  private handleClose = (event: Event) => {
+    event.stopPropagation();
+    this.dispatchEvent(new CustomEvent("preview-close", {
       bubbles: true,
       composed: true,
     }));

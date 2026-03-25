@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import "../src/components/workspace-preview-card";
 import type { WorkspacePreviewCard } from "../src/components/workspace-preview-card";
@@ -39,6 +39,18 @@ describe("workspace-preview-card", () => {
 
     expect(banner).not.toBeNull();
     expect(trigger?.classList.contains("is-full-bleed")).toBe(true);
+  });
+
+  it("emits a close event from the preview card close button", async () => {
+    const element = createElement();
+    const onClose = vi.fn();
+    element.addEventListener("preview-close", onClose);
+    await element.updateComplete;
+
+    const closeButton = element.shadowRoot?.querySelector(".workspace-preview-close") as HTMLButtonElement | null;
+    closeButton?.click();
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("auto scrolls to bottom when preview lines update", async () => {

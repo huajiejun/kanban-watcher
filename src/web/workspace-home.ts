@@ -1038,6 +1038,7 @@ export class KanbanWorkspaceHome extends LitElement {
         .statusAccentClass=${statusAccentClass}
         .previewLines=${previewLines}
         @preview-activate=${() => this.handleOpenWorkspace(workspace)}
+        @preview-close=${() => this.handleCloseWorkspace(workspace)}
       ></workspace-preview-card>
     `;
   }
