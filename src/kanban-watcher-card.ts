@@ -119,6 +119,7 @@ export class KanbanWatcherCard extends LitElement {
   private realtimeSocket?: WebSocket;
   private boardRealtimeConnected = false;
   private realtimeConnected = false;
+  private apiAccessBlocked = false;
 
   private collapsedSections = new Set<SectionKey>();
   private selectedWorkspaceId?: string;
@@ -860,9 +861,15 @@ export class KanbanWatcherCard extends LitElement {
       return;
     }
 
-    void this.loadActiveWorkspaces();
-    this.connectBoardRealtimeIfNeeded();
-    this.startBoardPolling();
+    void this.initializeApiSync();
+  }
+
+  private async initializeApiSync() {
+    await this.loadActiveWorkspaces();
+    if (!this.apiAccessBlocked && this.isConnected) {
+      this.connectBoardRealtimeIfNeeded();
+      this.startBoardPolling();
+    }
   }
 
   private stopApiSync() {
@@ -936,7 +943,7 @@ export class KanbanWatcherCard extends LitElement {
 
   private connectBoardRealtimeIfNeeded() {
     // baseUrl 为 undefined 时表示 mock 模式，不连接实时 API
-    if (this.config?.base_url === undefined || typeof WebSocket === "undefined") {
+    if (this.config?.base_url === undefined || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
     }
     const socket = connectRealtime({
@@ -979,7 +986,7 @@ export class KanbanWatcherCard extends LitElement {
 
   private connectRealtimeIfNeeded() {
     // baseUrl 为 undefined 时表示 mock 模式，不连接实时 API
-    if (this.config?.base_url === undefined || typeof WebSocket === "undefined") {
+    if (this.config?.base_url === undefined || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
     }
 
@@ -1042,7 +1049,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private scheduleBoardRealtimeReconnect() {
-    if (this.boardRealtimeRetryTimer || !this.isApiMode) {
+    if (this.boardRealtimeRetryTimer || !this.isApiMode || this.apiAccessBlocked) {
       return;
     }
     this.boardRealtimeRetryTimer = window.setTimeout(() => {
@@ -1057,7 +1064,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private scheduleRealtimeReconnect() {
-    if (this.realtimeRetryTimer || !this.isApiMode) {
+    if (this.realtimeRetryTimer || !this.isApiMode || this.apiAccessBlocked) {
       return;
     }
     this.realtimeRetryTimer = window.setTimeout(() => {
@@ -1162,15 +1169,25 @@ export class KanbanWatcherCard extends LitElement {
         apiKey: this.config.api_key,
       });
       this.apiWorkspaces = this.normalizeApiWorkspaces(response);
+      this.apiAccessBlocked = false;
       this.emitPreviewStatus();
     } catch (error) {
       this.apiWorkspaces = [];
       this.boardError = this.toErrorMessage(error, "加载工作区失败");
+      if (this.isUnauthorizedError(error)) {
+        this.apiAccessBlocked = true;
+        this.stopApiSync();
+      }
       this.emitPreviewStatus(this.boardError);
     } finally {
       this.boardLoading = false;
       this.requestUpdate();
     }
+  }
+
+  private isUnauthorizedError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    return /(?:^|\\b)(401|403)\\b/.test(message) || /Unauthorized/i.test(message);
   }
 
   private normalizeApiWorkspaces(response: ActiveWorkspacesResponse) {

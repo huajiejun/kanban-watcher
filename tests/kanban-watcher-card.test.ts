@@ -1200,6 +1200,35 @@ describe("kanban-watcher-card", () => {
     expect(MockWebSocket.instances[0]?.url).not.toContain("session_id=");
   });
 
+  it("stops realtime startup when the initial workspace request is unauthorized", async () => {
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url.includes("/api/workspaces/active")) {
+        return {
+          ok: false,
+          status: 401,
+          text: vi.fn().mockResolvedValue("401 Unauthorized"),
+        } as unknown as Response;
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const card = await renderApiCard();
+
+    expect(normalizeText(card.shadowRoot?.textContent)).toContain("401 Unauthorized");
+    expect(MockWebSocket.instances).toHaveLength(0);
+
+    const initialFetchCount = fetchSpy.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(30_000);
+    await settleCard(card);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(initialFetchCount);
+    expect(MockWebSocket.instances).toHaveLength(0);
+  });
+
   it("renders API workspaces with unseen turns under attention", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       mockJSONResponse({
