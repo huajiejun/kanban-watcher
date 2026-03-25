@@ -124,6 +124,13 @@ describe("workspace-conversation-pane", () => {
       ? cardStyles.map((style) => style.cssText).join("\n")
       : cardStyles.cssText;
 
+    expect(cssText).toContain(".task-card {\n    --task-card-accent");
+    expect(cssText).toContain("display: grid");
+    expect(cssText).toContain("gap: 6px");
+    expect(cssText).toContain(".task-meta");
+    expect(cssText).toContain("grid-template-columns: auto minmax(0, 1fr) auto");
+    expect(cssText).toContain(".meta-status,\n  .meta-files");
+    expect(cssText).toContain(".relative-time");
     expect(cssText).toContain(".message-list");
     expect(cssText).toContain("overflow-y: auto");
     expect(cssText).toContain("height: 100%");
