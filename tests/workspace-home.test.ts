@@ -173,6 +173,8 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain("background: transparent");
     expect(homeCssText).toContain("transform: translateX(calc(-100% - 16px))");
     expect(homeCssText).toContain("transform: translateX(0)");
+    expect(homeCssText).toContain("visibility: hidden");
+    expect(homeCssText).toContain("visibility: visible");
     expect(homeCssText).toContain(".workspace-home-sidebar-backdrop");
     expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px)");
     expect(homeCssText).not.toContain("width: min(1440px, 100%)");

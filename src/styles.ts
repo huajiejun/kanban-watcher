@@ -243,12 +243,14 @@ export const workspaceHomeStyles = css`
   .workspace-home-sidebar[data-collapsed="true"] {
     transform: translateX(calc(-100% - 16px));
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
   }
 
   .workspace-home-sidebar[data-collapsed="false"] {
     transform: translateX(0);
     opacity: 1;
+    visibility: visible;
   }
 
   .workspace-home-sidebar[data-docked="true"] {
