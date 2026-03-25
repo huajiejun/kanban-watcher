@@ -170,8 +170,17 @@ export class KanbanWorkspaceHome extends LitElement {
       writePersistedWorkspacePageState(this.pageState);
       if (this.isApiMode) {
         void this.pushWorkspaceView();
-        this.restartRealtimeConnection();
         this.updateDialogPolling();
+      }
+    }
+    if (this.isApiMode && (changedProperties.has("pageState") || changedProperties.has("workspaces"))) {
+      const previousPageState = (changedProperties.get("pageState") as WorkspacePageState | undefined) ?? this.pageState;
+      const previousWorkspaces = (changedProperties.get("workspaces") as KanbanWorkspace[] | undefined) ?? this.workspaces;
+      const previousSessionId = this.getActiveSessionId(previousPageState, previousWorkspaces);
+      const currentSessionId = this.getActiveSessionId(this.pageState, this.workspaces);
+
+      if (previousSessionId !== currentSessionId) {
+        this.restartRealtimeConnection();
       }
     }
   }
@@ -1139,6 +1148,16 @@ export class KanbanWorkspaceHome extends LitElement {
     return this.pageState.activeWorkspaceId
       ? this.workspaces.find((workspace) => workspace.id === this.pageState.activeWorkspaceId)
       : undefined;
+  }
+
+  private getActiveSessionId(
+    pageState: WorkspacePageState,
+    workspaces: KanbanWorkspace[],
+  ) {
+    const activeWorkspace = pageState.activeWorkspaceId
+      ? workspaces.find((workspace) => workspace.id === pageState.activeWorkspaceId)
+      : undefined;
+    return activeWorkspace?.latest_session_id ?? activeWorkspace?.last_session_id ?? "";
   }
 
   private renderWorkspacePanes(
