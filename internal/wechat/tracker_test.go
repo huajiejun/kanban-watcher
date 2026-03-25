@@ -111,16 +111,11 @@ func TestTracker_NoRepeatNotification(t *testing.T) {
 		t.Fatalf("expected 1 notification, got %d", len(notify))
 	}
 
-	// Within repeat_interval (2 minutes later): no repeat notification
-	notify = tracker.ProcessWorkspaces(ws, now.Add(13*time.Minute+30*time.Second))
-	if len(notify) != 0 {
-		t.Fatalf("expected 0 repeat notifications within interval, got %d", len(notify))
-	}
-
-	// After repeat_interval (9 minutes later): should repeat notification (stacked reminder)
+	// After notification: no repeat notification (even after repeat_interval)
+	// New behavior: only notify once per content (unless UpdatedAt changes)
 	notify = tracker.ProcessWorkspaces(ws, now.Add(20*time.Minute+30*time.Second))
-	if len(notify) != 1 {
-		t.Fatalf("expected 1 stacked reminder notification, got %d", len(notify))
+	if len(notify) != 0 {
+		t.Fatalf("expected 0 repeat notifications (no stacked reminder), got %d", len(notify))
 	}
 }
 
@@ -190,16 +185,11 @@ func TestTracker_StatePersistence(t *testing.T) {
 	savedState := tracker.GetState()
 	tracker2 := NewTracker(savedState, 5, 10, 5)
 
-	// Within repeat_interval after restart: should not notify
-	notify = tracker2.ProcessWorkspaces(ws, now.Add(13*time.Minute+30*time.Second))
-	if len(notify) != 0 {
-		t.Fatalf("expected 0 notifications within repeat_interval after restart, got %d", len(notify))
-	}
-
-	// After repeat_interval (9 minutes later): should notify again (stacked reminder)
+	// After restart: should not notify again (no stacked reminder)
+	// New behavior: only notify once per content (unless UpdatedAt changes)
 	notify = tracker2.ProcessWorkspaces(ws, now.Add(20*time.Minute+30*time.Second))
-	if len(notify) != 1 {
-		t.Fatalf("expected 1 stacked reminder notification after restart, got %d", len(notify))
+	if len(notify) != 0 {
+		t.Fatalf("expected 0 notifications after restart (no stacked reminder), got %d", len(notify))
 	}
 }
 
@@ -254,76 +244,7 @@ func TestTracker_NewSessionRestartsTimer(t *testing.T) {
 }
 
 
-func TestTracker_BackwardCompatibility(t *testing.T) {
-	// 模拟旧版本创建的状态（无 ConfirmedAt）
-	now := time.Now()
-	key := state.NotificationKey{
-		WorkspaceID: "ws1",
-		CompletedAt: "",
-	}
-	oldState := state.NewAppState()
-	// 模拟旧状态：已有 FirstSeenAt 但无 ConfirmedAt，且未超时（5分钟前，阈值10分钟）
-	oldEntry := state.AttentionEntry{
-		Key:         key,
-		FirstSeenAt: now.Add(-5 * time.Minute),
-		NotifiedAt:  nil,
-		// ConfirmedAt 为 nil（模拟旧版本）
-	}
-	oldState = oldState.WithEntry(key, oldEntry)
 
-	// 创建 Tracker（此时会进行兼容性迁移）
-	tracker := NewTracker(oldState, 5, 10, 5)
-
-	ws := []api.EnrichedWorkspace{makeWorkspace("ws1", true, false, nil)}
-
-	// 未超时迁移后：ConfirmedAt = FirstSeenAt = 5分钟前
-	// 2分钟后（即 now + 2分钟）elapsed = 7min < 10min，不会通知
-	notify := tracker.ProcessWorkspaces(ws, now.Add(2*time.Minute))
-	if len(notify) != 0 {
-		t.Fatalf("expected 0 notifications (under threshold), got %d", len(notify))
-	}
-
-	// 11分钟后（超过阈值），应该通知
-	notify = tracker.ProcessWorkspaces(ws, now.Add(11*time.Minute))
-	if len(notify) != 1 {
-		t.Fatalf("expected 1 notification after threshold, got %d", len(notify))
-	}
-}
-
-func TestTracker_BackwardCompatibility_Expired(t *testing.T) {
-	// 模拟旧版本创建的状态（无 ConfirmedAt）且已超时
-	now := time.Now()
-	key := state.NotificationKey{
-		WorkspaceID: "ws1",
-		CompletedAt: "",
-	}
-	oldState := state.NewAppState()
-	// 模拟旧状态：已有 FirstSeenAt 但无 ConfirmedAt，且已超时（15分钟前，阈值10分钟）
-	oldEntry := state.AttentionEntry{
-		Key:         key,
-		FirstSeenAt: now.Add(-15 * time.Minute), // 15分钟前（阈值10分钟）
-		NotifiedAt:  nil,
-	}
-	oldState = oldState.WithEntry(key, oldEntry)
-
-	// 创建 Tracker（此时会强制重新确认：ConfirmedAt = now）
-	tracker := NewTracker(oldState, 5, 10, 5)
-
-	ws := []api.EnrichedWorkspace{makeWorkspace("ws1", true, false, nil)}
-
-	// 由于已超时，会强制重新确认（ConfirmedAt = now）
-	// 立即检查时不会通知（因为刚确认）
-	notify := tracker.ProcessWorkspaces(ws, now)
-	if len(notify) != 0 {
-		t.Fatalf("expected 0 notifications (just reconfirmed), got %d", len(notify))
-	}
-
-	// 需要再等待阈值时间才会通知
-	notify = tracker.ProcessWorkspaces(ws, now.Add(11*time.Minute))
-	if len(notify) != 1 {
-		t.Fatalf("expected 1 notification after threshold, got %d", len(notify))
-	}
-}
 
 // TestTracker_UpdatedAtChanges 测试当 UpdatedAt 频繁变化时是否会错误重置计时
 // 这是用户报告的 bug 场景：任务在重复操作时，UpdatedAt 变化导致通知计时被重置
@@ -737,7 +658,7 @@ func TestTracker_UpdatedAtChangePreservesTimer(t *testing.T) {
 
 // TestTracker_IgnoreButtonBehavior 测试用户点击"忽略"按钮后的行为
 // 场景：用户收到通知，点击"忽略"，问题仍然存在
-// 问题：是否会因为 NotifiedAt 已设置而跳过某些检查？
+// 新行为：通知后不再重复通知（除非 UpdatedAt 变化）
 func TestTracker_IgnoreButtonBehavior(t *testing.T) {
 	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
 	now := time.Now()
@@ -754,16 +675,10 @@ func TestTracker_IgnoreButtonBehavior(t *testing.T) {
 	}
 
 	// 用户点击"忽略"，问题仍然存在（NeedsAttention 仍为 true）
-	// 下一次轮询（12分钟后）：在叠加间隔内，不应该通知
-	notify = tracker.ProcessWorkspaces(ws1, now.Add(12*time.Minute))
-	if len(notify) != 0 {
-		t.Fatalf("expected 0 notifications (within repeat interval), got %d", len(notify))
-	}
-
-	// 17分钟后：超过叠加间隔（5分钟），应该再次通知
+	// 新行为：不再重复通知（除非 UpdatedAt 变化）
 	notify = tracker.ProcessWorkspaces(ws1, now.Add(17*time.Minute))
-	if len(notify) != 1 {
-		t.Fatalf("expected 1 notification (repeat interval passed), got %d", len(notify))
+	if len(notify) != 0 {
+		t.Fatalf("expected 0 notifications (no stacked reminder), got %d", len(notify))
 	}
 }
 
