@@ -371,20 +371,6 @@ export const workspaceHomeStyles = css`
     }
   }
 
-  @media (max-width: 1280px) {
-    .workspace-home-pane-focus-layout {
-      grid-template-columns: 1fr;
-      grid-template-rows: minmax(0, 1fr) minmax(180px, auto);
-    }
-
-    .workspace-home-pane-preview-rail {
-      grid-auto-flow: column;
-      grid-auto-columns: minmax(240px, 1fr);
-      align-content: stretch;
-      overflow-x: auto;
-      overflow-y: hidden;
-    }
-  }
 `;
 
 export const cardStyles = css`
