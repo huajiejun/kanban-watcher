@@ -1789,6 +1789,54 @@ export class KanbanWatcherCard extends LitElement {
     return todos.find(t => t.status?.toLowerCase() === 'in_progress') || null;
   }
 
+  /**
+   * 保存 todo 历史记录
+   */
+  private saveTodoHistory(workspaceId: string, workspaceName: string, todos: TodoItem[]) {
+    if (todos.length === 0) return;
+
+    const completedCount = todos.filter(t => t.status?.toLowerCase() === 'completed').length;
+
+    // 从 localStorage 读取历史记录
+    const historyKey = 'kanban-watcher-todo-history';
+    let history: TodoHistoryEntry[] = [];
+
+    try {
+      const stored = localStorage.getItem(historyKey);
+      if (stored) {
+        history = JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Failed to load todo history:', error);
+    }
+
+    // 添加新记录
+    const newEntry: TodoHistoryEntry = {
+      workspaceId,
+      workspaceName,
+      todos,
+      timestamp: Date.now(),
+      completedCount,
+      totalCount: todos.length,
+    };
+
+    // 去重：移除同一工作区的旧记录
+    history = history.filter(entry => entry.workspaceId !== workspaceId);
+
+    // 添加新记录到开头
+    history.unshift(newEntry);
+
+    // 限制历史记录数量（最多保存 20 条）
+    history = history.slice(0, 20);
+
+    // 保存到 localStorage
+    try {
+      localStorage.setItem(historyKey, JSON.stringify(history));
+    } catch (error) {
+      console.error('Failed to save todo history:', error);
+    }
+  }
+
   private getDialogMessageIdentity(message: DialogMessage) {
     if (message.key) {
       return message.key;
