@@ -247,6 +247,21 @@ function normalizeText(value?: string | null) {
   return value?.replace(/\s+/g, " ").trim() ?? "";
 }
 
+function getDialogPane(root?: ShadowRoot | null) {
+  return root?.querySelector("workspace-conversation-pane") as
+    | (HTMLElement & { shadowRoot: ShadowRoot | null })
+    | null;
+}
+
+function getDialogMessageList(root?: ShadowRoot | null) {
+  const pane = getDialogPane(root);
+  return pane?.shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+}
+
+function getDialogText(root?: ShadowRoot | null) {
+  return normalizeText(getDialogMessageList(root)?.textContent);
+}
+
 function mockJSONResponse(payload: unknown) {
   return {
     ok: true,
@@ -787,7 +802,7 @@ describe("kanban-watcher-card", () => {
     expect(shadowRoot?.querySelectorAll(".message-row").length).toBe(2);
     expect(text).not.toContain("查看兑换内容");
     expect(shadowRoot?.querySelector(".dialog-summary")).toBeNull();
-    expect(shadowRoot?.querySelector(".message-list")).not.toBeNull();
+    expect(getDialogMessageList(shadowRoot)).not.toBeNull();
     expect(text).toContain("发送消息");
     expect(text).not.toContain("加入队列");
     expect(
@@ -862,10 +877,10 @@ describe("kanban-watcher-card", () => {
     expect(stopButton?.querySelector(".action-spinner")).not.toBeNull();
     expect(normalizeText(queueButton?.textContent)).toBe("加入队列");
     expect(
-      normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
+      getDialogText(shadowRoot),
     ).toContain("真实运行中用户消息");
     expect(
-      normalizeText(shadowRoot?.querySelector(".message-list")?.textContent),
+      getDialogText(shadowRoot),
     ).toContain("真实运行中助手消息");
 
     expect(
@@ -952,7 +967,7 @@ describe("kanban-watcher-card", () => {
     await card.updateComplete;
 
     const messageRows = shadowRoot?.querySelectorAll(".message-row") ?? [];
-    const text = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+    const text = getDialogText(shadowRoot);
 
     expect(text).toContain("请先确认这个工作区的下一步安排。");
     expect(text).toContain("如果下午还没有结果，就先给我一个阻塞说明。");
@@ -972,7 +987,7 @@ describe("kanban-watcher-card", () => {
     designDialogCard?.click();
     await card.updateComplete;
 
-    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+    const dialogText = getDialogText(shadowRoot);
 
     expect(dialogText).toContain("我们用的id不是workspace_id 而是上层接口里的last_session_id");
     expect(dialogText).toContain("明白，这个约束现在很关键：");
@@ -998,7 +1013,7 @@ describe("kanban-watcher-card", () => {
     taskCards[0]?.click();
     await card.updateComplete;
 
-    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+    const dialogText = getDialogText(shadowRoot);
 
     expect(dialogText).toContain("真实 attention 用户消息");
     expect(dialogText).toContain("真实 attention 助手消息");
@@ -1022,7 +1037,7 @@ describe("kanban-watcher-card", () => {
     taskCard?.click();
     await card.updateComplete;
 
-    const dialogText = normalizeText(shadowRoot?.querySelector(".message-list")?.textContent);
+    const dialogText = getDialogText(shadowRoot);
 
     expect(dialogText).toContain("暂无同步的对话消息");
     expect(dialogText).not.toContain("请先确认这个工作区的下一步安排。");
@@ -1058,13 +1073,13 @@ describe("kanban-watcher-card", () => {
       approvalCard?.click();
       await card.updateComplete;
 
-      const firstMessageList = shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+      const firstMessageList = getDialogMessageList(shadowRoot);
       expect(firstMessageList?.scrollTop).toBe(480);
 
       runningCard?.click();
       await card.updateComplete;
 
-      const secondMessageList = shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+      const secondMessageList = getDialogMessageList(shadowRoot);
       expect(secondMessageList?.scrollTop).toBe(480);
       expect(normalizeText(secondMessageList?.textContent)).toContain("继续跑，先不要中断。");
     } finally {
@@ -1355,10 +1370,10 @@ describe("kanban-watcher-card", () => {
     taskCard?.click();
     await settleCard(card);
 
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "这是 API 用户消息",
     );
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "这是 API 助手消息",
     );
     expect(globalThis.fetch).toHaveBeenNthCalledWith(
@@ -1436,7 +1451,7 @@ describe("kanban-watcher-card", () => {
     await settleCard(card);
 
     expect(fetchSpy).toHaveBeenCalledTimes(3);
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "第二次打开时重新拉取到的最新消息",
     );
   });
@@ -1668,7 +1683,7 @@ describe("kanban-watcher-card", () => {
     expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
       "发送成功",
     );
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "继续推进这个任务",
     );
   });
@@ -2156,7 +2171,7 @@ describe("kanban-watcher-card", () => {
     });
     await settleCard(card);
 
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "实时新增消息",
     );
   });
@@ -2220,7 +2235,7 @@ describe("kanban-watcher-card", () => {
     });
     await settleCard(card);
 
-    const messageListText = normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent);
+    const messageListText = getDialogText(card.shadowRoot);
     expect(messageListText).toContain("当前较新的消息");
     expect(messageListText).not.toContain("更早的历史消息");
   });
@@ -2302,9 +2317,13 @@ describe("kanban-watcher-card", () => {
     });
     await settleCard(card);
 
-    const dialogText = normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent);
+    const dialogText = getDialogText(card.shadowRoot);
+    const smoothReveal = getDialogPane(card.shadowRoot)?.shadowRoot?.querySelector(
+      ".message-bubble.is-smooth-reveal",
+    );
     expect(dialogText).toContain("实现和验证都已经收口");
     expect(dialogText).not.toMatch(/开头消息 实(?!现和验证都已经收口)/);
+    expect(smoothReveal?.textContent).toContain("实现和验证都已经收口");
   });
 
   it("updates workspace status through the board realtime WebSocket", async () => {
@@ -2539,7 +2558,7 @@ describe("kanban-watcher-card", () => {
       "http://localhost:7778/api/workspaces/active",
       expect.anything(),
     );
-    expect(normalizeText(card.shadowRoot?.querySelector(".message-list")?.textContent)).toContain(
+    expect(getDialogText(card.shadowRoot)).toContain(
       "轮询补偿消息",
     );
   });

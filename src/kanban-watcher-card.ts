@@ -104,6 +104,7 @@ export class KanbanWatcherCard extends LitElement {
     queueStatusByWorkspace: { state: true },
     optimisticQueueWorkspaceIds: { state: true },
     autoScrollEnabled: { state: true },
+    smoothRevealMessageKey: { state: true },
     dynamicButtonsByWorkspace: { state: true },
     todosByWorkspace: { state: true },
   };
@@ -135,6 +136,7 @@ export class KanbanWatcherCard extends LitElement {
   private optimisticQueueWorkspaceIds = new Set<string>();
   private autoScrollEnabled = true;
   private messageListScrollHandler?: () => void;
+  private smoothRevealMessageKey = "";
   private dialogMessageVersionsByWorkspace: Record<string, string> = {};
   private expandedToolMessageKeys = new Set<string>();
   /** @deprecated 使用 extractedButtonsByWorkspace 和 suggestedButtonsByWorkspace 代替 */
@@ -324,6 +326,7 @@ export class KanbanWatcherCard extends LitElement {
           <workspace-conversation-pane
             .workspaceName=${workspace.name}
             .messages=${messages}
+            .smoothRevealMessageKey=${this.smoothRevealMessageKey}
             .messageDraft=${this.messageDraft}
             .currentFeedback=${this.currentFeedback}
             .queueStatus=${queueStatus}
@@ -380,6 +383,7 @@ export class KanbanWatcherCard extends LitElement {
     this.messageDraft = "";
     this.actionFeedback = "";
     this.dialogError = "";
+    this.smoothRevealMessageKey = "";
     const nextDialogMessagesByWorkspace = { ...this.dialogMessagesByWorkspace };
     delete nextDialogMessagesByWorkspace[workspace.id];
     this.dialogMessagesByWorkspace = nextDialogMessagesByWorkspace;
@@ -405,6 +409,7 @@ export class KanbanWatcherCard extends LitElement {
       this.optimisticQueueWorkspaceIds = next;
     }
     this.expandedToolMessageKeys = new Set();
+    this.smoothRevealMessageKey = "";
   };
 
   private renderDialogEntry(message: DialogMessage) {
@@ -414,6 +419,7 @@ export class KanbanWatcherCard extends LitElement {
       editLanguage: detectDialogEditLanguage(
         this.selectedWorkspaceId ? this.dialogMessagesByWorkspace[this.selectedWorkspaceId] ?? [] : [],
       ),
+      smoothRevealMessageKey: this.smoothRevealMessageKey,
     });
   }
 
@@ -1144,6 +1150,7 @@ export class KanbanWatcherCard extends LitElement {
       return;
     }
 
+    this.smoothRevealMessageKey = this.resolveSmoothRevealMessageKey(existingFlat, sortedMerged);
     this.dialogMessagesByWorkspace = {
       ...this.dialogMessagesByWorkspace,
       [workspace.id]: this.groupConsecutiveToolMessages(sortedMerged),
@@ -1251,6 +1258,37 @@ export class KanbanWatcherCard extends LitElement {
     return workspace.last_message_at || workspace.updated_at || workspace.latest_session_id || "";
   }
 
+  private resolveSmoothRevealMessageKey(
+    previousMessages: DialogMessage[],
+    nextMessages: DialogMessage[],
+  ) {
+    const nextLastMessage = nextMessages.at(-1);
+    const previousLastMessage = previousMessages.at(-1);
+
+    if (!nextLastMessage || nextLastMessage.kind !== "message" || nextLastMessage.sender !== "ai") {
+      return "";
+    }
+
+    const nextIdentity = this.getDialogMessageIdentity(nextLastMessage);
+    const previousIdentity = previousLastMessage
+      ? this.getDialogMessageIdentity(previousLastMessage)
+      : "";
+
+    if (nextIdentity !== previousIdentity) {
+      return nextIdentity;
+    }
+
+    if (
+      previousLastMessage?.kind === "message" &&
+      previousLastMessage.sender === "ai" &&
+      previousLastMessage.text !== nextLastMessage.text
+    ) {
+      return nextIdentity;
+    }
+
+    return "";
+  }
+
   private async loadWorkspaceMessages(workspaceId: string, forceRefresh = false) {
     // baseUrl 为 undefined 时表示 mock 模式，不加载真实消息
     if (this.config?.base_url === undefined) {
@@ -1270,7 +1308,12 @@ export class KanbanWatcherCard extends LitElement {
         workspaceId,
         limit: this.config.messages_limit ?? DEFAULT_MESSAGES_LIMIT,
       });
+      const previousMessages = this.flattenDialogMessages(this.dialogMessagesByWorkspace[workspaceId] ?? []);
       const normalizedMessages = this.normalizeApiMessages(response.messages);
+      this.smoothRevealMessageKey = this.resolveSmoothRevealMessageKey(
+        previousMessages,
+        normalizedMessages,
+      );
       this.dialogMessagesByWorkspace = {
         ...this.dialogMessagesByWorkspace,
         [workspaceId]: this.mergeOptimisticMessages(
