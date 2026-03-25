@@ -670,6 +670,91 @@ describe("workspace home helpers", () => {
     expect(element.shadowRoot?.querySelector("workspace-conversation-pane")).toBeNull();
   });
 
+  it("auto-opens a newly entered attention workspace from board snapshots and appends it after the current pane", async () => {
+    setWindowWidth(1200);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "任务一",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "任务二",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "任务一消息" }],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "任务二需要注意的最新消息" }],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+
+    FakeWebSocket.instances[0]?.emitOpen();
+    FakeWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-1",
+          name: "任务一",
+          status: "completed",
+          updated_at: "2026-03-24T12:00:00Z",
+        },
+        {
+          id: "ws-2",
+          name: "任务二",
+          status: "completed",
+          has_unseen_turns: true,
+          updated_at: "2026-03-24T12:02:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    expect(element.pageState.openWorkspaceIds).toEqual(["ws-1", "ws-2"]);
+    expect(element.pageState.activeWorkspaceId).toBe("ws-1");
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        readRequestUrl(url as RequestInfo | URL).includes("/api/workspaces/ws-2/latest-messages"),
+      ),
+    ).toBe(true);
+
+    const previewCard = element.shadowRoot?.querySelector("workspace-preview-card") as
+      | (HTMLElement & { shadowRoot: ShadowRoot })
+      | null;
+    expect(previewCard?.shadowRoot?.textContent).toContain("任务二需要注意的最新消息");
+  });
+
   it("sends desktop pane messages through the workspace API and refreshes the pane", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = readRequestUrl(input);

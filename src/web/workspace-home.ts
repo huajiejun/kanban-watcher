@@ -848,8 +848,19 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private handleRealtimeEvent(event: RealtimeEvent) {
     if (event.type === "workspace_snapshot") {
+      const previousOpenWorkspaceIds = [...this.pageState.openWorkspaceIds];
       this.workspaces = (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));
       this.pageState = reconcileWorkspacePageState(this.pageState, this.workspaces);
+      const newlyOpenedWorkspaceIds = this.pageState.openWorkspaceIds.filter(
+        (workspaceId) => !previousOpenWorkspaceIds.includes(workspaceId),
+      );
+      newlyOpenedWorkspaceIds.forEach((workspaceId) => {
+        void this.loadWorkspaceMessages(workspaceId, true);
+        const workspace = this.workspaces.find((item) => item.id === workspaceId);
+        if (workspace?.status === "running") {
+          void this.loadWorkspaceQueueStatus(workspaceId);
+        }
+      });
       this.requestUpdate();
       return;
     }
