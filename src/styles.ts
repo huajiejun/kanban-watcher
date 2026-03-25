@@ -1489,6 +1489,25 @@ export const cardStyles = css`
 
   @media (max-width: 640px) {
     /* 卡片列表样式 */
+    ha-card {
+      padding: 12px 10px;
+    }
+
+    .section {
+      border: 0;
+      background: transparent;
+      border-radius: 0;
+      overflow: visible;
+    }
+
+    .section-toggle {
+      padding: 10px 4px;
+    }
+
+    .section-body {
+      padding: 0;
+    }
+
     .section-title {
       font-size: 0.9rem;
     }

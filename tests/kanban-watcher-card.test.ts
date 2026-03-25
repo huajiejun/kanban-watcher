@@ -915,6 +915,16 @@ describe("kanban-watcher-card", () => {
     expect(dialogRule).toContain("color: var(--primary-text-color, #e5e7eb)");
   });
 
+  it("flattens the section shell on mobile to avoid duplicate left-side corner borders", () => {
+    const cssText = cardStyles.cssText;
+
+    expect(cssText).toContain("@media (max-width: 640px)");
+    expect(cssText).toContain(".section {\n      border: 0;");
+    expect(cssText).toContain("background: transparent;");
+    expect(cssText).toContain("border-radius: 0;");
+    expect(cssText).toContain("overflow: visible;");
+  });
+
   it("shows a long default chat history for preview workspaces instead of the 2-message fallback", async () => {
     const card = await renderCard(createPreviewHass());
     const shadowRoot = card.shadowRoot;
