@@ -690,8 +690,9 @@ export class KanbanWatcherCard extends LitElement {
     return [];
   }
 
+  // baseUrl 为 undefined 时表示 mock 模式，空字符串表示使用相对路径（Vite 代理模式）
   private get isApiMode() {
-    return Boolean(this.config?.base_url);
+    return this.config?.base_url !== undefined;
   }
 
   private isWorkspaceLike(value: unknown): value is KanbanWorkspace {
@@ -933,7 +934,8 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private connectBoardRealtimeIfNeeded() {
-    if (!this.config?.base_url || typeof WebSocket === "undefined") {
+    // baseUrl 为 undefined 时表示 mock 模式，不连接实时 API
+    if (this.config?.base_url === undefined || typeof WebSocket === "undefined") {
       return;
     }
     const socket = connectRealtime({
@@ -975,7 +977,8 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private connectRealtimeIfNeeded() {
-    if (!this.config?.base_url || typeof WebSocket === "undefined") {
+    // baseUrl 为 undefined 时表示 mock 模式，不连接实时 API
+    if (this.config?.base_url === undefined || typeof WebSocket === "undefined") {
       return;
     }
 
@@ -1144,7 +1147,8 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private async loadActiveWorkspaces() {
-    if (!this.config?.base_url) {
+    // baseUrl 为 undefined 时表示 mock 模式，不加载真实数据
+    if (this.config?.base_url === undefined) {
       return;
     }
 
@@ -1230,7 +1234,8 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private async loadWorkspaceMessages(workspaceId: string, forceRefresh = false) {
-    if (!this.config?.base_url) {
+    // baseUrl 为 undefined 时表示 mock 模式，不加载真实消息
+    if (this.config?.base_url === undefined) {
       return;
     }
     if (!forceRefresh && this.dialogMessagesByWorkspace[workspaceId]) {
