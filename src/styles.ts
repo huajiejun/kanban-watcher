@@ -196,18 +196,19 @@ export const workspaceHomeStyles = css`
   }
 
   .workspace-home-layout {
+    position: relative;
     display: grid;
-    grid-template-columns: 320px minmax(0, 1fr);
-    gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
     align-items: stretch;
+    min-height: var(--workspace-home-pane-height);
   }
 
   .workspace-home-layout[data-sidebar-collapsed="true"] {
-    grid-template-columns: clamp(156px, 14vw, 184px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .workspace-home-layout[data-sidebar-collapsed="false"] {
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .workspace-home-sidebar,
@@ -221,17 +222,28 @@ export const workspaceHomeStyles = css`
   }
 
   .workspace-home-sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    width: min(320px, calc(100vw - 48px));
     padding: 14px;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 12px;
+    grid-template-rows: minmax(0, 1fr);
     height: var(--workspace-home-panel-height);
     min-height: var(--workspace-home-panel-height);
     overflow: hidden;
+    transition: transform 180ms ease, opacity 180ms ease;
   }
 
   .workspace-home-sidebar[data-collapsed="true"] {
-    align-content: start;
+    transform: translateX(calc(-100% - 16px));
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .workspace-home-sidebar[data-collapsed="false"] {
+    transform: translateX(0);
+    opacity: 1;
   }
 
   .workspace-home-sidebar-content {
@@ -243,6 +255,10 @@ export const workspaceHomeStyles = css`
   }
 
   .workspace-home-sidebar-toggle {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 30;
     display: inline-flex;
     align-items: center;
     justify-content: space-between;
@@ -258,7 +274,15 @@ export const workspaceHomeStyles = css`
     font-size: 0.82rem;
     line-height: 1;
     cursor: pointer;
-    justify-self: start;
+  }
+
+  .workspace-home-sidebar-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    border: 0;
+    background: rgba(15, 23, 42, 0.22);
+    cursor: pointer;
   }
 
   .task-card.is-compact {

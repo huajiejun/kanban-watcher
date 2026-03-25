@@ -77,7 +77,23 @@ async function flushElement(element: KanbanWorkspaceHome) {
   await element.updateComplete;
 }
 
+async function waitForWorkspaceData(element: KanbanWorkspaceHome) {
+  for (let index = 0; index < 5; index += 1) {
+    await flushElement(element);
+    if (element.workspaces.length > 0 || !element.loading) {
+      return;
+    }
+  }
+}
+
 async function waitForWorkspaceList(element: KanbanWorkspaceHome) {
+  await waitForWorkspaceData(element);
+
+  if (element.isSidebarCollapsed) {
+    (element.shadowRoot?.querySelector(".workspace-home-sidebar-toggle") as HTMLButtonElement | null)
+      ?.click();
+  }
+
   for (let index = 0; index < 5; index += 1) {
     await flushElement(element);
     if (element.shadowRoot?.querySelector(".task-card")) {
@@ -136,19 +152,24 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain(".workspace-home-pane-grid");
     expect(homeCssText).toContain("height: var(--workspace-home-pane-height)");
     expect(homeCssText).toContain("width: 100%");
+    expect(homeCssText).toContain(".workspace-home-layout");
+    expect(homeCssText).toContain("position: relative");
+    expect(homeCssText).toContain("min-height: var(--workspace-home-pane-height)");
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"true\"]");
-    expect(homeCssText).toContain("grid-template-columns: clamp(156px, 14vw, 184px) minmax(0, 1fr)");
+    expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr)");
     expect(homeCssText).toContain(".workspace-home-layout[data-sidebar-collapsed=\"false\"]");
-    expect(homeCssText).toContain("grid-template-columns: 320px minmax(0, 1fr)");
-    expect(homeCssText).toContain("grid-template-rows: auto minmax(0, 1fr)");
     expect(homeCssText).toContain(".workspace-home-sidebar-content");
     expect(homeCssText).toContain("overflow-y: auto");
     expect(homeCssText).toContain(".workspace-home-sidebar-toggle");
+    expect(homeCssText).toContain("position: absolute");
     expect(homeCssText).toContain("min-height: 36px");
     expect(homeCssText).toContain("width: auto");
     expect(homeCssText).toContain("padding: 0");
     expect(homeCssText).toContain("border: 0");
     expect(homeCssText).toContain("background: transparent");
+    expect(homeCssText).toContain("transform: translateX(calc(-100% - 16px))");
+    expect(homeCssText).toContain("transform: translateX(0)");
+    expect(homeCssText).toContain(".workspace-home-sidebar-backdrop");
     expect(homeCssText).toContain("grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 520px)");
     expect(homeCssText).not.toContain("width: min(1440px, 100%)");
     expect(homeCssText).not.toContain("margin: 0 auto");
@@ -263,29 +284,31 @@ describe("workspace home helpers", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const element = createElement();
-    await waitForWorkspaceList(element);
+    await waitForWorkspaceData(element);
 
     const toggle = element.shadowRoot?.querySelector(".workspace-home-sidebar-toggle") as HTMLButtonElement | null;
     const layout = element.shadowRoot?.querySelector(".workspace-home-layout") as HTMLElement | null;
-    const sidebarContent = element.shadowRoot?.querySelector(".workspace-home-sidebar-content");
+    const sidebar = element.shadowRoot?.querySelector(".workspace-home-sidebar") as HTMLElement | null;
 
     expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("true");
-    expect(sidebarContent).not.toBeNull();
-    expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
-    expect(element.shadowRoot?.querySelector(".task-meta")).toBeNull();
+    expect(sidebar?.getAttribute("data-collapsed")).toBe("true");
+    expect(element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop")).toBeNull();
     toggle?.click();
     await flushElement(element);
 
     expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
+    expect(sidebar?.getAttribute("data-collapsed")).toBe("false");
+    expect(element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop")).not.toBeNull();
     expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
     expect(element.shadowRoot?.querySelector(".task-meta")).not.toBeNull();
 
-    toggle?.click();
+    (element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop") as HTMLButtonElement | null)
+      ?.click();
     await flushElement(element);
 
     expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("true");
-    expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
-    expect(element.shadowRoot?.querySelector(".task-meta")).toBeNull();
+    expect(sidebar?.getAttribute("data-collapsed")).toBe("true");
+    expect(element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop")).toBeNull();
   });
 
   it("closes a secondary workspace from the summary rail", async () => {

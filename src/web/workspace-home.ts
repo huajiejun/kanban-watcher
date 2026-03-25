@@ -178,27 +178,35 @@ export class KanbanWorkspaceHome extends LitElement {
           class="workspace-home-layout"
           data-sidebar-collapsed=${this.isSidebarCollapsed ? "true" : "false"}
         >
+          <button
+            class="workspace-home-sidebar-toggle"
+            type="button"
+            @click=${this.handleSidebarToggle}
+            aria-expanded=${this.isSidebarCollapsed ? "false" : "true"}
+            aria-label=${this.isSidebarCollapsed ? "展开工作区状态栏" : "收起工作区状态栏"}
+          >
+            <span aria-hidden="true">${this.isSidebarCollapsed ? "»" : "«"}</span>
+            <span>${this.isSidebarCollapsed ? "项目状态" : "收起"}</span>
+          </button>
+          ${this.isSidebarCollapsed
+            ? nothing
+            : html`<button
+                class="workspace-home-sidebar-backdrop"
+                type="button"
+                @click=${this.handleSidebarToggle}
+                aria-label="关闭工作区状态栏"
+              ></button>`}
           <aside
             class="workspace-home-sidebar"
             data-collapsed=${this.isSidebarCollapsed ? "true" : "false"}
           >
-            <button
-              class="workspace-home-sidebar-toggle"
-              type="button"
-              @click=${this.handleSidebarToggle}
-              aria-expanded=${this.isSidebarCollapsed ? "false" : "true"}
-              aria-label=${this.isSidebarCollapsed ? "展开工作区状态栏" : "收起工作区状态栏"}
-            >
-              <span aria-hidden="true">${this.isSidebarCollapsed ? "»" : "«"}</span>
-              <span>${this.isSidebarCollapsed ? "展开" : "收起"}</span>
-            </button>
             <div class="workspace-home-sidebar-content">
               ${this.loading ? html`<div class="empty-state">正在加载工作区...</div>` : nothing}
               ${this.error ? html`<div class="empty-state">${this.error}</div>` : nothing}
               ${renderWorkspaceSectionList({
                 sections,
                 collapsedSections: this.collapsedSections,
-                compact: this.isSidebarCollapsed,
+                compact: false,
                 selectedWorkspaceId: this.pageState.activeWorkspaceId,
                 getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => ({
                   relativeTime: workspace.relative_time ?? formatRelativeTime(workspace.updated_at),
