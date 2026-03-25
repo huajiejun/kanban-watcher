@@ -276,6 +276,11 @@ export const workspaceHomeStyles = css`
     cursor: pointer;
   }
 
+  .workspace-home-sidebar-toggle.is-collapsed {
+    min-width: 36px;
+    justify-content: center;
+  }
+
   .workspace-home-sidebar-backdrop {
     position: absolute;
     inset: 0;

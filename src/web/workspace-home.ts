@@ -179,14 +179,18 @@ export class KanbanWorkspaceHome extends LitElement {
           data-sidebar-collapsed=${this.isSidebarCollapsed ? "true" : "false"}
         >
           <button
-            class="workspace-home-sidebar-toggle"
+            class="workspace-home-sidebar-toggle ${this.isSidebarCollapsed ? "is-collapsed" : "is-expanded"}"
             type="button"
             @click=${this.handleSidebarToggle}
             aria-expanded=${this.isSidebarCollapsed ? "false" : "true"}
             aria-label=${this.isSidebarCollapsed ? "展开工作区状态栏" : "收起工作区状态栏"}
           >
-            <span aria-hidden="true">${this.isSidebarCollapsed ? "»" : "«"}</span>
-            <span>${this.isSidebarCollapsed ? "项目状态" : "收起"}</span>
+            ${this.isSidebarCollapsed
+              ? html`<span aria-hidden="true">≡</span>`
+              : html`
+                  <span aria-hidden="true">«</span>
+                  <span>收起</span>
+                `}
           </button>
           ${this.isSidebarCollapsed
             ? nothing

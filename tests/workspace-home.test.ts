@@ -292,12 +292,14 @@ describe("workspace home helpers", () => {
 
     expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("true");
     expect(sidebar?.getAttribute("data-collapsed")).toBe("true");
+    expect(toggle?.textContent).not.toContain("项目状态");
     expect(element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop")).toBeNull();
     toggle?.click();
     await flushElement(element);
 
     expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
     expect(sidebar?.getAttribute("data-collapsed")).toBe("false");
+    expect(toggle?.textContent).toContain("收起");
     expect(element.shadowRoot?.querySelector(".workspace-home-sidebar-backdrop")).not.toBeNull();
     expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
     expect(element.shadowRoot?.querySelector(".task-meta")).not.toBeNull();
