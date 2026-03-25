@@ -56,6 +56,7 @@ export const workspaceSectionListStyles = css`
   }
 
   .task-card {
+    --task-card-accent: color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
     display: grid;
     gap: 6px;
     width: 100%;
@@ -66,7 +67,7 @@ export const workspaceSectionListStyles = css`
       var(--ha-card-background, var(--card-background-color, #111827)) 82%,
       var(--secondary-background-color, #0f172a)
     );
-    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
+    border: 1px solid var(--task-card-accent);
     border-left-width: 3px;
     text-align: left;
     color: inherit;
@@ -75,17 +76,23 @@ export const workspaceSectionListStyles = css`
   }
 
   .task-card[data-selected="true"] {
-    border-color: color-mix(in srgb, var(--primary-color, #f59e0b) 48%, transparent);
     box-shadow: inset 0 0 0 1px
       color-mix(in srgb, var(--primary-color, #f59e0b) 55%, transparent);
   }
 
   .task-card.is-attention {
-    border-left-color: #f59e0b;
+    --task-card-accent: color-mix(in srgb, var(--error-color, #f87171) 58%, transparent);
+    border-left-color: var(--error-color, #f87171);
   }
 
   .task-card.is-running {
-    border-left-color: #10b981;
+    --task-card-accent: color-mix(in srgb, var(--success-color, #10b981) 58%, transparent);
+    border-left-color: var(--success-color, #10b981);
+  }
+
+  .task-card.is-idle {
+    --task-card-accent: color-mix(in srgb, var(--warning-color, #f59e0b) 58%, transparent);
+    border-left-color: var(--warning-color, #f59e0b);
   }
 
   .workspace-name {
@@ -373,6 +380,7 @@ export const cardStyles = css`
   }
 
   .task-card {
+    --task-card-accent: color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
     display: grid;
     gap: 6px;
     width: 100%;
@@ -383,7 +391,7 @@ export const cardStyles = css`
       var(--ha-card-background, var(--card-background-color, #111827)) 82%,
       var(--secondary-background-color, #0f172a)
     );
-    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
+    border: 1px solid var(--task-card-accent);
     border-left-width: 3px;
     text-align: left;
     color: inherit;
@@ -392,11 +400,18 @@ export const cardStyles = css`
   }
 
   .task-card.is-attention {
-    border-left-color: #f59e0b;
+    --task-card-accent: color-mix(in srgb, var(--error-color, #f87171) 58%, transparent);
+    border-left-color: var(--error-color, #f87171);
   }
 
   .task-card.is-running {
-    border-left-color: #10b981;
+    --task-card-accent: color-mix(in srgb, var(--success-color, #10b981) 58%, transparent);
+    border-left-color: var(--success-color, #10b981);
+  }
+
+  .task-card.is-idle {
+    --task-card-accent: color-mix(in srgb, var(--warning-color, #f59e0b) 58%, transparent);
+    border-left-color: var(--warning-color, #f59e0b);
   }
 
   .workspace-name {

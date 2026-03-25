@@ -138,6 +138,9 @@ describe("workspace home helpers", () => {
     expect(listCssText).toContain(".task-card");
     expect(listCssText).toContain("border: 1px solid");
     expect(listCssText).toContain(".task-card[data-selected=\"true\"]");
+    expect(listCssText).toContain(".task-card.is-idle");
+    expect(listCssText).toContain(".task-card.is-running");
+    expect(listCssText).toContain(".task-card.is-attention");
     expect(listCssText).toContain("var(--card-background-color, #111827)");
     expect(listCssText).toContain("var(--secondary-background-color, #111827)");
   });

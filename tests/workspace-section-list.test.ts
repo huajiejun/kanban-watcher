@@ -73,6 +73,33 @@ describe("workspace-section-list", () => {
     expect(shadowRoot?.textContent).toContain("Workspace 2");
   });
 
+  it("applies status accent classes for attention, running and idle workspaces", async () => {
+    const element = createElement([
+      {
+        key: "attention",
+        label: "需要注意",
+        workspaces: [createWorkspace({ id: "ws-1", name: "Workspace 1", has_unseen_turns: true })],
+      },
+      {
+        key: "running",
+        label: "运行中",
+        workspaces: [createWorkspace({ id: "ws-2", name: "Workspace 2", status: "running" })],
+      },
+      {
+        key: "idle",
+        label: "空闲",
+        workspaces: [createWorkspace({ id: "ws-3", name: "Workspace 3" })],
+      },
+    ]);
+
+    await element.updateComplete;
+
+    const cards = [...(element.shadowRoot?.querySelectorAll(".task-card") ?? [])];
+    expect(cards[0]?.classList.contains("is-attention")).toBe(true);
+    expect(cards[1]?.classList.contains("is-running")).toBe(true);
+    expect(cards[2]?.classList.contains("is-idle")).toBe(true);
+  });
+
   it("emits workspace-select when a workspace is clicked", async () => {
     const element = createElement([
       {
