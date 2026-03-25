@@ -188,7 +188,7 @@ export class KanbanWorkspaceHome extends LitElement {
           </aside>
           <section
             class="workspace-home-pane-grid"
-            style=${`--workspace-pane-columns: ${getPaneColumns(openWorkspaces.length)};`}
+            style=${`--workspace-pane-columns: ${getPaneColumns(openWorkspaces.length, window.innerWidth)};`}
           >
             ${openWorkspaces.length === 0
               ? html`<div class="empty-state">从左侧选择工作区后，这里会显示对话内容。</div>`
@@ -226,7 +226,12 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private handleResize = () => {
-    this.mode = resolveWorkspaceHomeMode(window.innerWidth);
+    const nextMode = resolveWorkspaceHomeMode(window.innerWidth);
+    if (nextMode === this.mode) {
+      this.requestUpdate();
+      return;
+    }
+    this.mode = nextMode;
   };
 
   private async loadWorkspaces() {

@@ -113,13 +113,14 @@ describe("workspace home helpers", () => {
     expect(resolveWorkspaceHomeMode(390)).toBe("mobile-card");
   });
 
-  it("computes pane columns from the number of opened panes", () => {
-    expect(getPaneColumns(0)).toBe(1);
-    expect(getPaneColumns(1)).toBe(1);
-    expect(getPaneColumns(2)).toBe(2);
-    expect(getPaneColumns(3)).toBe(3);
-    expect(getPaneColumns(4)).toBe(4);
-    expect(getPaneColumns(5)).toBe(4);
+  it("computes responsive pane columns from the number of opened panes and width", () => {
+    expect(getPaneColumns(0, 1280)).toBe(1);
+    expect(getPaneColumns(1, 1280)).toBe(1);
+    expect(getPaneColumns(2, 1280)).toBe(2);
+    expect(getPaneColumns(3, 1280)).toBe(2);
+    expect(getPaneColumns(4, 1440)).toBe(3);
+    expect(getPaneColumns(4, 1920)).toBe(4);
+    expect(getPaneColumns(5, 1920)).toBe(4);
   });
 
   it("uses the full desktop width without centering the workspace shell", () => {
