@@ -919,6 +919,10 @@ describe("kanban-watcher-card", () => {
     const cssText = cardStyles.cssText;
 
     expect(cssText).toContain("@media (max-width: 640px)");
+    expect(cssText).toContain("ha-card {\n      padding: 12px 0;");
+    expect(cssText).toContain("border-radius: 0;");
+    expect(cssText).toContain("background: transparent;");
+    expect(cssText).toContain("box-shadow: none;");
     expect(cssText).toContain(".section {\n      border: 0;");
     expect(cssText).toContain("background: transparent;");
     expect(cssText).toContain("border-radius: 0;");

@@ -1500,7 +1500,11 @@ export const cardStyles = css`
   @media (max-width: 640px) {
     /* 卡片列表样式 */
     ha-card {
-      padding: 12px 10px;
+      padding: 12px 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
     }
 
     .section {
