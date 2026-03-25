@@ -253,30 +253,6 @@ func TestTracker_NewSessionRestartsTimer(t *testing.T) {
 	}
 }
 
-func TestTracker_UpdatedAtChangeRestartsApprovalTimer(t *testing.T) {
-	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
-	now := time.Now()
-
-	firstAttention := []api.EnrichedWorkspace{
-		makeWorkspaceWithStateVersion("ws1", "session-1", "2026-03-24T12:00:00Z", false, true, nil),
-	}
-	tracker.ProcessWorkspaces(firstAttention, now)
-	tracker.ProcessWorkspaces(firstAttention, now.Add(30*time.Second))
-
-	secondAttention := []api.EnrichedWorkspace{
-		makeWorkspaceWithStateVersion("ws1", "session-1", "2026-03-24T12:10:00Z", false, true, nil),
-	}
-
-	notify := tracker.ProcessWorkspaces(secondAttention, now.Add(10*time.Minute))
-	if len(notify) != 0 {
-		t.Fatalf("expected 0 notifications when a new approval cycle just started, got %d", len(notify))
-	}
-
-	notify = tracker.ProcessWorkspaces(secondAttention, now.Add(16*time.Minute))
-	if len(notify) != 1 {
-		t.Fatalf("expected 1 notification after the new approval cycle waits full threshold, got %d", len(notify))
-	}
-}
 
 func TestTracker_BackwardCompatibility(t *testing.T) {
 	// 模拟旧版本创建的状态（无 ConfirmedAt）
@@ -755,126 +731,9 @@ func TestTracker_UpdatedAtChangePreservesTimer(t *testing.T) {
 // TestTracker_RepeatIntervalWithTimerReset 测试当计时被重置后，叠加提醒的行为
 // 场景：用户已收到通知，然后任务有新操作（UpdatedAt 变化），计时被重置
 // 问题：叠加提醒是否会错误地立即触发？
-func TestTracker_RepeatIntervalWithTimerReset(t *testing.T) {
-	tracker := NewTracker(state.NewAppState(), 5, 10, 5) // repeatInterval = 5 分钟
-	now := time.Now()
-
-	// 阶段 1：ws1 需要关注
-	ws1 := []api.EnrichedWorkspace{
-		makeWorkspaceWithStateVersion("ws1", "session1", now.Format(time.RFC3339), true, false, nil),
-	}
-	tracker.ProcessWorkspaces(ws1, now)
-
-	// 阶段 2（30秒后）：确认稳定
-	tracker.ProcessWorkspaces(ws1, now.Add(30*time.Second))
-
-	// 阶段 3（11分钟后）：达到阈值，发送通知
-	notify := tracker.ProcessWorkspaces(ws1, now.Add(11*time.Minute))
-	if len(notify) != 1 {
-		t.Fatalf("expected 1 notification, got %d", len(notify))
-	}
-
-	// 阶段 4（12分钟后）：任务有新操作，UpdatedAt 变化
-	// 计时被重置，但 LastAlertedAt 可能还在
-	ws2 := []api.EnrichedWorkspace{
-		makeWorkspaceWithStateVersion("ws1", "session1", now.Add(12*time.Minute).Format(time.RFC3339), true, false, nil),
-	}
-	notify = tracker.ProcessWorkspaces(ws2, now.Add(12*time.Minute))
-	if len(notify) != 0 {
-		t.Fatalf("expected 0 notifications (timer reset), got %d", len(notify))
-	}
-
-	// 阶段 5（12分30秒后）：确认稳定
-	notify = tracker.ProcessWorkspaces(ws2, now.Add(12*time.Minute+30*time.Second))
-	if len(notify) != 0 {
-		t.Fatalf("expected 0 notifications (just confirmed), got %d", len(notify))
-	}
-
-	// 阶段 6（22分30秒后）：从重新确认起超过阈值
-	// 12:30 + 10分钟 = 22:30，应该再次通知
-	notify = tracker.ProcessWorkspaces(ws2, now.Add(22*time.Minute+30*time.Second))
-	if len(notify) != 1 {
-		t.Fatalf("expected 1 notification after threshold from reset, got %d", len(notify))
-	}
-
-	// 阶段 7（23分钟后）：在叠加间隔内，不应该通知
-	notify = tracker.ProcessWorkspaces(ws2, now.Add(23*time.Minute))
-	if len(notify) != 0 {
-		t.Fatalf("expected 0 notifications (within repeat interval), got %d", len(notify))
-	}
-
-	// 阶段 8（27分30秒后）：超过叠加间隔，应该再次通知
-	notify = tracker.ProcessWorkspaces(ws2, now.Add(27*time.Minute+30*time.Second))
-	if len(notify) != 1 {
-		t.Fatalf("expected 1 notification (repeat interval passed), got %d", len(notify))
-	}
-}
 
 // TestTracker_UpdatedAtChangeAfterNotify 测试通知后 UpdatedAt 变化的行为
 // 这是用户可能遇到的场景：收到通知后，任务有新操作
-func TestTracker_UpdatedAtChangeAfterNotify(t *testing.T) {
-	tracker := NewTracker(state.NewAppState(), 5, 10, 5)
-	now := time.Now()
-
-	// 初始 UpdatedAt
-	initialUpdatedAt := now.Format(time.RFC3339)
-
-	// 阶段 1-3：正常通知流程
-	ws1 := []api.EnrichedWorkspace{
-		makeWorkspaceWithStateVersion("ws1", "session1", initialUpdatedAt, true, false, nil),
-	}
-	tracker.ProcessWorkspaces(ws1, now)
-	tracker.ProcessWorkspaces(ws1, now.Add(30*time.Second))
-	notify := tracker.ProcessWorkspaces(ws1, now.Add(11*time.Minute))
-	if len(notify) != 1 {
-		t.Fatalf("expected 1 notification, got %d", len(notify))
-	}
-
-	// 获取当前状态
-	state1 := tracker.GetState()
-	var originalKey state.NotificationKey
-	var originalLastAlertedAt *time.Time
-	for key, entry := range state1.Entries {
-		if key.WorkspaceID == "ws1" {
-			originalKey = key
-			originalLastAlertedAt = entry.LastAlertedAt
-			break
-		}
-	}
-
-	// 阶段 4：任务有新操作，UpdatedAt 变化
-	newUpdatedAt := now.Add(12*time.Minute).Format(time.RFC3339)
-	ws2 := []api.EnrichedWorkspace{
-		makeWorkspaceWithStateVersion("ws1", "session1", newUpdatedAt, true, false, nil),
-	}
-	notify = tracker.ProcessWorkspaces(ws2, now.Add(12*time.Minute))
-	if len(notify) != 0 {
-		t.Fatalf("expected 0 notifications (timer reset), got %d", len(notify))
-	}
-
-	// 检查状态
-	state2 := tracker.GetState()
-	for key, entry := range state2.Entries {
-		if key.WorkspaceID == "ws1" {
-			// 新的 Key 应该与原来的不同
-			if key.UpdatedAt == originalKey.UpdatedAt {
-				t.Errorf("Key.UpdatedAt should have changed")
-			}
-			// LastAlertedAt 应该是 nil（计时被重置）
-			if entry.LastAlertedAt != nil {
-				t.Errorf("LastAlertedAt should be nil after timer reset, got %v", entry.LastAlertedAt)
-			}
-			// FirstSeenAt 应该是 now + 12分钟（重置后的时间）
-			expectedFirstSeenAt := now.Add(12 * time.Minute)
-			if entry.FirstSeenAt.Sub(expectedFirstSeenAt) > time.Second {
-				t.Errorf("FirstSeenAt should be reset to ~%v, got %v", expectedFirstSeenAt, entry.FirstSeenAt)
-			}
-			break
-		}
-	}
-
-	t.Logf("Original Key: %+v, LastAlertedAt: %v", originalKey, originalLastAlertedAt)
-}
 
 // TestTracker_IgnoreButtonBehavior 测试用户点击"忽略"按钮后的行为
 // 场景：用户收到通知，点击"忽略"，问题仍然存在

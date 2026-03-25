@@ -94,15 +94,21 @@ func (t *Tracker) ProcessWorkspaces(workspaces []api.EnrichedWorkspace, now time
 
 		// 工作区需要关注：检查是否已跟踪
 		existing, found := updated.Entries[key]
-		if !found && key.UpdatedAt != "" {
-			legacyKey := key
-			legacyKey.UpdatedAt = ""
-			if legacyEntry, ok := updated.Entries[legacyKey]; ok {
-				updated = updated.WithoutKey(legacyKey)
-				legacyEntry.Key = key
-				updated = updated.WithEntry(key, legacyEntry)
-				existing = legacyEntry
-				found = true
+		if !found {
+			// 尝试查找同一工作区的任何现有条目（忽略 UpdatedAt 的差异）
+			// 这处理两种情况：
+			// 1. UpdatedAt 从空变成有值（原来的 legacy key 逻辑）
+			// 2. UpdatedAt 从一个值变成另一个值（任务有新操作）
+			for existingKey, existingEntry := range updated.Entries {
+				if existingKey.WorkspaceID == w.ID && existingKey.CompletedAt == key.CompletedAt {
+					// 找到了同一工作区的现有条目，迁移到新的 key
+					updated = updated.WithoutKey(existingKey)
+					existingEntry.Key = key
+					updated = updated.WithEntry(key, existingEntry)
+					existing = existingEntry
+					found = true
+					break
+				}
 			}
 		}
 		if !found {
