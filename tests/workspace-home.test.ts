@@ -585,7 +585,8 @@ describe("workspace home helpers", () => {
 
     expect(staticButtons).toContain("继续");
     expect(staticButtons).toContain("同意");
-    expect(paneShadowRoot?.textContent).toContain("消息已切换为本地持久化接口。");
+    expect(paneShadowRoot?.textContent).not.toContain("消息已切换为本地持久化接口。");
+    expect(paneShadowRoot?.querySelector(".dialog-feedback")).toBeNull();
   });
 
   it("uses websocket for the active pane and appends realtime session messages", async () => {

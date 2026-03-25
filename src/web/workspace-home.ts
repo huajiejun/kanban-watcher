@@ -587,7 +587,7 @@ export class KanbanWorkspaceHome extends LitElement {
     if (this.loadingWorkspaceIds.has(workspaceId)) {
       return "正在同步最新消息...";
     }
-    return this.isApiMode ? "消息已切换为本地持久化接口。" : "消息操作暂未接入真实接口。";
+    return "";
   }
 
   private setWorkspaceLoading(workspaceId: string, loading: boolean) {
