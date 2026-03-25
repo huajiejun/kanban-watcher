@@ -147,7 +147,9 @@ export class KanbanWorkspaceHome extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener("resize", this.handleResize);
-    void this.initializeWorkspaceHome();
+    if (this.mode !== "mobile-card") {
+      void this.initializeWorkspaceHome();
+    }
   }
 
   disconnectedCallback() {
@@ -273,7 +275,15 @@ export class KanbanWorkspaceHome extends LitElement {
       this.requestUpdate();
       return;
     }
+    const previousMode = this.mode;
     this.mode = nextMode;
+    if (nextMode === "mobile-card") {
+      this.stopRealtimeSync();
+      return;
+    }
+    if (previousMode === "mobile-card") {
+      void this.initializeWorkspaceHome();
+    }
   };
 
   private async loadWorkspaces() {

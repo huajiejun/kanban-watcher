@@ -664,6 +664,43 @@ describe("workspace home helpers", () => {
     expect(nextActiveRequests).toBe(baselineActiveRequests);
   });
 
+  it("delegates mobile realtime startup to the embedded card so the page does not open duplicate sockets", async () => {
+    setWindowWidth(390);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-mobile",
+              name: "移动端任务",
+              status: "completed",
+              latest_session_id: "session-mobile",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await flushElement(element);
+
+    const activeRequests = fetchMock.mock.calls.filter(([url]) =>
+      readRequestUrl(url as RequestInfo | URL).includes("/api/workspaces/active"),
+    );
+
+    expect(activeRequests).toHaveLength(1);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
   it("stops realtime startup when initial workspace load is unauthorized", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
