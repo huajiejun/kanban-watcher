@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>工作区表头截图</title>
+  </head>
+  <body style="margin: 0; background: #0f172a;">
+    <kanban-workspace-home></kanban-workspace-home>
+    <script type="module">
+      window.localStorage.setItem(
+        "kanban-watcher.workspace-home.state.v1",
+        JSON.stringify({
+          openWorkspaceIds: ["ws-1"],
+          activeWorkspaceId: "ws-1",
+          dismissedAttentionIds: [],
+        }),
+      );
+
+      const jsonResponse = (body) =>
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+
+      window.fetch = async (input) => {
+        const url = typeof input === "string" ? input : input.url;
+
+        if (url.includes("/api/info")) {
+          return jsonResponse({
+            success: true,
+            data: {
+              config: {
+                preview_proxy_port: 53480,
+              },
+            },
+          });
+        }
+
+        if (url.includes("/api/workspaces/active")) {
+          return jsonResponse({
+            workspaces: [
+              {
+                id: "ws-1",
+                name: "新增一个快捷入口",
+                status: "completed",
+                has_running_dev_server: true,
+                browser_url: "https://relay.example/ws-1",
+                updated_at: "2026-03-26T10:00:00Z",
+              },
+            ],
+          });
+        }
+
+        if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+          return jsonResponse({
+            messages: [
+              { role: "assistant", content: "这是用于截图验证的新表头图标场景。" },
+            ],
+          });
+        }
+
+        throw new Error(`Unexpected fetch URL: ${url}`);
+      };
+
+      await import("/src/web/workspace-home.ts");
+    </script>
+  </body>
+</html>
