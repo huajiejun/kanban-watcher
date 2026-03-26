@@ -15,6 +15,7 @@ type Workspace struct {
 	HasPendingApproval  bool       `db:"has_pending_approval"`
 	HasUnseenTurns      bool       `db:"has_unseen_turns"`
 	HasRunningDevServer bool       `db:"has_running_dev_server"`
+	FrontendPort        *int       `db:"frontend_port"`
 	FilesChanged        int        `db:"files_changed"`
 	LinesAdded          int        `db:"lines_added"`
 	LinesRemoved        int        `db:"lines_removed"`

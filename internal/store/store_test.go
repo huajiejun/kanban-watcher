@@ -108,7 +108,7 @@ func TestGetWorkspaceBySessionIDReturnsNilOnNotFound(t *testing.T) {
 	store, mock, cleanup := newMockStore(t)
 	defer cleanup()
 
-	mock.ExpectQuery("SELECT w.id, w.name, w.branch, w.archived, w.pinned, w.latest_session_id, w.is_running, w.latest_process_status, w.has_pending_approval, w.has_unseen_turns, w.has_running_dev_server, w.files_changed, w.lines_added, w.lines_removed, w.last_seen_at, w.created_at, w.updated_at, w.synced_at FROM kw_workspaces w").
+	mock.ExpectQuery("SELECT w.id, w.name, w.branch, w.archived, w.pinned, w.latest_session_id, w.is_running, w.latest_process_status, w.has_pending_approval, w.has_unseen_turns, w.has_running_dev_server, w.frontend_port, w.files_changed, w.lines_added, w.lines_removed, w.last_seen_at, w.created_at, w.updated_at, w.synced_at FROM kw_workspaces w").
 		WithArgs("missing-session").
 		WillReturnError(sql.ErrNoRows)
 
@@ -487,6 +487,7 @@ func TestMarkMissingWorkspacesArchived(t *testing.T) {
 		UPDATE kw_workspaces
 		SET archived = TRUE,
 		    is_running = FALSE,
+		    frontend_port = NULL,
 		    synced_at = CURRENT_TIMESTAMP(3),
 		    last_seen_at = ?
 		WHERE archived = FALSE
@@ -513,6 +514,7 @@ func TestMarkMissingWorkspacesArchivedMarksAllWhenEmpty(t *testing.T) {
 		UPDATE kw_workspaces
 		SET archived = TRUE,
 		    is_running = FALSE,
+		    frontend_port = NULL,
 		    synced_at = CURRENT_TIMESTAMP(3),
 		    last_seen_at = ?
 		WHERE archived = FALSE
@@ -522,6 +524,59 @@ func TestMarkMissingWorkspacesArchivedMarksAllWhenEmpty(t *testing.T) {
 
 	if err := store.MarkMissingWorkspacesArchived(context.Background(), nil, now); err != nil {
 		t.Fatalf("MarkMissingWorkspacesArchived 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestListAllocatedFrontendPortsExcludesArchivedRows(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	rows := sqlmock.NewRows([]string{"frontend_port"}).
+		AddRow(6021).
+		AddRow(6024)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT frontend_port
+		FROM kw_workspaces
+		WHERE archived = FALSE
+		  AND frontend_port IS NOT NULL
+		  AND id <> ?
+	`)).
+		WithArgs("ws-1").
+		WillReturnRows(rows)
+
+	ports, err := store.ListAllocatedFrontendPorts(context.Background(), "ws-1")
+	if err != nil {
+		t.Fatalf("ListAllocatedFrontendPorts 返回错误: %v", err)
+	}
+	if len(ports) != 2 || ports[0] != 6021 || ports[1] != 6024 {
+		t.Fatalf("ports = %#v, want [6021 6024]", ports)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestAssignFrontendPortUpdatesWorkspace(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	mock.ExpectExec(regexp.QuoteMeta(`
+		UPDATE kw_workspaces
+		SET frontend_port = ?,
+		    synced_at = CURRENT_TIMESTAMP(3)
+		WHERE id = ?
+	`)).
+		WithArgs(6023, "ws-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	if err := store.AssignFrontendPort(context.Background(), "ws-1", 6023); err != nil {
+		t.Fatalf("AssignFrontendPort 返回错误: %v", err)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {

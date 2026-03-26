@@ -2,6 +2,8 @@ package server
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +18,18 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
+
+type frontendPortAllocatorStub struct {
+	frontendPort int
+	backendPort  int
+	err          error
+	workspaceID  string
+}
+
+func (s *frontendPortAllocatorStub) Allocate(ctx context.Context, workspaceID string) (int, int, error) {
+	s.workspaceID = workspaceID
+	return s.frontendPort, s.backendPort, s.err
+}
 
 func setStoreDB(t *testing.T, dbStore *store.Store, db interface{}) {
 	t.Helper()
@@ -117,6 +131,46 @@ func TestHandleWorkspaceMessageStartsDevServer(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), `"execution_processes":[{"id":"proc-dev-1"`) {
 		t.Fatalf("body = %s, want execution_processes", rr.Body.String())
+	}
+}
+
+func TestHandleWorkspaceMessageAllocatesFrontendPort(t *testing.T) {
+	srv := NewServer(nil, 0, "test-key", true, nil, nil)
+	allocator := &frontendPortAllocatorStub{frontendPort: 6023, backendPort: 16023}
+	srv.SetFrontendPortAllocator(allocator)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/workspace/ws-1/frontend-port", nil)
+	rr := httptest.NewRecorder()
+
+	srv.handleWorkspaceMessage(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+	if allocator.workspaceID != "ws-1" {
+		t.Fatalf("workspaceID = %q, want ws-1", allocator.workspaceID)
+	}
+	if !strings.Contains(rr.Body.String(), `"frontend_port":6023`) {
+		t.Fatalf("body = %s, want frontend_port", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"backend_port":16023`) {
+		t.Fatalf("body = %s, want backend_port", rr.Body.String())
+	}
+}
+
+func TestHandleWorkspaceMessageReturnsConflictWhenFrontendPortAllocationFails(t *testing.T) {
+	srv := NewServer(nil, 0, "test-key", true, nil, nil)
+	srv.SetFrontendPortAllocator(&frontendPortAllocatorStub{
+		err: errors.New("前端端口池已耗尽"),
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/workspace/ws-1/frontend-port", nil)
+	rr := httptest.NewRecorder()
+
+	srv.handleWorkspaceMessage(rr, req)
+
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusConflict, rr.Body.String())
 	}
 }
 
