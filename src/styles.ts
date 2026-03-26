@@ -1666,6 +1666,16 @@ export const cardStyles = css`
       padding: 0;
     }
 
+    .task-card {
+      gap: 8px;
+      padding: 12px 14px;
+      border-radius: 18px;
+    }
+
+    .task-card-run {
+      display: none;
+    }
+
     .section-title {
       font-size: 0.9rem;
     }
@@ -1675,7 +1685,13 @@ export const cardStyles = css`
     }
 
     .workspace-name {
-      font-size: 0.88rem;
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      font-size: 1.02rem;
+      line-height: 1.2;
     }
 
     .message-tool-button {

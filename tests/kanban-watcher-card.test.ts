@@ -475,6 +475,15 @@ describe("kanban-watcher-card", () => {
     );
   });
 
+  it("declares mobile styles that hide the sidebar run button and relax title wrapping", () => {
+    const cssText = cardStyles.cssText;
+
+    expect(cssText).toContain("@media (max-width: 640px)");
+    expect(cssText).toContain(".task-card-run");
+    expect(cssText).toContain("display: none");
+    expect(cssText).toContain("overflow-wrap: anywhere");
+  });
+
   it("uses completed_at only for completed workspaces and updated_at otherwise", async () => {
     const card = await renderCard(
       createHass(
