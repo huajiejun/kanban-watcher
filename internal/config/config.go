@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -262,6 +263,13 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.HTTPAPI.APIKey == "" {
 		cfg.HTTPAPI.APIKey = "change-me"
+	}
+
+	// 支持环境变量覆盖端口配置（用于多实例开发）
+	if portStr := os.Getenv("KANBAN_PORT"); portStr != "" {
+		if port, err := strconv.Atoi(portStr); err == nil && port > 0 {
+			cfg.HTTPAPI.Port = port
+		}
 	}
 	if cfg.Notify.ApprovalThreshold <= 0 {
 		cfg.Notify.ApprovalThreshold = 15

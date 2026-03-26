@@ -3,6 +3,7 @@ export interface KanbanWorkspace {
   name: string;
   browser_url?: string;
   browserUrl?: string;
+  branch?: string;
   status?: string;
   latest_session_id?: string;
   latestSessionId?: string;

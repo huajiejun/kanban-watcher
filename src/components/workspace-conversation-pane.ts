@@ -14,6 +14,7 @@ export class WorkspaceConversationPane extends LitElement {
 
   static properties = {
     workspaceName: { attribute: false },
+    workspacePath: { attribute: false },
     messages: { attribute: false },
     quickButtons: { attribute: false },
     messageDraft: { attribute: false },
@@ -28,9 +29,11 @@ export class WorkspaceConversationPane extends LitElement {
     canQueue: { type: Boolean },
     devServerState: { attribute: false },
     showDevServerPreview: { type: Boolean },
+    showFileBrowser: { type: Boolean },
   };
 
   workspaceName = "";
+  workspacePath = "";
   messages: ConversationPaneMessage[] = [];
   quickButtons: string[] = [];
   messageDraft = "";
@@ -45,6 +48,10 @@ export class WorkspaceConversationPane extends LitElement {
   canQueue = false;
   devServerState: DevServerState = "idle";
   showDevServerPreview = false;
+  showFileBrowser = false;
+
+  // File Browser 配置
+  private readonly FILE_BROWSER_LOCAL_URL = import.meta.env.VITE_FILE_BROWSER_URL || "http://127.0.0.1:9394";
 
   protected render() {
     const isQueued = this.queueStatus?.status === "queued";
@@ -60,6 +67,15 @@ export class WorkspaceConversationPane extends LitElement {
           <h2 class="dialog-title">${this.workspaceName}</h2>
         </div>
         <div class="dialog-header-actions">
+          <button
+            class="dialog-action-icon"
+            type="button"
+            aria-label="文件"
+            title="文件浏览器"
+            @click=${this.toggleFileBrowser}
+          >
+            📁
+          </button>
           <button
             class="dialog-dev-server-toggle"
             type="button"
@@ -92,6 +108,8 @@ export class WorkspaceConversationPane extends LitElement {
           </button>
         </div>
       </div>
+
+      ${this.showFileBrowser ? this.renderFileBrowser() : nothing}
 
       <section class="dialog-messages">
         <div class="dialog-panel-title">对话消息</div>
@@ -255,6 +273,67 @@ export class WorkspaceConversationPane extends LitElement {
         composed: true,
       }),
     );
+  };
+
+  private toggleFileBrowser = () => {
+    this.showFileBrowser = !this.showFileBrowser;
+  };
+
+  private closeFileBrowser = () => {
+    this.showFileBrowser = false;
+  };
+
+  private getFileBrowserUrl(): string {
+    if (!this.workspacePath) {
+      return this.FILE_BROWSER_LOCAL_URL;
+    }
+    // 从环境变量获取 File Browser 根目录前缀
+    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
+    const relativePath = this.workspacePath.replace(fbRootPrefix, '');
+    return `${this.FILE_BROWSER_LOCAL_URL}/files/${relativePath}`;
+  }
+
+  private renderFileBrowser() {
+    return html`
+      <div class="file-browser-overlay" @click=${this.handleOverlayClick}>
+        <div class="file-browser-modal">
+          <div class="file-browser-header">
+            <h3 class="file-browser-title">📁 文件浏览器</h3>
+            <div class="file-browser-actions">
+              <a
+                class="file-browser-link"
+                href=${this.getFileBrowserUrl()}
+                target="_blank"
+                title="在新窗口打开"
+              >
+                ↗️
+              </a>
+              <button
+                class="file-browser-close"
+                type="button"
+                @click=${this.closeFileBrowser}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <div class="file-browser-content">
+            <iframe
+              src=${this.getFileBrowserUrl()}
+              class="file-browser-iframe"
+              title="文件浏览器"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private handleOverlayClick = (event: Event) => {
+    if ((event.target as HTMLElement).classList.contains("file-browser-overlay")) {
+      this.closeFileBrowser();
+    }
   };
 
   private scrollMessagesToBottom() {

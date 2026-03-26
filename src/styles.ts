@@ -804,6 +804,112 @@ export const cardStyles = css`
     font: inherit;
   }
 
+  .dialog-action-icon {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: 1.1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 160ms ease;
+  }
+
+  .dialog-action-icon:hover {
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
+  }
+
+  /* File Browser Popup */
+  .file-browser-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+  }
+
+  .file-browser-modal {
+    background: var(--card-background-color, #1e293b);
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    width: 90vw;
+    height: 80vh;
+    max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .file-browser-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 12%, transparent);
+  }
+
+  .file-browser-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary-text-color, #f1f5f9);
+  }
+
+  .file-browser-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .file-browser-link,
+  .file-browser-close {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: 1.1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: background-color 160ms ease;
+  }
+
+  .file-browser-link:hover,
+  .file-browser-close:hover {
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
+  }
+
+  .file-browser-content {
+    flex: 1;
+    min-height: 0;
+    background: var(--primary-background-color, #0f172a);
+  }
+
+  .file-browser-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: var(--primary-background-color, #0f172a);
+  }
+
   .dialog-messages {
     min-height: 0;
     display: grid;

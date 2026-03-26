@@ -203,14 +203,16 @@ func syncCurrentData(
 }
 
 func runDaemon() error {
-	// 单实例检查：确保只有一个 kanban-watcher 在运行
-	lock, err := singleton.Acquire("kanban-watcher")
+	// 先加载配置，获取端口号
+	cfg := config.MustLoad()
+
+	// 单实例检查：使用端口号作为实例ID，支持多端口运行
+	instanceID := fmt.Sprintf("%d", cfg.HTTPAPI.Port)
+	lock, err := singleton.AcquireWithInstance("kanban-watcher", instanceID)
 	if err != nil {
 		return fmt.Errorf("错误: %v\n提示: 如果确定没有实例在运行，请手动删除 PID 文件", err)
 	}
 	defer lock.Release()
-
-	cfg := config.MustLoad()
 	persistedState := state.MustLoad()
 
 	apiClient := api.NewClient(cfg.KanbanAPIURL)
@@ -326,13 +328,17 @@ func runDaemon() error {
 }
 
 func runHeadless() error {
-	lock, err := singleton.Acquire("kanban-watcher")
+	// 先加载配置，获取端口号
+	cfg := config.MustLoad()
+
+	// 单实例检查：使用端口号作为实例ID，支持多端口运行
+	instanceID := fmt.Sprintf("%d", cfg.HTTPAPI.Port)
+	lock, err := singleton.AcquireWithInstance("kanban-watcher", instanceID)
 	if err != nil {
 		return fmt.Errorf("错误: %v\n提示: 如果确定没有实例在运行，请手动删除 PID 文件", err)
 	}
 	defer lock.Release()
 
-	cfg := config.MustLoad()
 	persistedState := state.MustLoad()
 
 	apiClient := api.NewClient(cfg.KanbanAPIURL)
