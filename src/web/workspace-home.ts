@@ -1212,8 +1212,8 @@ export class KanbanWorkspaceHome extends LitElement {
     const queueStatus = this.queueStatusByWorkspace[workspace.id];
     const isRunning = workspace.status === "running";
     const statusAccentClass = getStatusMeta(workspace).accentClass;
-    // 工作区路径：~/github/{工作区名}
-    const workspacePath = `/Users/huajiejun/github/${workspace.name}`;
+    // 工作区路径：worktree 格式
+    const workspacePath = `/Users/huajiejun/github/vibe-kanban/.vibe-kanban-workspaces/${workspace.id}/kanban-watcher`;
 
     return html`
       <workspace-conversation-pane
