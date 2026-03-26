@@ -25,6 +25,13 @@ func (s *storeStub) InitSchema(ctx context.Context) error {
 	return nil
 }
 
+func (s *storeStub) ResolveWorkspaceID(ctx context.Context, workspaceID string) (string, bool, error) {
+	if workspaceID == "ws-1" {
+		return "ws-1", true, nil
+	}
+	return "", false, nil
+}
+
 func (s *storeStub) GetWorkspaceFrontendPortState(ctx context.Context, workspaceID string) (*int, bool, bool, error) {
 	s.getWorkspaceCalled = true
 	if !s.initCalled {

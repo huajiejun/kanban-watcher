@@ -792,6 +792,54 @@ func (s *Store) GetWorkspaceFrontendPortState(ctx context.Context, workspaceID s
 	return workspace.FrontendPort, workspace.Archived, true, nil
 }
 
+// ResolveWorkspaceID 将短前缀或完整工作区 ID 解析成真实工作区 ID
+func (s *Store) ResolveWorkspaceID(ctx context.Context, workspaceID string) (string, bool, error) {
+	if strings.TrimSpace(workspaceID) == "" {
+		return "", false, nil
+	}
+
+	if len(workspaceID) >= 36 {
+		workspace, err := s.GetWorkspaceByID(ctx, workspaceID)
+		if err != nil {
+			return "", false, err
+		}
+		if workspace != nil {
+			return workspace.ID, true, nil
+		}
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id
+		FROM kw_workspaces
+		WHERE id LIKE ?
+		ORDER BY updated_at DESC
+		LIMIT 2
+	`, workspaceID+"%")
+	if err != nil {
+		return "", false, fmt.Errorf("resolve workspace id: %w", err)
+	}
+	defer rows.Close()
+
+	var matchedIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return "", false, fmt.Errorf("scan resolved workspace id: %w", err)
+		}
+		matchedIDs = append(matchedIDs, id)
+	}
+	if err := rows.Err(); err != nil {
+		return "", false, fmt.Errorf("iterate resolved workspace id: %w", err)
+	}
+	if len(matchedIDs) == 0 {
+		return "", false, nil
+	}
+	if len(matchedIDs) > 1 {
+		return "", false, fmt.Errorf("workspace id prefix %q is ambiguous", workspaceID)
+	}
+	return matchedIDs[0], true, nil
+}
+
 // ListAllocatedFrontendPorts 获取未归档工作区已分配的前端端口
 func (s *Store) ListAllocatedFrontendPorts(ctx context.Context, excludeWorkspaceID string) ([]int, error) {
 	query := `

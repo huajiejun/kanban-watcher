@@ -22,6 +22,7 @@ type reserveResult struct {
 type workspacePortStore interface {
 	Close() error
 	InitSchema(context.Context) error
+	ResolveWorkspaceID(ctx context.Context, workspaceID string) (resolvedID string, exists bool, err error)
 	GetWorkspaceFrontendPortState(ctx context.Context, workspaceID string) (frontendPort *int, archived bool, exists bool, err error)
 	ListAllocatedFrontendPorts(ctx context.Context, excludeWorkspaceID string) ([]int, error)
 	AssignFrontendPort(ctx context.Context, workspaceID string, port int) error
@@ -98,12 +99,17 @@ func runLookup(args []string) error {
 	}
 	defer dbStore.Close()
 
-	frontendPort, archived, exists, err := dbStore.GetWorkspaceFrontendPortState(context.Background(), workspaceID)
+	resolvedWorkspaceID, exists, err := dbStore.ResolveWorkspaceID(context.Background(), workspaceID)
 	if err != nil {
 		return err
 	}
 	if !exists {
 		return service.ErrWorkspaceNotFound
+	}
+
+	frontendPort, archived, exists, err := dbStore.GetWorkspaceFrontendPortState(context.Background(), resolvedWorkspaceID)
+	if err != nil {
+		return err
 	}
 	if archived {
 		return service.ErrWorkspaceArchived

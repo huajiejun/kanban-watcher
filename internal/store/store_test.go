@@ -584,6 +584,39 @@ func TestAssignFrontendPortUpdatesWorkspace(t *testing.T) {
 	}
 }
 
+func TestResolveWorkspaceIDMatchesPrefix(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	rows := sqlmock.NewRows([]string{"id"}).
+		AddRow("bf6664c1-a779-4142-8104-7390953cca7d")
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id
+		FROM kw_workspaces
+		WHERE id LIKE ?
+		ORDER BY updated_at DESC
+		LIMIT 2
+	`)).
+		WithArgs("bf66%").
+		WillReturnRows(rows)
+
+	resolvedID, exists, err := store.ResolveWorkspaceID(context.Background(), "bf66")
+	if err != nil {
+		t.Fatalf("ResolveWorkspaceID 返回错误: %v", err)
+	}
+	if !exists {
+		t.Fatal("ResolveWorkspaceID = not exists, want exists")
+	}
+	if resolvedID != "bf6664c1-a779-4142-8104-7390953cca7d" {
+		t.Fatalf("resolvedID = %q, want bf6664c1-a779-4142-8104-7390953cca7d", resolvedID)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestUpsertMessageContextStoresLatestSessionAndExecutorConfig(t *testing.T) {
 	store, mock, cleanup := newMockStore(t)
 	defer cleanup()

@@ -18,6 +18,7 @@ var (
 )
 
 type frontendPortStore interface {
+	ResolveWorkspaceID(ctx context.Context, workspaceID string) (resolvedID string, exists bool, err error)
 	GetWorkspaceFrontendPortState(ctx context.Context, workspaceID string) (frontendPort *int, archived bool, exists bool, err error)
 	ListAllocatedFrontendPorts(ctx context.Context, excludeWorkspaceID string) ([]int, error)
 	AssignFrontendPort(ctx context.Context, workspaceID string, port int) error
@@ -37,7 +38,15 @@ func NewFrontendPortAllocator(store frontendPortStore, isPortAvailable func(port
 }
 
 func (a *FrontendPortAllocator) Allocate(ctx context.Context, workspaceID string) (int, int, error) {
-	frontendPort, archived, exists, err := a.store.GetWorkspaceFrontendPortState(ctx, workspaceID)
+	resolvedWorkspaceID, exists, err := a.store.ResolveWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if !exists {
+		return 0, 0, ErrWorkspaceNotFound
+	}
+
+	frontendPort, archived, exists, err := a.store.GetWorkspaceFrontendPortState(ctx, resolvedWorkspaceID)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -55,7 +64,7 @@ func (a *FrontendPortAllocator) Allocate(ctx context.Context, workspaceID string
 		}
 	}
 
-	allocatedPorts, err := a.store.ListAllocatedFrontendPorts(ctx, workspaceID)
+	allocatedPorts, err := a.store.ListAllocatedFrontendPorts(ctx, resolvedWorkspaceID)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -71,7 +80,7 @@ func (a *FrontendPortAllocator) Allocate(ctx context.Context, workspaceID string
 		if !a.isPortAvailable(port) {
 			continue
 		}
-		if err := a.store.AssignFrontendPort(ctx, workspaceID, port); err != nil {
+		if err := a.store.AssignFrontendPort(ctx, resolvedWorkspaceID, port); err != nil {
 			return 0, 0, fmt.Errorf("assign frontend port: %w", err)
 		}
 		return port, port + 10000, nil

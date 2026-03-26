@@ -11,6 +11,7 @@ type allocatorStoreStub struct {
 	occupiedPorts  []int
 	assignedPort   *int
 	assignCalls    int
+	resolvedID     string
 	getWorkspaceErr error
 }
 
@@ -28,6 +29,19 @@ func (s *allocatorStoreStub) GetWorkspaceFrontendPortState(ctx context.Context, 
 		return nil, false, false, nil
 	}
 	return s.workspace.FrontendPort, s.workspace.Archived, true, nil
+}
+
+func (s *allocatorStoreStub) ResolveWorkspaceID(ctx context.Context, workspaceID string) (string, bool, error) {
+	if s.workspace == nil {
+		return "", false, nil
+	}
+	if s.resolvedID != "" && workspaceID == s.resolvedID[:4] {
+		return s.resolvedID, true, nil
+	}
+	if s.workspace.ID == workspaceID {
+		return workspaceID, true, nil
+	}
+	return "", false, nil
 }
 
 func (s *allocatorStoreStub) ListAllocatedFrontendPorts(ctx context.Context, excludeWorkspaceID string) ([]int, error) {
@@ -146,5 +160,26 @@ func TestFrontendPortAllocatorFailsWhenPoolExhausted(t *testing.T) {
 	_, _, err := allocator.Allocate(context.Background(), "ws-1")
 	if !errors.Is(err, ErrFrontendPortPoolExhausted) {
 		t.Fatalf("err = %v, want ErrFrontendPortPoolExhausted", err)
+	}
+}
+
+func TestFrontendPortAllocatorResolvesShortWorkspaceID(t *testing.T) {
+	store := &allocatorStoreStub{
+		workspace:  &storeWorkspaceState{ID: "bf6664c1-a779-4142-8104-7390953cca7d"},
+		resolvedID: "bf6664c1-a779-4142-8104-7390953cca7d",
+	}
+	allocator := NewFrontendPortAllocator(store, func(port int) bool {
+		return port != 6020
+	})
+
+	frontendPort, backendPort, err := allocator.Allocate(context.Background(), "bf66")
+	if err != nil {
+		t.Fatalf("Allocate 返回错误: %v", err)
+	}
+	if frontendPort != 6021 || backendPort != 16021 {
+		t.Fatalf("ports = (%d,%d), want (6021,16021)", frontendPort, backendPort)
+	}
+	if store.assignedPort == nil || *store.assignedPort != 6021 {
+		t.Fatalf("assigned port = %#v, want 6021", store.assignedPort)
 	}
 }
