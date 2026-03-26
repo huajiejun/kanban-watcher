@@ -105,18 +105,6 @@ func (p *RealtimePublisher) PublishWorkspaceViewUpdated(view *store.WorkspaceVie
 	return nil
 }
 
-// PublishWorkspaceSeen 广播工作区已读状态更新
-func (p *RealtimePublisher) PublishWorkspaceSeen(workspaceID string) error {
-	if p == nil || p.store == nil || p.hub == nil {
-		return nil
-	}
-
-	// 广播完整的工作区快照来更新状态
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return p.PublishWorkspaceSnapshot(ctx)
-}
-
 func (p *RealtimePublisher) publishSessionMessage(sessionID string, message realtime.MessagePayload) {
 	if p.sessionMessageThrottle <= 0 {
 		p.hub.BroadcastSessionMessagesAppended(sessionID, []realtime.MessagePayload{message})

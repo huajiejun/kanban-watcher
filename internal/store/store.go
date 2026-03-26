@@ -593,20 +593,6 @@ func (s *Store) RefreshWorkspaceRuntimeState(ctx context.Context, workspaceID st
 	return nil
 }
 
-// ClearWorkspaceUnseenTurns 清除工作区的未读状态
-func (s *Store) ClearWorkspaceUnseenTurns(ctx context.Context, workspaceID string) error {
-	if _, err := s.execWithRetry(ctx, `
-		UPDATE kw_workspaces
-		SET has_unseen_turns = FALSE,
-		    last_seen_at = CURRENT_TIMESTAMP(3),
-		    synced_at = CURRENT_TIMESTAMP(3)
-		WHERE id = ?
-	`, workspaceID); err != nil {
-		return fmt.Errorf("clear workspace unseen turns: %w", err)
-	}
-	return nil
-}
-
 // UpsertProcessEntry 插入或更新消息
 func (s *Store) UpsertProcessEntry(ctx context.Context, entry *ProcessEntry) error {
 	query := `
