@@ -186,8 +186,8 @@ start_frontend() {
     # 设置环境变量给 Vite
     export VITE_BACKEND_PORT=$BACKEND_PORT
 
-    # 启动 Vite 开发服务器
-    nohup npm run dev -- --port $FRONTEND_PORT > /tmp/kanban-frontend-$FRONTEND_PORT.log 2>&1 &
+    # 启动 Vite 开发服务器 (使用 web 配置，支持 dev server)
+    nohup npx vite --config vite.config.web.ts --port $FRONTEND_PORT > /tmp/kanban-frontend-$FRONTEND_PORT.log 2>&1 &
     FRONTEND_PID=$!
     echo $FRONTEND_PID > "$FRONTEND_PID_FILE"
     echo "前端 PID: $FRONTEND_PID"
