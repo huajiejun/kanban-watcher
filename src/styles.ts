@@ -313,7 +313,7 @@ export const workspaceHomeStyles = css`
     justify-content: space-between;
     gap: 6px;
     width: auto;
-    min-height: 44px;
+    min-height: 36px;
     padding: 0 12px;
     border-radius: 0 8px 8px 0;
     border: 0;
@@ -457,7 +457,7 @@ export const workspaceHomeStyles = css`
   }
 
   .workspace-home-web-preview-overlay {
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: 40;
     display: flex;
@@ -480,6 +480,12 @@ export const workspaceHomeStyles = css`
     grid-template-rows: auto minmax(0, 1fr);
   }
 
+  .workspace-home-web-preview-modal.is-mobile {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
   .workspace-home-web-preview-header {
     display: flex;
     align-items: center;
@@ -495,7 +501,10 @@ export const workspaceHomeStyles = css`
   }
 
   .workspace-home-web-preview-close {
+    width: 32px;
+    height: 32px;
     border: 0;
+    border-radius: 8px;
     background: transparent;
     color: inherit;
     font: inherit;

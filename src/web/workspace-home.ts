@@ -687,6 +687,9 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private handleCloseWorkspace(workspace: KanbanWorkspace) {
+    if (this.webPreviewWorkspaceId === workspace.id) {
+      this.webPreviewWorkspaceId = undefined;
+    }
     this.pageState = dismissWorkspacePane(
       this.pageState,
       workspace.id,
@@ -1654,14 +1657,18 @@ export class KanbanWorkspaceHome extends LitElement {
     if (!workspace || !previewUrl) {
       return nothing;
     }
+    const isMobileWebPreview = window.innerWidth <= MOBILE_BREAKPOINT;
 
     return html`
       <div
         class="workspace-home-web-preview-overlay"
-        data-layout=${this.mode === "mobile-card" ? "mobile" : "desktop"}
+        data-layout=${isMobileWebPreview ? "mobile" : "desktop"}
         @click=${this.handleWebPreviewOverlayClick}
       >
-        <section class="workspace-home-web-preview-modal" @click=${this.stopEventPropagation}>
+        <section
+          class=${`workspace-home-web-preview-modal${isMobileWebPreview ? " is-mobile" : ""}`}
+          @click=${this.stopEventPropagation}
+        >
           <div class="workspace-home-web-preview-header">
             <div class="workspace-home-web-preview-title">${workspace.name}</div>
             <button

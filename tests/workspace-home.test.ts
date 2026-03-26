@@ -2566,6 +2566,278 @@ describe("workspace home helpers", () => {
     expect(frame?.src).toContain("https://relay.example/ws-1");
   });
 
+  it("uses a full-screen web preview layout on mobile", async () => {
+    setWindowWidth(390);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "手机端工作区",
+              status: "completed",
+              browser_url: "https://relay.example/ws-1",
+              updated_at: "2026-03-26T10:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = document.createElement("kanban-workspace-home") as KanbanWorkspaceHome;
+    element.mode = "desktop";
+    document.body.append(element);
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
+    (pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const overlay = element.shadowRoot?.querySelector(
+      ".workspace-home-web-preview-overlay",
+    ) as HTMLElement | null;
+    const dialog = element.shadowRoot?.querySelector(
+      ".workspace-home-web-preview-modal",
+    ) as HTMLElement | null;
+
+    expect(overlay?.dataset.layout).toBe("mobile");
+    expect(dialog?.classList.contains("is-mobile")).toBe(true);
+  });
+
+  it("does not render the workspace web preview button when browser_url is missing", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "没有地址的工作区",
+              status: "completed",
+              updated_at: "2026-03-26T10:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
+    expect(pane?.shadowRoot?.querySelector(".dialog-web-preview")).toBeNull();
+  });
+
+  it("closes the web preview overlay when the close button is clicked", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "可关闭快捷网页的工作区",
+              status: "completed",
+              browser_url: "https://relay.example/ws-1",
+              updated_at: "2026-03-26T10:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
+    (pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    (element.shadowRoot?.querySelector(".workspace-home-web-preview-close") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
+  });
+
+  it("closes the web preview overlay when the backdrop is clicked", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "可点击遮罩关闭的工作区",
+              status: "completed",
+              browser_url: "https://relay.example/ws-1",
+              updated_at: "2026-03-26T10:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
+    (pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    (element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay") as HTMLDivElement).click();
+    await flushElement(element);
+
+    expect(element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
+  });
+
+  it("closes the web preview overlay when the workspace pane is closed", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "关闭窗格时联动关闭弹层的工作区",
+              status: "completed",
+              browser_url: "https://relay.example/ws-1",
+              updated_at: "2026-03-26T10:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
+    (pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    (pane?.shadowRoot?.querySelector(".dialog-close") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
+  });
+
   it("keeps the pane header in idle state when only the workspace task is running", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = readRequestUrl(input);
