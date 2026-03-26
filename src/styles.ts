@@ -593,7 +593,7 @@ export const cardStyles = css`
   }
 
   /* 手机端 (640px) */
-  @media (max-width: 768px) {
+  @media (max-width: 640px) {
     :host {
       --font-size-base: 0.88rem;
       --font-size-sm: 0.78rem;
@@ -1659,38 +1659,11 @@ export const cardStyles = css`
     }
 
     .section-toggle {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
-      padding: 10px 0;
-      text-align: left;
-    }
-
-    .section-title-row {
-      justify-content: flex-start;
-      flex: 1;
-      min-width: 0;
+      padding: 10px 4px;
     }
 
     .section-body {
       padding: 0;
-    }
-
-    .task-card {
-      gap: 8px;
-      width: auto;
-      margin: 0 2px;
-      padding: 12px;
-      border-radius: 16px;
-      background: color-mix(
-        in srgb,
-        var(--ha-card-background, var(--card-background-color, #111827)) 62%,
-        #020617
-      );
-    }
-
-    .task-card-run {
-      display: none;
     }
 
     .section-title {
@@ -1702,13 +1675,7 @@ export const cardStyles = css`
     }
 
     .workspace-name {
-      overflow: visible;
-      text-overflow: clip;
-      white-space: normal;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-      font-size: 1.02rem;
-      line-height: 1.2;
+      font-size: 0.88rem;
     }
 
     .message-tool-button {

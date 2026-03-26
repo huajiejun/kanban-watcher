@@ -475,19 +475,6 @@ describe("kanban-watcher-card", () => {
     );
   });
 
-  it("declares mobile styles that hide the sidebar run button and relax title wrapping", () => {
-    const cssText = cardStyles.cssText;
-
-    expect(cssText).toContain("@media (max-width: 768px)");
-    expect(cssText).toContain(".task-card-run");
-    expect(cssText).toContain("display: none");
-    expect(cssText).toContain("overflow-wrap: anywhere");
-    expect(cssText).toContain(".section-title-row");
-    expect(cssText).toContain("grid-template-columns: minmax(0, 1fr) auto");
-    expect(cssText).toContain("justify-content: flex-start");
-    expect(cssText).toContain("#020617");
-  });
-
   it("uses completed_at only for completed workspaces and updated_at otherwise", async () => {
     const card = await renderCard(
       createHass(
@@ -946,7 +933,7 @@ describe("kanban-watcher-card", () => {
   it("flattens the section shell on mobile to avoid duplicate left-side corner borders", () => {
     const cssText = cardStyles.cssText;
 
-    expect(cssText).toContain("@media (max-width: 768px)");
+    expect(cssText).toContain("@media (max-width: 640px)");
     expect(cssText).toContain("ha-card {\n      padding: 12px 0;");
     expect(cssText).toContain("border-radius: 0;");
     expect(cssText).toContain("background: transparent;");
@@ -960,7 +947,7 @@ describe("kanban-watcher-card", () => {
   it("expands the mobile dialog to a full-screen overlay", () => {
     const cssText = cardStyles.cssText;
 
-    expect(cssText).toContain("@media (max-width: 768px)");
+    expect(cssText).toContain("@media (max-width: 640px)");
     expect(cssText).toContain(".dialog-shell {\n      padding: 0;\n      align-items: stretch;");
     expect(cssText).toContain(".workspace-dialog {\n      width: 100vw;");
     expect(cssText).toContain("max-width: 100vw;");
