@@ -19,15 +19,16 @@ import (
 
 // Server HTTP 服务器
 type Server struct {
-	proxy       *api.ProxyClient
-	dispatcher  workspaceMessageDispatcher
-	port        int
-	apiKey      string
-	jwtService  *auth.JWTService
-	authHandler *AuthHandler
-	httpServer  *http.Server
-	extraRoutes []routeRegistration
-	staticFS    fs.FS
+	proxy        *api.ProxyClient
+	dispatcher   workspaceMessageDispatcher
+	port         int
+	apiKey       string
+	authEnabled  bool
+	jwtService   *auth.JWTService
+	authHandler  *AuthHandler
+	httpServer   *http.Server
+	extraRoutes  []routeRegistration
+	staticFS     fs.FS
 }
 
 type workspaceMessageDispatcher interface {
@@ -45,15 +46,17 @@ type routeRegistration struct {
 
 // NewServer 创建 HTTP 服务器
 // apiKey 用于简单的安全验证，HA 请求需要携带这个 key
+// authEnabled 是否启用认证
 // jwtService 用于 JWT 认证，可选
 // staticFS 静态文件系统，用于提供登录页面等
-func NewServer(proxy *api.ProxyClient, port int, apiKey string, jwtService *auth.JWTService, staticFS fs.FS) *Server {
+func NewServer(proxy *api.ProxyClient, port int, apiKey string, authEnabled bool, jwtService *auth.JWTService, staticFS fs.FS) *Server {
 	return &Server{
-		proxy:      proxy,
-		port:       port,
-		apiKey:     apiKey,
-		jwtService: jwtService,
-		staticFS:   staticFS,
+		proxy:       proxy,
+		port:        port,
+		apiKey:      apiKey,
+		authEnabled: authEnabled,
+		jwtService:  jwtService,
+		staticFS:    staticFS,
 	}
 }
 
@@ -506,6 +509,12 @@ func (s *Server) handleWorkspaceQueue(w http.ResponseWriter, r *http.Request, wo
 // authMiddleware API Key 和 JWT 双模式验证
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 0. 如果认证被禁用，直接放行
+		if !s.authEnabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// 1. 健康检查接口不需要认证
 		if r.URL.Path == "/health" {
 			next.ServeHTTP(w, r)

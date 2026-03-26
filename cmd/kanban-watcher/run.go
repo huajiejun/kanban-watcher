@@ -274,7 +274,7 @@ func runDaemon() error {
 	// 获取嵌入的静态文件系统
 	staticFS, _ := fs.Sub(webFS, "web")
 
-	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, jwtService, staticFS)
+	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, cfg.Auth.IsEnabled(), jwtService, staticFS)
 
 	// 设置认证处理器
 	authHandler := &server.AuthHandler{
@@ -388,7 +388,7 @@ func runHeadless() error {
 	// 获取嵌入的静态文件系统
 	staticFS, _ := fs.Sub(webFS, "web")
 
-	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, jwtService, staticFS)
+	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, cfg.Auth.IsEnabled(), jwtService, staticFS)
 
 	// 设置认证处理器
 	authHandler := &server.AuthHandler{

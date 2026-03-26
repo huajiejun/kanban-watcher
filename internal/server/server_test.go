@@ -10,7 +10,7 @@ import (
 )
 
 func TestAuthMiddlewareRejectsRealtimeRouteWithoutAPIKey(t *testing.T) {
-	srv := NewServer(nil, 0, "test-key", nil, nil)
+	srv := NewServer(nil, 0, "test-key", true, nil, nil)
 	nextCalled := false
 
 	handler := srv.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +32,7 @@ func TestAuthMiddlewareRejectsRealtimeRouteWithoutAPIKey(t *testing.T) {
 }
 
 func TestAuthMiddlewareAllowsRealtimeRouteWithAPIKeyQuery(t *testing.T) {
-	srv := NewServer(nil, 0, "test-key", nil, nil)
+	srv := NewServer(nil, 0, "test-key", true, nil, nil)
 	nextCalled := false
 
 	handler := srv.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +54,7 @@ func TestAuthMiddlewareAllowsRealtimeRouteWithAPIKeyQuery(t *testing.T) {
 }
 
 func TestCorsMiddlewareAllowsPutPreflightForWorkspaceView(t *testing.T) {
-	srv := NewServer(nil, 0, "test-key", nil, nil)
+	srv := NewServer(nil, 0, "test-key", true, nil, nil)
 
 	handler := srv.corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -87,7 +87,7 @@ func TestHandleWorkspaceMessageStartsDevServer(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", nil, nil)
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", true, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/workspace/ws-1/dev-server", nil)
 	rr := httptest.NewRecorder()
@@ -106,7 +106,7 @@ func TestHandleWorkspaceMessageStartsDevServer(t *testing.T) {
 }
 
 func TestHandleWorkspaceMessageRejectsInvalidMethodForDevServer(t *testing.T) {
-	srv := NewServer(nil, 0, "test-key", nil, nil)
+	srv := NewServer(nil, 0, "test-key", true, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/workspace/ws-1/dev-server", nil)
 	rr := httptest.NewRecorder()
@@ -132,7 +132,7 @@ func TestHandleWorkspaceMessageMapsNoScriptConfiguredToConflict(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", nil, nil)
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", true, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/workspace/ws-1/dev-server", nil)
 	rr := httptest.NewRecorder()
@@ -161,7 +161,7 @@ func TestHandleWorkspaceMessageStopsDevServer(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", nil, nil)
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", true, nil, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/workspace/ws-1/dev-server", nil)
 	rr := httptest.NewRecorder()
@@ -190,7 +190,7 @@ func TestHandleInfoProxiesVibeInfo(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", nil, nil)
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", true, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/info", nil)
 	rr := httptest.NewRecorder()
@@ -219,7 +219,7 @@ func TestHandleExecutionProcessProxiesDetail(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", nil, nil)
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", true, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/execution-processes/proc-dev-1", nil)
 	rr := httptest.NewRecorder()
