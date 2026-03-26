@@ -254,7 +254,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
     (cards[0] as HTMLButtonElement).click();
     await flushElement(element);
     (cards[1] as HTMLButtonElement).click();
@@ -312,7 +312,7 @@ describe("workspace home helpers", () => {
     expect(element.shadowRoot?.querySelector(".task-card")).not.toBeNull();
     expect(element.shadowRoot?.querySelector(".task-meta")).not.toBeNull();
 
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null)?.click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement | null)?.click();
     await flushElement(element);
 
     expect(layout?.getAttribute("data-sidebar-collapsed")).toBe("false");
@@ -363,7 +363,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
     const layout = element.shadowRoot?.querySelector(".workspace-home-layout") as HTMLElement | null;
     const sidebar = element.shadowRoot?.querySelector(".workspace-home-sidebar") as HTMLElement | null;
 
@@ -442,7 +442,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
     (cards[0] as HTMLButtonElement).click();
     await flushElement(element);
     (cards[1] as HTMLButtonElement).click();
@@ -500,7 +500,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
     (cards[0] as HTMLButtonElement).click();
     await flushElement(element);
     (cards[1] as HTMLButtonElement).click();
@@ -548,7 +548,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
 
     await waitForWorkspaceList(element);
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -767,7 +767,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
 
     await waitForWorkspaceList(element);
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     const pane = element.shadowRoot?.querySelector(
@@ -833,7 +833,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
     (cards[0] as HTMLButtonElement).click();
     await flushElement(element);
 
@@ -918,7 +918,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
     (cards[0] as HTMLButtonElement).click();
     await flushElement(element);
 
@@ -1001,7 +1001,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
 
     await waitForWorkspaceList(element);
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     const pane = element.shadowRoot?.querySelector(
@@ -1087,7 +1087,7 @@ describe("workspace home helpers", () => {
       ],
     };
 
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await element.updateComplete;
 
     const pane = element.shadowRoot?.querySelector(
@@ -1157,7 +1157,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
 
     await waitForWorkspaceList(element);
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     const pane = element.shadowRoot?.querySelector(
@@ -1215,7 +1215,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
 
     await waitForWorkspaceList(element);
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     const pane = element.shadowRoot?.querySelector(
@@ -1274,7 +1274,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     expect(FakeWebSocket.instances).toHaveLength(2);
@@ -1347,7 +1347,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     expect(FakeWebSocket.instances).toHaveLength(2);
@@ -1428,7 +1428,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
     (cards[0] as HTMLButtonElement).click();
     await flushElement(element);
     (cards[1] as HTMLButtonElement).click();
@@ -1513,7 +1513,7 @@ describe("workspace home helpers", () => {
     const firstElement = createElement();
     await waitForWorkspaceList(firstElement);
 
-    const cards = firstElement.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    const cards = firstElement.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
     (cards[0] as HTMLButtonElement).click();
     await flushElement(firstElement);
     (cards[1] as HTMLButtonElement).click();
@@ -1709,7 +1709,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement;
@@ -1782,7 +1782,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const cards = element.shadowRoot?.querySelectorAll(".task-card") ?? [];
+    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
     (cards[0] as HTMLButtonElement).click();
     await flushElement(element);
     (cards[1] as HTMLButtonElement).click();
@@ -1868,7 +1868,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
 
     await waitForWorkspaceList(element);
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     const pane = element.shadowRoot?.querySelector(
@@ -1923,7 +1923,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
 
     await waitForWorkspaceList(element);
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     const pane = element.shadowRoot?.querySelector(
@@ -1998,7 +1998,7 @@ describe("workspace home helpers", () => {
     const element = createElement();
 
     await waitForWorkspaceList(element);
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
     await flushElement(element);
 
     const pane = element.shadowRoot?.querySelector(
