@@ -24,9 +24,15 @@ type Config struct {
 
 // AuthConfig JWT 认证配置
 type AuthConfig struct {
+	Enabled         *bool        `yaml:"enabled"`           // 是否启用认证，默认 true
 	JWTSecret       string       `yaml:"jwt_secret"`        // JWT 签名密钥，为空则自动生成
 	TokenExpireDays int          `yaml:"token_expire_days"` // Token 有效期（天）
 	Users           []UserConfig `yaml:"users"`             // 用户列表
+}
+
+// IsEnabled 检查认证是否启用
+func (c AuthConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
 }
 
 // UserConfig 用户配置
