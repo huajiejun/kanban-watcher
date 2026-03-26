@@ -593,7 +593,7 @@ export const cardStyles = css`
   }
 
   /* 手机端 (640px) */
-  @media (max-width: 640px) {
+  @media (max-width: 768px) {
     :host {
       --font-size-base: 0.88rem;
       --font-size-sm: 0.78rem;
