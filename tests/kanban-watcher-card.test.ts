@@ -482,6 +482,9 @@ describe("kanban-watcher-card", () => {
     expect(cssText).toContain(".task-card-run");
     expect(cssText).toContain("display: none");
     expect(cssText).toContain("overflow-wrap: anywhere");
+    expect(cssText).toContain(".section-title-row");
+    expect(cssText).toContain("flex: 1");
+    expect(cssText).toContain("#020617");
   });
 
   it("uses completed_at only for completed workspaces and updated_at otherwise", async () => {

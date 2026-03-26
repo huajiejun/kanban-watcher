@@ -1659,7 +1659,13 @@ export const cardStyles = css`
     }
 
     .section-toggle {
-      padding: 10px 4px;
+      padding: 10px 0;
+      text-align: left;
+    }
+
+    .section-title-row {
+      flex: 1;
+      min-width: 0;
     }
 
     .section-body {
@@ -1668,8 +1674,15 @@ export const cardStyles = css`
 
     .task-card {
       gap: 8px;
-      padding: 12px 14px;
-      border-radius: 18px;
+      width: auto;
+      margin: 0 2px;
+      padding: 12px;
+      border-radius: 16px;
+      background: color-mix(
+        in srgb,
+        var(--ha-card-background, var(--card-background-color, #111827)) 88%,
+        #020617
+      );
     }
 
     .task-card-run {
