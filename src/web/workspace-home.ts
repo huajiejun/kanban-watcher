@@ -457,6 +457,7 @@ export class KanbanWorkspaceHome extends LitElement {
       id: workspace.id,
       name: workspace.name,
       browser_url: workspace.browser_url,
+      browserUrl: (workspace as LocalWorkspaceSummary & { browserUrl?: string }).browserUrl,
       branch: workspace.branch,
       status: workspace.status,
       latest_session_id: workspace.latest_session_id,
@@ -1504,7 +1505,7 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private getWorkspaceEmbeddedPreviewUrl(workspace: KanbanWorkspace) {
-    const browserUrl = workspace.browser_url?.trim() || "";
+    const browserUrl = workspace.browser_url?.trim() || workspace.browserUrl?.trim() || "";
     if (!browserUrl) {
       return "";
     }
