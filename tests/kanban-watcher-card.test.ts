@@ -483,7 +483,8 @@ describe("kanban-watcher-card", () => {
     expect(cssText).toContain("display: none");
     expect(cssText).toContain("overflow-wrap: anywhere");
     expect(cssText).toContain(".section-title-row");
-    expect(cssText).toContain("flex: 1");
+    expect(cssText).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(cssText).toContain("justify-content: flex-start");
     expect(cssText).toContain("#020617");
   });
 

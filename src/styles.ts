@@ -1659,11 +1659,15 @@ export const cardStyles = css`
     }
 
     .section-toggle {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
       padding: 10px 0;
       text-align: left;
     }
 
     .section-title-row {
+      justify-content: flex-start;
       flex: 1;
       min-width: 0;
     }
@@ -1680,7 +1684,7 @@ export const cardStyles = css`
       border-radius: 16px;
       background: color-mix(
         in srgb,
-        var(--ha-card-background, var(--card-background-color, #111827)) 88%,
+        var(--ha-card-background, var(--card-background-color, #111827)) 62%,
         #020617
       );
     }
