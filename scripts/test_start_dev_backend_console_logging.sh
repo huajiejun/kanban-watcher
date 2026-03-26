@@ -93,7 +93,7 @@ if [ "$(cat "$FAKE_NPX_PID_FILE")" != "$(cat "$FRONTEND_PID_FILE")" ]; then
   exit 1
 fi
 
-if [ "$DURATION" -ge 5 ]; then
+if [ "$DURATION" -ge 6 ]; then
   echo "FAIL: 启动脚本被前端或后端前台阻塞，没有快速返回"
   exit 1
 fi

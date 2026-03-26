@@ -120,12 +120,40 @@ allocate_ports_from_manager() {
         request_url="$request_url?api_key=$api_key"
     fi
 
-    response=$(curl -fsS -X POST "$request_url")
+    if ! response=$(curl -fsS -X POST "$request_url"); then
+        return 1
+    fi
 
-    FRONTEND_PORT=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["frontend_port"])')
+    if ! FRONTEND_PORT=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["frontend_port"])'); then
+        return 1
+    fi
     BACKEND_PORT=$((FRONTEND_PORT + 10000))
     init_runtime_paths
     cache_ports
+}
+
+allocate_ports_from_db_fallback() {
+    local response
+
+    if ! response=$(go run ./cmd/kw_frontend_port reserve --workspace "$WORKTREE_ID"); then
+        return 1
+    fi
+
+    if ! FRONTEND_PORT=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["frontend_port"])'); then
+        return 1
+    fi
+    BACKEND_PORT=$((FRONTEND_PORT + 10000))
+    init_runtime_paths
+    cache_ports
+}
+
+allocate_runtime_ports() {
+    if allocate_ports_from_manager; then
+        return 0
+    fi
+
+    echo "管理 API 不可用，回退到数据库兜底分配端口..." >&2
+    allocate_ports_from_db_fallback
 }
 
 # 检查端口是否被占用
@@ -318,7 +346,7 @@ start_frontend() {
 
 # 启动服务
 start_services() {
-    allocate_ports_from_manager
+    allocate_runtime_ports
     echo "============================================"
     echo "Worktree ID: $WORKTREE_ID"
     echo "后端端口: $BACKEND_PORT"
