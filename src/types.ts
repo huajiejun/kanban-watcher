@@ -1,6 +1,7 @@
 export interface KanbanWorkspace {
   id: string;
   name: string;
+  branch?: string;
   status?: string;
   latest_session_id?: string;
   latestSessionId?: string;
