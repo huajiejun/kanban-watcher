@@ -748,6 +748,7 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 			w.has_pending_approval,
 			w.has_unseen_turns,
 			w.has_running_dev_server,
+			running_dev.process_id AS running_dev_server_process_id,
 			w.files_changed,
 			w.lines_added,
 			w.lines_removed,
@@ -757,6 +758,12 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 			ep.latest_process_completed_at,
 			lm.content AS last_message
 		FROM kw_workspaces w
+		LEFT JOIN (
+			SELECT workspace_id, MIN(id) AS process_id
+			FROM kw_execution_processes
+			WHERE run_reason = 'dev_server' AND status = 'running' AND dropped = FALSE
+			GROUP BY workspace_id
+		) running_dev ON running_dev.workspace_id = w.id
 		LEFT JOIN (
 			SELECT
 				workspace_id,
@@ -794,12 +801,12 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 	var summaries []ActiveWorkspaceSummary
 	for rows.Next() {
 		var summary ActiveWorkspaceSummary
-		var latestSessionID sql.NullString
+		var latestSessionID, runningDevServerProcessID sql.NullString
 		var lastMessage sql.NullString
 		var updatedAt, lastMessageAt, latestProcessCompletedAt sql.NullTime
 		if err := rows.Scan(
 			&summary.ID, &summary.Name, &summary.Branch, &latestSessionID, &summary.Status,
-			&summary.HasPendingApproval, &summary.HasUnseenTurns, &summary.HasRunningDevServer,
+			&summary.HasPendingApproval, &summary.HasUnseenTurns, &summary.HasRunningDevServer, &runningDevServerProcessID,
 			&summary.FilesChanged, &summary.LinesAdded, &summary.LinesRemoved,
 			&updatedAt, &summary.MessageCount, &lastMessageAt, &latestProcessCompletedAt, &lastMessage,
 		); err != nil {
@@ -807,6 +814,9 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 		}
 		if latestSessionID.Valid {
 			summary.LatestSessionID = &latestSessionID.String
+		}
+		if runningDevServerProcessID.Valid {
+			summary.RunningDevServerProcessID = &runningDevServerProcessID.String
 		}
 		if updatedAt.Valid {
 			summary.UpdatedAt = &updatedAt.Time

@@ -308,12 +308,12 @@ func TestActiveWorkspacesRouteIncludesBrowserURLWhenTemplateConfigured(t *testin
 
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "branch", "latest_session_id", "status",
-		"has_pending_approval", "has_unseen_turns", "has_running_dev_server",
+		"has_pending_approval", "has_unseen_turns", "has_running_dev_server", "running_dev_server_process_id",
 		"files_changed", "lines_added", "lines_removed", "updated_at",
 		"message_count", "last_message_at", "latest_process_completed_at", "last_message",
 	}).AddRow(
 		"ws-1", "工作区一", "feature/browser", "session-1", "completed",
-		false, false, false,
+		false, false, true, "proc-dev-1",
 		1, 2, 3, time.Now(),
 		0, nil, nil, nil,
 	)
@@ -336,5 +336,8 @@ func TestActiveWorkspacesRouteIncludesBrowserURLWhenTemplateConfigured(t *testin
 	}
 	if !strings.Contains(recorder.Body.String(), `"browser_url":"https://relay.example/ws-1?branch=feature/browser"`) {
 		t.Fatalf("响应未包含 browser_url: %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"running_dev_server_process_id":"proc-dev-1"`) {
+		t.Fatalf("响应未包含 running_dev_server_process_id: %s", recorder.Body.String())
 	}
 }

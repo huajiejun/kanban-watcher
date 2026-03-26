@@ -61,6 +61,7 @@ type LocalWorkspaceSummary struct {
 	HasPendingApproval       bool   `json:"has_pending_approval"`
 	HasUnseenTurns           bool   `json:"has_unseen_turns"`
 	HasRunningDevServer      bool   `json:"has_running_dev_server"`
+	RunningDevServerProcessID string `json:"running_dev_server_process_id,omitempty"`
 	FilesChanged             int    `json:"files_changed"`
 	LinesAdded               int    `json:"lines_added"`
 	LinesRemoved             int    `json:"lines_removed"`
@@ -216,6 +217,9 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 		}
 		if summary.LatestSessionID != nil {
 			item.LatestSessionID = *summary.LatestSessionID
+		}
+		if summary.RunningDevServerProcessID != nil {
+			item.RunningDevServerProcessID = *summary.RunningDevServerProcessID
 		}
 		if summary.UpdatedAt != nil {
 			item.UpdatedAt = summary.UpdatedAt.Format(time.RFC3339)

@@ -12,6 +12,7 @@ export interface KanbanWorkspace {
   hasUnseenActivity?: boolean;
   has_running_dev_server?: boolean;
   hasRunningDevServer?: boolean;
+  running_dev_server_process_id?: string;
   has_pending_approval?: boolean;
   files_changed?: number;
   lines_added?: number;
@@ -64,6 +65,7 @@ export interface LocalWorkspaceSummary {
   has_pending_approval?: boolean;
   has_unseen_turns?: boolean;
   has_running_dev_server?: boolean;
+  running_dev_server_process_id?: string;
   files_changed?: number;
   lines_added?: number;
   lines_removed?: number;

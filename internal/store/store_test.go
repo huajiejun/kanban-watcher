@@ -239,12 +239,12 @@ func TestGetActiveWorkspaceSummariesIncludesLastMessage(t *testing.T) {
 	now := time.Now()
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "branch", "latest_session_id", "status",
-		"has_pending_approval", "has_unseen_turns", "has_running_dev_server",
+		"has_pending_approval", "has_unseen_turns", "has_running_dev_server", "running_dev_server_process_id",
 		"files_changed", "lines_added", "lines_removed", "updated_at",
 		"message_count", "last_message_at", "latest_process_completed_at", "last_message",
 	}).AddRow(
 		"ws-1", "Workspace 1", "main", "session-1", "completed",
-		false, true, false,
+		false, true, true, "proc-dev-1",
 		2, 8, 1, now,
 		5, now, now, "这里是最近一条消息",
 	)
@@ -259,6 +259,7 @@ func TestGetActiveWorkspaceSummariesIncludesLastMessage(t *testing.T) {
 			w.has_pending_approval,
 			w.has_unseen_turns,
 			w.has_running_dev_server,
+			running_dev.process_id AS running_dev_server_process_id,
 			w.files_changed,
 			w.lines_added,
 			w.lines_removed,
@@ -268,6 +269,12 @@ func TestGetActiveWorkspaceSummariesIncludesLastMessage(t *testing.T) {
 			ep.latest_process_completed_at,
 			lm.content AS last_message
 		FROM kw_workspaces w
+		LEFT JOIN (
+			SELECT workspace_id, MIN(id) AS process_id
+			FROM kw_execution_processes
+			WHERE run_reason = 'dev_server' AND status = 'running' AND dropped = FALSE
+			GROUP BY workspace_id
+		) running_dev ON running_dev.workspace_id = w.id
 		LEFT JOIN (
 			SELECT
 				workspace_id,
@@ -305,6 +312,9 @@ func TestGetActiveWorkspaceSummariesIncludesLastMessage(t *testing.T) {
 	}
 	if summaries[0].LastMessage == nil || *summaries[0].LastMessage != "这里是最近一条消息" {
 		t.Fatalf("last message = %#v, want 最近一条消息", summaries[0].LastMessage)
+	}
+	if summaries[0].RunningDevServerProcessID == nil || *summaries[0].RunningDevServerProcessID != "proc-dev-1" {
+		t.Fatalf("running dev server process id = %#v, want proc-dev-1", summaries[0].RunningDevServerProcessID)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {

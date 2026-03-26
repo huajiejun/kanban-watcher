@@ -195,6 +195,9 @@ func toRealtimeWorkspace(summary store.ActiveWorkspaceSummary) realtime.Workspac
 	if summary.UpdatedAt != nil {
 		payload.UpdatedAt = summary.UpdatedAt.Format(time.RFC3339)
 	}
+	if summary.RunningDevServerProcessID != nil {
+		payload.RunningDevServerProcessID = *summary.RunningDevServerProcessID
+	}
 	if summary.LastMessageAt != nil {
 		payload.LastMessageAt = summary.LastMessageAt.Format(time.RFC3339)
 	}

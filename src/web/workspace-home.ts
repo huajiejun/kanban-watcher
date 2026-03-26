@@ -296,6 +296,7 @@ export class KanbanWorkspaceHome extends LitElement {
         ? await this.fetchApiWorkspaces()
         : this.readMockWorkspaces();
 
+      await this.hydrateRunningDevServerProcesses(workspaces);
       this.workspaces = workspaces;
       this.pruneDevServerProcessState(workspaces);
       this.pageState = reconcileWorkspacePageState(this.pageState, workspaces);
@@ -458,6 +459,7 @@ export class KanbanWorkspaceHome extends LitElement {
       has_pending_approval: workspace.has_pending_approval,
       has_unseen_turns: workspace.has_unseen_turns,
       has_running_dev_server: workspace.has_running_dev_server,
+      running_dev_server_process_id: workspace.running_dev_server_process_id,
       files_changed: workspace.files_changed,
       lines_added: workspace.lines_added,
       lines_removed: workspace.lines_removed,
@@ -1060,6 +1062,27 @@ export class KanbanWorkspaceHome extends LitElement {
     }
   }
 
+  private async hydrateRunningDevServerProcesses(workspaces: KanbanWorkspace[]) {
+    const jobs: Promise<void>[] = [];
+
+    for (const workspace of workspaces) {
+      const processId = workspace.running_dev_server_process_id?.trim();
+      if (!processId) {
+        continue;
+      }
+
+      this.devServerProcessIdsByWorkspace = {
+        ...this.devServerProcessIdsByWorkspace,
+        [workspace.id]: processId,
+      };
+      jobs.push(this.refreshWorkspaceDevServerProcess(workspace.id));
+    }
+
+    if (jobs.length > 0) {
+      await Promise.all(jobs);
+    }
+  }
+
   private async setupMobileCard() {
     await ensureKanbanWatcherCardDefined();
 
@@ -1296,7 +1319,10 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     if (event.type === "workspace_snapshot") {
       const previousOpenWorkspaceIds = [...this.pageState.openWorkspaceIds];
-      this.workspaces = (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));
+      const nextWorkspaces = (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));
+      void this.hydrateRunningDevServerProcesses(nextWorkspaces);
+      this.workspaces = nextWorkspaces;
+      this.pruneDevServerProcessState(nextWorkspaces);
       this.pageState = reconcileWorkspacePageState(this.pageState, this.workspaces);
       const newlyOpenedWorkspaceIds = this.pageState.openWorkspaceIds.filter(
         (workspaceId) => !previousOpenWorkspaceIds.includes(workspaceId),

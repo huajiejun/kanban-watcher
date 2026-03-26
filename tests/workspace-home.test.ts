@@ -2227,6 +2227,17 @@ describe("workspace home helpers", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
       if (url.includes("/api/workspaces/active")) {
         return createJsonResponse({
           workspaces: [
@@ -2235,9 +2246,22 @@ describe("workspace home helpers", () => {
               name: "已有开发服务器的工作区",
               status: "completed",
               has_running_dev_server: true,
+              running_dev_server_process_id: "proc-dev-1",
               updated_at: "2026-03-24T12:00:00Z",
             },
           ],
+        });
+      }
+
+      if (url.includes("/api/execution-processes/proc-dev-1")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            id: "proc-dev-1",
+            workspace_id: "ws-1",
+            run_reason: "dev_server",
+            status: "running",
+          },
         });
       }
 
@@ -2262,6 +2286,10 @@ describe("workspace home helpers", () => {
     const runButton = pane?.shadowRoot?.querySelector(
       ".dialog-dev-server-toggle",
     ) as HTMLButtonElement | null;
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/execution-processes/proc-dev-1"),
+      expect.objectContaining({ method: "GET" }),
+    );
     expect(runButton?.getAttribute("data-dev-server-state")).toBe("running");
     expect(runButton?.textContent).toContain("❚❚");
   });
