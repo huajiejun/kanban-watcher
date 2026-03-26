@@ -305,29 +305,31 @@ export const workspaceHomeStyles = css`
 
   .workspace-home-sidebar-toggle {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 8px;
+    left: 8px;
     z-index: 30;
     display: inline-flex;
     align-items: center;
     justify-content: space-between;
     gap: 6px;
     width: auto;
-    min-height: 36px;
-    padding: 0;
-    border-radius: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 0 8px 8px 0;
     border: 0;
-    background: transparent;
+    background: var(--card-background-color, var(--primary-background-color));
     color: inherit;
     font: inherit;
-    font-size: 0.82rem;
+    font-size: 1rem;
     line-height: 1;
     cursor: pointer;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
   }
 
   .workspace-home-sidebar-toggle.is-collapsed {
-    min-width: 36px;
+    min-width: 44px;
     justify-content: center;
+    padding: 0;
   }
 
   .workspace-home-sidebar-backdrop {
