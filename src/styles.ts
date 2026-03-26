@@ -58,10 +58,7 @@ export const workspaceSectionListStyles = css`
 
   .task-card {
     --task-card-accent: color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: stretch;
-    gap: 8px;
+    display: block;
     width: 100%;
     padding: 9px 12px;
     border-radius: 12px;
@@ -74,6 +71,8 @@ export const workspaceSectionListStyles = css`
     border-left-width: 3px;
     text-align: left;
     color: inherit;
+    font: inherit;
+    cursor: pointer;
   }
 
   .task-card[data-selected="true"] {
@@ -105,46 +104,6 @@ export const workspaceSectionListStyles = css`
     font-size: 0.98rem;
     font-weight: 600;
     line-height: 1.2;
-  }
-
-  .task-card-main,
-  .task-card-run {
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-  }
-
-  .task-card-main {
-    min-width: 0;
-    padding: 0;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .task-card-run {
-    align-self: center;
-    min-width: 72px;
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--primary-color, #f59e0b) 18%, transparent);
-    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 38%, transparent);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .task-card-run:disabled {
-    cursor: not-allowed;
-    opacity: 0.72;
-  }
-
-  .task-card-feedback {
-    grid-column: 1 / -1;
-    padding-top: 2px;
-    font-size: 0.78rem;
-    line-height: 1.4;
-    color: var(--error-color, #f87171);
   }
 
   .tone-brand {
@@ -208,78 +167,6 @@ export const workspaceHomeStyles = css`
     display: grid;
     gap: 20px;
     width: 100%;
-  }
-
-  .workspace-home-sidebar-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 12px;
-  }
-
-  .workspace-home-open-browser {
-    min-height: 36px;
-    padding: 0 14px;
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 40%, transparent);
-    background: color-mix(in srgb, var(--primary-color, #f59e0b) 16%, transparent);
-    color: inherit;
-    font: inherit;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .workspace-home-open-browser:disabled {
-    cursor: not-allowed;
-    opacity: 0.56;
-  }
-
-  .workspace-home-preview-drawer {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    bottom: 16px;
-    width: min(42vw, 560px);
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 12px;
-    padding: 14px;
-    border-radius: 18px;
-    background: var(--card-background-color, #111827);
-    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 24%, transparent);
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
-    z-index: 6;
-  }
-
-  .workspace-home-preview-drawer-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .workspace-home-preview-drawer-title {
-    font-size: 0.94rem;
-    font-weight: 700;
-  }
-
-  .workspace-home-preview-drawer-close {
-    width: 32px;
-    height: 32px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    font: inherit;
-  }
-
-  .workspace-home-preview-drawer-frame {
-    width: 100%;
-    height: 100%;
-    border: 0;
-    border-radius: 12px;
-    background: #fff;
   }
 
   .workspace-home-hero {
@@ -430,9 +317,8 @@ export const workspaceHomeStyles = css`
   }
 
   .task-card.is-compact {
-    display: grid;
-    gap: 8px;
-    padding: 12px 14px;
+    display: block;
+    padding: 7px 9px;
   }
 
   .task-card.is-expanded {
@@ -447,8 +333,8 @@ export const workspaceHomeStyles = css`
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
-    font-size: 0.98rem;
-    line-height: 1.2;
+    font-size: 0.8rem;
+    line-height: 1.15;
   }
 
   .task-card.is-expanded .workspace-name {
@@ -864,35 +750,6 @@ export const cardStyles = css`
     color: inherit;
     cursor: pointer;
     font: inherit;
-  }
-
-  .dialog-dev-server-toggle,
-  .dialog-dev-server-preview {
-    width: 32px;
-    height: 32px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    font: inherit;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .dialog-dev-server-toggle[data-dev-server-state="idle"],
-  .dialog-dev-server-toggle[data-dev-server-state="starting"] {
-    color: #94a3b8;
-  }
-
-  .dialog-dev-server-toggle[data-dev-server-state="running"],
-  .dialog-dev-server-toggle[data-dev-server-state="stopping"] {
-    color: #ef4444;
-  }
-
-  .dialog-dev-server-preview {
-    color: #38bdf8;
   }
 
   .dialog-messages {

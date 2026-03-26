@@ -73,10 +73,9 @@ describe("workspace-section-list", () => {
     expect(shadowRoot?.textContent).toContain("运行中");
     expect(shadowRoot?.textContent).toContain("Workspace 1");
     expect(shadowRoot?.textContent).toContain("Workspace 2");
-    expect(shadowRoot?.querySelector(".task-meta")).not.toBeNull();
-    expect(shadowRoot?.querySelector(".task-card-run")).toBeNull();
+    expect(shadowRoot?.querySelector(".task-meta")).toBeNull();
     expect(shadowRoot?.querySelector(".task-card.is-compact")).not.toBeNull();
-    expect(shadowRoot?.textContent).toContain("刚刚");
+    expect(shadowRoot?.textContent).not.toContain("刚刚");
   });
 
   it("renders expanded workspace cards with full meta information", async () => {
@@ -136,112 +135,12 @@ describe("workspace-section-list", () => {
     }) as EventListener);
 
     await element.updateComplete;
-    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
 
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ id: "ws-3", name: "Workspace 3" }),
     );
-  });
-
-  it("renders sibling select and run buttons and keeps run action isolated", async () => {
-    const idleWorkspace = createWorkspace({ id: "ws-4", name: "Workspace 4" });
-    const runningWorkspace = createWorkspace({
-      id: "ws-5",
-      name: "Workspace 5",
-      status: "running",
-      has_running_dev_server: true,
-    });
-    const element = createElement([
-      {
-        key: "idle",
-        label: "空闲",
-        workspaces: [idleWorkspace, runningWorkspace],
-      },
-    ]);
-    const onSelect = vi.fn();
-    const onRun = vi.fn();
-
-    element.addEventListener("workspace-select", ((event: CustomEvent<KanbanWorkspace>) => {
-      onSelect(event.detail);
-    }) as EventListener);
-    element.addEventListener("workspace-run", ((event: CustomEvent<KanbanWorkspace>) => {
-      onRun(event.detail);
-    }) as EventListener);
-
-    await element.updateComplete;
-
-    const cards = [...(element.shadowRoot?.querySelectorAll(".task-card") ?? [])];
-    const idleCard = cards[0] as HTMLElement;
-    const runningCard = cards[1] as HTMLElement;
-    const idleButtons = idleCard.querySelectorAll("button");
-    const runningButtons = runningCard.querySelectorAll("button");
-
-    expect(idleCard.tagName).toBe("DIV");
-    expect(idleButtons).toHaveLength(2);
-    expect(idleButtons[0]?.classList.contains("task-card-main")).toBe(true);
-    expect(idleButtons[1]?.classList.contains("task-card-run")).toBe(true);
-
-    (idleButtons[1] as HTMLButtonElement).click();
-
-    expect(onRun).toHaveBeenCalledTimes(1);
-    expect(onRun).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "ws-4", name: "Workspace 4" }),
-    );
-    expect(onSelect).not.toHaveBeenCalled();
-
-    expect(runningButtons).toHaveLength(2);
-    expect((runningButtons[1] as HTMLButtonElement).disabled).toBe(true);
-    expect(runningButtons[1]?.textContent).toContain("运行中");
-  });
-
-  it("disables run when dev server is already running even if workspace status is not running", async () => {
-    const element = createElement([
-      {
-        key: "idle",
-        label: "空闲",
-        workspaces: [
-          createWorkspace({
-            id: "ws-dev-server",
-            name: "已有开发服务器",
-            status: "completed",
-            has_running_dev_server: true,
-          }),
-        ],
-      },
-    ]);
-
-    await element.updateComplete;
-
-    const runButton = element.shadowRoot?.querySelector(".task-card-run") as HTMLButtonElement | null;
-    expect(runButton).not.toBeNull();
-    expect(runButton?.disabled).toBe(true);
-    expect(runButton?.textContent).toContain("运行中");
-  });
-
-  it("keeps run enabled when only the workspace task is running but dev server is not", async () => {
-    const element = createElement([
-      {
-        key: "running",
-        label: "运行中",
-        workspaces: [
-          createWorkspace({
-            id: "ws-task-running",
-            name: "任务运行中但服务未启动",
-            status: "running",
-            has_running_dev_server: false,
-          }),
-        ],
-      },
-    ]);
-
-    await element.updateComplete;
-
-    const runButton = element.shadowRoot?.querySelector(".task-card-run") as HTMLButtonElement | null;
-    expect(runButton).not.toBeNull();
-    expect(runButton?.disabled).toBe(false);
-    expect(runButton?.textContent).toContain("运行");
-    expect(runButton?.textContent).not.toContain("运行中");
   });
 
   it("hides section body content when section is collapsed", async () => {

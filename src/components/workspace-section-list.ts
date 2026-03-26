@@ -27,7 +27,6 @@ type RenderWorkspaceSectionListOptions = {
   getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => WorkspaceDisplayMeta;
   onToggleSection: (key: WorkspaceSectionKey) => void;
   onSelectWorkspace: (workspace: KanbanWorkspace) => void;
-  onRunWorkspace: (workspace: KanbanWorkspace) => void;
 };
 
 export function renderWorkspaceSectionList({
@@ -38,7 +37,6 @@ export function renderWorkspaceSectionList({
   getWorkspaceDisplayMeta,
   onToggleSection,
   onSelectWorkspace,
-  onRunWorkspace,
 }: RenderWorkspaceSectionListOptions): TemplateResult[] {
   return sections.map(({ key, label, workspaces }) => {
     const collapsed = collapsedSections.has(key);
@@ -63,7 +61,6 @@ export function renderWorkspaceSectionList({
                     compact,
                     getWorkspaceDisplayMeta,
                     onSelectWorkspace,
-                    onRunWorkspace,
                   ),
                 )}
               </div>
@@ -108,7 +105,6 @@ export class WorkspaceSectionList extends LitElement {
       getWorkspaceDisplayMeta: this.getWorkspaceDisplayMeta,
       onToggleSection: (key) => this.handleToggleSection(key),
       onSelectWorkspace: (workspace) => this.handleSelectWorkspace(workspace),
-      onRunWorkspace: (workspace) => this.handleRunWorkspace(workspace),
     });
   }
 
@@ -125,16 +121,6 @@ export class WorkspaceSectionList extends LitElement {
   private handleSelectWorkspace(workspace: KanbanWorkspace) {
     this.dispatchEvent(
       new CustomEvent<KanbanWorkspace>("workspace-select", {
-        detail: workspace,
-        bubbles: true,
-        composed: true,
-      }),
-    );
-  }
-
-  private handleRunWorkspace(workspace: KanbanWorkspace) {
-    this.dispatchEvent(
-      new CustomEvent<KanbanWorkspace>("workspace-run", {
         detail: workspace,
         bubbles: true,
         composed: true,
@@ -159,58 +145,39 @@ function renderWorkspaceCard(
   compact: boolean,
   getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => WorkspaceDisplayMeta,
   onSelectWorkspace: (workspace: KanbanWorkspace) => void,
-  onRunWorkspace: (workspace: KanbanWorkspace) => void,
 ) {
   const statusMeta = getStatusMeta(workspace);
   const { relativeTime, filesChanged, linesAdded, linesRemoved } =
     getWorkspaceDisplayMeta(workspace);
-  const isRunning = Boolean(
-    workspace.has_running_dev_server || workspace.hasRunningDevServer,
-  );
-  const runButtonLabel = isRunning ? "运行中" : "运行";
 
   return html`
-    <div
+    <button
       class="task-card ${statusMeta.accentClass} ${compact ? "is-compact" : "is-expanded"}"
+      type="button"
       data-selected=${workspace.id === selectedWorkspaceId ? "true" : "false"}
+      @click=${() => onSelectWorkspace(workspace)}
     >
-      <button
-        class="task-card-main"
-        type="button"
-        @click=${() => onSelectWorkspace(workspace)}
-        aria-label=${`打开工作区 ${workspace.name}`}
-      >
-        <div class="workspace-name">${workspace.name}</div>
-        <div class="task-meta">
-          <span class="meta-status">
-            ${statusMeta.icons.map(
-              (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
-                >${icon.symbol}</span
-              >`,
-            )}
-          </span>
-          <span class="relative-time">${relativeTime}</span>
-          <span class="meta-files"
-            ><span class="file-count">📄 ${filesChanged}</span> <span class="lines-added"
-              >+${linesAdded}</span
-            >
-            <span class="lines-removed">-${linesRemoved}</span></span
-          >
-        </div>
-      </button>
+      <div class="workspace-name">${workspace.name}</div>
       ${compact
         ? nothing
         : html`
-            <button
-              class="task-card-run"
-              type="button"
-              ?disabled=${isRunning}
-              @click=${() => onRunWorkspace(workspace)}
-              aria-label=${`${workspace.name}${runButtonLabel}`}
-            >
-              ${runButtonLabel}
-            </button>
+            <div class="task-meta">
+              <span class="meta-status">
+                ${statusMeta.icons.map(
+                  (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
+                    >${icon.symbol}</span
+                  >`,
+                )}
+              </span>
+              <span class="relative-time">${relativeTime}</span>
+              <span class="meta-files"
+                ><span class="file-count">📄 ${filesChanged}</span> <span class="lines-added"
+                  >+${linesAdded}</span
+                >
+                <span class="lines-removed">-${linesRemoved}</span></span
+              >
+            </div>
           `}
-    </div>
+    </button>
   `;
 }
