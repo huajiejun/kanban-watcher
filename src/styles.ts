@@ -1116,6 +1116,7 @@ export const cardStyles = css`
     border-radius: 10px;
     line-height: 1.35;
     white-space: normal;
+    overflow-wrap: anywhere;
     word-break: break-word;
     background: color-mix(in srgb, var(--secondary-background-color, #1e293b) 72%, transparent);
     color: inherit;
@@ -1627,15 +1628,35 @@ export const cardStyles = css`
       padding: 5px 7px;
       font-size: 0.82rem;
       line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+
+    .message-bubble p,
+    .message-bubble ul,
+    .message-bubble ol,
+    .message-bubble li,
+    .message-bubble blockquote,
+    .message-bubble code {
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .message-bubble pre {
       padding: 6px 8px;
       font-size: 0.85em;
+      overflow-x: hidden;
+    }
+
+    .message-bubble pre code {
+      display: block;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .message-bubble code {
       font-size: 0.85em;
+      white-space: break-spaces;
     }
 
     .queue-index {

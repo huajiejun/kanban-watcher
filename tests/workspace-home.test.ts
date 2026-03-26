@@ -664,6 +664,43 @@ describe("workspace home helpers", () => {
     expect(nextActiveRequests).toBe(baselineActiveRequests);
   });
 
+  it("delegates mobile realtime startup to the embedded card so the page does not open duplicate sockets", async () => {
+    setWindowWidth(390);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-mobile",
+              name: "移动端任务",
+              status: "completed",
+              latest_session_id: "session-mobile",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await flushElement(element);
+
+    const activeRequests = fetchMock.mock.calls.filter(([url]) =>
+      readRequestUrl(url as RequestInfo | URL).includes("/api/workspaces/active"),
+    );
+
+    expect(activeRequests).toHaveLength(1);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
   it("stops realtime startup when initial workspace load is unauthorized", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
@@ -1265,6 +1302,75 @@ describe("workspace home helpers", () => {
     const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
 
     expect(paneShadowRoot?.textContent).toContain("实时追加消息");
+  });
+
+  it("does not reconnect the active session websocket when workspace snapshot leaves the active session unchanged", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-attention",
+              name: "需要处理的任务",
+              status: "completed",
+              latest_session_id: "session-1",
+              has_pending_approval: true,
+              has_unseen_turns: true,
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              process_id: "proc-1",
+              entry_index: 1,
+              role: "assistant",
+              content: "初始消息",
+              timestamp: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+
+    FakeWebSocket.instances[0]?.emitOpen();
+    FakeWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-attention",
+          name: "需要处理的任务",
+          status: "completed",
+          latest_session_id: "session-1",
+          has_pending_approval: true,
+          has_unseen_turns: true,
+          updated_at: "2026-03-24T12:01:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    expect(FakeWebSocket.instances[1]?.url).toContain("session_id=session-1");
   });
 
   it("keeps pane order and switches the active workspace without focusing the composer", async () => {

@@ -147,7 +147,9 @@ export class KanbanWorkspaceHome extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener("resize", this.handleResize);
-    void this.initializeWorkspaceHome();
+    if (this.mode !== "mobile-card") {
+      void this.initializeWorkspaceHome();
+    }
   }
 
   disconnectedCallback() {
@@ -170,8 +172,17 @@ export class KanbanWorkspaceHome extends LitElement {
       writePersistedWorkspacePageState(this.pageState);
       if (this.isApiMode) {
         void this.pushWorkspaceView();
-        this.restartRealtimeConnection();
         this.updateDialogPolling();
+      }
+    }
+    if (this.isApiMode && (changedProperties.has("pageState") || changedProperties.has("workspaces"))) {
+      const previousPageState = (changedProperties.get("pageState") as WorkspacePageState | undefined) ?? this.pageState;
+      const previousWorkspaces = (changedProperties.get("workspaces") as KanbanWorkspace[] | undefined) ?? this.workspaces;
+      const previousSessionId = this.getActiveSessionId(previousPageState, previousWorkspaces);
+      const currentSessionId = this.getActiveSessionId(this.pageState, this.workspaces);
+
+      if (previousSessionId !== currentSessionId) {
+        this.restartRealtimeConnection();
       }
     }
   }
@@ -264,7 +275,15 @@ export class KanbanWorkspaceHome extends LitElement {
       this.requestUpdate();
       return;
     }
+    const previousMode = this.mode;
     this.mode = nextMode;
+    if (nextMode === "mobile-card") {
+      this.stopRealtimeSync();
+      return;
+    }
+    if (previousMode === "mobile-card") {
+      void this.initializeWorkspaceHome();
+    }
   };
 
   private async loadWorkspaces() {
@@ -1139,6 +1158,16 @@ export class KanbanWorkspaceHome extends LitElement {
     return this.pageState.activeWorkspaceId
       ? this.workspaces.find((workspace) => workspace.id === this.pageState.activeWorkspaceId)
       : undefined;
+  }
+
+  private getActiveSessionId(
+    pageState: WorkspacePageState,
+    workspaces: KanbanWorkspace[],
+  ) {
+    const activeWorkspace = pageState.activeWorkspaceId
+      ? workspaces.find((workspace) => workspace.id === pageState.activeWorkspaceId)
+      : undefined;
+    return activeWorkspace?.latest_session_id ?? activeWorkspace?.last_session_id ?? "";
   }
 
   private renderWorkspacePanes(

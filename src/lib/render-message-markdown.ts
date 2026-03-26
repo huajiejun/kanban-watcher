@@ -11,6 +11,9 @@ const renderer = {
 
     return `<pre><code class="hljs language-${lang || ""}">${highlighted}</code></pre>`;
   },
+  html(token: Tokens.HTML | Tokens.Tag): string {
+    return escapeHtml(token.text);
+  },
 };
 
 // 配置 marked

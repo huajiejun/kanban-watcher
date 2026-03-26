@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "npm run build:ha && npm run build:web",
+    "build:ha": "vite build --config vite.config.ha.ts",
+    "build:web": "vite build --config vite.config.web.ts",
     "test": "vitest run",
-    "dev": "vite build --watch",
-    "preview": "vite"
+    "dev": "vite build --watch --config vite.config.ha.ts",
+    "preview": "vite --config vite.config.web.ts"
   },
   "dependencies": {
     "highlight.js": "^11.11.1",
