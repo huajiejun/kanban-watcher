@@ -334,15 +334,15 @@ func (s *Server) handleWorkspaceDevServerStop(w http.ResponseWriter, r *http.Req
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	var err error
-	if processID != "" {
-		log.Printf("[HTTP Server] 工作区 %s 优先按 execution process 停止 dev server: process_id=%s", workspaceID, processID)
-		err = s.proxy.StopExecutionProcess(ctx, processID)
-	} else {
-		log.Printf("[HTTP Server] 工作区 %s 未提供 process_id，回退到 workspace execution stop", workspaceID)
-		err = s.proxy.StopDevServer(ctx, workspaceID)
+	if processID == "" {
+		err := "缺少运行中的 dev server process_id，拒绝回退到 workspace execution stop"
+		log.Printf("[HTTP Server] 工作区 %s 停止 dev server 失败: %s", workspaceID, err)
+		http.Error(w, err, http.StatusConflict)
+		return
 	}
 
+	log.Printf("[HTTP Server] 工作区 %s 优先按 execution process 停止 dev server: process_id=%s", workspaceID, processID)
+	err := s.proxy.StopExecutionProcess(ctx, processID)
 	if err != nil {
 		log.Printf("[HTTP Server] 工作区 %s 停止 dev server 失败: %v", workspaceID, err)
 		statusCode := http.StatusInternalServerError

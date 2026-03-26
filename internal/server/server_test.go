@@ -150,7 +150,9 @@ func TestHandleWorkspaceMessageMapsNoScriptConfiguredToConflict(t *testing.T) {
 }
 
 func TestHandleWorkspaceMessageStopsDevServer(t *testing.T) {
+	upstreamCalled := false
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamCalled = true
 		if r.URL.Path != "/api/workspaces/ws-1/execution/stop" {
 			http.NotFound(w, r)
 			return
@@ -170,11 +172,14 @@ func TestHandleWorkspaceMessageStopsDevServer(t *testing.T) {
 
 	srv.handleWorkspaceMessage(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusOK, rr.Body.String())
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusConflict, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), `"action":"dev-server-stop"`) {
-		t.Fatalf("body = %s, want action dev-server-stop", rr.Body.String())
+	if !strings.Contains(rr.Body.String(), "缺少运行中的 dev server process_id") {
+		t.Fatalf("body = %s, want missing process id error", rr.Body.String())
+	}
+	if upstreamCalled {
+		t.Fatal("未提供 process_id 时仍然调用了上游 workspace stop")
 	}
 }
 
@@ -209,7 +214,7 @@ func TestHandleWorkspaceMessageStopsDevServerByExecutionProcessWhenProcessIDProv
 
 func TestHandleWorkspaceMessageStopsDevServerLogsWorkspaceID(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/workspaces/ws-1/execution/stop" {
+		if r.URL.Path != "/api/execution-processes/proc-dev-1/stop" {
 			http.NotFound(w, r)
 			return
 		}
@@ -228,7 +233,7 @@ func TestHandleWorkspaceMessageStopsDevServerLogsWorkspaceID(t *testing.T) {
 
 	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", true, nil, nil)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/workspace/ws-1/dev-server", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/workspace/ws-1/dev-server?process_id=proc-dev-1", nil)
 	rr := httptest.NewRecorder()
 
 	srv.handleWorkspaceMessage(rr, req)
@@ -243,6 +248,9 @@ func TestHandleWorkspaceMessageStopsDevServerLogsWorkspaceID(t *testing.T) {
 	}
 	if !strings.Contains(logOutput, "workspace_id=ws-1") {
 		t.Fatalf("log = %q, want workspace_id", logOutput)
+	}
+	if !strings.Contains(logOutput, "process_id=proc-dev-1") {
+		t.Fatalf("log = %q, want process_id", logOutput)
 	}
 }
 
