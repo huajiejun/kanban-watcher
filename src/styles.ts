@@ -305,8 +305,8 @@ export const workspaceHomeStyles = css`
 
   .workspace-home-sidebar-toggle {
     position: absolute;
-    top: -4px;
-    left: 0;
+    top: -12px;
+    left: -8px;
     z-index: 30;
     display: inline-flex;
     align-items: center;
