@@ -2026,7 +2026,7 @@ describe("workspace home helpers", () => {
     expect(stopRequests).toHaveLength(0);
   });
 
-  it("disables the open browser button without an active workspace or missing browser url, then opens the active workspace url", async () => {
+  it("does not render the old sidebar browser button after moving preview entry into the pane header", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -2062,30 +2062,11 @@ describe("workspace home helpers", () => {
     });
 
     vi.stubGlobal("fetch", fetchMock);
-    const openMock = vi.fn();
-    vi.stubGlobal("open", openMock);
 
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const openBrowserButton = element.shadowRoot?.querySelector(
-      ".workspace-home-open-browser",
-    ) as HTMLButtonElement | null;
-    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
-
-    expect(openBrowserButton?.disabled).toBe(true);
-
-    (cards[1] as HTMLButtonElement).click();
-    await flushElement(element);
-    expect(openBrowserButton?.disabled).toBe(true);
-
-    (cards[0] as HTMLButtonElement).click();
-    await flushElement(element);
-    expect(openBrowserButton?.disabled).toBe(false);
-
-    openBrowserButton?.click();
-
-    expect(openMock).toHaveBeenCalledWith("http://127.0.0.1:4173", "_blank", "noopener");
+    expect(element.shadowRoot?.querySelector(".workspace-home-open-browser")).toBeNull();
   });
 
   it("calls the workspace dev-server api when clicking run and shows local error feedback on failure", async () => {
@@ -2132,8 +2113,13 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const runButtons = element.shadowRoot?.querySelectorAll(".task-card-run") ?? [];
-    (runButtons[0] as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement | null;
+    (pane?.shadowRoot?.querySelector(".dialog-dev-server-toggle") as HTMLButtonElement).click();
     await flushElement(element);
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -2174,9 +2160,17 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const runButton = element.shadowRoot?.querySelector(".task-card-run") as HTMLButtonElement | null;
-    expect(runButton?.disabled).toBe(true);
-    expect(runButton?.textContent).toContain("运行中");
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement | null;
+    const runButton = pane?.shadowRoot?.querySelector(
+      ".dialog-dev-server-toggle",
+    ) as HTMLButtonElement | null;
+    expect(runButton?.getAttribute("data-dev-server-state")).toBe("running");
+    expect(runButton?.textContent).toContain("❚❚");
   });
 
   it("prevents duplicate dev-server requests while the previous start request is still pending", async () => {
@@ -2230,14 +2224,23 @@ describe("workspace home helpers", () => {
     const element = createElement();
     await waitForWorkspaceList(element);
 
-    const runButton = element.shadowRoot?.querySelector(".task-card-run") as HTMLButtonElement;
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement | null;
+    const runButton = pane?.shadowRoot?.querySelector(
+      ".dialog-dev-server-toggle",
+    ) as HTMLButtonElement;
     runButton.click();
     await flushElement(element);
     runButton.click();
     await flushElement(element);
 
-    const startRequestsBeforeResolve = fetchMock.mock.calls.filter(([url]) =>
-      readRequestUrl(url as RequestInfo | URL).includes("/api/workspace/ws-1/dev-server"),
+    const startRequestsBeforeResolve = fetchMock.mock.calls.filter(([url, init]) =>
+      readRequestUrl(url as RequestInfo | URL).includes("/api/workspace/ws-1/dev-server") &&
+      (init as RequestInit | undefined)?.method === "POST",
     );
     expect(startRequestsBeforeResolve).toHaveLength(1);
     expect(runButton.disabled).toBe(true);
@@ -2245,5 +2248,143 @@ describe("workspace home helpers", () => {
 
     resolveStartRequest?.();
     await flushElement(element);
+  });
+
+  it("shows dev server controls in the active pane header and opens a preview drawer with iframe", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "运行中的工作区",
+              status: "completed",
+              has_running_dev_server: true,
+              browser_url: "https://relay.example/ws-1",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement | null;
+    const paneRoot = pane?.shadowRoot;
+    const toggle = paneRoot?.querySelector(".dialog-dev-server-toggle") as HTMLButtonElement | null;
+    const preview = paneRoot?.querySelector(
+      ".dialog-dev-server-preview",
+    ) as HTMLButtonElement | null;
+
+    expect(toggle?.getAttribute("data-dev-server-state")).toBe("running");
+    expect(preview).not.toBeNull();
+
+    preview?.click();
+    await flushElement(element);
+
+    const iframe = element.shadowRoot?.querySelector(
+      ".workspace-home-preview-drawer-frame",
+    ) as HTMLIFrameElement | null;
+    expect(iframe).not.toBeNull();
+    expect(iframe?.src).toContain("https://relay.example/ws-1");
+  });
+
+  it("sends a dev-server stop request when clicking the running pause control in the pane header", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "运行中的工作区",
+              status: "completed",
+              has_running_dev_server: true,
+              browser_url: "https://relay.example/ws-1",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-1/dev-server")) {
+        expect(init?.method).toBe("DELETE");
+        return createJsonResponse({
+          success: true,
+          workspace_id: "ws-1",
+          action: "dev-server-stop",
+          message: "已停止 dev server",
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement | null;
+    const pauseButton = pane?.shadowRoot?.querySelector(
+      ".dialog-dev-server-toggle",
+    ) as HTMLButtonElement | null;
+
+    pauseButton?.click();
+    await flushElement(element);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/workspace/ws-1/dev-server"),
+      expect.objectContaining({ method: "DELETE" }),
+    );
   });
 });

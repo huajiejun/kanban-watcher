@@ -234,6 +234,54 @@ export const workspaceHomeStyles = css`
     opacity: 0.56;
   }
 
+  .workspace-home-preview-drawer {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: min(42vw, 560px);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+    border-radius: 18px;
+    background: var(--card-background-color, #111827);
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 24%, transparent);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+    z-index: 6;
+  }
+
+  .workspace-home-preview-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .workspace-home-preview-drawer-title {
+    font-size: 0.94rem;
+    font-weight: 700;
+  }
+
+  .workspace-home-preview-drawer-close {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .workspace-home-preview-drawer-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 12px;
+    background: #fff;
+  }
+
   .workspace-home-hero {
     display: grid;
     gap: 8px;
@@ -815,6 +863,35 @@ export const cardStyles = css`
     color: inherit;
     cursor: pointer;
     font: inherit;
+  }
+
+  .dialog-dev-server-toggle,
+  .dialog-dev-server-preview {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dialog-dev-server-toggle[data-dev-server-state="idle"],
+  .dialog-dev-server-toggle[data-dev-server-state="starting"] {
+    color: #94a3b8;
+  }
+
+  .dialog-dev-server-toggle[data-dev-server-state="running"],
+  .dialog-dev-server-toggle[data-dev-server-state="stopping"] {
+    color: #ef4444;
+  }
+
+  .dialog-dev-server-preview {
+    color: #38bdf8;
   }
 
   .dialog-messages {

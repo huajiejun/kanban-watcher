@@ -1,6 +1,7 @@
 import type {
   ActiveWorkspacesResponse,
   SessionMessagesResponse,
+  VibeInfoResponse,
   WorkspaceViewResponse,
   WorkspaceMessageResponse,
   WorkspaceQueueStatusResponse,
@@ -55,6 +56,19 @@ export async function fetchActiveWorkspaces({
 }: RequestOptions): Promise<ActiveWorkspacesResponse> {
   return fetchJSON<ActiveWorkspacesResponse>(
     `${normalizeBaseUrl(baseUrl)}/api/workspaces/active`,
+    {
+      method: "GET",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function fetchVibeInfo({
+  baseUrl,
+  apiKey,
+}: RequestOptions): Promise<VibeInfoResponse> {
+  return fetchJSON<VibeInfoResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/info`,
     {
       method: "GET",
       headers: buildHeaders(apiKey),
@@ -236,6 +250,22 @@ export async function startWorkspaceDevServer({
     `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/dev-server`,
     {
       method: "POST",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function stopWorkspaceDevServer({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<WorkspaceMessageResponse> {
+  return fetchJSON<WorkspaceMessageResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/dev-server`,
+    {
+      method: "DELETE",
       headers: buildHeaders(apiKey),
     },
   );

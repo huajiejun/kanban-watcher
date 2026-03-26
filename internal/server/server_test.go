@@ -143,3 +143,61 @@ func TestHandleWorkspaceMessageMapsNoScriptConfiguredToConflict(t *testing.T) {
 		t.Fatalf("body = %s, want no-script message", rr.Body.String())
 	}
 }
+
+func TestHandleWorkspaceMessageStopsDevServer(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/workspaces/ws-1/execution/stop" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
+	}))
+	defer upstream.Close()
+
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", nil, nil)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/workspace/ws-1/dev-server", nil)
+	rr := httptest.NewRecorder()
+
+	srv.handleWorkspaceMessage(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"action":"dev-server-stop"`) {
+		t.Fatalf("body = %s, want action dev-server-stop", rr.Body.String())
+	}
+}
+
+func TestHandleInfoProxiesVibeInfo(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/info" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodGet {
+			t.Fatalf("method = %s, want GET", r.Method)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{"config":{"preview_proxy_port":53480}}}`))
+	}))
+	defer upstream.Close()
+
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", nil, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/info", nil)
+	rr := httptest.NewRecorder()
+
+	srv.handleInfo(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"preview_proxy_port":53480`) {
+		t.Fatalf("body = %s, want preview_proxy_port", rr.Body.String())
+	}
+}

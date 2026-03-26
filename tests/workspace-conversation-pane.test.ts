@@ -49,6 +49,9 @@ function createElement() {
   element.queueStatus = {
     status: "empty",
   } as WorkspaceQueueStatusResponse;
+  (element as WorkspaceConversationPane & { devServerState?: string }).devServerState = "idle";
+  (element as WorkspaceConversationPane & { showDevServerPreview?: boolean }).showDevServerPreview =
+    false;
 
   document.body.append(element);
   return element;
@@ -202,6 +205,61 @@ describe("workspace-conversation-pane", () => {
       detail: "send",
     });
     expect(keydownEvent.defaultPrevented).toBe(true);
+  });
+
+  it("renders a gray play control in the header when dev server is idle", async () => {
+    const element = createElement();
+
+    await element.updateComplete;
+
+    const toggle = element.shadowRoot?.querySelector(
+      ".dialog-dev-server-toggle",
+    ) as HTMLButtonElement | null;
+    const preview = element.shadowRoot?.querySelector(".dialog-dev-server-preview");
+
+    expect(toggle).not.toBeNull();
+    expect(toggle?.getAttribute("data-dev-server-state")).toBe("idle");
+    expect(toggle?.textContent).toContain("▶");
+    expect(preview).toBeNull();
+  });
+
+  it("renders a pause control and preview button in the header when dev server is running", async () => {
+    const element = createElement();
+    (element as WorkspaceConversationPane & { devServerState?: string }).devServerState = "running";
+    (element as WorkspaceConversationPane & { showDevServerPreview?: boolean }).showDevServerPreview =
+      true;
+
+    await element.updateComplete;
+
+    const toggle = element.shadowRoot?.querySelector(
+      ".dialog-dev-server-toggle",
+    ) as HTMLButtonElement | null;
+    const preview = element.shadowRoot?.querySelector(
+      ".dialog-dev-server-preview",
+    ) as HTMLButtonElement | null;
+
+    expect(toggle?.getAttribute("data-dev-server-state")).toBe("running");
+    expect(toggle?.textContent).toContain("❚❚");
+    expect(preview).not.toBeNull();
+  });
+
+  it("emits dedicated header events for dev server toggle and preview open", async () => {
+    const element = createElement();
+    (element as WorkspaceConversationPane & { devServerState?: string }).devServerState = "running";
+    (element as WorkspaceConversationPane & { showDevServerPreview?: boolean }).showDevServerPreview =
+      true;
+    const toggleListener = vi.fn();
+    const previewListener = vi.fn();
+    element.addEventListener("dev-server-toggle", toggleListener);
+    element.addEventListener("dev-server-preview-toggle", previewListener);
+
+    await element.updateComplete;
+
+    (element.shadowRoot?.querySelector(".dialog-dev-server-toggle") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".dialog-dev-server-preview") as HTMLButtonElement).click();
+
+    expect(toggleListener).toHaveBeenCalledTimes(1);
+    expect(previewListener).toHaveBeenCalledTimes(1);
   });
 
   it("marks a targeted assistant message with smooth reveal styling", async () => {

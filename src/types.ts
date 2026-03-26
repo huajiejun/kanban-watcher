@@ -77,6 +77,15 @@ export interface ActiveWorkspacesResponse {
   workspaces?: LocalWorkspaceSummary[];
 }
 
+export interface VibeInfoResponse {
+  success?: boolean;
+  data?: {
+    config?: {
+      preview_proxy_port?: number;
+    };
+  };
+}
+
 export interface WorkspaceViewResponse {
   open_workspace_ids?: string[];
   active_workspace_id?: string;

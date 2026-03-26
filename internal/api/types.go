@@ -21,6 +21,20 @@ type executionProcessAPIResponse struct {
 	Message *string                 `json:"message"`
 }
 
+type infoAPIResponse struct {
+	Success bool     `json:"success"`
+	Data    *InfoAPI `json:"data"`
+	Message *string  `json:"message"`
+}
+
+type InfoAPI struct {
+	Config *InfoConfig `json:"config"`
+}
+
+type InfoConfig struct {
+	PreviewProxyPort *int `json:"preview_proxy_port"`
+}
+
 // WorkspaceSummary 工作区状态汇总信息（从 POST /api/workspaces/summaries 获取）
 // 包含最新的构建状态、PR信息、是否有未读消息或待审批项等关键字段
 type WorkspaceSummary struct {

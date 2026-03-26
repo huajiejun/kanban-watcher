@@ -99,6 +99,7 @@ func (s *Server) Start() error {
 
 	// 工作区消息代理接口
 	mux.HandleFunc("/api/workspace/", s.handleWorkspaceMessage)
+	mux.HandleFunc("/api/info", s.handleInfo)
 
 	// 注册额外的路由
 	for _, route := range s.extraRoutes {
@@ -187,6 +188,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 //   DELETE /api/workspace/{workspace_id}/queue
 //   POST /api/workspace/{workspace_id}/stop
 //   POST /api/workspace/{workspace_id}/dev-server
+//   DELETE /api/workspace/{workspace_id}/dev-server
 func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspace/")
 	parts := strings.Split(path, "/")
@@ -274,6 +276,10 @@ func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleWorkspaceDevServer(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if r.Method == http.MethodDelete {
+		s.handleWorkspaceDevServerStop(w, r, workspaceID)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -307,6 +313,70 @@ func (s *Server) handleWorkspaceDevServer(w http.ResponseWriter, r *http.Request
 		"workspace_id": workspaceID,
 		"action":       "dev-server",
 		"message":      "已触发 dev server 启动",
+	})
+}
+
+func (s *Server) handleWorkspaceDevServerStop(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	if err := s.proxy.StopDevServer(ctx, workspaceID); err != nil {
+		log.Printf("[HTTP Server] 工作区 %s 停止 dev server 失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		} else {
+			var businessErr *api.ProxyBusinessError
+			if errors.As(err, &businessErr) {
+				statusCode = http.StatusConflict
+			}
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"workspace_id": workspaceID,
+		"action":       "dev-server-stop",
+		"message":      "已停止 dev server",
+	})
+}
+
+func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	info, err := s.proxy.GetInfo(ctx)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取系统信息失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    info,
 	})
 }
 

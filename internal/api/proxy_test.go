@@ -194,6 +194,58 @@ func TestProxyClientStartDevServerReturnsBusinessErrorWhenScriptMissing(t *testi
 	}
 }
 
+func TestProxyClientStopDevServer(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/workspaces/ws-1/execution/stop" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"data":    map[string]interface{}{},
+		})
+	}))
+	defer server.Close()
+
+	client := NewProxyClient(server.URL)
+	if err := client.StopDevServer(context.Background(), "ws-1"); err != nil {
+		t.Fatalf("StopDevServer 返回错误: %v", err)
+	}
+}
+
+func TestProxyClientGetInfo(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/info" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodGet {
+			t.Fatalf("method = %s, want GET", r.Method)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"data": map[string]interface{}{
+				"config": map[string]interface{}{
+					"preview_proxy_port": 53480,
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewProxyClient(server.URL)
+	info, err := client.GetInfo(context.Background())
+	if err != nil {
+		t.Fatalf("GetInfo 返回错误: %v", err)
+	}
+	if info == nil || info.Config == nil || info.Config.PreviewProxyPort == nil || *info.Config.PreviewProxyPort != 53480 {
+		t.Fatalf("info = %#v, want preview_proxy_port 53480", info)
+	}
+}
+
 func testProxyMessageContext() *store.MessageContext {
 	return &store.MessageContext{
 		WorkspaceID:        "ws-1",
