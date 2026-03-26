@@ -1212,10 +1212,13 @@ export class KanbanWorkspaceHome extends LitElement {
     const queueStatus = this.queueStatusByWorkspace[workspace.id];
     const isRunning = workspace.status === "running";
     const statusAccentClass = getStatusMeta(workspace).accentClass;
+    // 工作区路径：~/github/{工作区名}
+    const workspacePath = `${process.env.HOME || "/Users/huajiejun"}/github/${workspace.name}`;
 
     return html`
       <workspace-conversation-pane
         .workspaceName=${workspace.name}
+        .workspacePath=${workspacePath}
         .messages=${this.messagesByWorkspace[workspace.id] ?? []}
         .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
         .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}
