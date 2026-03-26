@@ -280,6 +280,29 @@ export const workspaceHomeStyles = css`
     align-content: start;
   }
 
+  .workspace-home-sidebar .task-card {
+    padding: 0;
+  }
+
+  .workspace-home-sidebar .task-card-main {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    appearance: none;
+  }
+
+  .workspace-home-sidebar .meta-files {
+    justify-self: end;
+    white-space: nowrap;
+  }
+
   .workspace-home-sidebar-toggle {
     position: absolute;
     top: 10px;

@@ -186,8 +186,12 @@ describe("workspace home helpers", () => {
     expect(homeCssText).toContain("background: transparent;");
     expect(homeCssText).toContain("box-shadow: none;");
     expect(homeCssText).toContain("backdrop-filter: none;");
-    expect(homeCssText).not.toContain(".task-card-main");
-    expect(homeCssText).not.toContain(".meta-files {\n    justify-self: end;");
+    expect(homeCssText).toContain(".workspace-home-sidebar .task-card");
+    expect(homeCssText).toContain(".workspace-home-sidebar .task-card-main");
+    expect(homeCssText).toContain("appearance: none");
+    expect(homeCssText).toContain("padding: 9px 12px");
+    expect(homeCssText).toContain(".workspace-home-sidebar .meta-files");
+    expect(homeCssText).toContain("justify-self: end");
     expect(listCssText).toContain(".task-card");
     expect(listCssText).toContain("border: 1px solid");
     expect(listCssText).toContain(".task-card[data-selected=\"true\"]");
