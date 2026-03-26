@@ -2,17 +2,37 @@
 
 ## start-dev.sh
 
-根据 worktree ID 自动分配固定端口的前后端启动脚本。
+根据工作区 ID 自动分配固定端口的前后端启动脚本。
 
 ### 用法
 
 ```bash
-# 方式1: 自动检测 worktree ID
-./scripts/start-dev.sh
+# 启动服务
+./scripts/start-dev.sh start 1467
 
-# 方式2: 指定 worktree ID
-./scripts/start-dev.sh 5590
+# 埥看状态
+./scripts/start-dev.sh status 1467
+
+# 埥看所有运行中的服务
+./scripts/start-dev.sh status
+
+# 停止服务
+./scripts/start-dev.sh stop 1467
+
+# 重启服务
+./scripts/start-dev.sh restart 1467
 ```
+
+如果不指定 worktree_id，脚本会自动从当前目录名推断。
+
+### 命令说明
+
+| 命令 | 说明 |
+|-----|------|
+| `start` | 启动前后端服务 |
+| `stop` | 停止前后端服务 |
+| `status` | 查看服务状态（不指定 ID 则显示所有） |
+| `restart` | 重启服务 |
 
 ### 端口规则
 
@@ -39,13 +59,4 @@
 
 - 后端: `/tmp/kanban-backend-{port}.log`
 - 前端: `/tmp/kanban-frontend-{port}.log`
-
-### 停止服务
-
-```bash
-# 停止后端
-kill $(lsof -t -i :18615)
-
-# 停止前端
-kill $(lsof -t -i :16615)
-```
+- PID 文件: `/tmp/kanban-dev/`
