@@ -29,3 +29,6 @@ database:
 http_api:
   port: 7778
   api_key: "change-me"
+
+auth:
+  enabled: false  # 关闭登录认证

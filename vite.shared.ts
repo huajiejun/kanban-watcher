@@ -1,3 +1,6 @@
+// 从环境变量获取后端端口，默认 7778
+const backendPort = process.env.VITE_BACKEND_PORT || "7778";
+
 export const sharedViteConfig = {
   test: {
     environment: "jsdom",
@@ -7,7 +10,7 @@ export const sharedViteConfig = {
     proxy: {
       // 代理 API 请求到后端服务，支持移动端通过 frp 访问
       "/api": {
-        target: "http://localhost:7778",
+        target: `http://localhost:${backendPort}`,
         changeOrigin: true,
         ws: true,
       },
