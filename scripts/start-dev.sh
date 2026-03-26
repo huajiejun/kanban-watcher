@@ -20,13 +20,22 @@ if [[ "$COMMAND" != "start" && "$COMMAND" != "stop" && "$COMMAND" != "status" &&
 fi
 
 if [ -z "$WORKTREE_ID" ]; then
-    # 尝试从当前目录名获取 worktree_id
-    CURRENT_DIR=$(basename $(dirname $(pwd)))
-    if [[ "$CURRENT_DIR" =~ ^[a-f0-9]{4}- ]]; then
-        WORKTREE_ID=$(echo "$CURRENT_DIR" | cut -d'-' -f1)
+    # 优先从 git 分支名获取 worktree_id
+    # 分支名格式: vibe/1467-nginx -> 提取 1467
+    BRANCH_NAME=$(git branch --show-current 2>/dev/null || echo "")
+    if [[ "$BRANCH_NAME" =~ ^vibe/([0-9a-f]{4})- ]]; then
+        WORKTREE_ID="${BASH_REMATCH[1]}"
+    elif [[ "$BRANCH_NAME" =~ ^([0-9a-f]{4})- ]]; then
+        WORKTREE_ID="${BASH_REMATCH[1]}"
     else
-        # 使用目录名的 hash
-        WORKTREE_ID=$(echo "$(pwd)" | cksum | cut -d' ' -f1 | xargs printf '%04x' | cut -c1-4)
+        # 尝试从当前目录名获取 worktree_id
+        CURRENT_DIR=$(basename $(dirname $(pwd)))
+        if [[ "$CURRENT_DIR" =~ ^([0-9a-f]{4})- ]]; then
+            WORKTREE_ID="${BASH_REMATCH[1]}"
+        else
+            # 使用目录名的 hash
+            WORKTREE_ID=$(echo "$(pwd)" | cksum | cut -d' ' -f1 | xargs printf '%04x' | cut -c1-4)
+        fi
     fi
 fi
 
