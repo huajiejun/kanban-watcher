@@ -9,9 +9,9 @@ set -e
 # 配置
 FB_PORT="${FB_PORT:-9394}"
 FB_ROOT="${FB_ROOT:-${HOME}}"  # 默认访问用户主目录
-FB_CONFIG="${HOME}/.filebrowser/filebrowser.json"
+FB_DB="${HOME}/.filebrowser/filebrowser.db"
 FB_LOG="${HOME}/.filebrowser/filebrowser.log"
-FB_DB_DIR="${HOME}/.filebrowser"
+FB_BIN="${HOME}/bin/filebrowser"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -34,47 +34,20 @@ log_error() {
 
 # 检查 File Browser 是否安装
 check_installation() {
-    if ! command -v filebrowser &> /dev/null; then
+    if [ ! -f "${FB_BIN}" ]; then
         log_error "File Browser 未安装"
         echo ""
         echo "请先安装 File Browser："
-        echo "  brew install filebrowser"
-        echo ""
-        echo "或下载二进制文件："
-        echo "  https://github.com/filebrowser/filebrowser/releases"
+        echo "  1. mkdir -p ~/bin"
+        echo "  2. 下载: https://github.com/filebrowser/filebrowser/releases"
+        echo "  3. cp filebrowser ~/bin/"
         exit 1
-    fi
-}
-
-# 创建配置目录
-setup_config() {
-    mkdir -p "${FB_DB_DIR}"
-
-    if [ ! -f "${FB_CONFIG}" ]; then
-        log_info "创建 File Browser 配置文件..."
-        cat > "${FB_CONFIG}" << 'EOF'
-{
-  "port": 8080,
-  "baseURL": "",
-  "address": "127.0.0.1",
-  "database": "/Users/huajiejun/.filebrowser/filebrowser.db",
-  "log": "stdout",
-  "root": "/Users/huajiejun",
-  "username": "admin",
-  "password": "$2a$10$xxxxxxx",  # 请使用 'filebrowser hash' 生成
-  "theme": "light"
-}
-EOF
-        log_warn "请编辑 ${FB_CONFIG} 设置密码："
-        echo "  1. 运行: filebrowser hash <your-password>"
-        echo "  2. 将生成的哈希值填入 config.json 的 password 字段"
     fi
 }
 
 # 启动 File Browser
 start_filebrowser() {
     check_installation
-    setup_config
 
     # 检查是否已在运行
     if lsof -i :${FB_PORT} &> /dev/null; then
@@ -87,8 +60,13 @@ start_filebrowser() {
     log_info "访问地址: http://127.0.0.1:${FB_PORT}"
     log_info "根目录: ${FB_ROOT}"
 
-    # 后台启动
-    nohup filebrowser -c "${FB_CONFIG}" > "${FB_LOG}" 2>&1 &
+    # 后台启动（使用命令行参数，不用配置文件）
+    nohup "${FB_BIN}" \
+        -d "${FB_DB}" \
+        -r "${FB_ROOT}" \
+        -p "${FB_PORT}" \
+        --log "stdout" \
+        > "${FB_LOG}" 2>&1 &
 
     sleep 2
 
@@ -97,6 +75,9 @@ start_filebrowser() {
         echo ""
         echo "本地访问: http://127.0.0.1:${FB_PORT}"
         echo "日志文件: ${FB_LOG}"
+        echo ""
+        echo "首次使用需要设置用户名密码："
+        echo "  ${FB_BIN} users update admin --password <新密码>"
     else
         log_error "启动失败，请检查日志: ${FB_LOG}"
     fi
@@ -142,16 +123,6 @@ show_log() {
     fi
 }
 
-# 生成密码哈希
-hash_password() {
-    if command -v filebrowser &> /dev/null; then
-        echo "请输入密码，然后按 Ctrl+C"
-        filebrowser hash
-    else
-        log_error "File Browser 未安装"
-    fi
-}
-
 # 清理旧进程
 cleanup() {
     local pid=$(lsof -ti :${FB_PORT} 2>/dev/null || true)
@@ -176,12 +147,11 @@ show_help() {
     echo "  restart   重启 File Browser"
     echo "  status    查看运行状态"
     echo "  log       查看日志"
-    echo "  hash      生成密码哈希"
     echo "  cleanup   清理旧进程"
     echo "  help      显示此帮助"
     echo ""
     echo "环境变量:"
-    echo "  FB_PORT   端口号 (默认: 8080)"
+    echo "  FB_PORT   端口号 (默认: 9394)"
     echo "  FB_ROOT   根目录 (默认: ${HOME})"
     echo ""
 }
@@ -204,9 +174,6 @@ case "${1:-start}" in
         ;;
     log)
         show_log
-        ;;
-    hash)
-        hash_password
         ;;
     cleanup)
         cleanup
