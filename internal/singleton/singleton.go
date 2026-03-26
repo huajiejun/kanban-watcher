@@ -23,7 +23,13 @@ import (
 //
 // 使用方式：在 main 函数最开始调用，若返回错误则退出程序
 func Acquire(appName string) (*Lock, error) {
-	pidFile := getPidFilePath(appName)
+	return AcquireWithInstance(appName, "")
+}
+
+// AcquireWithInstance 尝试获取单实例锁，支持多个实例（通过 instanceID 区分）
+// instanceID 用于区分不同的实例，例如端口号
+func AcquireWithInstance(appName, instanceID string) (*Lock, error) {
+	pidFile := getPidFilePathWithInstance(appName, instanceID)
 
 	// 确保目录存在
 	dir := filepath.Dir(pidFile)
@@ -145,19 +151,35 @@ func checkProcessByName(pid int) bool {
 // macOS: ~/Library/Application Support/kanban-watcher/kanban-watcher.pid
 // Linux: ~/.config/kanban-watcher/kanban-watcher.pid
 func getPidFilePath(appName string) string {
+	return getPidFilePathWithInstance(appName, "")
+}
+
+// getPidFilePathWithInstance 获取带实例ID的 PID 文件路径
+// 支持多实例运行，每个实例使用不同的 PID 文件
+func getPidFilePathWithInstance(appName, instanceID string) string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		// 降级到临时目录
+		if instanceID != "" {
+			return filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s.pid", appName, instanceID))
+		}
 		return filepath.Join(os.TempDir(), appName+".pid")
+	}
+
+	var pidFileName string
+	if instanceID != "" {
+		pidFileName = fmt.Sprintf("%s-%s.pid", appName, instanceID)
+	} else {
+		pidFileName = appName + ".pid"
 	}
 
 	// macOS 使用 Library/Application Support
 	if os.Getenv("GOOS") == "darwin" || runtime.GOOS == "darwin" {
-		return filepath.Join(home, "Library", "Application Support", appName, appName+".pid")
+		return filepath.Join(home, "Library", "Application Support", appName, pidFileName)
 	}
 
 	// Linux/其他使用 .config
-	return filepath.Join(home, ".config", appName, appName+".pid")
+	return filepath.Join(home, ".config", appName, pidFileName)
 }
 
 // AcquireWithKill 尝试获取单实例锁，如果已有实例在运行则 kill 它
