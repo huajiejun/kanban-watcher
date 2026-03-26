@@ -135,12 +135,62 @@ describe("workspace-section-list", () => {
     }) as EventListener);
 
     await element.updateComplete;
-    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
 
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ id: "ws-3", name: "Workspace 3" }),
     );
+  });
+
+  it("renders sibling select and run buttons and keeps run action isolated", async () => {
+    const idleWorkspace = createWorkspace({ id: "ws-4", name: "Workspace 4" });
+    const runningWorkspace = createWorkspace({
+      id: "ws-5",
+      name: "Workspace 5",
+      status: "running",
+    });
+    const element = createElement([
+      {
+        key: "idle",
+        label: "空闲",
+        workspaces: [idleWorkspace, runningWorkspace],
+      },
+    ]);
+    const onSelect = vi.fn();
+    const onRun = vi.fn();
+
+    element.addEventListener("workspace-select", ((event: CustomEvent<KanbanWorkspace>) => {
+      onSelect(event.detail);
+    }) as EventListener);
+    element.addEventListener("workspace-run", ((event: CustomEvent<KanbanWorkspace>) => {
+      onRun(event.detail);
+    }) as EventListener);
+
+    await element.updateComplete;
+
+    const cards = [...(element.shadowRoot?.querySelectorAll(".task-card") ?? [])];
+    const idleCard = cards[0] as HTMLElement;
+    const runningCard = cards[1] as HTMLElement;
+    const idleButtons = idleCard.querySelectorAll("button");
+    const runningButtons = runningCard.querySelectorAll("button");
+
+    expect(idleCard.tagName).toBe("DIV");
+    expect(idleButtons).toHaveLength(2);
+    expect(idleButtons[0]?.classList.contains("task-card-main")).toBe(true);
+    expect(idleButtons[1]?.classList.contains("task-card-run")).toBe(true);
+
+    (idleButtons[1] as HTMLButtonElement).click();
+
+    expect(onRun).toHaveBeenCalledTimes(1);
+    expect(onRun).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ws-4", name: "Workspace 4" }),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+
+    expect(runningButtons).toHaveLength(2);
+    expect((runningButtons[1] as HTMLButtonElement).disabled).toBe(true);
+    expect(runningButtons[1]?.textContent).toContain("运行中");
   });
 
   it("hides section body content when section is collapsed", async () => {

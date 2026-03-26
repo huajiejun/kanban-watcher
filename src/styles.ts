@@ -58,7 +58,10 @@ export const workspaceSectionListStyles = css`
 
   .task-card {
     --task-card-accent: color-mix(in srgb, var(--divider-color, #cbd5e1) 32%, transparent);
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 8px;
     width: 100%;
     padding: 9px 12px;
     border-radius: 12px;
@@ -71,8 +74,6 @@ export const workspaceSectionListStyles = css`
     border-left-width: 3px;
     text-align: left;
     color: inherit;
-    font: inherit;
-    cursor: pointer;
   }
 
   .task-card[data-selected="true"] {
@@ -104,6 +105,38 @@ export const workspaceSectionListStyles = css`
     font-size: 0.98rem;
     font-weight: 600;
     line-height: 1.2;
+  }
+
+  .task-card-main,
+  .task-card-run {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  .task-card-main {
+    min-width: 0;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .task-card-run {
+    align-self: center;
+    min-width: 72px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 38%, transparent);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .task-card-run:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
   }
 
   .tone-brand {
