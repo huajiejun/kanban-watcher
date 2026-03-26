@@ -30,6 +30,62 @@ export interface KanbanWorkspace {
   pr_url?: string;
   is_pinned?: boolean;
   isPinned?: boolean;
+  // 差异文件相关
+  diff_stats?: DiffStats;
+}
+
+// 差异文件变更类型
+export type DiffKind = "added" | "modified" | "deleted" | "renamed";
+
+// 文件差异
+export interface Diff {
+  change: DiffKind;
+  old_path?: string;
+  new_path?: string;
+  old_content?: string;
+  new_content?: string;
+  additions?: number;
+  deletions?: number;
+  content_omitted: boolean;
+  repo_id?: string;
+}
+
+// 差异统计
+export interface DiffStats {
+  files_changed: number;
+  lines_added: number;
+  lines_removed: number;
+}
+
+// 工作区差异汇总
+export interface WorkspaceDiff {
+  workspace_id: string;
+  updated_at: string;
+  diffs: Record<string, Diff>;
+  stats: DiffStats;
+}
+
+// 分支状态
+export interface BranchStatus {
+  commits_ahead: number;
+  commits_behind: number;
+  has_uncommitted_changes: boolean;
+  head_oid: string;
+  uncommitted_count: number;
+  untracked_count: number;
+  target_branch_name: string;
+  remote_commits_ahead: number;
+  remote_commits_behind: number;
+  is_rebase_in_progress: boolean;
+  conflicted_files: string[];
+  is_target_remote: boolean;
+}
+
+// 仓库分支状态
+export interface RepoBranchStatus {
+  repo_id: string;
+  repo_name: string;
+  status: BranchStatus;
 }
 
 export interface KanbanEntityAttributes {
