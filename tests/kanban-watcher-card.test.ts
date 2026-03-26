@@ -1179,7 +1179,8 @@ describe("kanban-watcher-card", () => {
     taskCard?.click();
     await settleCard(card);
 
-    const stopButton = card.shadowRoot?.querySelector(
+    const pane = getDialogPane(card.shadowRoot);
+    const stopButton = pane?.shadowRoot?.querySelector(
       ".dialog-action-primary",
     ) as HTMLButtonElement | null;
     stopButton?.click();
@@ -1194,8 +1195,164 @@ describe("kanban-watcher-card", () => {
         }),
       }),
     );
-    expect(normalizeText(card.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+    expect(normalizeText(pane?.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
       "已发送停止请求",
+    );
+  });
+
+  it("starts the mobile dialog dev server through the local API", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-dev-start",
+              name: "API Dev Start Workspace",
+              status: "completed",
+              latest_session_id: "session-api-dev-start",
+              updated_at: "2026-03-24T10:00:00Z",
+              has_running_dev_server: false,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-dev-start",
+          workspace_name: "API Dev Start Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          workspace_id: "api-dev-start",
+          message: "开发服务器已启动",
+          execution_processes: [
+            {
+              id: "proc-dev-start",
+              workspace_id: "api-dev-start",
+              status: "running",
+              run_reason: "dev_server",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-dev-start",
+              name: "API Dev Start Workspace",
+              status: "completed",
+              latest_session_id: "session-api-dev-start",
+              updated_at: "2026-03-24T10:00:01Z",
+              has_running_dev_server: true,
+              running_dev_server_process_id: "proc-dev-start",
+            },
+          ],
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const pane = getDialogPane(card.shadowRoot);
+    const toggle = pane?.shadowRoot?.querySelector(
+      ".dialog-dev-server-toggle",
+    ) as HTMLButtonElement | null;
+    toggle?.click();
+    await settleCard(card);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://localhost:7778/api/workspace/api-dev-start/dev-server",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "X-API-Key": "test-api-key",
+        }),
+      }),
+    );
+    expect(normalizeText(pane?.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "开发服务器已启动",
+    );
+  });
+
+  it("stops the mobile dialog dev server through the local API", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-dev-stop",
+              name: "API Dev Stop Workspace",
+              status: "completed",
+              latest_session_id: "session-api-dev-stop",
+              updated_at: "2026-03-24T10:00:00Z",
+              has_running_dev_server: true,
+              running_dev_server_process_id: "proc-dev-stop",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          session_id: "session-api-dev-stop",
+          workspace_name: "API Dev Stop Workspace",
+          messages: [],
+          has_more: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          success: true,
+          workspace_id: "api-dev-stop",
+          message: "开发服务器已停止",
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJSONResponse({
+          workspaces: [
+            {
+              id: "api-dev-stop",
+              name: "API Dev Stop Workspace",
+              status: "completed",
+              latest_session_id: "session-api-dev-stop",
+              updated_at: "2026-03-24T10:00:01Z",
+              has_running_dev_server: false,
+            },
+          ],
+        }),
+      );
+
+    const card = await renderApiCard();
+    const taskCard = card.shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+    taskCard?.click();
+    await settleCard(card);
+
+    const pane = getDialogPane(card.shadowRoot);
+    const toggle = pane?.shadowRoot?.querySelector(
+      ".dialog-dev-server-toggle",
+    ) as HTMLButtonElement | null;
+    toggle?.click();
+    await settleCard(card);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/api/workspace/api-dev-stop/dev-server?process_id=proc-dev-stop"),
+      expect.objectContaining({
+        method: "DELETE",
+        headers: expect.objectContaining({
+          "X-API-Key": "test-api-key",
+        }),
+      }),
+    );
+    expect(normalizeText(pane?.shadowRoot?.querySelector(".dialog-feedback")?.textContent)).toContain(
+      "开发服务器已停止",
     );
   });
 

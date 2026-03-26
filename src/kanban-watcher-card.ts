@@ -7,7 +7,9 @@ import {
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
   sendWorkspaceMessage,
+  startWorkspaceDevServer,
   stopWorkspaceExecution,
+  stopWorkspaceDevServer,
 } from "./lib/http-api";
 import { connectRealtime } from "./lib/realtime-api";
 import {
@@ -103,6 +105,9 @@ export class KanbanWatcherCard extends LitElement {
     dialogMessagesByWorkspace: { state: true },
     queueStatusByWorkspace: { state: true },
     optimisticQueueWorkspaceIds: { state: true },
+    startingDevServerWorkspaceIds: { state: true },
+    stoppingDevServerWorkspaceIds: { state: true },
+    devServerProcessIdsByWorkspace: { state: true },
     autoScrollEnabled: { state: true },
     smoothRevealMessageKey: { state: true },
     dynamicButtonsByWorkspace: { state: true },
@@ -134,6 +139,9 @@ export class KanbanWatcherCard extends LitElement {
   private dialogMessagesByWorkspace: Record<string, DialogMessage[]> = {};
   private queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
   private optimisticQueueWorkspaceIds = new Set<string>();
+  private startingDevServerWorkspaceIds = new Set<string>();
+  private stoppingDevServerWorkspaceIds = new Set<string>();
+  private devServerProcessIdsByWorkspace: Record<string, string> = {};
   private autoScrollEnabled = true;
   private messageListScrollHandler?: () => void;
   private smoothRevealMessageKey = "";
@@ -332,6 +340,8 @@ export class KanbanWatcherCard extends LitElement {
             .queueStatus=${queueStatus}
             .isRunning=${isRunning}
             .canQueue=${canQueue}
+            .devServerState=${this.getWorkspaceDevServerState(workspace)}
+            .showDevServerPreview=${Boolean(workspace.browser_url?.trim())}
             .renderMessage=${(message: DialogMessage) => this.renderDialogEntry(message)}
             .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
             @pane-close=${this.closeWorkspaceDialog}
@@ -340,6 +350,7 @@ export class KanbanWatcherCard extends LitElement {
             }}
             @action-click=${(event: CustomEvent<DialogAction>) =>
               void this.handleActionClick(event.detail)}
+            @dev-server-toggle=${() => void this.handleWorkspaceDevServerToggle(workspace)}
             @quick-button-click=${(event: CustomEvent<string>) =>
               void this.handleQuickButtonClick(event.detail)}
           ></workspace-conversation-pane>
@@ -622,6 +633,113 @@ export class KanbanWatcherCard extends LitElement {
       ...this.queueStatusByWorkspace,
       [workspaceId]: response,
     };
+  }
+
+  private setDevServerStarting(workspaceId: string, starting: boolean) {
+    const next = new Set(this.startingDevServerWorkspaceIds);
+    if (starting) {
+      next.add(workspaceId);
+    } else {
+      next.delete(workspaceId);
+    }
+    this.startingDevServerWorkspaceIds = next;
+  }
+
+  private setDevServerStopping(workspaceId: string, stopping: boolean) {
+    const next = new Set(this.stoppingDevServerWorkspaceIds);
+    if (stopping) {
+      next.add(workspaceId);
+    } else {
+      next.delete(workspaceId);
+    }
+    this.stoppingDevServerWorkspaceIds = next;
+  }
+
+  private getWorkspaceDevServerProcessId(workspace: KanbanWorkspace) {
+    return (
+      this.devServerProcessIdsByWorkspace[workspace.id]?.trim() ||
+      workspace.running_dev_server_process_id?.trim() ||
+      ""
+    );
+  }
+
+  private getWorkspaceDevServerState(workspace: KanbanWorkspace) {
+    if (this.startingDevServerWorkspaceIds.has(workspace.id)) {
+      return "starting" as const;
+    }
+    if (this.stoppingDevServerWorkspaceIds.has(workspace.id)) {
+      return "stopping" as const;
+    }
+    if (workspace.has_running_dev_server || workspace.hasRunningDevServer) {
+      return "running" as const;
+    }
+    return "idle" as const;
+  }
+
+  private async handleWorkspaceDevServerToggle(workspace: KanbanWorkspace) {
+    const state = this.getWorkspaceDevServerState(workspace);
+    if (state === "starting" || state === "stopping" || !this.isApiMode) {
+      return;
+    }
+
+    if (state === "running") {
+      await this.handleWorkspaceDevServerStop(workspace);
+      return;
+    }
+
+    await this.handleWorkspaceDevServerStart(workspace);
+  }
+
+  private async handleWorkspaceDevServerStart(workspace: KanbanWorkspace) {
+    this.setDevServerStarting(workspace.id, true);
+    this.actionFeedback = "正在启动开发服务器...";
+
+    try {
+      const response = await startWorkspaceDevServer({
+        baseUrl: this.config!.base_url!,
+        apiKey: this.config?.api_key,
+        workspaceId: workspace.id,
+      });
+      const startedProcess = response.execution_processes?.find(
+        (process) => process.workspace_id === workspace.id,
+      ) ?? response.execution_processes?.[0];
+      if (startedProcess?.id) {
+        this.devServerProcessIdsByWorkspace = {
+          ...this.devServerProcessIdsByWorkspace,
+          [workspace.id]: startedProcess.id,
+        };
+      }
+      this.actionFeedback = response.message?.trim() || "开发服务器已启动";
+      await this.loadActiveWorkspaces();
+    } catch (error) {
+      this.actionFeedback = this.toErrorMessage(error, "启动开发服务器失败");
+    } finally {
+      this.setDevServerStarting(workspace.id, false);
+    }
+  }
+
+  private async handleWorkspaceDevServerStop(workspace: KanbanWorkspace) {
+    this.setDevServerStopping(workspace.id, true);
+    this.actionFeedback = "正在停止开发服务器...";
+
+    try {
+      const processId = this.getWorkspaceDevServerProcessId(workspace);
+      const response = await stopWorkspaceDevServer({
+        baseUrl: this.config!.base_url!,
+        apiKey: this.config?.api_key,
+        workspaceId: workspace.id,
+        processId: processId || undefined,
+      });
+      const nextIds = { ...this.devServerProcessIdsByWorkspace };
+      delete nextIds[workspace.id];
+      this.devServerProcessIdsByWorkspace = nextIds;
+      this.actionFeedback = response.message?.trim() || "开发服务器已停止";
+      await this.loadActiveWorkspaces();
+    } catch (error) {
+      this.actionFeedback = this.toErrorMessage(error, "停止开发服务器失败");
+    } finally {
+      this.setDevServerStopping(workspace.id, false);
+    }
   }
 
   private handleKeyDown = (event: Event) => {
@@ -1221,6 +1339,7 @@ export class KanbanWatcherCard extends LitElement {
       has_pending_approval: workspace.has_pending_approval,
       has_unseen_turns: workspace.has_unseen_turns,
       has_running_dev_server: workspace.has_running_dev_server,
+      running_dev_server_process_id: workspace.running_dev_server_process_id,
       latest_process_completed_at: workspace.latest_process_completed_at,
       updated_at: workspace.updated_at,
       last_message_at: workspace.last_message_at,
