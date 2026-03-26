@@ -4,6 +4,7 @@ import { detectDialogEditLanguage, renderDialogMessage } from "./components/dial
 import {
   cancelWorkspaceQueue,
   fetchActiveWorkspaces,
+  fetchVibeInfo,
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
   sendWorkspaceMessage,
@@ -113,6 +114,7 @@ export class KanbanWatcherCard extends LitElement {
     smoothRevealMessageKey: { state: true },
     dynamicButtonsByWorkspace: { state: true },
     todosByWorkspace: { state: true },
+    webPreviewWorkspaceId: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -158,6 +160,8 @@ export class KanbanWatcherCard extends LitElement {
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
   /** 每个工作区的待办事项列表 */
   private todosByWorkspace: Record<string, TodoItem[]> = {};
+  private webPreviewWorkspaceId?: string;
+  private previewProxyPort?: number;
 
   connectedCallback() {
     super.connectedCallback();
@@ -193,6 +197,7 @@ export class KanbanWatcherCard extends LitElement {
           ${this.renderBoardState(sections)}
         </div>
         ${this.renderDialog()}
+        ${this.renderWebPreviewOverlay()}
       </ha-card>
     `;
   }
@@ -343,7 +348,8 @@ export class KanbanWatcherCard extends LitElement {
             .isRunning=${isRunning}
             .canQueue=${canQueue}
             .devServerState=${this.getWorkspaceDevServerState(workspace)}
-            .showDevServerPreview=${Boolean(workspace.browser_url?.trim())}
+            .showWorkspaceWebPreview=${Boolean(this.getWorkspaceEmbeddedPreviewUrl(workspace))}
+            .showDevServerPreview=${Boolean(this.getWorkspaceEmbeddedPreviewUrl(workspace))}
             .renderMessage=${(message: DialogMessage) => this.renderDialogEntry(message)}
             .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
             @pane-close=${this.closeWorkspaceDialog}
@@ -352,6 +358,7 @@ export class KanbanWatcherCard extends LitElement {
             }}
             @action-click=${(event: CustomEvent<DialogAction>) =>
               void this.handleActionClick(event.detail)}
+            @workspace-web-preview-toggle=${() => this.handleOpenWebPreview(workspace)}
             @dev-server-toggle=${() => void this.handleWorkspaceDevServerToggle(workspace)}
             @quick-button-click=${(event: CustomEvent<string>) =>
               void this.handleQuickButtonClick(event.detail)}
@@ -412,6 +419,7 @@ export class KanbanWatcherCard extends LitElement {
   private closeWorkspaceDialog = () => {
     const workspaceID = this.selectedWorkspaceId;
     this.selectedWorkspaceId = undefined;
+    this.webPreviewWorkspaceId = undefined;
     this.messageDraft = "";
     this.actionFeedback = "";
     this.dialogError = "";
@@ -993,10 +1001,27 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private async initializeApiSync() {
+    await this.loadVibeInfo();
     await this.loadActiveWorkspaces();
     if (!this.apiAccessBlocked && this.isConnected) {
       this.connectBoardRealtimeIfNeeded();
       this.startBoardPolling();
+    }
+  }
+
+  private async loadVibeInfo() {
+    if (this.config?.base_url === undefined) {
+      return;
+    }
+
+    try {
+      const response = await fetchVibeInfo({
+        baseUrl: this.config.base_url,
+        apiKey: this.config.api_key,
+      });
+      this.previewProxyPort = response.data?.config?.preview_proxy_port;
+    } catch {
+      this.previewProxyPort = undefined;
     }
   }
 
@@ -1336,6 +1361,8 @@ export class KanbanWatcherCard extends LitElement {
     return {
       id: workspace.id,
       name: workspace.name || workspace.id,
+      browser_url: workspace.browser_url,
+      browserUrl: (workspace as LocalWorkspaceSummary & { browserUrl?: string }).browserUrl,
       status: workspace.status || "completed",
       latest_session_id: workspace.latest_session_id,
       has_pending_approval: workspace.has_pending_approval,
@@ -1350,6 +1377,89 @@ export class KanbanWatcherCard extends LitElement {
       lines_added: workspace.lines_added ?? 0,
       lines_removed: workspace.lines_removed ?? 0,
     };
+  }
+
+  private getWorkspaceEmbeddedPreviewUrl(workspace: KanbanWorkspace) {
+    const browserUrl = workspace.browser_url?.trim() || workspace.browserUrl?.trim() || "";
+    if (!browserUrl) {
+      return "";
+    }
+
+    try {
+      const parsed = new URL(browserUrl);
+      const host = parsed.hostname.toLowerCase();
+      const isLocalhost = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
+      if (!isLocalhost || !this.previewProxyPort) {
+        return parsed.toString();
+      }
+
+      const devServerPort = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
+      const path = `${parsed.pathname}${parsed.search}`;
+      return `http://${devServerPort}.localhost:${this.previewProxyPort}${path}`;
+    } catch {
+      return browserUrl;
+    }
+  }
+
+  private handleOpenWebPreview(workspace: KanbanWorkspace) {
+    if (!this.getWorkspaceEmbeddedPreviewUrl(workspace)) {
+      return;
+    }
+    this.webPreviewWorkspaceId = workspace.id;
+  }
+
+  private handleCloseWebPreview = () => {
+    this.webPreviewWorkspaceId = undefined;
+  };
+
+  private handleWebPreviewOverlayClick = (event: Event) => {
+    if ((event.target as HTMLElement | null)?.classList.contains("workspace-home-web-preview-overlay")) {
+      this.handleCloseWebPreview();
+    }
+  };
+
+  private stopEventPropagation = (event: Event) => {
+    event.stopPropagation();
+  };
+
+  private renderWebPreviewOverlay() {
+    const workspace = this.allWorkspaces.find((item) => item.id === this.webPreviewWorkspaceId);
+    const previewUrl = workspace ? this.getWorkspaceEmbeddedPreviewUrl(workspace) : "";
+    if (!workspace || !previewUrl) {
+      return nothing;
+    }
+
+    const isMobileWebPreview = window.innerWidth <= 768;
+
+    return html`
+      <div
+        class="workspace-home-web-preview-overlay"
+        data-layout=${isMobileWebPreview ? "mobile" : "desktop"}
+        @click=${this.handleWebPreviewOverlayClick}
+      >
+        <section
+          class=${`workspace-home-web-preview-modal${isMobileWebPreview ? " is-mobile" : ""}`}
+          @click=${this.stopEventPropagation}
+        >
+          <div class="workspace-home-web-preview-header">
+            <div class="workspace-home-web-preview-title">${workspace.name}</div>
+            <button
+              class="workspace-home-web-preview-close"
+              type="button"
+              aria-label="关闭快捷网页"
+              @click=${this.handleCloseWebPreview}
+            >
+              ✕
+            </button>
+          </div>
+          <iframe
+            class="workspace-home-web-preview-frame"
+            src=${previewUrl}
+            title=${`${workspace.name} 快捷网页`}
+          ></iframe>
+        </section>
+      </div>
+    `;
   }
 
   private compareWorkspaces(left: KanbanWorkspace, right: KanbanWorkspace) {
