@@ -2508,4 +2508,106 @@ describe("workspace home helpers", () => {
       expect.objectContaining({ method: "DELETE" }),
     );
   });
+
+  it("updates the pane header back to idle after the dev-server stop request succeeds", async () => {
+    let activeWorkspacesRequestCount = 0;
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        activeWorkspacesRequestCount += 1;
+        return createJsonResponse({
+          workspaces: [
+            activeWorkspacesRequestCount === 1
+              ? {
+                  id: "ws-1",
+                  name: "运行中的工作区",
+                  status: "completed",
+                  has_running_dev_server: true,
+                  running_dev_server_process_id: "proc-dev-1",
+                  browser_url: "https://relay.example/ws-1",
+                  updated_at: "2026-03-24T12:00:00Z",
+                }
+              : {
+                  id: "ws-1",
+                  name: "运行中的工作区",
+                  status: "completed",
+                  has_running_dev_server: false,
+                  updated_at: "2026-03-24T12:00:00Z",
+                },
+          ],
+        });
+      }
+
+      if (url.includes("/api/execution-processes/proc-dev-1")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            id: "proc-dev-1",
+            session_id: "session-1",
+            status: "running",
+          },
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-1/dev-server")) {
+        expect(init?.method).toBe("DELETE");
+        return createJsonResponse({
+          success: true,
+          workspace_id: "ws-1",
+          action: "dev-server-stop",
+          message: "已停止 dev server",
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement | null;
+    let toggle = pane?.shadowRoot?.querySelector(
+      ".dialog-dev-server-toggle",
+    ) as HTMLButtonElement | null;
+    let preview = pane?.shadowRoot?.querySelector(
+      ".dialog-dev-server-preview",
+    ) as HTMLButtonElement | null;
+
+    expect(toggle?.getAttribute("data-dev-server-state")).toBe("running");
+    expect(preview).not.toBeNull();
+
+    toggle?.click();
+    await flushElement(element);
+
+    toggle = pane?.shadowRoot?.querySelector(".dialog-dev-server-toggle") as HTMLButtonElement | null;
+    preview = pane?.shadowRoot?.querySelector(".dialog-dev-server-preview") as HTMLButtonElement | null;
+
+    expect(toggle?.getAttribute("data-dev-server-state")).toBe("idle");
+    expect(preview).toBeNull();
+    expect(element.shadowRoot?.textContent).toContain("已停止 dev server");
+  });
 });
