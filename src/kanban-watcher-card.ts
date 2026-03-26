@@ -37,6 +37,7 @@ import {
   type WorkspaceSectionKey,
 } from "./components/workspace-section-list";
 import { cardStyles } from "./styles";
+import { getWorkspacePath } from "./lib/workspace-path";
 import type {
   ActiveWorkspacesResponse,
   KanbanEntityAttributes,
@@ -333,6 +334,7 @@ export class KanbanWatcherCard extends LitElement {
         >
           <workspace-conversation-pane
             .workspaceName=${workspace.name}
+            .workspacePath=${getWorkspacePath(workspace)}
             .messages=${messages}
             .smoothRevealMessageKey=${this.smoothRevealMessageKey}
             .messageDraft=${this.messageDraft}
