@@ -249,6 +249,9 @@ export class WorkspacePreviewCard extends LitElement {
           >
             <div class="workspace-preview-title-banner">
               <div class="workspace-preview-title">${this.workspaceName}</div>
+              <diff-stats-tag
+                .stats=${this.diffStats}
+              ></diff-stats-tag>
             </div>
           </button>
           <button
