@@ -243,6 +243,17 @@ describe("workspace-conversation-pane", () => {
     expect(preview).not.toBeNull();
   });
 
+  it("declares transparent header controls and a red running dev server toggle", () => {
+    const cssText = Array.isArray(cardStyles)
+      ? cardStyles.map((style) => style.cssText).join("\n")
+      : cardStyles.cssText;
+
+    expect(cssText).toContain(".dialog-dev-server-toggle");
+    expect(cssText).toContain("background: transparent");
+    expect(cssText).toContain(".dialog-dev-server-toggle[data-dev-server-state=\"running\"]");
+    expect(cssText).toContain("color: var(--error-color, #f87171)");
+  });
+
   it("emits dedicated header events for dev server toggle and preview open", async () => {
     const element = createElement();
     (element as WorkspaceConversationPane & { devServerState?: string }).devServerState = "running";
