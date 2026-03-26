@@ -430,8 +430,9 @@ export const workspaceHomeStyles = css`
   }
 
   .task-card.is-compact {
-    display: block;
-    padding: 7px 9px;
+    display: grid;
+    gap: 8px;
+    padding: 12px 14px;
   }
 
   .task-card.is-expanded {
@@ -446,8 +447,8 @@ export const workspaceHomeStyles = css`
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
-    font-size: 0.8rem;
-    line-height: 1.15;
+    font-size: 0.98rem;
+    line-height: 1.2;
   }
 
   .task-card.is-expanded .workspace-name {

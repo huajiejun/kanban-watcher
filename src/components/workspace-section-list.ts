@@ -181,26 +181,22 @@ function renderWorkspaceCard(
         aria-label=${`打开工作区 ${workspace.name}`}
       >
         <div class="workspace-name">${workspace.name}</div>
-        ${compact
-          ? nothing
-          : html`
-              <div class="task-meta">
-                <span class="meta-status">
-                  ${statusMeta.icons.map(
-                    (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
-                      >${icon.symbol}</span
-                    >`,
-                  )}
-                </span>
-                <span class="relative-time">${relativeTime}</span>
-                <span class="meta-files"
-                  ><span class="file-count">📄 ${filesChanged}</span> <span class="lines-added"
-                    >+${linesAdded}</span
-                  >
-                  <span class="lines-removed">-${linesRemoved}</span></span
-                >
-              </div>
-            `}
+        <div class="task-meta">
+          <span class="meta-status">
+            ${statusMeta.icons.map(
+              (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
+                >${icon.symbol}</span
+              >`,
+            )}
+          </span>
+          <span class="relative-time">${relativeTime}</span>
+          <span class="meta-files"
+            ><span class="file-count">📄 ${filesChanged}</span> <span class="lines-added"
+              >+${linesAdded}</span
+            >
+            <span class="lines-removed">-${linesRemoved}</span></span
+          >
+        </div>
       </button>
       ${compact
         ? nothing
