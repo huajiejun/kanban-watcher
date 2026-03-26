@@ -295,6 +295,7 @@ export class WorkspaceConversationPane extends LitElement {
   }
 
   private getFileBrowserUrl(): string {
+    // iframe 使用根据访问方式选择 URL
     const baseUrl = this.isLocalAccess()
       ? this.FILE_BROWSER_LOCAL_URL
       : this.FILE_BROWSER_REMOTE_URL;
@@ -308,6 +309,16 @@ export class WorkspaceConversationPane extends LitElement {
     return `${baseUrl}/files/${relativePath}`;
   }
 
+  private getFileBrowserExternalUrl(): string {
+    // 新窗口打开链接始终使用远程 URL
+    if (!this.workspacePath) {
+      return this.FILE_BROWSER_REMOTE_URL;
+    }
+    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun';
+    const relativePath = this.workspacePath.replace(fbRootPrefix, '');
+    return `${this.FILE_BROWSER_REMOTE_URL}/files/${relativePath}`;
+  }
+
   private renderFileBrowser() {
     return html`
       <div class="file-browser-overlay" @click=${this.handleOverlayClick}>
@@ -317,7 +328,7 @@ export class WorkspaceConversationPane extends LitElement {
             <div class="file-browser-actions">
               <a
                 class="file-browser-link"
-                href=${this.getFileBrowserUrl()}
+                href=${this.getFileBrowserExternalUrl()}
                 target="_blank"
                 title="在新窗口打开"
               >
