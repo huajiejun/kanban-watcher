@@ -345,17 +345,6 @@ export const workspaceHomeStyles = css`
     line-height: 1.2;
   }
 
-  .task-card-main {
-    width: 100%;
-    border: 0;
-    padding: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-
   .task-meta {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -372,11 +361,6 @@ export const workspaceHomeStyles = css`
     align-items: center;
     gap: 6px;
     min-width: 0;
-  }
-
-  .meta-files {
-    justify-self: end;
-    white-space: nowrap;
   }
 
   .relative-time {
