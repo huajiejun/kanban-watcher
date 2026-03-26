@@ -395,6 +395,7 @@ export const workspaceHomeStyles = css`
   }
 
   .status-icon {
+    background: transparent;
     font-weight: 700;
     line-height: 1;
   }
@@ -653,6 +654,7 @@ export const cardStyles = css`
   }
 
   .status-icon {
+    background: transparent;
     font-weight: 700;
     line-height: 1;
   }

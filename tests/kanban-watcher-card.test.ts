@@ -342,7 +342,7 @@ describe("getStatusMeta", () => {
         has_unseen_turns: true,
       }),
     ).toEqual({
-      icons: [{ symbol: "⋯", kind: "running", tone: "brand" }],
+      icons: [{ symbol: "⋯", kind: "running", tone: "error" }],
       accentClass: "is-running",
     });
   });

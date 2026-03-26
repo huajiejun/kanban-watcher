@@ -62,7 +62,7 @@ export function getStatusMeta(workspace: Partial<KanbanWorkspace>): StatusMeta {
   if (pendingApproval) {
     icons.push({ symbol: "✋", kind: "approval", tone: "brand" });
   } else if (isRunning) {
-    icons.push({ symbol: "⋯", kind: "running", tone: "brand" });
+    icons.push({ symbol: "⋯", kind: "running", tone: "error" });
   }
 
   if (unseen && !isRunning) {
