@@ -831,7 +831,8 @@ export const cardStyles = css`
   }
 
   .dialog-dev-server-toggle,
-  .dialog-dev-server-preview {
+  .dialog-dev-server-preview,
+  .dialog-web-preview {
     width: 32px;
     height: 32px;
     border: 0;
@@ -852,9 +853,31 @@ export const cardStyles = css`
   }
 
   .dialog-dev-server-toggle:disabled,
-  .dialog-dev-server-preview:disabled {
+  .dialog-dev-server-preview:disabled,
+  .dialog-web-preview:disabled {
     cursor: default;
     opacity: 0.72;
+  }
+
+  .dialog-web-preview {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--secondary-text-color, #94a3b8);
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+
+  .dialog-web-preview:hover,
+  .dialog-web-preview:focus-visible {
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+    outline: none;
+  }
+
+  .dialog-web-preview-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
   }
 
   .dialog-close {

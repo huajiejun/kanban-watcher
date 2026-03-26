@@ -86,7 +86,37 @@ export class WorkspaceConversationPane extends LitElement {
                   aria-label="打开快捷网页"
                   @click=${this.handleWorkspaceWebPreviewToggle}
                 >
-                  🌐
+                  <svg
+                    class="dialog-web-preview-icon"
+                    viewBox="0 0 20 20"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="M10 2.25a7.75 7.75 0 1 1 0 15.5a7.75 7.75 0 0 1 0-15.5Z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                    />
+                    <path
+                      d="M10 2.75c2.05 2.08 3.2 4.66 3.2 7.25S12.05 15.17 10 17.25c-2.05-2.08-3.2-4.66-3.2-7.25S7.95 4.83 10 2.75Z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                    />
+                    <path
+                      d="M3 10h14M4.6 5.5h10.8M4.6 14.5h10.8"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                    />
+                  </svg>
                 </button>
               `
             : nothing}
