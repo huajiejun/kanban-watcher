@@ -17,6 +17,14 @@ trap cleanup EXIT
 
 mkdir -p "$TMP_DIR/bin"
 
+cat > "$TMP_DIR/bin/curl" <<'EOF'
+#!/bin/bash
+cat <<'JSON'
+{"success":true,"data":{"workspace_id":"stderr-check","frontend_port":6026,"backend_port":16026}}
+JSON
+EOF
+chmod +x "$TMP_DIR/bin/curl"
+
 cat > "$TMP_DIR/bin/go" <<'EOF'
 #!/bin/bash
 echo "$$" > "$FAKE_GO_PID_FILE"

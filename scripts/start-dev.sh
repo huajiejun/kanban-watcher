@@ -3,9 +3,9 @@
 # 用法: ./scripts/start-dev.sh [start|stop|status|restart] [worktree_id]
 #
 # 端口规则:
-# - 后端端口: 18000-18999 (根据 worktree_id hash)
-# - 前端端口: 后端端口 - 2000 (16000-16999)
-# - 同一个 worktree_id 总是获得相同的端口
+# - 前端端口: 通过固定管理 API (默认 127.0.0.1:7778) 动态分配，范围 6020-6030
+# - 后端端口: 前端端口 + 10000
+# - 已分配端口会按 workspace_id 缓存到本地，便于 stop/status/logs 复用
 
 set -e
 
@@ -39,24 +39,94 @@ if [ -z "$WORKTREE_ID" ]; then
     fi
 fi
 
-# 计算端口 (基于 worktree_id 的 hash)
-HASH=$(echo -n "$WORKTREE_ID" | cksum | cut -d' ' -f1)
-PORT_OFFSET=$((HASH % 1000))
-
-# 后端端口: 18000-18999
-BACKEND_PORT=$((18000 + PORT_OFFSET))
-# 前端端口: 后端 - 2000 = 16000-16999
-FRONTEND_PORT=$((BACKEND_PORT - 2000))
-
 # PID 文件
 PID_DIR="/tmp/kanban-dev"
 mkdir -p "$PID_DIR"
-BACKEND_PID_FILE="$PID_DIR/backend-$BACKEND_PORT.pid"
-FRONTEND_PID_FILE="$PID_DIR/frontend-$FRONTEND_PORT.pid"
-BACKEND_STDERR_TEE_PID_FILE="$PID_DIR/backend-stderr-tee-$BACKEND_PORT.pid"
-BACKEND_LOG_FILE="/tmp/kanban-backend-$BACKEND_PORT.log"
-FRONTEND_LOG_FILE="/tmp/kanban-frontend-$FRONTEND_PORT.log"
-BACKEND_STDERR_PIPE="/tmp/kanban-backend-$BACKEND_PORT.stderr.pipe"
+PORT_CACHE_FILE="$PID_DIR/workspace-$WORKTREE_ID.env"
+MANAGER_API_BASE="${KANBAN_MANAGER_API_BASE:-http://127.0.0.1:7778}"
+
+BACKEND_PID_FILE=""
+FRONTEND_PID_FILE=""
+BACKEND_STDERR_TEE_PID_FILE=""
+BACKEND_LOG_FILE=""
+FRONTEND_LOG_FILE=""
+BACKEND_STDERR_PIPE=""
+BACKEND_PORT=""
+FRONTEND_PORT=""
+
+init_runtime_paths() {
+    BACKEND_PID_FILE="$PID_DIR/backend-$BACKEND_PORT.pid"
+    FRONTEND_PID_FILE="$PID_DIR/frontend-$FRONTEND_PORT.pid"
+    BACKEND_STDERR_TEE_PID_FILE="$PID_DIR/backend-stderr-tee-$BACKEND_PORT.pid"
+    BACKEND_LOG_FILE="/tmp/kanban-backend-$BACKEND_PORT.log"
+    FRONTEND_LOG_FILE="/tmp/kanban-frontend-$FRONTEND_PORT.log"
+    BACKEND_STDERR_PIPE="/tmp/kanban-backend-$BACKEND_PORT.stderr.pipe"
+}
+
+cache_ports() {
+    cat > "$PORT_CACHE_FILE" <<EOF
+FRONTEND_PORT=$FRONTEND_PORT
+BACKEND_PORT=$BACKEND_PORT
+EOF
+}
+
+load_cached_ports() {
+    if [ -f "$PORT_CACHE_FILE" ]; then
+        # shellcheck disable=SC1090
+        source "$PORT_CACHE_FILE"
+        return 0
+    fi
+    return 1
+}
+
+compute_legacy_ports() {
+    HASH=$(echo -n "$WORKTREE_ID" | cksum | cut -d' ' -f1)
+    PORT_OFFSET=$((HASH % 1000))
+    BACKEND_PORT=$((18000 + PORT_OFFSET))
+    FRONTEND_PORT=$((BACKEND_PORT - 2000))
+}
+
+resolve_runtime_ports() {
+    if ! load_cached_ports; then
+        compute_legacy_ports
+    fi
+    init_runtime_paths
+}
+
+read_manager_api_key() {
+    if [ -n "${KANBAN_API_KEY:-}" ]; then
+        printf '%s' "$KANBAN_API_KEY"
+        return 0
+    fi
+
+    local config_file="$HOME/.config/kanban-watcher/config.yaml"
+    if [ -f "$config_file" ]; then
+        awk '
+            $1 == "http_api:" { in_http_api = 1; next }
+            in_http_api && $1 ~ /^[^[:space:]].*:$/ { in_http_api = 0 }
+            in_http_api && $1 == "api_key:" { print $2; exit }
+        ' "$config_file"
+    fi
+}
+
+allocate_ports_from_manager() {
+    local api_key
+    local request_url
+    local response
+
+    api_key="$(read_manager_api_key)"
+    request_url="$MANAGER_API_BASE/api/workspace/$WORKTREE_ID/frontend-port"
+    if [ -n "$api_key" ]; then
+        request_url="$request_url?api_key=$api_key"
+    fi
+
+    response=$(curl -fsS -X POST "$request_url")
+
+    FRONTEND_PORT=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["frontend_port"])')
+    BACKEND_PORT=$((FRONTEND_PORT + 10000))
+    init_runtime_paths
+    cache_ports
+}
 
 # 检查端口是否被占用
 check_port() {
@@ -97,6 +167,7 @@ start_backend_stderr_mirror() {
 
 # 显示状态
 show_status() {
+    resolve_runtime_ports
     echo "============================================"
     echo "Worktree ID: $WORKTREE_ID"
     echo "后端端口: $BACKEND_PORT"
@@ -128,6 +199,7 @@ show_status() {
 }
 
 show_logs() {
+    resolve_runtime_ports
     touch "$BACKEND_LOG_FILE" "$FRONTEND_LOG_FILE"
     echo "持续跟随日志:"
     echo "  后端: $BACKEND_LOG_FILE"
@@ -137,6 +209,7 @@ show_logs() {
 
 # 停止服务
 stop_services() {
+    resolve_runtime_ports
     echo "停止服务..."
 
     # 停止后端
@@ -245,6 +318,7 @@ start_frontend() {
 
 # 启动服务
 start_services() {
+    allocate_ports_from_manager
     echo "============================================"
     echo "Worktree ID: $WORKTREE_ID"
     echo "后端端口: $BACKEND_PORT"
