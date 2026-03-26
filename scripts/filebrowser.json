@@ -1,0 +1,21 @@
+{
+  "port": 9394,
+  "baseURL": "",
+  "address": "127.0.0.1",
+  "database": "/Users/huajiejun/.filebrowser/filebrowser.db",
+  "log": "stdout",
+  "filelog": "/Users/huajiejun/.filebrowser/filebrowser.log",
+  "root": "/Users/huajiejun",
+  "username": "admin",
+  "password": "your-password-here",
+  "theme": "light",
+  "noAuth": false,
+  "allowCommands": false,
+  "allowEdit": true,
+  "allowNew": true,
+  "allowDelete": true,
+  "allowUpload": true,
+  "allowDownload": true,
+  "commands": [],
+  "rules": []
+}

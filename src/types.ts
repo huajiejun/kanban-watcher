@@ -1,6 +1,7 @@
 export interface KanbanWorkspace {
   id: string;
   name: string;
+  branch?: string;
   status?: string;
   latest_session_id?: string;
   latestSessionId?: string;
@@ -55,6 +56,7 @@ export interface KanbanSessionAttributes {
 export interface LocalWorkspaceSummary {
   id: string;
   name: string;
+  branch?: string;
   latest_session_id?: string;
   status?: string;
   has_pending_approval?: boolean;
