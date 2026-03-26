@@ -137,7 +137,7 @@ func (h *Hub) BroadcastWorkspaceSnapshot(workspaces []WorkspacePayload) {
 }
 
 func (h *Hub) BroadcastSessionMessagesAppended(sessionID string, messages []MessagePayload) {
-	log.Printf("[Realtime] 广播 session_messages_appended session_id=%s count=%d", sessionID, len(messages))
+	//log.Printf("[Realtime] 广播 session_messages_appended session_id=%s count=%d", sessionID, len(messages))
 	h.broadcast(Event{
 		Type:      EventTypeSessionMessagesAppended,
 		SessionID: sessionID,

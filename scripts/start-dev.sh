@@ -183,7 +183,7 @@ start_backend() {
 
     # 在后台启动 Go 服务
     cd "$(dirname "$0")/.."
-    nohup go run ./cmd/kanban-watcher >> "$BACKEND_LOG_FILE" 2> "$BACKEND_STDERR_PIPE" &
+    go run ./cmd/kanban-watcher >> "$BACKEND_LOG_FILE" 2> "$BACKEND_STDERR_PIPE" &
     BACKEND_PID=$!
     echo $BACKEND_PID > "$BACKEND_PID_FILE"
     echo "后端 PID: $BACKEND_PID"
@@ -217,7 +217,7 @@ start_frontend() {
     export VITE_BACKEND_PORT=$BACKEND_PORT
 
     # 启动 Vite 开发服务器 (使用 web 配置，支持 dev server)
-    nohup npx vite --config vite.config.web.ts --port $FRONTEND_PORT > "$FRONTEND_LOG_FILE" 2>&1 &
+    npx vite --config vite.config.web.ts --port $FRONTEND_PORT
     FRONTEND_PID=$!
     echo $FRONTEND_PID > "$FRONTEND_PID_FILE"
     echo "前端 PID: $FRONTEND_PID"
@@ -241,8 +241,9 @@ start_services() {
     echo "前端端口: $FRONTEND_PORT"
     echo "============================================"
 
-    start_backend || exit 1
+
     start_frontend || exit 1
+    start_backend || exit 1
 
     echo ""
     echo "============================================"
