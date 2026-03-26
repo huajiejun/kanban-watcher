@@ -737,6 +737,86 @@ describe("workspace home helpers", () => {
     expect(FakeWebSocket.instances).toHaveLength(0);
   });
 
+  it("opens the mobile web preview from the embedded kanban-watcher-card dialog", async () => {
+    setWindowWidth(390);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-mobile",
+              name: "手机端嵌入卡片",
+              status: "completed",
+              browser_url: "https://relay.example/mobile-ws",
+              latest_session_id: "session-mobile",
+              updated_at: "2026-03-26T10:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-mobile/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "手机消息" }],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await flushElement(element);
+
+    const card = element.shadowRoot?.querySelector("kanban-watcher-card") as HTMLElement | null;
+    expect(card).not.toBeNull();
+
+    for (let index = 0; index < 5; index += 1) {
+      await flushElement(element);
+      if (card?.shadowRoot?.querySelector(".task-card")) {
+        break;
+      }
+    }
+
+    (card?.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = card?.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
+    const button = pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement | null;
+
+    expect(button).not.toBeNull();
+    expect(button?.disabled).toBe(false);
+
+    button?.click();
+    await flushElement(element);
+
+    const overlay = card?.shadowRoot?.querySelector(
+      ".workspace-home-web-preview-overlay",
+    ) as HTMLElement | null;
+    const frame = card?.shadowRoot?.querySelector(
+      ".workspace-home-web-preview-frame",
+    ) as HTMLIFrameElement | null;
+
+    expect(overlay).not.toBeNull();
+    expect(overlay?.dataset.layout).toBe("mobile");
+    expect(frame?.src).toContain("https://relay.example/mobile-ws");
+  });
+
   it("keeps a manually closed attention pane closed until attention changes again", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
