@@ -116,6 +116,6 @@ Compatibility config without API mode:
 
 ```yaml
 type: custom:kanban-watcher-card
-entity: sensor.kanban_watcher_kanban_watcher
+entity: sensor.kanban_watcher_kanban_watcher。
 ```
 

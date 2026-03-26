@@ -19,6 +19,28 @@ type reserveResult struct {
 	BackendPort  int `json:"backend_port"`
 }
 
+type workspacePortStore interface {
+	Close() error
+	InitSchema(context.Context) error
+	GetWorkspaceFrontendPortState(ctx context.Context, workspaceID string) (frontendPort *int, archived bool, exists bool, err error)
+	ListAllocatedFrontendPorts(ctx context.Context, excludeWorkspaceID string) ([]int, error)
+	AssignFrontendPort(ctx context.Context, workspaceID string, port int) error
+}
+
+type portAllocator interface {
+	Allocate(context.Context, string) (int, int, error)
+}
+
+var (
+	loadPortCommandConfig = config.LoadConfig
+	openPortStore         = func(cfg *config.Config) (workspacePortStore, error) {
+		return store.NewStore(cfg.Database.DSN())
+	}
+	newPortAllocator = func(dbStore workspacePortStore) portAllocator {
+		return service.NewFrontendPortAllocator(dbStore, isFrontendPortAvailable)
+	}
+)
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -46,13 +68,13 @@ func runReserve(args []string) error {
 		return err
 	}
 
-	dbStore, err := store.NewStore(cfg.Database.DSN())
+	dbStore, err := openPreparedPortStore(cfg)
 	if err != nil {
 		return err
 	}
 	defer dbStore.Close()
 
-	allocator := service.NewFrontendPortAllocator(dbStore, isFrontendPortAvailable)
+	allocator := newPortAllocator(dbStore)
 	frontendPort, backendPort, err := allocator.Allocate(context.Background(), workspaceID)
 	if err != nil {
 		return err
@@ -70,7 +92,7 @@ func runLookup(args []string) error {
 		return err
 	}
 
-	dbStore, err := store.NewStore(cfg.Database.DSN())
+	dbStore, err := openPreparedPortStore(cfg)
 	if err != nil {
 		return err
 	}
@@ -96,6 +118,18 @@ func runLookup(args []string) error {
 	})
 }
 
+func openPreparedPortStore(cfg *config.Config) (workspacePortStore, error) {
+	dbStore, err := openPortStore(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := dbStore.InitSchema(context.Background()); err != nil {
+		_ = dbStore.Close()
+		return nil, err
+	}
+	return dbStore, nil
+}
+
 func parseWorkspaceCommand(args []string) (string, *config.Config, error) {
 	fs := flag.NewFlagSet("reserve", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
@@ -107,7 +141,7 @@ func parseWorkspaceCommand(args []string) (string, *config.Config, error) {
 		return "", nil, errors.New("缺少 --workspace 参数")
 	}
 
-	cfg, err := config.LoadConfig()
+	cfg, err := loadPortCommandConfig()
 	if err != nil {
 		return "", nil, err
 	}
