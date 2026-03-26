@@ -1,5 +1,5 @@
 {
-  "port": 8080,
+  "port": 9394,
   "baseURL": "",
   "address": "127.0.0.1",
   "database": "/Users/huajiejun/.filebrowser/filebrowser.db",

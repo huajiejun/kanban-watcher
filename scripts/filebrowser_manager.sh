@@ -7,7 +7,7 @@
 set -e
 
 # 配置
-FB_PORT="${FB_PORT:-8080}"
+FB_PORT="${FB_PORT:-9394}"
 FB_ROOT="${FB_ROOT:-${HOME}}"  # 默认访问用户主目录
 FB_CONFIG="${HOME}/.filebrowser/filebrowser.json"
 FB_LOG="${HOME}/.filebrowser/filebrowser.log"
