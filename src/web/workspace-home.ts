@@ -999,7 +999,6 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private isWorkspaceDevServerRunning(workspace: KanbanWorkspace) {
     return Boolean(
-      workspace.status === "running" ||
         workspace.has_running_dev_server ||
         workspace.hasRunningDevServer ||
         this.devServerProcessStatusByWorkspace[workspace.id] === "running" ||
@@ -1516,11 +1515,7 @@ export class KanbanWorkspaceHome extends LitElement {
     if (this.devServerProcessStatusByWorkspace[workspace.id] === "running") {
       return "running" as const;
     }
-    if (
-      workspace.status === "running" ||
-      workspace.has_running_dev_server ||
-      workspace.hasRunningDevServer
-    ) {
+    if (workspace.has_running_dev_server || workspace.hasRunningDevServer) {
       return "running" as const;
     }
     return "idle" as const;

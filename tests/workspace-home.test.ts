@@ -2438,6 +2438,86 @@ describe("workspace home helpers", () => {
     expect(iframe?.src).toContain("https://relay.example/ws-1");
   });
 
+  it("keeps the pane header in idle state when only the workspace task is running", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "任务运行中但服务未启动",
+              status: "running",
+              has_running_dev_server: false,
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-1/dev-server")) {
+        expect(init?.method).toBe("POST");
+        return createJsonResponse({
+          success: true,
+          workspace_id: "ws-1",
+          action: "dev-server-start",
+          message: "已触发 dev server 启动",
+          execution_processes: [
+            {
+              id: "proc-dev-1",
+              workspace_id: "ws-1",
+              status: "running",
+              run_reason: "devserver",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement | null;
+    const toggle = pane?.shadowRoot?.querySelector(
+      ".dialog-dev-server-toggle",
+    ) as HTMLButtonElement | null;
+
+    expect(toggle?.getAttribute("data-dev-server-state")).toBe("idle");
+
+    toggle?.click();
+    await flushElement(element);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/workspace/ws-1/dev-server"),
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("sends a dev-server stop request when clicking the running pause control in the pane header", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = readRequestUrl(input);

@@ -165,9 +165,7 @@ function renderWorkspaceCard(
   const { relativeTime, filesChanged, linesAdded, linesRemoved } =
     getWorkspaceDisplayMeta(workspace);
   const isRunning = Boolean(
-    workspace.status === "running" ||
-      workspace.has_running_dev_server ||
-      workspace.hasRunningDevServer,
+    workspace.has_running_dev_server || workspace.hasRunningDevServer,
   );
   const runButtonLabel = isRunning ? "运行中" : "运行";
 

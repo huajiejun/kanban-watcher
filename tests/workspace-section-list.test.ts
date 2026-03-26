@@ -149,6 +149,7 @@ describe("workspace-section-list", () => {
       id: "ws-5",
       name: "Workspace 5",
       status: "running",
+      has_running_dev_server: true,
     });
     const element = createElement([
       {
@@ -215,6 +216,31 @@ describe("workspace-section-list", () => {
     expect(runButton).not.toBeNull();
     expect(runButton?.disabled).toBe(true);
     expect(runButton?.textContent).toContain("运行中");
+  });
+
+  it("keeps run enabled when only the workspace task is running but dev server is not", async () => {
+    const element = createElement([
+      {
+        key: "running",
+        label: "运行中",
+        workspaces: [
+          createWorkspace({
+            id: "ws-task-running",
+            name: "任务运行中但服务未启动",
+            status: "running",
+            has_running_dev_server: false,
+          }),
+        ],
+      },
+    ]);
+
+    await element.updateComplete;
+
+    const runButton = element.shadowRoot?.querySelector(".task-card-run") as HTMLButtonElement | null;
+    expect(runButton).not.toBeNull();
+    expect(runButton?.disabled).toBe(false);
+    expect(runButton?.textContent).toContain("运行");
+    expect(runButton?.textContent).not.toContain("运行中");
   });
 
   it("hides section body content when section is collapsed", async () => {
