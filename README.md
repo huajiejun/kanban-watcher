@@ -1,11 +1,3 @@
-# Kanban Watcher Card
-
-Lit-based Home Assistant custom card. Current version supports two data modes:
-
-- API mode: recommended. The card reads workspaces and conversation history from `kanban-watcher` HTTP API.
-- Hass fallback mode: keeps the old preview / sensor-attribute path for local preview and compatibility.
-
-This repository is currently set up for manual Home Assistant deployment rather than npm package distribution.
 
 ## Build
 
@@ -65,30 +57,9 @@ npm run build
 `kanban-watcher` 的托盘程序可以直接打包为 macOS `.app`：
 
 ```bash
-chmod +x scripts/build_macos_app.sh
-zsh scripts/build_macos_app.sh
+./build-app.sh
 ```
 
-产物会输出到 `dist-macos/Kanban Watcher.app`。
-
-如需做一次本地校验，可运行：
-
-```bash
-chmod +x scripts/test_build_macos_app.sh
-zsh scripts/test_build_macos_app.sh
-```
-
-当前打包内容包含：
-
-- 主程序二进制：`Contents/MacOS/Kanban Watcher`
-- 应用元数据：`Contents/Info.plist`
-- Finder 图标：`Contents/Resources/AppIcon.icns`
-- 示例配置：`Contents/Resources/config.yaml.example`
-
-说明：
-
-- 当前版本只生成未签名 `.app`，适合本机使用或内部分发
-- 当前默认使用 `build/macos/AppIcon.png` 生成 Finder 图标
 
 ## Local Preview
 
@@ -148,26 +119,3 @@ type: custom:kanban-watcher-card
 entity: sensor.kanban_watcher_kanban_watcher
 ```
 
-## Behavior
-
-- Shows non-empty sections in this order: `需要注意`, `运行中`, `空闲`
-- Section headers start expanded and can be collapsed
-- Each task is rendered as a compact two-line summary card
-- Empty boards show `当前没有任务`
-- In API mode, the board requests `/api/workspaces/active` on load and refreshes periodically
-- In API mode, clicking a workspace requests `/api/workspaces/{workspace_id}/latest-messages`
-- Sending a message in the dialog calls `/api/workspace/{workspace_id}/follow-up`
-- 网页版工作区首页支持最多同时打开 4 个窗格，第 5 个会顶替最早打开的窗格
-- 任务从其他状态进入 `需要注意` 时，会自动加入桌面端右侧打开区
-- 手动关闭的关注窗格不会在普通刷新时重新自动弹出，除非它之后再次从其他状态回到 `需要注意`
-
-## Todo List 功能
-
-Kanban Watcher 现在支持待办事项显示功能：
-
-- **工具栏按钮**：显示当前待办进度，点击查看详细列表
-- **对话中显示**：在消息中展示待办事项更新
-- **状态图标**：支持已完成(✓)、进行中(⊙)、已取消(○)等状态
-- **进度显示**：实时显示完成进度和百分比
-
-详细文档请参阅 [Todo List 功能文档](docs/todo-list-feature.md)
