@@ -810,6 +810,33 @@ describe("kanban-watcher-card", () => {
     ).toBe("");
   });
 
+  it("passes the same workspacePath to the mobile dialog pane as desktop mode", async () => {
+    const card = await renderCard(
+      createHass([
+        {
+          id: "workspace-5590",
+          name: "Mobile File Browser Workspace",
+          branch: "vibe/5590-web",
+          status: "completed",
+          latest_session_id: "session-5590",
+        },
+      ]),
+    );
+    const shadowRoot = card.shadowRoot;
+    const taskCard = shadowRoot?.querySelector(".task-card") as HTMLButtonElement | null;
+
+    taskCard?.click();
+    await card.updateComplete;
+
+    const pane = getDialogPane(shadowRoot) as
+      | (HTMLElement & { workspacePath?: string })
+      | null;
+
+    expect(pane?.workspacePath).toBe(
+      "/Users/huajiejun/github/vibe-kanban/.vibe-kanban-workspaces/5590-web/kanban-watcher",
+    );
+  });
+
   it("closes the workspace dialog from overlay, close button, and escape key", async () => {
     const card = await renderCard();
     const shadowRoot = card.shadowRoot;

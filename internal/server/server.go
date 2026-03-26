@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ type Server struct {
 	extraRoutes  []routeRegistration
 	staticFS     fs.FS
 	store        *store.Store
+	portAllocator frontendPortAllocator
 }
 
 type workspaceMessageDispatcher interface {
@@ -38,6 +40,10 @@ type workspaceMessageDispatcher interface {
 	GetWorkspaceQueueStatus(context.Context, string) (*dispatchsvc.QueueResult, error)
 	CancelWorkspaceQueue(context.Context, string) (*dispatchsvc.QueueResult, error)
 	StopWorkspaceExecution(context.Context, string) (*dispatchsvc.DispatchResult, error)
+}
+
+type frontendPortAllocator interface {
+	Allocate(context.Context, string) (int, int, error)
 }
 
 // routeRegistration 路由注册信息
@@ -69,6 +75,10 @@ func (s *Server) SetWorkspaceMessageDispatcher(dispatcher workspaceMessageDispat
 
 func (s *Server) SetStore(dbStore *store.Store) {
 	s.store = dbStore
+}
+
+func (s *Server) SetFrontendPortAllocator(allocator frontendPortAllocator) {
+	s.portAllocator = allocator
 }
 
 // SetAuthHandler 设置认证处理器
@@ -198,12 +208,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 //   DELETE /api/workspace/{workspace_id}/queue
 //   POST /api/workspace/{workspace_id}/stop
 //   POST /api/workspace/{workspace_id}/dev-server
+//   POST /api/workspace/{workspace_id}/frontend-port
 //   DELETE /api/workspace/{workspace_id}/dev-server
 func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspace/")
 	parts := strings.Split(path, "/")
-	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message" && parts[1] != "queue" && parts[1] != "stop" && parts[1] != "dev-server") {
-		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up or /api/workspace/{id}/queue or /api/workspace/{id}/stop or /api/workspace/{id}/dev-server", http.StatusBadRequest)
+	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message" && parts[1] != "queue" && parts[1] != "stop" && parts[1] != "dev-server" && parts[1] != "frontend-port") {
+		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up or /api/workspace/{id}/queue or /api/workspace/{id}/stop or /api/workspace/{id}/dev-server or /api/workspace/{id}/frontend-port", http.StatusBadRequest)
 		return
 	}
 
@@ -220,6 +231,10 @@ func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) 
 	}
 	if actionType == "dev-server" {
 		s.handleWorkspaceDevServer(w, r, workspaceID)
+		return
+	}
+	if actionType == "frontend-port" {
+		s.handleWorkspaceFrontendPort(w, r, workspaceID)
 		return
 	}
 
@@ -283,6 +298,59 @@ func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) 
 		"action":       result.Action,
 		"message":      result.Message,
 	})
+}
+
+func (s *Server) handleWorkspaceFrontendPort(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	allocator := s.portAllocator
+	if allocator == nil {
+		if s.store == nil {
+			http.Error(w, "数据库未初始化", http.StatusInternalServerError)
+			return
+		}
+		allocator = dispatchsvc.NewFrontendPortAllocator(s.store, isFrontendPortAvailable)
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	frontendPort, backendPort, err := allocator.Allocate(ctx, workspaceID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, dispatchsvc.ErrWorkspaceArchived) ||
+			errors.Is(err, dispatchsvc.ErrFrontendPortPoolExhausted) ||
+			errors.Is(err, dispatchsvc.ErrWorkspaceNotFound) ||
+			strings.Contains(err.Error(), "端口池") ||
+			strings.Contains(err.Error(), "已归档") ||
+			strings.Contains(err.Error(), "not found") {
+			statusCode = http.StatusConflict
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"workspace_id":   workspaceID,
+			"frontend_port":  frontendPort,
+			"backend_port":   backendPort,
+		},
+	})
+}
+
+func isFrontendPortAvailable(port int) bool {
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return false
+	}
+	_ = listener.Close()
+	return true
 }
 
 func (s *Server) handleWorkspaceDevServer(w http.ResponseWriter, r *http.Request, workspaceID string) {

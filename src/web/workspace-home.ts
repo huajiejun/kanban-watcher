@@ -67,6 +67,7 @@ import {
   buildPreviewCardConfig as buildPreviewCardConfigFromOptions,
   readPreviewApiOptions,
 } from "../lib/preview-options";
+import { getWorkspacePath } from "../lib/workspace-path";
 
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
@@ -1574,10 +1575,7 @@ export class KanbanWorkspaceHome extends LitElement {
     const queueStatus = this.queueStatusByWorkspace[workspace.id];
     const isRunning = workspace.status === "running";
     const statusAccentClass = getStatusMeta(workspace).accentClass;
-    // 工作区路径：worktree 格式，使用 branch 名称（如 vibe/5590-web -> 5590-web）
-    const branchSlug = workspace.branch?.replace(/^vibe\//, "") ?? workspace.id;
-    const worktreeBasePath = import.meta.env.VITE_WORKTREE_BASE_PATH || '/Users/huajiejun/github/vibe-kanban/.vibe-kanban-workspaces';
-    const workspacePath = `${worktreeBasePath}/${branchSlug}/kanban-watcher`;
+    const workspacePath = getWorkspacePath(workspace);
 
     return html`
       <workspace-conversation-pane
