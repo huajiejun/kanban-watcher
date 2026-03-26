@@ -31,12 +31,22 @@ function readStringParam(params: URLSearchParams, key: string) {
   return value || undefined;
 }
 
+export function inferPreviewBaseUrl(url: URL) {
+  const match = url.pathname.match(/^\/([0-9]{5})(?:\/|$)/);
+  if (!match) {
+    return undefined;
+  }
+
+  return `/${match[1]}`;
+}
+
 const env = getPlaygroundEnv();
 const DEFAULT_BASE_URL = env.VITE_BASE_URL || "";
 const DEFAULT_API_KEY = env.VITE_API_KEY || "";
 
 export function readPreviewApiOptions(url = new URL(window.location.href)): PreviewApiOptions {
-  const baseUrl = readStringParam(url.searchParams, "base_url") || DEFAULT_BASE_URL;
+  const inferredBaseUrl = inferPreviewBaseUrl(url);
+  const baseUrl = readStringParam(url.searchParams, "base_url") || inferredBaseUrl || DEFAULT_BASE_URL;
   const apiKey = readStringParam(url.searchParams, "api_key") || DEFAULT_API_KEY;
   const rawLimit = readStringParam(url.searchParams, "messages_limit");
   const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : Number.NaN;

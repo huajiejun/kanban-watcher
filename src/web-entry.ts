@@ -3,12 +3,15 @@ import { mountWorkspaceHome } from "./web/workspace-home";
 export type PageMode = "workspace" | "preview";
 
 export function getPageMode(url = new URL(window.location.href)): PageMode {
-  return url.pathname === "/preview" || url.pathname === "/preview/"
+  const normalizedPath = url.pathname.replace(/^\/[0-9]{5}(?=\/|$)/, "");
+  return normalizedPath === "/preview" || normalizedPath === "/preview/"
     ? "preview"
     : "workspace";
 }
 
-const mountPoint = document.querySelector("[data-app-root]");
+const mountPoint = typeof document !== "undefined"
+  ? document.querySelector("[data-app-root]")
+  : null;
 
 if (mountPoint) {
   if (getPageMode() === "preview") {

@@ -223,6 +223,12 @@ start_frontend() {
 
     # 设置环境变量给 Vite
     export VITE_BACKEND_PORT=$BACKEND_PORT
+    export VITE_DEV_BASE_PATH="/$FRONTEND_PORT/"
+    export VITE_BASE_URL="/$FRONTEND_PORT"
+    export VITE_DEV_HMR_HOST="dev.huajiejun.cn"
+    export VITE_DEV_HMR_PROTOCOL="wss"
+    export VITE_DEV_HMR_CLIENT_PORT="443"
+    export VITE_DEV_HMR_PATH="/$FRONTEND_PORT/__vite_ws"
 
     # 启动 Vite 开发服务器 (使用 web 配置，支持 dev server)
     npx vite --config vite.config.web.ts --port $FRONTEND_PORT \
@@ -263,6 +269,7 @@ start_services() {
     echo "  后端: http://localhost:$BACKEND_PORT"
     echo ""
     echo "外网访问 (通过 Nginx 代理):"
+    echo "  https://dev.huajiejun.cn/$FRONTEND_PORT/"
     echo "  http://47.96.112.110:2453/$FRONTEND_PORT/"
     echo ""
     echo "日志文件:"
