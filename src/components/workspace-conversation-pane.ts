@@ -239,9 +239,9 @@ export class WorkspaceConversationPane extends LitElement {
     if (!this.workspacePath) {
       return this.FILE_BROWSER_LOCAL_URL;
     }
-    // 构建文件浏览器 URL，指向工作区路径
-    const encodedPath = encodeURIComponent(this.workspacePath);
-    return `${this.FILE_BROWSER_LOCAL_URL}/#${encodedPath}`;
+    // 移除 home 目录前缀，因为 File Browser 的根目录已经是 /Users/huajiejun/github
+    const relativePath = this.workspacePath.replace('/Users/huajiejun/github/', '');
+    return `${this.FILE_BROWSER_LOCAL_URL}/files/${relativePath}`;
   }
 
   private renderFileBrowser() {

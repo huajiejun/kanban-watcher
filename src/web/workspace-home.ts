@@ -437,6 +437,7 @@ export class KanbanWorkspaceHome extends LitElement {
     return {
       id: workspace.id,
       name: workspace.name,
+      branch: workspace.branch,
       status: workspace.status,
       latest_session_id: workspace.latest_session_id,
       has_pending_approval: workspace.has_pending_approval,
@@ -1212,8 +1213,9 @@ export class KanbanWorkspaceHome extends LitElement {
     const queueStatus = this.queueStatusByWorkspace[workspace.id];
     const isRunning = workspace.status === "running";
     const statusAccentClass = getStatusMeta(workspace).accentClass;
-    // 工作区路径：worktree 格式
-    const workspacePath = `/Users/huajiejun/github/vibe-kanban/.vibe-kanban-workspaces/${workspace.id}/kanban-watcher`;
+    // 工作区路径：worktree 格式，使用 branch 名称（如 vibe/5590-web -> 5590-web）
+    const branchSlug = workspace.branch?.replace(/^vibe\//, "") ?? workspace.id;
+    const workspacePath = `/Users/huajiejun/github/vibe-kanban/.vibe-kanban-workspaces/${branchSlug}/kanban-watcher`;
 
     return html`
       <workspace-conversation-pane
