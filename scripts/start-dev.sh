@@ -14,7 +14,7 @@ COMMAND="${1:-start}"
 WORKTREE_ID="${2:-}"
 
 # 如果第一个参数不是命令，则当作 worktree_id
-if [[ "$COMMAND" != "start" && "$COMMAND" != "stop" && "$COMMAND" != "status" && "$COMMAND" != "restart" ]]; then
+if [[ "$COMMAND" != "start" && "$COMMAND" != "stop" && "$COMMAND" != "status" && "$COMMAND" != "restart" && "$COMMAND" != "logs" ]]; then
     WORKTREE_ID="$COMMAND"
     COMMAND="start"
 fi
@@ -125,6 +125,14 @@ show_status() {
     echo "  本地后端: http://localhost:$BACKEND_PORT"
     echo "  外网访问: http://47.96.112.110:2453/$FRONTEND_PORT/"
     echo "============================================"
+}
+
+show_logs() {
+    touch "$BACKEND_LOG_FILE" "$FRONTEND_LOG_FILE"
+    echo "持续跟随日志:"
+    echo "  后端: $BACKEND_LOG_FILE"
+    echo "  前端: $FRONTEND_LOG_FILE"
+    tail -F "$BACKEND_LOG_FILE" "$FRONTEND_LOG_FILE"
 }
 
 # 停止服务
@@ -279,19 +287,23 @@ case "$COMMAND" in
     status)
         show_status
         ;;
+    logs)
+        show_logs
+        ;;
     restart)
         stop_services
         sleep 1
         start_services
         ;;
     *)
-        echo "用法: $0 [start|stop|status|restart] [worktree_id]"
+        echo "用法: $0 [start|stop|status|restart|logs] [worktree_id]"
         echo ""
         echo "命令:"
         echo "  start   - 启动服务 (默认)"
         echo "  stop    - 停止服务"
         echo "  status  - 查看状态"
         echo "  restart - 重启服务"
+        echo "  logs    - 持续查看前后端日志"
         exit 1
         ;;
 esac
