@@ -392,7 +392,27 @@ func (s *Server) handleWorkspaceDevServerStop(w http.ResponseWriter, r *http.Req
 	}
 
 	log.Printf("[HTTP Server] 工作区 %s 优先按 execution process 停止 dev server: process_id=%s", workspaceID, processID)
-	err := s.proxy.StopExecutionProcess(ctx, processID)
+
+	process, err := s.proxy.GetExecutionProcess(ctx, processID)
+	if err != nil {
+		log.Printf("[HTTP Server] 工作区 %s 获取 dev server process 详情失败: %v", workspaceID, err)
+		http.Error(w, "获取 dev server process 详情失败", http.StatusBadGateway)
+		return
+	}
+	if process != nil {
+		if err := s.persistDevServerProcess(ctx, workspaceID, *process); err != nil {
+			log.Printf("[HTTP Server] 工作区 %s 同步 dev server process 状态失败: %v", workspaceID, err)
+		}
+		status := strings.TrimSpace(process.Status)
+		if status != "running" {
+			err := fmt.Sprintf("当前 dev server 进程状态为 %s，已拒绝继续停止；请刷新状态", status)
+			log.Printf("[HTTP Server] 工作区 %s 停止 dev server 失败: %s", workspaceID, err)
+			http.Error(w, err, http.StatusConflict)
+			return
+		}
+	}
+
+	err = s.proxy.StopExecutionProcess(ctx, processID)
 	if err != nil {
 		log.Printf("[HTTP Server] 工作区 %s 停止 dev server 失败: %v", workspaceID, err)
 		statusCode := http.StatusInternalServerError
