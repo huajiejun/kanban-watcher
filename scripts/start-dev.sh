@@ -87,10 +87,33 @@ compute_legacy_ports() {
 }
 
 resolve_runtime_ports() {
-    if ! load_cached_ports; then
-        compute_legacy_ports
+    if load_cached_ports; then
+        init_runtime_paths
+        return 0
     fi
+
+    if load_ports_from_db_lookup; then
+        init_runtime_paths
+        return 0
+    fi
+
+    compute_legacy_ports
     init_runtime_paths
+}
+
+load_ports_from_db_lookup() {
+    local response
+
+    if ! response=$(go run ./cmd/kw_frontend_port lookup --workspace "$WORKTREE_ID" 2>/dev/null); then
+        return 1
+    fi
+
+    if ! FRONTEND_PORT=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["frontend_port"])'); then
+        return 1
+    fi
+    BACKEND_PORT=$((FRONTEND_PORT + 10000))
+    cache_ports
+    return 0
 }
 
 read_manager_api_key() {

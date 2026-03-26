@@ -28,28 +28,22 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("用法: kw_frontend_port reserve --workspace <workspace_id>")
+		return errors.New("用法: kw_frontend_port <reserve|lookup> --workspace <workspace_id>")
 	}
-	if args[0] != "reserve" {
+	switch args[0] {
+	case "reserve":
+		return runReserve(args[1:])
+	case "lookup":
+		return runLookup(args[1:])
+	default:
 		return fmt.Errorf("未知命令: %s", args[0])
 	}
+}
 
-	fs := flag.NewFlagSet("reserve", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	workspaceID := fs.String("workspace", "", "工作区 ID")
-	if err := fs.Parse(args[1:]); err != nil {
-		return err
-	}
-	if *workspaceID == "" {
-		return errors.New("缺少 --workspace 参数")
-	}
-
-	cfg, err := config.LoadConfig()
+func runReserve(args []string) error {
+	workspaceID, cfg, err := parseWorkspaceCommand(args)
 	if err != nil {
 		return err
-	}
-	if !cfg.Database.IsEnabled() {
-		return errors.New("数据库配置未启用")
 	}
 
 	dbStore, err := store.NewStore(cfg.Database.DSN())
@@ -59,7 +53,7 @@ func run(args []string) error {
 	defer dbStore.Close()
 
 	allocator := service.NewFrontendPortAllocator(dbStore, isFrontendPortAvailable)
-	frontendPort, backendPort, err := allocator.Allocate(context.Background(), *workspaceID)
+	frontendPort, backendPort, err := allocator.Allocate(context.Background(), workspaceID)
 	if err != nil {
 		return err
 	}
@@ -68,6 +62,60 @@ func run(args []string) error {
 		FrontendPort: frontendPort,
 		BackendPort:  backendPort,
 	})
+}
+
+func runLookup(args []string) error {
+	workspaceID, cfg, err := parseWorkspaceCommand(args)
+	if err != nil {
+		return err
+	}
+
+	dbStore, err := store.NewStore(cfg.Database.DSN())
+	if err != nil {
+		return err
+	}
+	defer dbStore.Close()
+
+	frontendPort, archived, exists, err := dbStore.GetWorkspaceFrontendPortState(context.Background(), workspaceID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return service.ErrWorkspaceNotFound
+	}
+	if archived {
+		return service.ErrWorkspaceArchived
+	}
+	if frontendPort == nil {
+		return errors.New("workspace frontend port not assigned")
+	}
+
+	return json.NewEncoder(os.Stdout).Encode(reserveResult{
+		FrontendPort: *frontendPort,
+		BackendPort:  *frontendPort + 10000,
+	})
+}
+
+func parseWorkspaceCommand(args []string) (string, *config.Config, error) {
+	fs := flag.NewFlagSet("reserve", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	workspaceID := fs.String("workspace", "", "工作区 ID")
+	if err := fs.Parse(args); err != nil {
+		return "", nil, err
+	}
+	if *workspaceID == "" {
+		return "", nil, errors.New("缺少 --workspace 参数")
+	}
+
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return "", nil, err
+	}
+	if !cfg.Database.IsEnabled() {
+		return "", nil, errors.New("数据库配置未启用")
+	}
+
+	return *workspaceID, cfg, nil
 }
 
 func isFrontendPortAvailable(port int) bool {
