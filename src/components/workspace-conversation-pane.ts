@@ -302,8 +302,8 @@ export class WorkspaceConversationPane extends LitElement {
     if (!this.workspacePath) {
       return baseUrl;
     }
-    // 从环境变量获取 File Browser 根目录前缀
-    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
+    // 从环境变量获取 File Browser 根目录前缀（需与 File Browser 配置的 root 一致）
+    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun';
     const relativePath = this.workspacePath.replace(fbRootPrefix, '');
     return `${baseUrl}/files/${relativePath}`;
   }
