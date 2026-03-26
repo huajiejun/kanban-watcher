@@ -46,8 +46,7 @@ export class WorkspaceConversationPane extends LitElement {
   showFileBrowser = false;
 
   // File Browser 配置
-  private readonly FILE_BROWSER_URL = "http://file.huajiejun.cn";
-  private readonly FILE_BROWSER_LOCAL_URL = "http://127.0.0.1:9394";
+  private readonly FILE_BROWSER_LOCAL_URL = import.meta.env.VITE_FILE_BROWSER_URL || "http://127.0.0.1:9394";
 
   protected render() {
     const isQueued = this.queueStatus?.status === "queued";
@@ -239,8 +238,9 @@ export class WorkspaceConversationPane extends LitElement {
     if (!this.workspacePath) {
       return this.FILE_BROWSER_LOCAL_URL;
     }
-    // 移除 home 目录前缀，因为 File Browser 的根目录已经是 /Users/huajiejun/github
-    const relativePath = this.workspacePath.replace('/Users/huajiejun/github/', '');
+    // 从环境变量获取 File Browser 根目录前缀
+    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
+    const relativePath = this.workspacePath.replace(fbRootPrefix, '');
     return `${this.FILE_BROWSER_LOCAL_URL}/files/${relativePath}`;
   }
 

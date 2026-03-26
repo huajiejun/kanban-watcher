@@ -1215,7 +1215,8 @@ export class KanbanWorkspaceHome extends LitElement {
     const statusAccentClass = getStatusMeta(workspace).accentClass;
     // 工作区路径：worktree 格式，使用 branch 名称（如 vibe/5590-web -> 5590-web）
     const branchSlug = workspace.branch?.replace(/^vibe\//, "") ?? workspace.id;
-    const workspacePath = `/Users/huajiejun/github/vibe-kanban/.vibe-kanban-workspaces/${branchSlug}/kanban-watcher`;
+    const worktreeBasePath = import.meta.env.VITE_WORKTREE_BASE_PATH || '/Users/huajiejun/github/vibe-kanban/.vibe-kanban-workspaces';
+    const workspacePath = `${worktreeBasePath}/${branchSlug}/kanban-watcher`;
 
     return html`
       <workspace-conversation-pane
