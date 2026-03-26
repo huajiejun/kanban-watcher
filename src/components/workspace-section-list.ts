@@ -202,15 +202,19 @@ function renderWorkspaceCard(
               </div>
             `}
       </button>
-      <button
-        class="task-card-run"
-        type="button"
-        ?disabled=${isRunning}
-        @click=${() => onRunWorkspace(workspace)}
-        aria-label=${`${workspace.name}${runButtonLabel}`}
-      >
-        ${runButtonLabel}
-      </button>
+      ${compact
+        ? nothing
+        : html`
+            <button
+              class="task-card-run"
+              type="button"
+              ?disabled=${isRunning}
+              @click=${() => onRunWorkspace(workspace)}
+              aria-label=${`${workspace.name}${runButtonLabel}`}
+            >
+              ${runButtonLabel}
+            </button>
+          `}
     </div>
   `;
 }

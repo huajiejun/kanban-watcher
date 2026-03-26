@@ -74,6 +74,7 @@ describe("workspace-section-list", () => {
     expect(shadowRoot?.textContent).toContain("Workspace 1");
     expect(shadowRoot?.textContent).toContain("Workspace 2");
     expect(shadowRoot?.querySelector(".task-meta")).toBeNull();
+    expect(shadowRoot?.querySelector(".task-card-run")).toBeNull();
     expect(shadowRoot?.querySelector(".task-card.is-compact")).not.toBeNull();
     expect(shadowRoot?.textContent).not.toContain("刚刚");
   });
