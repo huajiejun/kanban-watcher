@@ -217,7 +217,9 @@ start_frontend() {
     export VITE_BACKEND_PORT=$BACKEND_PORT
 
     # 启动 Vite 开发服务器 (使用 web 配置，支持 dev server)
-    npx vite --config vite.config.web.ts --port $FRONTEND_PORT
+    npx vite --config vite.config.web.ts --port $FRONTEND_PORT \
+        > >(tee -a "$FRONTEND_LOG_FILE") \
+        2> >(tee -a "$FRONTEND_LOG_FILE" >&2) &
     FRONTEND_PID=$!
     echo $FRONTEND_PID > "$FRONTEND_PID_FILE"
     echo "前端 PID: $FRONTEND_PID"
@@ -241,9 +243,8 @@ start_services() {
     echo "前端端口: $FRONTEND_PORT"
     echo "============================================"
 
-
-    start_frontend || exit 1
     start_backend || exit 1
+    start_frontend || exit 1
 
     echo ""
     echo "============================================"
