@@ -1213,7 +1213,7 @@ export class KanbanWorkspaceHome extends LitElement {
     const isRunning = workspace.status === "running";
     const statusAccentClass = getStatusMeta(workspace).accentClass;
     // 工作区路径：~/github/{工作区名}
-    const workspacePath = `${process.env.HOME || "/Users/huajiejun"}/github/${workspace.name}`;
+    const workspacePath = `/Users/huajiejun/github/${workspace.name}`;
 
     return html`
       <workspace-conversation-pane
