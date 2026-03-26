@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -173,6 +175,45 @@ func TestHandleWorkspaceMessageStopsDevServer(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), `"action":"dev-server-stop"`) {
 		t.Fatalf("body = %s, want action dev-server-stop", rr.Body.String())
+	}
+}
+
+func TestHandleWorkspaceMessageStopsDevServerLogsWorkspaceID(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/workspaces/ws-1/execution/stop" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"message":"已停止"}`))
+	}))
+	defer upstream.Close()
+
+	var logBuffer bytes.Buffer
+	previousWriter := log.Writer()
+	previousFlags := log.Flags()
+	log.SetOutput(&logBuffer)
+	log.SetFlags(0)
+	defer log.SetOutput(previousWriter)
+	defer log.SetFlags(previousFlags)
+
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", true, nil, nil)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/workspace/ws-1/dev-server", nil)
+	rr := httptest.NewRecorder()
+
+	srv.handleWorkspaceMessage(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+
+	logOutput := logBuffer.String()
+	if !strings.Contains(logOutput, "收到停止 dev server 请求") {
+		t.Fatalf("log = %q, want stop request message", logOutput)
+	}
+	if !strings.Contains(logOutput, "workspace_id=ws-1") {
+		t.Fatalf("log = %q, want workspace_id", logOutput)
 	}
 }
 

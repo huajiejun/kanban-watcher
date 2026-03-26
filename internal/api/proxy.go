@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -227,7 +228,10 @@ func (c *ProxyClient) StartDevServer(ctx context.Context, workspaceID string) ([
 }
 
 func (c *ProxyClient) StopDevServer(ctx context.Context, workspaceID string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/workspaces/%s/execution/stop", c.baseURL, workspaceID), nil)
+	targetURL := fmt.Sprintf("%s/api/workspaces/%s/execution/stop", c.baseURL, workspaceID)
+	log.Printf("[Proxy] 停止 dev server: workspace_id=%s target=%s", workspaceID, targetURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, nil)
 	if err != nil {
 		return fmt.Errorf("构建请求: %w", err)
 	}
@@ -238,13 +242,18 @@ func (c *ProxyClient) StopDevServer(ctx context.Context, workspaceID string) err
 	}
 	defer resp.Body.Close()
 
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取响应: %w", err)
+	}
+	log.Printf("[Proxy] 停止 dev server 响应: workspace_id=%s status=%d body=%s", workspaceID, resp.StatusCode, strings.TrimSpace(string(responseBody)))
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("停止 dev server 失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return fmt.Errorf("停止 dev server 失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
 	}
 
 	var result FollowUpResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(responseBody, &result); err != nil {
 		return fmt.Errorf("解析响应: %w", err)
 	}
 	if !result.Success {

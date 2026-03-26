@@ -1,11 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -213,6 +216,44 @@ func TestProxyClientStopDevServer(t *testing.T) {
 	client := NewProxyClient(server.URL)
 	if err := client.StopDevServer(context.Background(), "ws-1"); err != nil {
 		t.Fatalf("StopDevServer 返回错误: %v", err)
+	}
+}
+
+func TestProxyClientStopDevServerLogsUpstreamRequestAndResponse(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/workspaces/ws-1/execution/stop" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"message": "已停止",
+		})
+	}))
+	defer server.Close()
+
+	var logBuffer bytes.Buffer
+	previousWriter := log.Writer()
+	previousFlags := log.Flags()
+	log.SetOutput(&logBuffer)
+	log.SetFlags(0)
+	defer log.SetOutput(previousWriter)
+	defer log.SetFlags(previousFlags)
+
+	client := NewProxyClient(server.URL)
+	if err := client.StopDevServer(context.Background(), "ws-1"); err != nil {
+		t.Fatalf("StopDevServer 返回错误: %v", err)
+	}
+
+	logOutput := logBuffer.String()
+	if !strings.Contains(logOutput, "workspace_id=ws-1") {
+		t.Fatalf("log = %q, want workspace_id", logOutput)
+	}
+	if !strings.Contains(logOutput, "/api/workspaces/ws-1/execution/stop") {
+		t.Fatalf("log = %q, want upstream path", logOutput)
+	}
+	if !strings.Contains(logOutput, "已停止") {
+		t.Fatalf("log = %q, want upstream response message", logOutput)
 	}
 }
 

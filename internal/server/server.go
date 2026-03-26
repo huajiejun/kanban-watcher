@@ -328,6 +328,8 @@ func (s *Server) handleWorkspaceDevServerStop(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	log.Printf("[HTTP Server] 收到停止 dev server 请求: method=%s path=%s workspace_id=%s", r.Method, r.URL.Path, workspaceID)
+
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
@@ -345,6 +347,8 @@ func (s *Server) handleWorkspaceDevServerStop(w http.ResponseWriter, r *http.Req
 		http.Error(w, err.Error(), statusCode)
 		return
 	}
+
+	log.Printf("[HTTP Server] 工作区 %s 停止 dev server 已代理成功", workspaceID)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
