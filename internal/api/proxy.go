@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -51,6 +52,14 @@ type FollowUpResponse struct {
 	Data      interface{} `json:"data,omitempty"`
 	ErrorData interface{} `json:"error_data,omitempty"`
 	Message   *string     `json:"message,omitempty"`
+}
+
+type ProxyBusinessError struct {
+	Message string
+}
+
+func (e *ProxyBusinessError) Error() string {
+	return e.Message
 }
 
 type QueueRequest struct {
@@ -182,6 +191,148 @@ func (c *ProxyClient) StopExecutionProcess(ctx context.Context, processID string
 		return fmt.Errorf("停止 execution process 失败: %s", msg)
 	}
 	return nil
+}
+
+// StartDevServer 启动指定工作区的预设 dev server。
+func (c *ProxyClient) StartDevServer(ctx context.Context, workspaceID string) ([]ExecutionProcessDetail, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/workspaces/%s/execution/dev-server/start", c.baseURL, workspaceID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("启动 dev server 失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result executionProcessesAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+	if !result.Success {
+		msg := ""
+		if result.Message != nil {
+			msg = *result.Message
+		}
+		return nil, &ProxyBusinessError{
+			Message: fmt.Sprintf("启动 dev server 失败: %s", msg),
+		}
+	}
+	return result.Data, nil
+}
+
+func (c *ProxyClient) StopDevServer(ctx context.Context, workspaceID string) error {
+	targetURL := fmt.Sprintf("%s/api/workspaces/%s/execution/stop", c.baseURL, workspaceID)
+	log.Printf("[Proxy] 停止 dev server: workspace_id=%s target=%s", workspaceID, targetURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, nil)
+	if err != nil {
+		return fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取响应: %w", err)
+	}
+	log.Printf("[Proxy] 停止 dev server 响应: workspace_id=%s status=%d body=%s", workspaceID, resp.StatusCode, strings.TrimSpace(string(responseBody)))
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("停止 dev server 失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
+	}
+
+	var result FollowUpResponse
+	if err := json.Unmarshal(responseBody, &result); err != nil {
+		return fmt.Errorf("解析响应: %w", err)
+	}
+	if !result.Success {
+		msg := ""
+		if result.Message != nil {
+			msg = *result.Message
+		}
+		return &ProxyBusinessError{
+			Message: fmt.Sprintf("停止 dev server 失败: %s", msg),
+		}
+	}
+	return nil
+}
+
+func (c *ProxyClient) GetInfo(ctx context.Context) (*InfoAPI, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/info", c.baseURL), nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("获取系统信息失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result infoAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+	if !result.Success || result.Data == nil {
+		msg := ""
+		if result.Message != nil {
+			msg = *result.Message
+		}
+		if msg == "" {
+			msg = "系统信息为空"
+		}
+		return nil, &ProxyBusinessError{Message: msg}
+	}
+
+	return result.Data, nil
+}
+
+func (c *ProxyClient) GetExecutionProcess(ctx context.Context, processID string) (*ExecutionProcessDetail, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/execution-processes/%s", c.baseURL, processID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("获取 execution process 失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result executionProcessAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+	if !result.Success || result.Data == nil {
+		msg := ""
+		if result.Message != nil {
+			msg = *result.Message
+		}
+		return nil, fmt.Errorf("获取 execution process 失败: %s", msg)
+	}
+
+	return result.Data, nil
 }
 
 // getLatestSessionID 查询 summaries 获取工作区的最新 session_id

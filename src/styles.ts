@@ -280,6 +280,29 @@ export const workspaceHomeStyles = css`
     align-content: start;
   }
 
+  .workspace-home-sidebar .task-card {
+    padding: 0;
+  }
+
+  .workspace-home-sidebar .task-card-main {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    appearance: none;
+  }
+
+  .workspace-home-sidebar .meta-files {
+    justify-self: end;
+    white-space: nowrap;
+  }
+
   .workspace-home-sidebar-toggle {
     position: absolute;
     top: 10px;
@@ -372,6 +395,7 @@ export const workspaceHomeStyles = css`
   }
 
   .status-icon {
+    background: transparent;
     font-weight: 700;
     line-height: 1;
   }
@@ -630,6 +654,7 @@ export const cardStyles = css`
   }
 
   .status-icon {
+    background: transparent;
     font-weight: 700;
     line-height: 1;
   }
@@ -739,6 +764,33 @@ export const cardStyles = css`
     margin: 0;
     font-size: 1.08em;
     line-height: 1.2;
+  }
+
+  .dialog-dev-server-toggle,
+  .dialog-dev-server-preview {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--secondary-text-color, #94a3b8);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .dialog-dev-server-toggle[data-dev-server-state="running"],
+  .dialog-dev-server-toggle[data-dev-server-state="stopping"] {
+    color: var(--error-color, #f87171);
+  }
+
+  .dialog-dev-server-toggle[data-dev-server-state="starting"] {
+    color: var(--warning-color, #f59e0b);
+  }
+
+  .dialog-dev-server-toggle:disabled,
+  .dialog-dev-server-preview:disabled {
+    cursor: default;
+    opacity: 0.72;
   }
 
   .dialog-close {
@@ -1718,6 +1770,12 @@ export const cardStyles = css`
     }
 
     .dialog-close {
+      width: 26px;
+      height: 26px;
+    }
+
+    .dialog-dev-server-toggle,
+    .dialog-dev-server-preview {
       width: 26px;
       height: 26px;
     }

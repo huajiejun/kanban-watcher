@@ -5,7 +5,6 @@ import "../components/workspace-preview-card";
 import type {
   ConversationPaneAction,
 } from "../components/workspace-conversation-pane";
-import { renderWorkspaceSectionList } from "../components/workspace-section-list";
 import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
 import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
@@ -26,11 +25,15 @@ import {
 import { connectRealtime } from "../lib/realtime-api";
 import {
   cancelWorkspaceQueue,
+  fetchExecutionProcess,
   fetchActiveWorkspaces,
+  fetchVibeInfo,
   fetchWorkspaceView,
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
   sendWorkspaceMessage,
+  startWorkspaceDevServer,
+  stopWorkspaceDevServer,
   stopWorkspaceExecution,
   updateWorkspaceView,
 } from "../lib/http-api";
@@ -103,6 +106,10 @@ export class KanbanWorkspaceHome extends LitElement {
     error: { attribute: false },
     collapsedSections: { attribute: false },
     loadingWorkspaceIds: { attribute: false },
+    startingDevServerWorkspaceIds: { attribute: false },
+    stoppingDevServerWorkspaceIds: { attribute: false },
+    devServerProcessIdsByWorkspace: { attribute: false },
+    devServerProcessStatusByWorkspace: { attribute: false },
     messageErrorByWorkspace: { attribute: false },
     messageDraftByWorkspace: { attribute: false },
     actionFeedbackByWorkspace: { attribute: false },
@@ -121,6 +128,10 @@ export class KanbanWorkspaceHome extends LitElement {
   error = "";
   collapsedSections = new Set<"attention" | "running" | "idle">();
   loadingWorkspaceIds = new Set<string>();
+  startingDevServerWorkspaceIds = new Set<string>();
+  stoppingDevServerWorkspaceIds = new Set<string>();
+  devServerProcessIdsByWorkspace: Record<string, string> = {};
+  devServerProcessStatusByWorkspace: Record<string, string> = {};
   messageErrorByWorkspace: Record<string, string> = {};
   messageDraftByWorkspace: Record<string, string> = {};
   actionFeedbackByWorkspace: Record<string, string> = {};
@@ -143,6 +154,8 @@ export class KanbanWorkspaceHome extends LitElement {
   private lastPushedWorkspaceViewSignature = "";
   private apiAccessBlocked = false;
   private mobileCardConfigSignature = "";
+  private previewProxyPort?: number;
+  private previewDrawerWorkspaceId?: string;
 
   connectedCallback() {
     super.connectedCallback();
@@ -242,23 +255,11 @@ export class KanbanWorkspaceHome extends LitElement {
             <div class="workspace-home-sidebar-content">
               ${this.loading ? html`<div class="empty-state">正在加载工作区...</div>` : nothing}
               ${this.error ? html`<div class="empty-state">${this.error}</div>` : nothing}
-              ${renderWorkspaceSectionList({
-                sections,
-                collapsedSections: this.collapsedSections,
-                compact: false,
-                selectedWorkspaceId: this.pageState.activeWorkspaceId,
-                getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => ({
-                  relativeTime: workspace.relative_time ?? formatRelativeTime(workspace.updated_at),
-                  filesChanged: workspace.files_changed ?? 0,
-                  linesAdded: workspace.lines_added ?? 0,
-                  linesRemoved: workspace.lines_removed ?? 0,
-                }),
-                onToggleSection: (key) => this.toggleSection(key),
-                onSelectWorkspace: (workspace) => this.handleOpenWorkspace(workspace),
-              })}
+              ${sections.map((section) => this.renderWorkspaceSection(section))}
             </div>
           </aside>
           ${this.renderWorkspacePanes(openWorkspaces, paneLayoutMode)}
+          ${this.renderPreviewDrawer()}
         </section>
       </main>
     `;
@@ -295,7 +296,9 @@ export class KanbanWorkspaceHome extends LitElement {
         ? await this.fetchApiWorkspaces()
         : this.readMockWorkspaces();
 
+      await this.hydrateRunningDevServerProcesses(workspaces);
       this.workspaces = workspaces;
+      this.pruneDevServerProcessState(workspaces);
       this.pageState = reconcileWorkspacePageState(this.pageState, workspaces);
       const openWorkspaces = this.pageState.openWorkspaceIds
         .map((workspaceId) => workspaces.find((workspace) => workspace.id === workspaceId))
@@ -324,12 +327,25 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private async initializeWorkspaceHome() {
     if (this.isApiMode) {
+      await this.loadVibeInfo();
       await this.hydrateRemoteWorkspaceView();
     }
     await this.loadWorkspaces();
     if (!this.apiAccessBlocked) {
       this.connectBoardRealtimeIfNeeded();
       this.startBoardPolling();
+    }
+  }
+
+  private async loadVibeInfo() {
+    try {
+      const response = await fetchVibeInfo({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+      });
+      this.previewProxyPort = response.data?.config?.preview_proxy_port;
+    } catch {
+      this.previewProxyPort = undefined;
     }
   }
 
@@ -437,12 +453,14 @@ export class KanbanWorkspaceHome extends LitElement {
     return {
       id: workspace.id,
       name: workspace.name,
+      browser_url: workspace.browser_url,
       branch: workspace.branch,
       status: workspace.status,
       latest_session_id: workspace.latest_session_id,
       has_pending_approval: workspace.has_pending_approval,
       has_unseen_turns: workspace.has_unseen_turns,
       has_running_dev_server: workspace.has_running_dev_server,
+      running_dev_server_process_id: workspace.running_dev_server_process_id,
       files_changed: workspace.files_changed,
       lines_added: workspace.lines_added,
       lines_removed: workspace.lines_removed,
@@ -532,6 +550,118 @@ export class KanbanWorkspaceHome extends LitElement {
       void this.loadWorkspaceQueueStatus(workspace.id);
     }
   }
+
+  private async handleWorkspaceRun(workspace: KanbanWorkspace) {
+    if (this.isWorkspaceDevServerRunning(workspace)) {
+      return;
+    }
+    if (!this.isApiMode) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: "预览模式暂不支持启动开发服务器。",
+      };
+      return;
+    }
+
+    this.setDevServerStarting(workspace.id, true);
+    this.actionFeedbackByWorkspace = {
+      ...this.actionFeedbackByWorkspace,
+      [workspace.id]: "正在启动开发服务器...",
+    };
+
+    try {
+      const response = await startWorkspaceDevServer({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId: workspace.id,
+      });
+      const startedProcess = response.execution_processes?.find(
+        (process) => process.workspace_id === workspace.id,
+      ) ?? response.execution_processes?.[0];
+      if (startedProcess?.id) {
+        this.devServerProcessIdsByWorkspace = {
+          ...this.devServerProcessIdsByWorkspace,
+          [workspace.id]: startedProcess.id,
+        };
+        this.devServerProcessStatusByWorkspace = {
+          ...this.devServerProcessStatusByWorkspace,
+          [workspace.id]: startedProcess.status ?? "running",
+        };
+        await this.refreshWorkspaceDevServerProcess(workspace.id);
+      }
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: response.message?.trim() || "开发服务器已启动",
+      };
+      await this.loadWorkspaces();
+    } catch (error) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: error instanceof Error ? error.message : "启动开发服务器失败",
+      };
+    } finally {
+      this.setDevServerStarting(workspace.id, false);
+    }
+  }
+
+  private async handleWorkspaceDevServerStop(workspace: KanbanWorkspace) {
+    if (!this.isApiMode || this.stoppingDevServerWorkspaceIds.has(workspace.id)) {
+      return;
+    }
+
+    this.setDevServerStopping(workspace.id, true);
+    this.actionFeedbackByWorkspace = {
+      ...this.actionFeedbackByWorkspace,
+      [workspace.id]: "正在停止开发服务器...",
+    };
+
+    try {
+      const processId = this.devServerProcessIdsByWorkspace[workspace.id]?.trim();
+      const response = await stopWorkspaceDevServer({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId: workspace.id,
+        processId: processId || undefined,
+      });
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: response.message?.trim() || "开发服务器已停止",
+      };
+      this.clearWorkspaceDevServerProcess(workspace.id);
+      await this.loadWorkspaces();
+    } catch (error) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: error instanceof Error ? error.message : "停止开发服务器失败",
+      };
+    } finally {
+      this.setDevServerStopping(workspace.id, false);
+    }
+  }
+
+  private async handleWorkspaceDevServerToggle(workspace: KanbanWorkspace) {
+    const state = this.getWorkspaceDevServerState(workspace);
+    if (state === "running") {
+      await this.handleWorkspaceDevServerStop(workspace);
+      return;
+    }
+    if (state === "idle") {
+      await this.handleWorkspaceRun(workspace);
+    }
+  }
+
+  private handleOpenPreviewDrawer(workspace: KanbanWorkspace) {
+    if (!this.getWorkspaceEmbeddedPreviewUrl(workspace)) {
+      return;
+    }
+    this.previewDrawerWorkspaceId = workspace.id;
+    this.requestUpdate();
+  }
+
+  private handleClosePreviewDrawer = () => {
+    this.previewDrawerWorkspaceId = undefined;
+    this.requestUpdate();
+  };
 
   private handleDraftChange(workspaceId: string, draft: string) {
     this.messageDraftByWorkspace = {
@@ -729,6 +859,77 @@ export class KanbanWorkspaceHome extends LitElement {
     ].filter((section) => section.workspaces.length > 0);
   }
 
+  private renderWorkspaceSection(section: {
+    key: "attention" | "running" | "idle";
+    label: string;
+    workspaces: KanbanWorkspace[];
+  }) {
+    const collapsed = this.collapsedSections.has(section.key);
+
+    return html`
+      <section class="section" ?collapsed=${collapsed}>
+        <button class="section-toggle" type="button" @click=${() => this.toggleSection(section.key)}>
+          <span class="section-title-row">
+            <span class="section-title">${section.label}</span>
+            <span class="section-count">${section.workspaces.length}</span>
+          </span>
+          <span class="chevron" aria-hidden="true">▾</span>
+        </button>
+        ${collapsed
+          ? nothing
+          : html`
+              <div class="section-body">
+                ${section.workspaces.map((workspace) => this.renderWorkspaceCard(workspace))}
+              </div>
+            `}
+      </section>
+    `;
+  }
+
+  private renderWorkspaceCard(workspace: KanbanWorkspace) {
+    const statusMeta = getStatusMeta(workspace);
+    const relativeTime = workspace.relative_time ?? formatRelativeTime(workspace.updated_at);
+    const filesChanged = workspace.files_changed ?? 0;
+    const linesAdded = workspace.lines_added ?? 0;
+    const linesRemoved = workspace.lines_removed ?? 0;
+    const localFeedback = this.getWorkspaceCardFeedback(workspace.id);
+
+    return html`
+      <div
+        class="task-card ${statusMeta.accentClass}"
+        data-selected=${workspace.id === this.pageState.activeWorkspaceId ? "true" : "false"}
+      >
+        <button
+          class="task-card-main"
+          type="button"
+          @click=${() => this.handleOpenWorkspace(workspace)}
+          aria-label=${`打开工作区 ${workspace.name}`}
+        >
+          <div class="workspace-name">${workspace.name}</div>
+          <div class="task-meta">
+            <span class="meta-status">
+              ${statusMeta.icons.map(
+                (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
+                  >${icon.symbol}</span
+                >`,
+              )}
+            </span>
+            <span class="relative-time">${relativeTime}</span>
+            <span class="meta-files"
+              ><span class="file-count">📄 ${filesChanged}</span> <span class="lines-added"
+                >+${linesAdded}</span
+              >
+              <span class="lines-removed">-${linesRemoved}</span></span
+            >
+          </div>
+        </button>
+        ${localFeedback
+          ? html`<div class="task-card-feedback" role="status">${localFeedback}</div>`
+          : nothing}
+      </div>
+    `;
+  }
+
   private get previewOptions() {
     return readPreviewApiOptions(new URL(window.location.href));
   }
@@ -759,6 +960,14 @@ export class KanbanWorkspaceHome extends LitElement {
     return "";
   }
 
+  private getWorkspaceCardFeedback(workspaceId: string) {
+    const feedback = this.actionFeedbackByWorkspace[workspaceId] ?? "";
+    if (!feedback) {
+      return "";
+    }
+    return feedback;
+  }
+
   private setWorkspaceLoading(workspaceId: string, loading: boolean) {
     const next = new Set(this.loadingWorkspaceIds);
     if (loading) {
@@ -767,6 +976,113 @@ export class KanbanWorkspaceHome extends LitElement {
       next.delete(workspaceId);
     }
     this.loadingWorkspaceIds = next;
+  }
+
+  private setDevServerStarting(workspaceId: string, starting: boolean) {
+    const next = new Set(this.startingDevServerWorkspaceIds);
+    if (starting) {
+      next.add(workspaceId);
+    } else {
+      next.delete(workspaceId);
+    }
+    this.startingDevServerWorkspaceIds = next;
+  }
+
+  private setDevServerStopping(workspaceId: string, stopping: boolean) {
+    const next = new Set(this.stoppingDevServerWorkspaceIds);
+    if (stopping) {
+      next.add(workspaceId);
+    } else {
+      next.delete(workspaceId);
+    }
+    this.stoppingDevServerWorkspaceIds = next;
+  }
+
+  private isWorkspaceDevServerRunning(workspace: KanbanWorkspace) {
+    return Boolean(
+        workspace.has_running_dev_server ||
+        workspace.hasRunningDevServer ||
+        this.devServerProcessStatusByWorkspace[workspace.id] === "running" ||
+        this.startingDevServerWorkspaceIds.has(workspace.id),
+    );
+  }
+
+  private pruneDevServerProcessState(workspaces: KanbanWorkspace[]) {
+    const workspaceIds = new Set(workspaces.map((workspace) => workspace.id));
+    const nextIds: Record<string, string> = {};
+    const nextStatuses: Record<string, string> = {};
+
+    for (const workspaceId of Object.keys(this.devServerProcessIdsByWorkspace)) {
+      if (!workspaceIds.has(workspaceId)) {
+        continue;
+      }
+      nextIds[workspaceId] = this.devServerProcessIdsByWorkspace[workspaceId];
+      const status = this.devServerProcessStatusByWorkspace[workspaceId];
+      if (status) {
+        nextStatuses[workspaceId] = status;
+      }
+    }
+
+    this.devServerProcessIdsByWorkspace = nextIds;
+    this.devServerProcessStatusByWorkspace = nextStatuses;
+  }
+
+  private clearWorkspaceDevServerProcess(workspaceId: string) {
+    const nextIds = { ...this.devServerProcessIdsByWorkspace };
+    const nextStatuses = { ...this.devServerProcessStatusByWorkspace };
+    delete nextIds[workspaceId];
+    delete nextStatuses[workspaceId];
+    this.devServerProcessIdsByWorkspace = nextIds;
+    this.devServerProcessStatusByWorkspace = nextStatuses;
+  }
+
+  private async refreshWorkspaceDevServerProcess(workspaceId: string) {
+    const processId = this.devServerProcessIdsByWorkspace[workspaceId];
+    if (!this.isApiMode || !processId) {
+      return;
+    }
+
+    try {
+      const response = await fetchExecutionProcess({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        processId,
+      });
+      const status = response.data?.status?.trim();
+      if (!status) {
+        return;
+      }
+      this.devServerProcessStatusByWorkspace = {
+        ...this.devServerProcessStatusByWorkspace,
+        [workspaceId]: status,
+      };
+      if (status !== "running") {
+        this.clearWorkspaceDevServerProcess(workspaceId);
+      }
+    } catch {
+      // 详情接口只是辅助状态源，请求失败时保留当前状态，避免打断主交互。
+    }
+  }
+
+  private async hydrateRunningDevServerProcesses(workspaces: KanbanWorkspace[]) {
+    const jobs: Promise<void>[] = [];
+
+    for (const workspace of workspaces) {
+      const processId = workspace.running_dev_server_process_id?.trim();
+      if (!processId) {
+        continue;
+      }
+
+      this.devServerProcessIdsByWorkspace = {
+        ...this.devServerProcessIdsByWorkspace,
+        [workspace.id]: processId,
+      };
+      jobs.push(this.refreshWorkspaceDevServerProcess(workspace.id));
+    }
+
+    if (jobs.length > 0) {
+      await Promise.all(jobs);
+    }
   }
 
   private async setupMobileCard() {
@@ -1005,7 +1321,10 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     if (event.type === "workspace_snapshot") {
       const previousOpenWorkspaceIds = [...this.pageState.openWorkspaceIds];
-      this.workspaces = (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));
+      const nextWorkspaces = (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));
+      void this.hydrateRunningDevServerProcesses(nextWorkspaces);
+      this.workspaces = nextWorkspaces;
+      this.pruneDevServerProcessState(nextWorkspaces);
       this.pageState = reconcileWorkspacePageState(this.pageState, this.workspaces);
       const newlyOpenedWorkspaceIds = this.pageState.openWorkspaceIds.filter(
         (workspaceId) => !previousOpenWorkspaceIds.includes(workspaceId),
@@ -1161,6 +1480,48 @@ export class KanbanWorkspaceHome extends LitElement {
       : undefined;
   }
 
+  private get activeWorkspaceBrowserUrl() {
+    return this.activeWorkspace ? this.getWorkspaceEmbeddedPreviewUrl(this.activeWorkspace) : "";
+  }
+
+  private getWorkspaceEmbeddedPreviewUrl(workspace: KanbanWorkspace) {
+    const browserUrl = workspace.browser_url?.trim() || "";
+    if (!browserUrl) {
+      return "";
+    }
+
+    try {
+      const parsed = new URL(browserUrl);
+      const host = parsed.hostname.toLowerCase();
+      const isLocalhost = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
+      if (!isLocalhost || !this.previewProxyPort) {
+        return parsed.toString();
+      }
+
+      const devServerPort = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
+      const path = `${parsed.pathname}${parsed.search}`;
+      return `http://${devServerPort}.localhost:${this.previewProxyPort}${path}`;
+    } catch {
+      return browserUrl;
+    }
+  }
+
+  private getWorkspaceDevServerState(workspace: KanbanWorkspace) {
+    if (this.startingDevServerWorkspaceIds.has(workspace.id)) {
+      return "starting" as const;
+    }
+    if (this.stoppingDevServerWorkspaceIds.has(workspace.id)) {
+      return "stopping" as const;
+    }
+    if (this.devServerProcessStatusByWorkspace[workspace.id] === "running") {
+      return "running" as const;
+    }
+    if (workspace.has_running_dev_server || workspace.hasRunningDevServer) {
+      return "running" as const;
+    }
+    return "idle" as const;
+  }
+
   private getActiveSessionId(
     pageState: WorkspacePageState,
     workspaces: KanbanWorkspace[],
@@ -1231,12 +1592,44 @@ export class KanbanWorkspaceHome extends LitElement {
         .queueStatus=${queueStatus}
         .isRunning=${isRunning}
         .canQueue=${Boolean(isRunning || queueStatus?.status === "queued")}
+        .devServerState=${this.getWorkspaceDevServerState(workspace)}
+        .showDevServerPreview=${Boolean(this.getWorkspaceEmbeddedPreviewUrl(workspace))}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
           void this.handlePaneAction(workspace, event.detail)}
+        @dev-server-toggle=${() => void this.handleWorkspaceDevServerToggle(workspace)}
+        @dev-server-preview-toggle=${() => this.handleOpenPreviewDrawer(workspace)}
         @pane-close=${() => this.handleCloseWorkspace(workspace)}
       ></workspace-conversation-pane>
+    `;
+  }
+
+  private renderPreviewDrawer() {
+    const workspace = this.workspaces.find((item) => item.id === this.previewDrawerWorkspaceId);
+    const previewUrl = workspace ? this.getWorkspaceEmbeddedPreviewUrl(workspace) : "";
+    if (!workspace || !previewUrl) {
+      return nothing;
+    }
+
+    return html`
+      <aside class="workspace-home-preview-drawer" data-open="true">
+        <div class="workspace-home-preview-drawer-header">
+          <div class="workspace-home-preview-drawer-title">${workspace.name}</div>
+          <button
+            class="workspace-home-preview-drawer-close"
+            type="button"
+            @click=${this.handleClosePreviewDrawer}
+          >
+            ✕
+          </button>
+        </div>
+        <iframe
+          class="workspace-home-preview-drawer-frame"
+          src=${previewUrl}
+          title=${`${workspace.name} 预览`}
+        ></iframe>
+      </aside>
     `;
   }
 

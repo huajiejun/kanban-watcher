@@ -320,6 +320,8 @@ func (s *Store) UpsertSession(ctx context.Context, sess *Session) error {
 
 // UpsertExecutionProcess 插入或更新执行进程
 func (s *Store) UpsertExecutionProcess(ctx context.Context, ep *ExecutionProcess) error {
+	normalizedRunReason := normalizeExecutionProcessRunReason(ep.RunReason)
+
 	query := `
 		INSERT INTO kw_execution_processes (
 			id, session_id, workspace_id, run_reason, status, executor,
@@ -337,7 +339,7 @@ func (s *Store) UpsertExecutionProcess(ctx context.Context, ep *ExecutionProcess
 			synced_at = CURRENT_TIMESTAMP(3)
 	`
 	_, err := s.execWithRetry(ctx, query,
-		ep.ID, ep.SessionID, ep.WorkspaceID, ep.RunReason, ep.Status, ep.Executor,
+		ep.ID, ep.SessionID, ep.WorkspaceID, normalizedRunReason, ep.Status, ep.Executor,
 		ep.ExecutorActionType, ep.Dropped, ep.CreatedAt, ep.CompletedAt,
 	)
 	if err != nil {
@@ -498,6 +500,43 @@ func (s *Store) GetLatestRunningCodingAgentProcessByWorkspaceID(ctx context.Cont
 			return nil, nil
 		}
 		return nil, fmt.Errorf("get latest running codingagent process by workspace id: %w", err)
+	}
+
+	return &ep, nil
+}
+
+// GetLatestRunningDevServerProcessByWorkspaceID 获取工作区最近仍在运行的 dev server execution process
+func (s *Store) GetLatestRunningDevServerProcessByWorkspaceID(ctx context.Context, workspaceID string) (*ExecutionProcess, error) {
+	query := `
+		SELECT id, session_id, workspace_id, run_reason, status, executor,
+		       executor_action_type, dropped, created_at, completed_at, synced_at
+		FROM kw_execution_processes
+		WHERE workspace_id = ?
+		  AND run_reason IN ('dev_server', 'devserver')
+		  AND dropped = FALSE
+		  AND status = 'running'
+		ORDER BY created_at DESC, id DESC
+		LIMIT 1
+	`
+
+	var ep ExecutionProcess
+	if err := s.db.QueryRowContext(ctx, query, workspaceID).Scan(
+		&ep.ID,
+		&ep.SessionID,
+		&ep.WorkspaceID,
+		&ep.RunReason,
+		&ep.Status,
+		&ep.Executor,
+		&ep.ExecutorActionType,
+		&ep.Dropped,
+		&ep.CreatedAt,
+		&ep.CompletedAt,
+		&ep.SyncedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get latest running dev server process by workspace id: %w", err)
 	}
 
 	return &ep, nil
@@ -748,6 +787,7 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 			w.has_pending_approval,
 			w.has_unseen_turns,
 			w.has_running_dev_server,
+			running_dev.process_id AS running_dev_server_process_id,
 			w.files_changed,
 			w.lines_added,
 			w.lines_removed,
@@ -757,6 +797,12 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 			ep.latest_process_completed_at,
 			lm.content AS last_message
 		FROM kw_workspaces w
+		LEFT JOIN (
+			SELECT workspace_id, MIN(id) AS process_id
+			FROM kw_execution_processes
+			WHERE run_reason IN ('dev_server', 'devserver') AND status = 'running' AND dropped = FALSE
+			GROUP BY workspace_id
+		) running_dev ON running_dev.workspace_id = w.id
 		LEFT JOIN (
 			SELECT
 				workspace_id,
@@ -794,12 +840,12 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 	var summaries []ActiveWorkspaceSummary
 	for rows.Next() {
 		var summary ActiveWorkspaceSummary
-		var latestSessionID sql.NullString
+		var latestSessionID, runningDevServerProcessID sql.NullString
 		var lastMessage sql.NullString
 		var updatedAt, lastMessageAt, latestProcessCompletedAt sql.NullTime
 		if err := rows.Scan(
 			&summary.ID, &summary.Name, &summary.Branch, &latestSessionID, &summary.Status,
-			&summary.HasPendingApproval, &summary.HasUnseenTurns, &summary.HasRunningDevServer,
+			&summary.HasPendingApproval, &summary.HasUnseenTurns, &summary.HasRunningDevServer, &runningDevServerProcessID,
 			&summary.FilesChanged, &summary.LinesAdded, &summary.LinesRemoved,
 			&updatedAt, &summary.MessageCount, &lastMessageAt, &latestProcessCompletedAt, &lastMessage,
 		); err != nil {
@@ -807,6 +853,9 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 		}
 		if latestSessionID.Valid {
 			summary.LatestSessionID = &latestSessionID.String
+		}
+		if runningDevServerProcessID.Valid {
+			summary.RunningDevServerProcessID = &runningDevServerProcessID.String
 		}
 		if updatedAt.Valid {
 			summary.UpdatedAt = &updatedAt.Time
@@ -824,6 +873,15 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 	}
 
 	return summaries, nil
+}
+
+func normalizeExecutionProcessRunReason(runReason string) string {
+	switch strings.TrimSpace(runReason) {
+	case "devserver":
+		return "dev_server"
+	default:
+		return strings.TrimSpace(runReason)
+	}
 }
 
 // GetSubscription 获取订阅状态

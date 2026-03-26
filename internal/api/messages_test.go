@@ -195,6 +195,19 @@ func TestBuildLocalMenuSummaryPrefersLastMessageOverUnreadReason(t *testing.T) {
 	}
 }
 
+func TestBuildWorkspaceBrowserURLSupportsTemplatePlaceholders(t *testing.T) {
+	got := buildWorkspaceBrowserURL(LocalWorkspaceSummary{
+		ID:     "ws-1",
+		Name:   "我的工作区",
+		Branch: "feature/test",
+	}, "https://relay.example/{workspace_id}?name={workspace_name}&branch={branch}")
+
+	want := "https://relay.example/ws-1?name=我的工作区&branch=feature/test"
+	if got != want {
+		t.Fatalf("browser url = %q, want %q", got, want)
+	}
+}
+
 func setStoreDB(t *testing.T, dbStore *store.Store, db interface{}) {
 	t.Helper()
 
@@ -220,7 +233,7 @@ func TestGetWorkspaceViewRouteReturnsPersistedLayout(t *testing.T) {
 		WithArgs("global").
 		WillReturnRows(rows)
 
-	routes := GetMessageRoutes(dbStore, nil)
+	routes := GetMessageRoutes(dbStore, "", nil)
 	handler := routes["/api/workspace-view"]
 	if handler == nil {
 		t.Fatal("workspace view 路由未注册")
@@ -260,7 +273,7 @@ func TestPutWorkspaceViewPersistsLayoutAndBroadcastsRealtimeEvent(t *testing.T) 
 			"scope_key", "open_workspace_ids_json", "active_workspace_id", "dismissed_attention_ids_json", "version", "updated_at", "created_at",
 		}).AddRow("global", `["ws-1"]`, "ws-1", `["ws-attention"]`, 1, time.Now(), time.Now()))
 
-	routes := GetMessageRoutes(dbStore, publisher)
+	routes := GetMessageRoutes(dbStore, "", publisher)
 	handler := routes["/api/workspace-view"]
 	if handler == nil {
 		t.Fatal("workspace view 路由未注册")
@@ -280,5 +293,51 @@ func TestPutWorkspaceViewPersistsLayoutAndBroadcastsRealtimeEvent(t *testing.T) 
 	}
 	if !strings.Contains(recorder.Body.String(), `"dismissed_attention_ids":["ws-attention"]`) {
 		t.Fatalf("响应未包含 dismissed_attention_ids: %s", recorder.Body.String())
+	}
+}
+
+func TestActiveWorkspacesRouteIncludesBrowserURLWhenTemplateConfigured(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("创建 sqlmock 失败: %v", err)
+	}
+	defer db.Close()
+
+	dbStore := &store.Store{}
+	setStoreDB(t, dbStore, db)
+
+	rows := sqlmock.NewRows([]string{
+		"id", "name", "branch", "latest_session_id", "status",
+		"has_pending_approval", "has_unseen_turns", "has_running_dev_server", "running_dev_server_process_id",
+		"files_changed", "lines_added", "lines_removed", "updated_at",
+		"message_count", "last_message_at", "latest_process_completed_at", "last_message",
+	}).AddRow(
+		"ws-1", "工作区一", "feature/browser", "session-1", "completed",
+		false, false, true, "proc-dev-1",
+		1, 2, 3, time.Now(),
+		0, nil, nil, nil,
+	)
+
+	mock.ExpectQuery("SELECT").
+		WillReturnRows(rows)
+
+	routes := GetMessageRoutes(dbStore, "https://relay.example/{workspace_id}?branch={branch}")
+	handler := routes["/api/workspaces/active"]
+	if handler == nil {
+		t.Fatal("active workspaces 路由未注册")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/workspaces/active", nil)
+	recorder := httptest.NewRecorder()
+	handler(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"browser_url":"https://relay.example/ws-1?branch=feature/browser"`) {
+		t.Fatalf("响应未包含 browser_url: %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"running_dev_server_process_id":"proc-dev-1"`) {
+		t.Fatalf("响应未包含 running_dev_server_process_id: %s", recorder.Body.String())
 	}
 }

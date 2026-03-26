@@ -55,11 +55,13 @@ type LocalWorkspaceSummary struct {
 	ID                       string `json:"id"`
 	Name                     string `json:"name"`
 	Branch                   string `json:"branch"`
+	BrowserURL               string `json:"browser_url,omitempty"`
 	LatestSessionID          string `json:"latest_session_id,omitempty"`
 	Status                   string `json:"status"`
 	HasPendingApproval       bool   `json:"has_pending_approval"`
 	HasUnseenTurns           bool   `json:"has_unseen_turns"`
 	HasRunningDevServer      bool   `json:"has_running_dev_server"`
+	RunningDevServerProcessID string `json:"running_dev_server_process_id,omitempty"`
 	FilesChanged             int    `json:"files_changed"`
 	LinesAdded               int    `json:"lines_added"`
 	LinesRemoved             int    `json:"lines_removed"`
@@ -71,7 +73,7 @@ type LocalWorkspaceSummary struct {
 }
 
 // GetMessageRoutes 注册消息 API 路由
-func GetMessageRoutes(dbStore *store.Store, publishers ...*RealtimePublisher) map[string]http.HandlerFunc {
+func GetMessageRoutes(dbStore *store.Store, browserURLTemplate string, publishers ...*RealtimePublisher) map[string]http.HandlerFunc {
 	var realtimePublisher *RealtimePublisher
 	if len(publishers) > 0 {
 		realtimePublisher = publishers[0]
@@ -84,7 +86,7 @@ func GetMessageRoutes(dbStore *store.Store, publishers ...*RealtimePublisher) ma
 			handleWorkspaceView(w, r, dbStore, realtimePublisher)
 		},
 		"/api/workspaces/active": func(w http.ResponseWriter, r *http.Request) {
-			handleActiveWorkspaces(w, r, dbStore)
+			handleActiveWorkspaces(w, r, dbStore, browserURLTemplate)
 		},
 		"/api/workspaces/": func(w http.ResponseWriter, r *http.Request) {
 			handleWorkspaceLatestMessages(w, r, dbStore)
@@ -177,7 +179,7 @@ func toWorkspaceViewResponse(view *store.WorkspaceView) WorkspaceViewResponse {
 	return resp
 }
 
-func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
+func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *store.Store, browserURLTemplate string) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -202,6 +204,7 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 			ID:                  summary.ID,
 			Name:                summary.Name,
 			Branch:              summary.Branch,
+			BrowserURL:          buildWorkspaceBrowserURL(LocalWorkspaceSummary{ID: summary.ID, Name: summary.Name, Branch: summary.Branch}, browserURLTemplate),
 			Status:              summary.Status,
 			HasPendingApproval:  summary.HasPendingApproval,
 			HasUnseenTurns:      summary.HasUnseenTurns,
@@ -214,6 +217,9 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 		}
 		if summary.LatestSessionID != nil {
 			item.LatestSessionID = *summary.LatestSessionID
+		}
+		if summary.RunningDevServerProcessID != nil {
+			item.RunningDevServerProcessID = *summary.RunningDevServerProcessID
 		}
 		if summary.UpdatedAt != nil {
 			item.UpdatedAt = summary.UpdatedAt.Format(time.RFC3339)
@@ -228,6 +234,20 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 	}
 
 	writeJSON(w, resp)
+}
+
+func buildWorkspaceBrowserURL(summary LocalWorkspaceSummary, template string) string {
+	if strings.TrimSpace(template) == "" {
+		return ""
+	}
+
+	replacer := strings.NewReplacer(
+		"{workspace_id}", summary.ID,
+		"{workspace_name}", summary.Name,
+		"{branch}", summary.Branch,
+	)
+
+	return replacer.Replace(template)
 }
 
 func buildLocalMenuSummary(summary store.ActiveWorkspaceSummary) string {

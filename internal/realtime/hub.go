@@ -27,6 +27,7 @@ type WorkspacePayload struct {
 	HasPendingApproval  bool   `json:"has_pending_approval"`
 	HasUnseenTurns      bool   `json:"has_unseen_turns"`
 	HasRunningDevServer bool   `json:"has_running_dev_server"`
+	RunningDevServerProcessID string `json:"running_dev_server_process_id,omitempty"`
 	FilesChanged        int    `json:"files_changed"`
 	LinesAdded          int    `json:"lines_added"`
 	LinesRemoved        int    `json:"lines_removed"`

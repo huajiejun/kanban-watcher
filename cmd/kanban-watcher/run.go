@@ -287,12 +287,13 @@ func runDaemon() error {
 	httpServer.SetAuthHandler(authHandler)
 
 	if dbStore != nil {
+		httpServer.SetStore(dbStore)
 		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
 	}
 
 	// 注册消息 API 路由（如果数据库已连接）
 	if dbStore != nil {
-		routes := api.GetMessageRoutes(dbStore, realtimePublisher)
+		routes := api.GetMessageRoutes(dbStore, cfg.HTTPAPI.BrowserURLTemplate, realtimePublisher)
 		for pattern, handler := range routes {
 			httpServer.RegisterRoute(pattern, handler)
 		}
@@ -405,8 +406,9 @@ func runHeadless() error {
 	httpServer.SetAuthHandler(authHandler)
 
 	if dbStore != nil {
-		routes := api.GetMessageRoutes(dbStore, realtimePublisher)
-    httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
+		httpServer.SetStore(dbStore)
+		routes := api.GetMessageRoutes(dbStore, cfg.HTTPAPI.BrowserURLTemplate, realtimePublisher)
+		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
 		for pattern, handler := range routes {
 			httpServer.RegisterRoute(pattern, handler)
 		}

@@ -1,6 +1,8 @@
 export interface KanbanWorkspace {
   id: string;
   name: string;
+  browser_url?: string;
+  browserUrl?: string;
   branch?: string;
   status?: string;
   latest_session_id?: string;
@@ -11,6 +13,7 @@ export interface KanbanWorkspace {
   hasUnseenActivity?: boolean;
   has_running_dev_server?: boolean;
   hasRunningDevServer?: boolean;
+  running_dev_server_process_id?: string;
   has_pending_approval?: boolean;
   files_changed?: number;
   lines_added?: number;
@@ -56,12 +59,14 @@ export interface KanbanSessionAttributes {
 export interface LocalWorkspaceSummary {
   id: string;
   name: string;
+  browser_url?: string;
   branch?: string;
   latest_session_id?: string;
   status?: string;
   has_pending_approval?: boolean;
   has_unseen_turns?: boolean;
   has_running_dev_server?: boolean;
+  running_dev_server_process_id?: string;
   files_changed?: number;
   lines_added?: number;
   lines_removed?: number;
@@ -73,6 +78,23 @@ export interface LocalWorkspaceSummary {
 
 export interface ActiveWorkspacesResponse {
   workspaces?: LocalWorkspaceSummary[];
+}
+
+export interface VibeInfoResponse {
+  success?: boolean;
+  data?: {
+    config?: {
+      preview_proxy_port?: number;
+    };
+  };
+}
+
+export interface ExecutionProcessDetail {
+  id: string;
+  session_id?: string;
+  workspace_id?: string;
+  run_reason?: string;
+  status?: string;
 }
 
 export interface WorkspaceViewResponse {
@@ -116,6 +138,7 @@ export interface WorkspaceMessageResponse {
   session_id?: string;
   action?: string;
   message?: string;
+  execution_processes?: ExecutionProcessDetail[];
 }
 
 export interface WorkspaceQueueStatusResponse {

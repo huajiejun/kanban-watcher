@@ -56,8 +56,9 @@ type DatabaseConfig struct {
 
 // HTTPAPIConfig 本地 HTTP API 配置
 type HTTPAPIConfig struct {
-	Port   int    `yaml:"port"`
-	APIKey string `yaml:"api_key"`
+	Port               int    `yaml:"port"`
+	APIKey             string `yaml:"api_key"`
+	BrowserURLTemplate string `yaml:"browser_url_template"`
 }
 
 // IsEnabled 检查数据库配置是否启用

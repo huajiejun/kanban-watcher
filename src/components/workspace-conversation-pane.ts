@@ -7,6 +7,7 @@ import type { WorkspaceQueueStatusResponse } from "../types";
 
 export type ConversationPaneAction = "send" | "queue" | "stop";
 export type ConversationPaneMessage = DialogMessage;
+export type DevServerState = "idle" | "starting" | "running" | "stopping";
 
 export class WorkspaceConversationPane extends LitElement {
   static styles = cardStyles;
@@ -26,6 +27,8 @@ export class WorkspaceConversationPane extends LitElement {
     statusAccentClass: { attribute: false },
     isRunning: { type: Boolean },
     canQueue: { type: Boolean },
+    devServerState: { attribute: false },
+    showDevServerPreview: { type: Boolean },
     showFileBrowser: { type: Boolean },
   };
 
@@ -43,6 +46,8 @@ export class WorkspaceConversationPane extends LitElement {
   statusAccentClass = "is-idle";
   isRunning = false;
   canQueue = false;
+  devServerState: DevServerState = "idle";
+  showDevServerPreview = false;
   showFileBrowser = false;
 
   // File Browser 配置
@@ -50,6 +55,10 @@ export class WorkspaceConversationPane extends LitElement {
 
   protected render() {
     const isQueued = this.queueStatus?.status === "queued";
+    const isDevServerRunning = this.devServerState === "running" || this.devServerState === "stopping";
+    const devServerToggleSymbol = isDevServerRunning ? "❚❚" : "▶";
+    const isDevServerToggleDisabled =
+      this.devServerState === "starting" || this.devServerState === "stopping";
 
     return html`
       <section class="workspace-pane-shell ${this.statusAccentClass}">
@@ -67,6 +76,28 @@ export class WorkspaceConversationPane extends LitElement {
           >
             📁
           </button>
+          <button
+            class="dialog-dev-server-toggle"
+            type="button"
+            data-dev-server-state=${this.devServerState}
+            ?disabled=${isDevServerToggleDisabled}
+            aria-label=${isDevServerRunning ? "暂停开发服务器" : "启动开发服务器"}
+            @click=${this.handleDevServerToggle}
+          >
+            ${devServerToggleSymbol}
+          </button>
+          ${this.showDevServerPreview
+            ? html`
+                <button
+                  class="dialog-dev-server-preview"
+                  type="button"
+                  aria-label="打开开发服务器预览"
+                  @click=${this.handleDevServerPreviewToggle}
+                >
+                  🖥
+                </button>
+              `
+            : nothing}
           <button
             class="dialog-close"
             type="button"
@@ -220,6 +251,24 @@ export class WorkspaceConversationPane extends LitElement {
   private handleClose = () => {
     this.dispatchEvent(
       new CustomEvent("pane-close", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private handleDevServerToggle = () => {
+    this.dispatchEvent(
+      new CustomEvent("dev-server-toggle", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private handleDevServerPreviewToggle = () => {
+    this.dispatchEvent(
+      new CustomEvent("dev-server-preview-toggle", {
         bubbles: true,
         composed: true,
       }),

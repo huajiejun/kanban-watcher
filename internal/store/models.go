@@ -93,6 +93,7 @@ type ActiveWorkspaceSummary struct {
 	HasPendingApproval       bool       `db:"has_pending_approval"`
 	HasUnseenTurns           bool       `db:"has_unseen_turns"`
 	HasRunningDevServer      bool       `db:"has_running_dev_server"`
+	RunningDevServerProcessID *string   `db:"running_dev_server_process_id"`
 	FilesChanged             int        `db:"files_changed"`
 	LinesAdded               int        `db:"lines_added"`
 	LinesRemoved             int        `db:"lines_removed"`
