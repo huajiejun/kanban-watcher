@@ -53,6 +53,10 @@ PID_DIR="/tmp/kanban-dev"
 mkdir -p "$PID_DIR"
 BACKEND_PID_FILE="$PID_DIR/backend-$BACKEND_PORT.pid"
 FRONTEND_PID_FILE="$PID_DIR/frontend-$FRONTEND_PORT.pid"
+BACKEND_STDERR_TEE_PID_FILE="$PID_DIR/backend-stderr-tee-$BACKEND_PORT.pid"
+BACKEND_LOG_FILE="/tmp/kanban-backend-$BACKEND_PORT.log"
+FRONTEND_LOG_FILE="/tmp/kanban-frontend-$FRONTEND_PORT.log"
+BACKEND_STDERR_PIPE="/tmp/kanban-backend-$BACKEND_PORT.stderr.pipe"
 
 # 检查端口是否被占用
 check_port() {
@@ -67,6 +71,28 @@ check_port() {
 get_port_pid() {
     local port=$1
     lsof -t -i :$port 2>/dev/null || echo ""
+}
+
+cleanup_backend_stderr_mirror() {
+    local mirror_pid=""
+
+    if [ -f "$BACKEND_STDERR_TEE_PID_FILE" ]; then
+        mirror_pid=$(cat "$BACKEND_STDERR_TEE_PID_FILE" 2>/dev/null || echo "")
+    fi
+
+    if [ -n "$mirror_pid" ] && kill -0 "$mirror_pid" 2>/dev/null; then
+        kill "$mirror_pid" 2>/dev/null || true
+    fi
+
+    rm -f "$BACKEND_STDERR_TEE_PID_FILE" "$BACKEND_STDERR_PIPE"
+}
+
+start_backend_stderr_mirror() {
+    cleanup_backend_stderr_mirror
+
+    mkfifo "$BACKEND_STDERR_PIPE"
+    tee -a "$BACKEND_LOG_FILE" < "$BACKEND_STDERR_PIPE" >&2 &
+    echo $! > "$BACKEND_STDERR_TEE_PID_FILE"
 }
 
 # 显示状态
@@ -137,6 +163,7 @@ stop_services() {
 
     # 清理 PID 文件
     rm -f "$BACKEND_PID_FILE" "$FRONTEND_PID_FILE"
+    cleanup_backend_stderr_mirror
 }
 
 # 启动后端
@@ -152,9 +179,11 @@ start_backend() {
     # 设置环境变量
     export KANBAN_PORT=$BACKEND_PORT
 
+    start_backend_stderr_mirror
+
     # 在后台启动 Go 服务
     cd "$(dirname "$0")/.."
-    nohup go run ./cmd/kanban-watcher > /tmp/kanban-backend-$BACKEND_PORT.log 2>&1 &
+    nohup go run ./cmd/kanban-watcher >> "$BACKEND_LOG_FILE" 2> "$BACKEND_STDERR_PIPE" &
     BACKEND_PID=$!
     echo $BACKEND_PID > "$BACKEND_PID_FILE"
     echo "后端 PID: $BACKEND_PID"
@@ -164,7 +193,8 @@ start_backend() {
 
     if ! kill -0 $BACKEND_PID 2>/dev/null; then
         echo "❌ 后端启动失败，查看日志:"
-        cat /tmp/kanban-backend-$BACKEND_PORT.log
+        cat "$BACKEND_LOG_FILE"
+        cleanup_backend_stderr_mirror
         return 1
     fi
 
@@ -187,7 +217,7 @@ start_frontend() {
     export VITE_BACKEND_PORT=$BACKEND_PORT
 
     # 启动 Vite 开发服务器 (使用 web 配置，支持 dev server)
-    nohup npx vite --config vite.config.web.ts --port $FRONTEND_PORT > /tmp/kanban-frontend-$FRONTEND_PORT.log 2>&1 &
+    nohup npx vite --config vite.config.web.ts --port $FRONTEND_PORT > "$FRONTEND_LOG_FILE" 2>&1 &
     FRONTEND_PID=$!
     echo $FRONTEND_PID > "$FRONTEND_PID_FILE"
     echo "前端 PID: $FRONTEND_PID"
@@ -196,7 +226,7 @@ start_frontend() {
 
     if ! kill -0 $FRONTEND_PID 2>/dev/null; then
         echo "❌ 前端启动失败，查看日志:"
-        cat /tmp/kanban-frontend-$FRONTEND_PORT.log
+        cat "$FRONTEND_LOG_FILE"
         return 1
     fi
 
@@ -226,8 +256,8 @@ start_services() {
     echo "  http://47.96.112.110:2453/$FRONTEND_PORT/"
     echo ""
     echo "日志文件:"
-    echo "  后端: /tmp/kanban-backend-$BACKEND_PORT.log"
-    echo "  前端: /tmp/kanban-frontend-$FRONTEND_PORT.log"
+    echo "  后端: $BACKEND_LOG_FILE"
+    echo "  前端: $FRONTEND_LOG_FILE"
     echo ""
     echo "管理命令:"
     echo "  停止: ./scripts/start-dev.sh stop $WORKTREE_ID"
