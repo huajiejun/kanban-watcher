@@ -139,6 +139,14 @@ export const workspaceSectionListStyles = css`
     opacity: 0.72;
   }
 
+  .task-card-feedback {
+    grid-column: 1 / -1;
+    padding-top: 2px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--error-color, #f87171);
+  }
+
   .tone-brand {
     color: var(--primary-color, #f59e0b);
   }
@@ -200,6 +208,30 @@ export const workspaceHomeStyles = css`
     display: grid;
     gap: 20px;
     width: 100%;
+  }
+
+  .workspace-home-sidebar-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .workspace-home-open-browser {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 40%, transparent);
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 16%, transparent);
+    color: inherit;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .workspace-home-open-browser:disabled {
+    cursor: not-allowed;
+    opacity: 0.56;
   }
 
   .workspace-home-hero {

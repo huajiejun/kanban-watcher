@@ -5,7 +5,6 @@ import "../components/workspace-preview-card";
 import type {
   ConversationPaneAction,
 } from "../components/workspace-conversation-pane";
-import { renderWorkspaceSectionList } from "../components/workspace-section-list";
 import { createPreviewHass, previewEntityId } from "../dev/preview-fixture";
 import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
@@ -31,6 +30,7 @@ import {
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
   sendWorkspaceMessage,
+  startWorkspaceDevServer,
   stopWorkspaceExecution,
   updateWorkspaceView,
 } from "../lib/http-api";
@@ -240,22 +240,19 @@ export class KanbanWorkspaceHome extends LitElement {
             data-docked=${isSidebarDocked ? "true" : "false"}
           >
             <div class="workspace-home-sidebar-content">
+              <div class="workspace-home-sidebar-toolbar">
+                <button
+                  class="workspace-home-open-browser"
+                  type="button"
+                  ?disabled=${!this.activeWorkspaceBrowserUrl}
+                  @click=${this.handleOpenBrowser}
+                >
+                  打开浏览器
+                </button>
+              </div>
               ${this.loading ? html`<div class="empty-state">正在加载工作区...</div>` : nothing}
               ${this.error ? html`<div class="empty-state">${this.error}</div>` : nothing}
-              ${renderWorkspaceSectionList({
-                sections,
-                collapsedSections: this.collapsedSections,
-                compact: false,
-                selectedWorkspaceId: this.pageState.activeWorkspaceId,
-                getWorkspaceDisplayMeta: (workspace: KanbanWorkspace) => ({
-                  relativeTime: workspace.relative_time ?? formatRelativeTime(workspace.updated_at),
-                  filesChanged: workspace.files_changed ?? 0,
-                  linesAdded: workspace.lines_added ?? 0,
-                  linesRemoved: workspace.lines_removed ?? 0,
-                }),
-                onToggleSection: (key) => this.toggleSection(key),
-                onSelectWorkspace: (workspace) => this.handleOpenWorkspace(workspace),
-              })}
+              ${sections.map((section) => this.renderWorkspaceSection(section))}
             </div>
           </aside>
           ${this.renderWorkspacePanes(openWorkspaces, paneLayoutMode)}
@@ -437,6 +434,7 @@ export class KanbanWorkspaceHome extends LitElement {
     return {
       id: workspace.id,
       name: workspace.name,
+      browser_url: workspace.browser_url,
       status: workspace.status,
       latest_session_id: workspace.latest_session_id,
       has_pending_approval: workspace.has_pending_approval,
@@ -529,6 +527,47 @@ export class KanbanWorkspaceHome extends LitElement {
     void this.loadWorkspaceMessages(workspace.id, true);
     if (workspace.status === "running") {
       void this.loadWorkspaceQueueStatus(workspace.id);
+    }
+  }
+
+  private handleOpenBrowser = () => {
+    if (!this.activeWorkspaceBrowserUrl) {
+      return;
+    }
+
+    window.open(this.activeWorkspaceBrowserUrl, "_blank", "noopener");
+  };
+
+  private async handleWorkspaceRun(workspace: KanbanWorkspace) {
+    if (!this.isApiMode) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: "预览模式暂不支持启动开发服务器。",
+      };
+      return;
+    }
+
+    this.actionFeedbackByWorkspace = {
+      ...this.actionFeedbackByWorkspace,
+      [workspace.id]: "正在启动开发服务器...",
+    };
+
+    try {
+      const response = await startWorkspaceDevServer({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId: workspace.id,
+      });
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: response.message?.trim() || "开发服务器已启动",
+      };
+      await this.loadWorkspaces();
+    } catch (error) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: error instanceof Error ? error.message : "启动开发服务器失败",
+      };
     }
   }
 
@@ -728,6 +767,88 @@ export class KanbanWorkspaceHome extends LitElement {
     ].filter((section) => section.workspaces.length > 0);
   }
 
+  private renderWorkspaceSection(section: {
+    key: "attention" | "running" | "idle";
+    label: string;
+    workspaces: KanbanWorkspace[];
+  }) {
+    const collapsed = this.collapsedSections.has(section.key);
+
+    return html`
+      <section class="section" ?collapsed=${collapsed}>
+        <button class="section-toggle" type="button" @click=${() => this.toggleSection(section.key)}>
+          <span class="section-title-row">
+            <span class="section-title">${section.label}</span>
+            <span class="section-count">${section.workspaces.length}</span>
+          </span>
+          <span class="chevron" aria-hidden="true">▾</span>
+        </button>
+        ${collapsed
+          ? nothing
+          : html`
+              <div class="section-body">
+                ${section.workspaces.map((workspace) => this.renderWorkspaceCard(workspace))}
+              </div>
+            `}
+      </section>
+    `;
+  }
+
+  private renderWorkspaceCard(workspace: KanbanWorkspace) {
+    const statusMeta = getStatusMeta(workspace);
+    const isRunning = workspace.status === "running";
+    const runButtonLabel = isRunning ? "运行中" : "运行";
+    const relativeTime = workspace.relative_time ?? formatRelativeTime(workspace.updated_at);
+    const filesChanged = workspace.files_changed ?? 0;
+    const linesAdded = workspace.lines_added ?? 0;
+    const linesRemoved = workspace.lines_removed ?? 0;
+    const localFeedback = this.getWorkspaceCardFeedback(workspace.id);
+
+    return html`
+      <div
+        class="task-card ${statusMeta.accentClass}"
+        data-selected=${workspace.id === this.pageState.activeWorkspaceId ? "true" : "false"}
+      >
+        <button
+          class="task-card-main"
+          type="button"
+          @click=${() => this.handleOpenWorkspace(workspace)}
+          aria-label=${`打开工作区 ${workspace.name}`}
+        >
+          <div class="workspace-name">${workspace.name}</div>
+          <div class="task-meta">
+            <span class="meta-status">
+              ${statusMeta.icons.map(
+                (icon) => html`<span class="status-icon tone-${icon.tone} kind-${icon.kind}"
+                  >${icon.symbol}</span
+                >`,
+              )}
+            </span>
+            <span class="relative-time">${relativeTime}</span>
+            <span class="meta-files"
+              ><span class="file-count">📄 ${filesChanged}</span> <span class="lines-added"
+                >+${linesAdded}</span
+              >
+              <span class="lines-removed">-${linesRemoved}</span></span
+            >
+          </div>
+        </button>
+        <button
+          class="task-card-run"
+          type="button"
+          ?disabled=${isRunning}
+          @click=${() => void this.handleWorkspaceRun(workspace)}
+          aria-label=${`${workspace.name}${runButtonLabel}`}
+        >
+          ${runButtonLabel}
+        </button>
+        ${localFeedback
+          ? html`<div class="task-card-feedback" role="status">${localFeedback}</div>`
+          : nothing}
+      </div>
+    `;
+  }
+
   private get previewOptions() {
     return readPreviewApiOptions(new URL(window.location.href));
   }
@@ -756,6 +877,14 @@ export class KanbanWorkspaceHome extends LitElement {
       return "正在同步最新消息...";
     }
     return "";
+  }
+
+  private getWorkspaceCardFeedback(workspaceId: string) {
+    const feedback = this.actionFeedbackByWorkspace[workspaceId] ?? "";
+    if (!feedback) {
+      return "";
+    }
+    return feedback;
   }
 
   private setWorkspaceLoading(workspaceId: string, loading: boolean) {
@@ -1158,6 +1287,10 @@ export class KanbanWorkspaceHome extends LitElement {
     return this.pageState.activeWorkspaceId
       ? this.workspaces.find((workspace) => workspace.id === this.pageState.activeWorkspaceId)
       : undefined;
+  }
+
+  private get activeWorkspaceBrowserUrl() {
+    return this.activeWorkspace?.browser_url?.trim() || "";
   }
 
   private getActiveSessionId(

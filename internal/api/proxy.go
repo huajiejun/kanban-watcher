@@ -184,6 +184,38 @@ func (c *ProxyClient) StopExecutionProcess(ctx context.Context, processID string
 	return nil
 }
 
+// StartDevServer 启动指定工作区的预设 dev server。
+func (c *ProxyClient) StartDevServer(ctx context.Context, workspaceID string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/workspaces/%s/execution/dev-server/start", c.baseURL, workspaceID), nil)
+	if err != nil {
+		return fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("启动 dev server 失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result FollowUpResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("解析响应: %w", err)
+	}
+	if !result.Success {
+		msg := ""
+		if result.Message != nil {
+			msg = *result.Message
+		}
+		return fmt.Errorf("启动 dev server 失败: %s", msg)
+	}
+	return nil
+}
+
 // getLatestSessionID 查询 summaries 获取工作区的最新 session_id
 func (c *ProxyClient) getLatestSessionID(ctx context.Context, workspaceID string) (string, error) {
 	url := fmt.Sprintf("%s/api/workspaces/summaries", c.baseURL)

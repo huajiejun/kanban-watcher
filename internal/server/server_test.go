@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/huajiejun/kanban-watcher/internal/api"
 )
 
 func TestAuthMiddlewareRejectsRealtimeRouteWithoutAPIKey(t *testing.T) {
@@ -52,7 +54,7 @@ func TestAuthMiddlewareAllowsRealtimeRouteWithAPIKeyQuery(t *testing.T) {
 }
 
 func TestCorsMiddlewareAllowsPutPreflightForWorkspaceView(t *testing.T) {
-	srv := NewServer(nil, 0, "test-key")
+	srv := NewServer(nil, 0, "test-key", nil, nil)
 
 	handler := srv.corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -68,5 +70,47 @@ func TestCorsMiddlewareAllowsPutPreflightForWorkspaceView(t *testing.T) {
 	}
 	if !strings.Contains(rr.Header().Get("Access-Control-Allow-Methods"), "PUT") {
 		t.Fatalf("Access-Control-Allow-Methods = %q, want include PUT", rr.Header().Get("Access-Control-Allow-Methods"))
+	}
+}
+
+func TestHandleWorkspaceMessageStartsDevServer(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/workspaces/ws-1/execution/dev-server/start" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
+	}))
+	defer upstream.Close()
+
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/workspace/ws-1/dev-server", nil)
+	rr := httptest.NewRecorder()
+
+	srv.handleWorkspaceMessage(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"action":"dev-server"`) {
+		t.Fatalf("body = %s, want action dev-server", rr.Body.String())
+	}
+}
+
+func TestHandleWorkspaceMessageRejectsInvalidMethodForDevServer(t *testing.T) {
+	srv := NewServer(nil, 0, "test-key", nil, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/workspace/ws-1/dev-server", nil)
+	rr := httptest.NewRecorder()
+
+	srv.handleWorkspaceMessage(rr, req)
+
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusMethodNotAllowed)
 	}
 }

@@ -143,6 +143,28 @@ func TestProxyClientStopExecutionProcess(t *testing.T) {
 	}
 }
 
+func TestProxyClientStartDevServer(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/workspaces/ws-1/execution/dev-server/start" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"data":    map[string]interface{}{},
+		})
+	}))
+	defer server.Close()
+
+	client := NewProxyClient(server.URL)
+	if err := client.StartDevServer(context.Background(), "ws-1"); err != nil {
+		t.Fatalf("StartDevServer 返回错误: %v", err)
+	}
+}
+
 func testProxyMessageContext() *store.MessageContext {
 	return &store.MessageContext{
 		WorkspaceID:        "ws-1",

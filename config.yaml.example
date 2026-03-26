@@ -72,3 +72,4 @@ database:
 http_api:
   port: 7778
   api_key: "YOUR_API_KEY"
+  browser_url_template: ""

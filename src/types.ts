@@ -1,6 +1,8 @@
 export interface KanbanWorkspace {
   id: string;
   name: string;
+  browser_url?: string;
+  browserUrl?: string;
   status?: string;
   latest_session_id?: string;
   latestSessionId?: string;
@@ -55,6 +57,7 @@ export interface KanbanSessionAttributes {
 export interface LocalWorkspaceSummary {
   id: string;
   name: string;
+  browser_url?: string;
   branch?: string;
   latest_session_id?: string;
   status?: string;

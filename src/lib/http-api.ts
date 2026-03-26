@@ -224,3 +224,19 @@ export async function stopWorkspaceExecution({
     },
   );
 }
+
+export async function startWorkspaceDevServer({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<WorkspaceMessageResponse> {
+  return fetchJSON<WorkspaceMessageResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/dev-server`,
+    {
+      method: "POST",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}

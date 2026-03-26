@@ -186,11 +186,12 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 //   GET /api/workspace/{workspace_id}/queue
 //   DELETE /api/workspace/{workspace_id}/queue
 //   POST /api/workspace/{workspace_id}/stop
+//   POST /api/workspace/{workspace_id}/dev-server
 func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspace/")
 	parts := strings.Split(path, "/")
-	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message" && parts[1] != "queue" && parts[1] != "stop") {
-		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up or /api/workspace/{id}/queue or /api/workspace/{id}/stop", http.StatusBadRequest)
+	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message" && parts[1] != "queue" && parts[1] != "stop" && parts[1] != "dev-server") {
+		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up or /api/workspace/{id}/queue or /api/workspace/{id}/stop or /api/workspace/{id}/dev-server", http.StatusBadRequest)
 		return
 	}
 
@@ -203,6 +204,10 @@ func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) 
 	}
 	if actionType == "stop" {
 		s.handleWorkspaceStop(w, r, workspaceID)
+		return
+	}
+	if actionType == "dev-server" {
+		s.handleWorkspaceDevServer(w, r, workspaceID)
 		return
 	}
 
@@ -265,6 +270,38 @@ func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) 
 		"session_id":   result.SessionID,
 		"action":       result.Action,
 		"message":      result.Message,
+	})
+}
+
+func (s *Server) handleWorkspaceDevServer(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	if err := s.proxy.StartDevServer(ctx, workspaceID); err != nil {
+		log.Printf("[HTTP Server] 工作区 %s 启动 dev server 失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"workspace_id": workspaceID,
+		"action":       "dev-server",
+		"message":      "已触发 dev server 启动",
 	})
 }
 

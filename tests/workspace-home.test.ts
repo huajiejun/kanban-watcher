@@ -2025,4 +2025,122 @@ describe("workspace home helpers", () => {
     expect(deleteQueueRequests).toHaveLength(1);
     expect(stopRequests).toHaveLength(0);
   });
+
+  it("disables the open browser button without an active workspace or missing browser url, then opens the active workspace url", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "可打开浏览器的工作区",
+              status: "completed",
+              browser_url: "http://127.0.0.1:4173",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "没有地址的工作区",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息二" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    const openMock = vi.fn();
+    vi.stubGlobal("open", openMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const openBrowserButton = element.shadowRoot?.querySelector(
+      ".workspace-home-open-browser",
+    ) as HTMLButtonElement | null;
+    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
+
+    expect(openBrowserButton?.disabled).toBe(true);
+
+    (cards[1] as HTMLButtonElement).click();
+    await flushElement(element);
+    expect(openBrowserButton?.disabled).toBe(true);
+
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+    expect(openBrowserButton?.disabled).toBe(false);
+
+    openBrowserButton?.click();
+
+    expect(openMock).toHaveBeenCalledWith("http://127.0.0.1:4173", "_blank", "noopener");
+  });
+
+  it("calls the workspace dev-server api when clicking run and shows local error feedback on failure", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "运行失败的工作区",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+            {
+              id: "ws-2",
+              name: "未受影响的工作区",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-1/dev-server")) {
+        expect(init?.method).toBe("POST");
+        return new Response("启动开发服务器失败", { status: 500 });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      if (url.includes("/api/workspaces/ws-2/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息二" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const runButtons = element.shadowRoot?.querySelectorAll(".task-card-run") ?? [];
+    (runButtons[0] as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/workspace/ws-1/dev-server"),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(element.shadowRoot?.textContent).toContain("启动开发服务器失败");
+    expect(element.shadowRoot?.textContent).not.toContain("未受影响的工作区启动开发服务器失败");
+  });
 });
