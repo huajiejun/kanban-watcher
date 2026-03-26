@@ -60,4 +60,4 @@
 - `KANBAN_MANAGER_API_BASE`
   - 覆盖管理 API 地址，默认 `http://127.0.0.1:7778`
 - `KANBAN_API_KEY`
-  - 覆盖管理 API key；未设置时会尝试从 `~/.config/kanban-watcher/config.yaml` 读取
+  - 覆盖管理 API key；未设置时会尝试从 `~/.config/kanban-watcher/config.yaml` 读取，并自动去掉 YAML 值中的引号

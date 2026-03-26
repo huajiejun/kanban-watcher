@@ -117,18 +117,35 @@ load_ports_from_db_lookup() {
 }
 
 read_manager_api_key() {
+    local api_key=""
+
     if [ -n "${KANBAN_API_KEY:-}" ]; then
-        printf '%s' "$KANBAN_API_KEY"
-        return 0
+        api_key="$KANBAN_API_KEY"
+    else
+        local config_file="$HOME/.config/kanban-watcher/config.yaml"
+        if [ -f "$config_file" ]; then
+            api_key="$(awk '
+                /^http_api:[[:space:]]*$/ { in_http_api = 1; next }
+                in_http_api && /^[^[:space:]][^:]*:[[:space:]]*$/ { in_http_api = 0 }
+                in_http_api && /^[[:space:]]*api_key:[[:space:]]*/ {
+                    line = $0
+                    sub(/^[[:space:]]*api_key:[[:space:]]*/, "", line)
+                    sub(/[[:space:]]*$/, "", line)
+                    print line
+                    exit
+                }
+            ' "$config_file")"
+        fi
     fi
 
-    local config_file="$HOME/.config/kanban-watcher/config.yaml"
-    if [ -f "$config_file" ]; then
-        awk '
-            $1 == "http_api:" { in_http_api = 1; next }
-            in_http_api && $1 ~ /^[^[:space:]].*:$/ { in_http_api = 0 }
-            in_http_api && $1 == "api_key:" { print $2; exit }
-        ' "$config_file"
+    api_key="${api_key%\"}"
+    api_key="${api_key#\"}"
+    api_key="${api_key%\'}"
+    api_key="${api_key#\'}"
+
+    if [ -n "$api_key" ]; then
+        printf '%s' "$api_key"
+        return 0
     fi
 }
 
