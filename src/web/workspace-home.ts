@@ -157,6 +157,7 @@ export class KanbanWorkspaceHome extends LitElement {
   private mobileCardConfigSignature = "";
   private previewProxyPort?: number;
   private previewDrawerWorkspaceId?: string;
+  private webPreviewWorkspaceId?: string;
 
   connectedCallback() {
     super.connectedCallback();
@@ -261,6 +262,7 @@ export class KanbanWorkspaceHome extends LitElement {
           </aside>
           ${this.renderWorkspacePanes(openWorkspaces, paneLayoutMode)}
           ${this.renderPreviewDrawer()}
+          ${this.renderWebPreviewOverlay()}
         </section>
       </main>
     `;
@@ -661,6 +663,19 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private handleClosePreviewDrawer = () => {
     this.previewDrawerWorkspaceId = undefined;
+    this.requestUpdate();
+  };
+
+  private handleOpenWebPreview(workspace: KanbanWorkspace) {
+    if (!this.getWorkspaceEmbeddedPreviewUrl(workspace)) {
+      return;
+    }
+    this.webPreviewWorkspaceId = workspace.id;
+    this.requestUpdate();
+  }
+
+  private handleCloseWebPreview = () => {
+    this.webPreviewWorkspaceId = undefined;
     this.requestUpdate();
   };
 
@@ -1591,12 +1606,14 @@ export class KanbanWorkspaceHome extends LitElement {
         .isRunning=${isRunning}
         .canQueue=${Boolean(isRunning || queueStatus?.status === "queued")}
         .devServerState=${this.getWorkspaceDevServerState(workspace)}
+        .showWorkspaceWebPreview=${Boolean(this.getWorkspaceEmbeddedPreviewUrl(workspace))}
         .showDevServerPreview=${Boolean(this.getWorkspaceEmbeddedPreviewUrl(workspace))}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
           void this.handlePaneAction(workspace, event.detail)}
         @dev-server-toggle=${() => void this.handleWorkspaceDevServerToggle(workspace)}
+        @workspace-web-preview-toggle=${() => this.handleOpenWebPreview(workspace)}
         @dev-server-preview-toggle=${() => this.handleOpenPreviewDrawer(workspace)}
         @pane-close=${() => this.handleCloseWorkspace(workspace)}
       ></workspace-conversation-pane>
@@ -1630,6 +1647,51 @@ export class KanbanWorkspaceHome extends LitElement {
       </aside>
     `;
   }
+
+  private renderWebPreviewOverlay() {
+    const workspace = this.workspaces.find((item) => item.id === this.webPreviewWorkspaceId);
+    const previewUrl = workspace ? this.getWorkspaceEmbeddedPreviewUrl(workspace) : "";
+    if (!workspace || !previewUrl) {
+      return nothing;
+    }
+
+    return html`
+      <div
+        class="workspace-home-web-preview-overlay"
+        data-layout=${this.mode === "mobile-card" ? "mobile" : "desktop"}
+        @click=${this.handleWebPreviewOverlayClick}
+      >
+        <section class="workspace-home-web-preview-modal" @click=${this.stopEventPropagation}>
+          <div class="workspace-home-web-preview-header">
+            <div class="workspace-home-web-preview-title">${workspace.name}</div>
+            <button
+              class="workspace-home-web-preview-close"
+              type="button"
+              aria-label="关闭快捷网页"
+              @click=${this.handleCloseWebPreview}
+            >
+              ✕
+            </button>
+          </div>
+          <iframe
+            class="workspace-home-web-preview-frame"
+            src=${previewUrl}
+            title=${`${workspace.name} 快捷网页`}
+          ></iframe>
+        </section>
+      </div>
+    `;
+  }
+
+  private handleWebPreviewOverlayClick = (event: Event) => {
+    if ((event.target as HTMLElement | null)?.classList.contains("workspace-home-web-preview-overlay")) {
+      this.handleCloseWebPreview();
+    }
+  };
+
+  private stopEventPropagation = (event: Event) => {
+    event.stopPropagation();
+  };
 
   private renderWorkspacePreviewCard(workspace: KanbanWorkspace) {
     const statusAccentClass = getStatusMeta(workspace).accentClass;

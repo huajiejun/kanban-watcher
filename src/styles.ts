@@ -456,6 +456,59 @@ export const workspaceHomeStyles = css`
     min-height: 0;
   }
 
+  .workspace-home-web-preview-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    background: rgba(15, 23, 42, 0.56);
+    backdrop-filter: blur(8px);
+  }
+
+  .workspace-home-web-preview-modal {
+    width: min(1120px, 100%);
+    height: min(760px, calc(100vh - 120px));
+    border-radius: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.96);
+    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.42);
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .workspace-home-web-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  .workspace-home-web-preview-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .workspace-home-web-preview-close {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .workspace-home-web-preview-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #020617;
+  }
+
   .workspace-home-placeholder {
     padding: 24px;
   }

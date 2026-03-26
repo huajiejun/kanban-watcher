@@ -28,6 +28,7 @@ export class WorkspaceConversationPane extends LitElement {
     isRunning: { type: Boolean },
     canQueue: { type: Boolean },
     devServerState: { attribute: false },
+    showWorkspaceWebPreview: { type: Boolean },
     showDevServerPreview: { type: Boolean },
     showFileBrowser: { type: Boolean },
   };
@@ -47,6 +48,7 @@ export class WorkspaceConversationPane extends LitElement {
   isRunning = false;
   canQueue = false;
   devServerState: DevServerState = "idle";
+  showWorkspaceWebPreview = false;
   showDevServerPreview = false;
   showFileBrowser = false;
 
@@ -76,6 +78,18 @@ export class WorkspaceConversationPane extends LitElement {
           >
             📁
           </button>
+          ${this.showWorkspaceWebPreview
+            ? html`
+                <button
+                  class="dialog-web-preview"
+                  type="button"
+                  aria-label="打开快捷网页"
+                  @click=${this.handleWorkspaceWebPreviewToggle}
+                >
+                  🌐
+                </button>
+              `
+            : nothing}
           <button
             class="dialog-dev-server-toggle"
             type="button"
@@ -269,6 +283,15 @@ export class WorkspaceConversationPane extends LitElement {
   private handleDevServerPreviewToggle = () => {
     this.dispatchEvent(
       new CustomEvent("dev-server-preview-toggle", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private handleWorkspaceWebPreviewToggle = () => {
+    this.dispatchEvent(
+      new CustomEvent("workspace-web-preview-toggle", {
         bubbles: true,
         composed: true,
       }),
