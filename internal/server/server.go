@@ -371,10 +371,24 @@ func (s *Server) handleWorkspaceDevServerStop(w http.ResponseWriter, r *http.Req
 	defer cancel()
 
 	if processID == "" {
-		err := "缺少运行中的 dev server process_id，拒绝回退到 workspace execution stop"
-		log.Printf("[HTTP Server] 工作区 %s 停止 dev server 失败: %s", workspaceID, err)
-		http.Error(w, err, http.StatusConflict)
-		return
+		if s.store != nil {
+			latestRunningProcess, err := s.store.GetLatestRunningDevServerProcessByWorkspaceID(ctx, workspaceID)
+			if err != nil {
+				log.Printf("[HTTP Server] 工作区 %s 查询运行中的 dev server process 失败: %v", workspaceID, err)
+				http.Error(w, "查询运行中的 dev server process 失败", http.StatusInternalServerError)
+				return
+			}
+			if latestRunningProcess != nil {
+				processID = strings.TrimSpace(latestRunningProcess.ID)
+				log.Printf("[HTTP Server] 工作区 %s 未显式提供 process_id，改用数据库中最近 running 的 dev server process: process_id=%s", workspaceID, processID)
+			}
+		}
+		if processID == "" {
+			err := "缺少运行中的 dev server process_id，且数据库中未找到可停止的 running dev server process"
+			log.Printf("[HTTP Server] 工作区 %s 停止 dev server 失败: %s", workspaceID, err)
+			http.Error(w, err, http.StatusConflict)
+			return
+		}
 	}
 
 	log.Printf("[HTTP Server] 工作区 %s 优先按 execution process 停止 dev server: process_id=%s", workspaceID, processID)

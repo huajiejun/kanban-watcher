@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -217,10 +218,17 @@ func TestHandleWorkspaceMessageMapsNoScriptConfiguredToConflict(t *testing.T) {
 }
 
 func TestHandleWorkspaceMessageStopsDevServer(t *testing.T) {
-	upstreamCalled := false
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("创建 sqlmock 失败: %v", err)
+	}
+	defer db.Close()
+
+	dbStore := &store.Store{}
+	setStoreDB(t, dbStore, db)
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		upstreamCalled = true
-		if r.URL.Path != "/api/workspaces/ws-1/execution/stop" {
+		if r.URL.Path != "/api/execution-processes/proc-dev-1/stop" {
 			http.NotFound(w, r)
 			return
 		}
@@ -232,21 +240,44 @@ func TestHandleWorkspaceMessageStopsDevServer(t *testing.T) {
 	}))
 	defer upstream.Close()
 
+	now := time.Now()
+	rows := sqlmock.NewRows([]string{
+		"id", "session_id", "workspace_id", "run_reason", "status",
+		"executor", "executor_action_type", "dropped", "created_at", "completed_at", "synced_at",
+	}).AddRow(
+		"proc-dev-1", "session-1", "ws-1", "devserver", "running",
+		nil, nil, false, now, nil, now,
+	)
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, session_id, workspace_id, run_reason, status,
+		       executor, executor_action_type, dropped, created_at, completed_at, synced_at
+		FROM kw_execution_processes
+		WHERE workspace_id = ?
+		  AND run_reason IN ('dev_server', 'devserver')
+		  AND dropped = FALSE
+		  AND status = 'running'
+		ORDER BY created_at DESC, id DESC
+		LIMIT 1
+	`)).
+		WithArgs("ws-1").
+		WillReturnRows(rows)
+
 	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", true, nil, nil)
+	srv.SetStore(dbStore)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/workspace/ws-1/dev-server", nil)
 	rr := httptest.NewRecorder()
 
 	srv.handleWorkspaceMessage(rr, req)
 
-	if rr.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusConflict, rr.Body.String())
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusOK, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), "缺少运行中的 dev server process_id") {
-		t.Fatalf("body = %s, want missing process id error", rr.Body.String())
+	if !strings.Contains(rr.Body.String(), `"action":"dev-server-stop"`) {
+		t.Fatalf("body = %s, want action dev-server-stop", rr.Body.String())
 	}
-	if upstreamCalled {
-		t.Fatal("未提供 process_id 时仍然调用了上游 workspace stop")
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
 	}
 }
 
