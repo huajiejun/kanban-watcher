@@ -164,7 +164,11 @@ function renderWorkspaceCard(
   const statusMeta = getStatusMeta(workspace);
   const { relativeTime, filesChanged, linesAdded, linesRemoved } =
     getWorkspaceDisplayMeta(workspace);
-  const isRunning = workspace.status === "running";
+  const isRunning = Boolean(
+    workspace.status === "running" ||
+      workspace.has_running_dev_server ||
+      workspace.hasRunningDevServer,
+  );
   const runButtonLabel = isRunning ? "运行中" : "运行";
 
   return html`

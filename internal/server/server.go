@@ -291,6 +291,11 @@ func (s *Server) handleWorkspaceDevServer(w http.ResponseWriter, r *http.Request
 		statusCode := http.StatusInternalServerError
 		if errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusGatewayTimeout
+		} else {
+			var businessErr *api.ProxyBusinessError
+			if errors.As(err, &businessErr) {
+				statusCode = http.StatusConflict
+			}
 		}
 		http.Error(w, err.Error(), statusCode)
 		return

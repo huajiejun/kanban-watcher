@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -162,6 +163,34 @@ func TestProxyClientStartDevServer(t *testing.T) {
 	client := NewProxyClient(server.URL)
 	if err := client.StartDevServer(context.Background(), "ws-1"); err != nil {
 		t.Fatalf("StartDevServer 返回错误: %v", err)
+	}
+}
+
+func TestProxyClientStartDevServerReturnsBusinessErrorWhenScriptMissing(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/workspaces/ws-1/execution/dev-server/start" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "No dev server script configured for any repository in this workspace",
+		})
+	}))
+	defer server.Close()
+
+	client := NewProxyClient(server.URL)
+	err := client.StartDevServer(context.Background(), "ws-1")
+	if err == nil {
+		t.Fatal("StartDevServer 返回 nil，期望业务错误")
+	}
+
+	var businessErr *ProxyBusinessError
+	if !errors.As(err, &businessErr) {
+		t.Fatalf("err = %T, want *ProxyBusinessError", err)
 	}
 }
 

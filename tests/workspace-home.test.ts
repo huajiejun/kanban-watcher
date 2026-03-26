@@ -2143,4 +2143,107 @@ describe("workspace home helpers", () => {
     expect(element.shadowRoot?.textContent).toContain("启动开发服务器失败");
     expect(element.shadowRoot?.textContent).not.toContain("未受影响的工作区启动开发服务器失败");
   });
+
+  it("disables run when active workspace already has a running dev server", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "已有开发服务器的工作区",
+              status: "completed",
+              has_running_dev_server: true,
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const runButton = element.shadowRoot?.querySelector(".task-card-run") as HTMLButtonElement | null;
+    expect(runButton?.disabled).toBe(true);
+    expect(runButton?.textContent).toContain("运行中");
+  });
+
+  it("prevents duplicate dev-server requests while the previous start request is still pending", async () => {
+    let resolveStartRequest: (() => void) | undefined;
+    const fetchMock = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((resolve) => {
+          const url = readRequestUrl(input);
+
+          if (url.includes("/api/workspaces/active")) {
+            resolve(
+              createJsonResponse({
+                workspaces: [
+                  {
+                    id: "ws-1",
+                    name: "防重入工作区",
+                    status: "completed",
+                    updated_at: "2026-03-24T12:00:00Z",
+                  },
+                ],
+              }),
+            );
+            return;
+          }
+
+          if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+            resolve(createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] }));
+            return;
+          }
+
+          if (url.includes("/api/workspace/ws-1/dev-server")) {
+            expect(init?.method).toBe("POST");
+            resolveStartRequest = () =>
+              resolve(
+                createJsonResponse({
+                  success: true,
+                  workspace_id: "ws-1",
+                  action: "dev-server",
+                  message: "已触发 dev server 启动",
+                }),
+              );
+            return;
+          }
+
+          throw new Error(`Unexpected fetch URL: ${url}`);
+        }),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const runButton = element.shadowRoot?.querySelector(".task-card-run") as HTMLButtonElement;
+    runButton.click();
+    await flushElement(element);
+    runButton.click();
+    await flushElement(element);
+
+    const startRequestsBeforeResolve = fetchMock.mock.calls.filter(([url]) =>
+      readRequestUrl(url as RequestInfo | URL).includes("/api/workspace/ws-1/dev-server"),
+    );
+    expect(startRequestsBeforeResolve).toHaveLength(1);
+    expect(runButton.disabled).toBe(true);
+    expect(element.shadowRoot?.textContent).toContain("正在启动开发服务器...");
+
+    resolveStartRequest?.();
+    await flushElement(element);
+  });
 });

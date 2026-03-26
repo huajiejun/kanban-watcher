@@ -103,6 +103,7 @@ export class KanbanWorkspaceHome extends LitElement {
     error: { attribute: false },
     collapsedSections: { attribute: false },
     loadingWorkspaceIds: { attribute: false },
+    startingDevServerWorkspaceIds: { attribute: false },
     messageErrorByWorkspace: { attribute: false },
     messageDraftByWorkspace: { attribute: false },
     actionFeedbackByWorkspace: { attribute: false },
@@ -121,6 +122,7 @@ export class KanbanWorkspaceHome extends LitElement {
   error = "";
   collapsedSections = new Set<"attention" | "running" | "idle">();
   loadingWorkspaceIds = new Set<string>();
+  startingDevServerWorkspaceIds = new Set<string>();
   messageErrorByWorkspace: Record<string, string> = {};
   messageDraftByWorkspace: Record<string, string> = {};
   actionFeedbackByWorkspace: Record<string, string> = {};
@@ -539,6 +541,9 @@ export class KanbanWorkspaceHome extends LitElement {
   };
 
   private async handleWorkspaceRun(workspace: KanbanWorkspace) {
+    if (this.isWorkspaceDevServerRunning(workspace)) {
+      return;
+    }
     if (!this.isApiMode) {
       this.actionFeedbackByWorkspace = {
         ...this.actionFeedbackByWorkspace,
@@ -547,6 +552,7 @@ export class KanbanWorkspaceHome extends LitElement {
       return;
     }
 
+    this.setDevServerStarting(workspace.id, true);
     this.actionFeedbackByWorkspace = {
       ...this.actionFeedbackByWorkspace,
       [workspace.id]: "正在启动开发服务器...",
@@ -568,6 +574,8 @@ export class KanbanWorkspaceHome extends LitElement {
         ...this.actionFeedbackByWorkspace,
         [workspace.id]: error instanceof Error ? error.message : "启动开发服务器失败",
       };
+    } finally {
+      this.setDevServerStarting(workspace.id, false);
     }
   }
 
@@ -796,7 +804,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private renderWorkspaceCard(workspace: KanbanWorkspace) {
     const statusMeta = getStatusMeta(workspace);
-    const isRunning = workspace.status === "running";
+    const isRunning = this.isWorkspaceDevServerRunning(workspace);
     const runButtonLabel = isRunning ? "运行中" : "运行";
     const relativeTime = workspace.relative_time ?? formatRelativeTime(workspace.updated_at);
     const filesChanged = workspace.files_changed ?? 0;
@@ -895,6 +903,25 @@ export class KanbanWorkspaceHome extends LitElement {
       next.delete(workspaceId);
     }
     this.loadingWorkspaceIds = next;
+  }
+
+  private setDevServerStarting(workspaceId: string, starting: boolean) {
+    const next = new Set(this.startingDevServerWorkspaceIds);
+    if (starting) {
+      next.add(workspaceId);
+    } else {
+      next.delete(workspaceId);
+    }
+    this.startingDevServerWorkspaceIds = next;
+  }
+
+  private isWorkspaceDevServerRunning(workspace: KanbanWorkspace) {
+    return Boolean(
+      workspace.status === "running" ||
+        workspace.has_running_dev_server ||
+        workspace.hasRunningDevServer ||
+        this.startingDevServerWorkspaceIds.has(workspace.id),
+    );
   }
 
   private async setupMobileCard() {

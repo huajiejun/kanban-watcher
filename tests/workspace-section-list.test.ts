@@ -193,6 +193,30 @@ describe("workspace-section-list", () => {
     expect(runningButtons[1]?.textContent).toContain("运行中");
   });
 
+  it("disables run when dev server is already running even if workspace status is not running", async () => {
+    const element = createElement([
+      {
+        key: "idle",
+        label: "空闲",
+        workspaces: [
+          createWorkspace({
+            id: "ws-dev-server",
+            name: "已有开发服务器",
+            status: "completed",
+            has_running_dev_server: true,
+          }),
+        ],
+      },
+    ]);
+
+    await element.updateComplete;
+
+    const runButton = element.shadowRoot?.querySelector(".task-card-run") as HTMLButtonElement | null;
+    expect(runButton).not.toBeNull();
+    expect(runButton?.disabled).toBe(true);
+    expect(runButton?.textContent).toContain("运行中");
+  });
+
   it("hides section body content when section is collapsed", async () => {
     const element = createElement(
       [

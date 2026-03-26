@@ -114,3 +114,32 @@ func TestHandleWorkspaceMessageRejectsInvalidMethodForDevServer(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusMethodNotAllowed)
 	}
 }
+
+func TestHandleWorkspaceMessageMapsNoScriptConfiguredToConflict(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/workspaces/ws-1/execution/dev-server/start" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":false,"message":"No dev server script configured for any repository in this workspace"}`))
+	}))
+	defer upstream.Close()
+
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/workspace/ws-1/dev-server", nil)
+	rr := httptest.NewRecorder()
+
+	srv.handleWorkspaceMessage(rr, req)
+
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusConflict, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "No dev server script configured") {
+		t.Fatalf("body = %s, want no-script message", rr.Body.String())
+	}
+}

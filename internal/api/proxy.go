@@ -53,6 +53,14 @@ type FollowUpResponse struct {
 	Message   *string     `json:"message,omitempty"`
 }
 
+type ProxyBusinessError struct {
+	Message string
+}
+
+func (e *ProxyBusinessError) Error() string {
+	return e.Message
+}
+
 type QueueRequest struct {
 	Message        string                 `json:"message"`
 	ExecutorConfig map[string]interface{} `json:"executor_config"`
@@ -211,7 +219,9 @@ func (c *ProxyClient) StartDevServer(ctx context.Context, workspaceID string) er
 		if result.Message != nil {
 			msg = *result.Message
 		}
-		return fmt.Errorf("启动 dev server 失败: %s", msg)
+		return &ProxyBusinessError{
+			Message: fmt.Sprintf("启动 dev server 失败: %s", msg),
+		}
 	}
 	return nil
 }
