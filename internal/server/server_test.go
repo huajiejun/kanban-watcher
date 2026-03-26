@@ -5,11 +5,23 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
+	"unsafe"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/huajiejun/kanban-watcher/internal/api"
+	"github.com/huajiejun/kanban-watcher/internal/store"
 )
+
+func setStoreDB(t *testing.T, dbStore *store.Store, db interface{}) {
+	t.Helper()
+
+	field := reflect.ValueOf(dbStore).Elem().FieldByName("db")
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(db))
+}
 
 func TestAuthMiddlewareRejectsRealtimeRouteWithoutAPIKey(t *testing.T) {
 	srv := NewServer(nil, 0, "test-key", true, nil, nil)
@@ -104,6 +116,61 @@ func TestHandleWorkspaceMessageStartsDevServer(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), `"execution_processes":[{"id":"proc-dev-1"`) {
 		t.Fatalf("body = %s, want execution_processes", rr.Body.String())
+	}
+}
+
+func TestHandleWorkspaceMessageStartsDevServerPersistsExecutionProcess(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("创建 sqlmock 失败: %v", err)
+	}
+	defer db.Close()
+
+	dbStore := &store.Store{}
+	setStoreDB(t, dbStore, db)
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/workspaces/ws-1/execution/dev-server/start" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":[{"id":"proc-dev-1","session_id":"session-1","run_reason":"devserver","status":"running"}]}`))
+	}))
+	defer upstream.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(`
+		INSERT INTO kw_execution_processes (
+			id, session_id, workspace_id, run_reason, status, executor,
+			executor_action_type, dropped, created_at, completed_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			workspace_id = VALUES(workspace_id),
+			run_reason = VALUES(run_reason),
+			status = VALUES(status),
+			executor = VALUES(executor),
+			executor_action_type = VALUES(executor_action_type),
+			dropped = VALUES(dropped),
+			created_at = COALESCE(kw_execution_processes.created_at, VALUES(created_at)),
+			completed_at = VALUES(completed_at),
+			synced_at = CURRENT_TIMESTAMP(3)
+	`)).
+		WithArgs("proc-dev-1", "session-1", "ws-1", "dev_server", "running", nil, nil, false, sqlmock.AnyArg(), nil).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	srv := NewServer(api.NewProxyClient(upstream.URL), 0, "test-key", true, nil, nil)
+	srv.SetStore(dbStore)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/workspace/ws-1/dev-server", nil)
+	rr := httptest.NewRecorder()
+
+	srv.handleWorkspaceMessage(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
 	}
 }
 

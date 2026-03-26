@@ -272,7 +272,7 @@ func TestGetActiveWorkspaceSummariesIncludesLastMessage(t *testing.T) {
 		LEFT JOIN (
 			SELECT workspace_id, MIN(id) AS process_id
 			FROM kw_execution_processes
-			WHERE run_reason = 'dev_server' AND status = 'running' AND dropped = FALSE
+			WHERE run_reason IN ('dev_server', 'devserver') AND status = 'running' AND dropped = FALSE
 			GROUP BY workspace_id
 		) running_dev ON running_dev.workspace_id = w.id
 		LEFT JOIN (
@@ -319,6 +319,15 @@ func TestGetActiveWorkspaceSummariesIncludesLastMessage(t *testing.T) {
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestNormalizeExecutionProcessRunReason(t *testing.T) {
+	if got := normalizeExecutionProcessRunReason("devserver"); got != "dev_server" {
+		t.Fatalf("normalizeExecutionProcessRunReason(devserver) = %q, want dev_server", got)
+	}
+	if got := normalizeExecutionProcessRunReason("dev_server"); got != "dev_server" {
+		t.Fatalf("normalizeExecutionProcessRunReason(dev_server) = %q, want dev_server", got)
 	}
 }
 

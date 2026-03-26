@@ -285,6 +285,7 @@ func runDaemon() error {
 	httpServer.SetAuthHandler(authHandler)
 
 	if dbStore != nil {
+		httpServer.SetStore(dbStore)
 		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
 	}
 
@@ -399,6 +400,7 @@ func runHeadless() error {
 	httpServer.SetAuthHandler(authHandler)
 
 	if dbStore != nil {
+		httpServer.SetStore(dbStore)
 		routes := api.GetMessageRoutes(dbStore, cfg.HTTPAPI.BrowserURLTemplate, realtimePublisher)
 		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
 		for pattern, handler := range routes {

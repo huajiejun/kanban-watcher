@@ -320,6 +320,8 @@ func (s *Store) UpsertSession(ctx context.Context, sess *Session) error {
 
 // UpsertExecutionProcess 插入或更新执行进程
 func (s *Store) UpsertExecutionProcess(ctx context.Context, ep *ExecutionProcess) error {
+	normalizedRunReason := normalizeExecutionProcessRunReason(ep.RunReason)
+
 	query := `
 		INSERT INTO kw_execution_processes (
 			id, session_id, workspace_id, run_reason, status, executor,
@@ -337,7 +339,7 @@ func (s *Store) UpsertExecutionProcess(ctx context.Context, ep *ExecutionProcess
 			synced_at = CURRENT_TIMESTAMP(3)
 	`
 	_, err := s.execWithRetry(ctx, query,
-		ep.ID, ep.SessionID, ep.WorkspaceID, ep.RunReason, ep.Status, ep.Executor,
+		ep.ID, ep.SessionID, ep.WorkspaceID, normalizedRunReason, ep.Status, ep.Executor,
 		ep.ExecutorActionType, ep.Dropped, ep.CreatedAt, ep.CompletedAt,
 	)
 	if err != nil {
@@ -761,7 +763,7 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 		LEFT JOIN (
 			SELECT workspace_id, MIN(id) AS process_id
 			FROM kw_execution_processes
-			WHERE run_reason = 'dev_server' AND status = 'running' AND dropped = FALSE
+			WHERE run_reason IN ('dev_server', 'devserver') AND status = 'running' AND dropped = FALSE
 			GROUP BY workspace_id
 		) running_dev ON running_dev.workspace_id = w.id
 		LEFT JOIN (
@@ -834,6 +836,15 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 	}
 
 	return summaries, nil
+}
+
+func normalizeExecutionProcessRunReason(runReason string) string {
+	switch strings.TrimSpace(runReason) {
+	case "devserver":
+		return "dev_server"
+	default:
+		return strings.TrimSpace(runReason)
+	}
 }
 
 // GetSubscription 获取订阅状态

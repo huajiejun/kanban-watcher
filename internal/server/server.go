@@ -15,6 +15,7 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/auth"
 	dispatchsvc "github.com/huajiejun/kanban-watcher/internal/service"
+	"github.com/huajiejun/kanban-watcher/internal/store"
 )
 
 // Server HTTP 服务器
@@ -29,6 +30,7 @@ type Server struct {
 	httpServer   *http.Server
 	extraRoutes  []routeRegistration
 	staticFS     fs.FS
+	store        *store.Store
 }
 
 type workspaceMessageDispatcher interface {
@@ -63,6 +65,10 @@ func NewServer(proxy *api.ProxyClient, port int, apiKey string, authEnabled bool
 // SetWorkspaceMessageDispatcher 设置工作区消息分发器
 func (s *Server) SetWorkspaceMessageDispatcher(dispatcher workspaceMessageDispatcher) {
 	s.dispatcher = dispatcher
+}
+
+func (s *Server) SetStore(dbStore *store.Store) {
+	s.store = dbStore
 }
 
 // SetAuthHandler 设置认证处理器
@@ -312,6 +318,12 @@ func (s *Server) handleWorkspaceDevServer(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	for _, process := range processes {
+		if err := s.persistDevServerProcess(ctx, workspaceID, process); err != nil {
+			log.Printf("[HTTP Server] 工作区 %s 持久化 dev server process 失败: %v", workspaceID, err)
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":             true,
@@ -319,6 +331,30 @@ func (s *Server) handleWorkspaceDevServer(w http.ResponseWriter, r *http.Request
 		"action":              "dev-server",
 		"message":             "已触发 dev server 启动",
 		"execution_processes": processes,
+	})
+}
+
+func (s *Server) persistDevServerProcess(ctx context.Context, workspaceID string, process api.ExecutionProcessDetail) error {
+	if s.store == nil || strings.TrimSpace(process.ID) == "" {
+		return nil
+	}
+
+	runReason := process.RunReason
+	if strings.TrimSpace(runReason) == "" {
+		runReason = "dev_server"
+	}
+	status := strings.TrimSpace(process.Status)
+	if status == "" {
+		status = "running"
+	}
+
+	return s.store.UpsertExecutionProcess(ctx, &store.ExecutionProcess{
+		ID:          process.ID,
+		SessionID:   process.SessionID,
+		WorkspaceID: workspaceID,
+		RunReason:   runReason,
+		Status:      status,
+		Dropped:     false,
 	})
 }
 
