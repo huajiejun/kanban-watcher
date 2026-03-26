@@ -1692,7 +1692,7 @@ export const cardStyles = css`
     .message-input {
       min-height: 38px;
       padding: 8px 10px;
-      font-size: 0.88rem;
+      font-size: 16px; /* iOS Safari 不会自动放大 */
     }
 
     /* 代码编辑/文件修改样式 */
