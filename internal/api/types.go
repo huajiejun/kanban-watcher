@@ -21,6 +21,12 @@ type executionProcessAPIResponse struct {
 	Message *string                 `json:"message"`
 }
 
+type executionProcessesAPIResponse struct {
+	Success bool                     `json:"success"`
+	Data    []ExecutionProcessDetail `json:"data"`
+	Message *string                  `json:"message"`
+}
+
 type infoAPIResponse struct {
 	Success bool     `json:"success"`
 	Data    *InfoAPI `json:"data"`

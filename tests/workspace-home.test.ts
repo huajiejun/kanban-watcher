@@ -2130,6 +2130,99 @@ describe("workspace home helpers", () => {
     expect(element.shadowRoot?.textContent).not.toContain("未受影响的工作区启动开发服务器失败");
   });
 
+  it("stores the returned dev-server execution process and uses detail status to show running controls", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "工作区一",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+              browser_url: "http://127.0.0.1:4173",
+              has_running_dev_server: false,
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "dev server ready" }],
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-1/dev-server")) {
+        return createJsonResponse({
+          success: true,
+          workspace_id: "ws-1",
+          action: "dev-server",
+          execution_processes: [
+            {
+              id: "proc-dev-1",
+              session_id: "session-1",
+              workspace_id: "ws-1",
+              run_reason: "dev_server",
+              status: "running",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/execution-processes/proc-dev-1")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            id: "proc-dev-1",
+            session_id: "session-1",
+            workspace_id: "ws-1",
+            run_reason: "dev_server",
+            status: "running",
+          },
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
+    const root = pane?.shadowRoot;
+    (root?.querySelector(".dialog-dev-server-toggle") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const toggle = root?.querySelector(".dialog-dev-server-toggle") as HTMLButtonElement | null;
+    const preview = root?.querySelector(".dialog-dev-server-preview") as HTMLButtonElement | null;
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/execution-processes/proc-dev-1"),
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(toggle?.getAttribute("data-dev-server-state")).toBe("running");
+    expect(preview).not.toBeNull();
+  });
+
   it("disables run when active workspace already has a running dev server", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);

@@ -100,6 +100,7 @@ func (s *Server) Start() error {
 	// 工作区消息代理接口
 	mux.HandleFunc("/api/workspace/", s.handleWorkspaceMessage)
 	mux.HandleFunc("/api/info", s.handleInfo)
+	mux.HandleFunc("/api/execution-processes/", s.handleExecutionProcess)
 
 	// 注册额外的路由
 	for _, route := range s.extraRoutes {
@@ -292,7 +293,8 @@ func (s *Server) handleWorkspaceDevServer(w http.ResponseWriter, r *http.Request
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	if err := s.proxy.StartDevServer(ctx, workspaceID); err != nil {
+	processes, err := s.proxy.StartDevServer(ctx, workspaceID)
+	if err != nil {
 		log.Printf("[HTTP Server] 工作区 %s 启动 dev server 失败: %v", workspaceID, err)
 		statusCode := http.StatusInternalServerError
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -309,10 +311,11 @@ func (s *Server) handleWorkspaceDevServer(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":      true,
-		"workspace_id": workspaceID,
-		"action":       "dev-server",
-		"message":      "已触发 dev server 启动",
+		"success":             true,
+		"workspace_id":        workspaceID,
+		"action":              "dev-server",
+		"message":             "已触发 dev server 启动",
+		"execution_processes": processes,
 	})
 }
 
@@ -377,6 +380,43 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"data":    info,
+	})
+}
+
+func (s *Server) handleExecutionProcess(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	processID := strings.TrimPrefix(r.URL.Path, "/api/execution-processes/")
+	if strings.TrimSpace(processID) == "" || strings.Contains(processID, "/") {
+		http.Error(w, "Invalid path. Expected: /api/execution-processes/{id}", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	process, err := s.proxy.GetExecutionProcess(ctx, processID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取 execution process %s 失败: %v", processID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    process,
 	})
 }
 

@@ -86,6 +86,14 @@ export interface VibeInfoResponse {
   };
 }
 
+export interface ExecutionProcessDetail {
+  id: string;
+  session_id?: string;
+  workspace_id?: string;
+  run_reason?: string;
+  status?: string;
+}
+
 export interface WorkspaceViewResponse {
   open_workspace_ids?: string[];
   active_workspace_id?: string;
@@ -127,6 +135,7 @@ export interface WorkspaceMessageResponse {
   session_id?: string;
   action?: string;
   message?: string;
+  execution_processes?: ExecutionProcessDetail[];
 }
 
 export interface WorkspaceQueueStatusResponse {

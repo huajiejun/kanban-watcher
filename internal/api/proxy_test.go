@@ -133,7 +133,7 @@ func TestProxyClientStopExecutionProcess(t *testing.T) {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": true,
-			"data":    map[string]interface{}{},
+			"data":    []map[string]interface{}{},
 		})
 	}))
 	defer server.Close()
@@ -155,13 +155,13 @@ func TestProxyClientStartDevServer(t *testing.T) {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": true,
-			"data":    map[string]interface{}{},
+			"data":    []map[string]interface{}{},
 		})
 	}))
 	defer server.Close()
 
 	client := NewProxyClient(server.URL)
-	if err := client.StartDevServer(context.Background(), "ws-1"); err != nil {
+	if _, err := client.StartDevServer(context.Background(), "ws-1"); err != nil {
 		t.Fatalf("StartDevServer 返回错误: %v", err)
 	}
 }
@@ -183,7 +183,7 @@ func TestProxyClientStartDevServerReturnsBusinessErrorWhenScriptMissing(t *testi
 	defer server.Close()
 
 	client := NewProxyClient(server.URL)
-	err := client.StartDevServer(context.Background(), "ws-1")
+	_, err := client.StartDevServer(context.Background(), "ws-1")
 	if err == nil {
 		t.Fatal("StartDevServer 返回 nil，期望业务错误")
 	}
@@ -243,6 +243,72 @@ func TestProxyClientGetInfo(t *testing.T) {
 	}
 	if info == nil || info.Config == nil || info.Config.PreviewProxyPort == nil || *info.Config.PreviewProxyPort != 53480 {
 		t.Fatalf("info = %#v, want preview_proxy_port 53480", info)
+	}
+}
+
+func TestProxyClientStartDevServerReturnsExecutionProcesses(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/workspaces/ws-1/execution/dev-server/start" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"data": []map[string]interface{}{
+				{
+					"id":           "proc-dev-1",
+					"session_id":   "session-1",
+					"workspace_id": "ws-1",
+					"run_reason":   "dev_server",
+					"status":       "running",
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewProxyClient(server.URL)
+	processes, err := client.StartDevServer(context.Background(), "ws-1")
+	if err != nil {
+		t.Fatalf("StartDevServer 返回错误: %v", err)
+	}
+	if len(processes) != 1 || processes[0].ID != "proc-dev-1" {
+		t.Fatalf("processes = %#v, want proc-dev-1", processes)
+	}
+}
+
+func TestProxyClientGetExecutionProcess(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/execution-processes/proc-dev-1" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodGet {
+			t.Fatalf("method = %s, want GET", r.Method)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"data": map[string]interface{}{
+				"id":           "proc-dev-1",
+				"session_id":   "session-1",
+				"workspace_id": "ws-1",
+				"run_reason":   "dev_server",
+				"status":       "running",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewProxyClient(server.URL)
+	process, err := client.GetExecutionProcess(context.Background(), "proc-dev-1")
+	if err != nil {
+		t.Fatalf("GetExecutionProcess 返回错误: %v", err)
+	}
+	if process == nil || process.ID != "proc-dev-1" || process.Status != "running" {
+		t.Fatalf("process = %#v, want running proc-dev-1", process)
 	}
 }
 

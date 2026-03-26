@@ -25,6 +25,7 @@ import {
 import { connectRealtime } from "../lib/realtime-api";
 import {
   cancelWorkspaceQueue,
+  fetchExecutionProcess,
   fetchActiveWorkspaces,
   fetchVibeInfo,
   fetchWorkspaceView,
@@ -107,6 +108,8 @@ export class KanbanWorkspaceHome extends LitElement {
     loadingWorkspaceIds: { attribute: false },
     startingDevServerWorkspaceIds: { attribute: false },
     stoppingDevServerWorkspaceIds: { attribute: false },
+    devServerProcessIdsByWorkspace: { attribute: false },
+    devServerProcessStatusByWorkspace: { attribute: false },
     messageErrorByWorkspace: { attribute: false },
     messageDraftByWorkspace: { attribute: false },
     actionFeedbackByWorkspace: { attribute: false },
@@ -127,6 +130,8 @@ export class KanbanWorkspaceHome extends LitElement {
   loadingWorkspaceIds = new Set<string>();
   startingDevServerWorkspaceIds = new Set<string>();
   stoppingDevServerWorkspaceIds = new Set<string>();
+  devServerProcessIdsByWorkspace: Record<string, string> = {};
+  devServerProcessStatusByWorkspace: Record<string, string> = {};
   messageErrorByWorkspace: Record<string, string> = {};
   messageDraftByWorkspace: Record<string, string> = {};
   actionFeedbackByWorkspace: Record<string, string> = {};
@@ -292,6 +297,7 @@ export class KanbanWorkspaceHome extends LitElement {
         : this.readMockWorkspaces();
 
       this.workspaces = workspaces;
+      this.pruneDevServerProcessState(workspaces);
       this.pageState = reconcileWorkspacePageState(this.pageState, workspaces);
       const openWorkspaces = this.pageState.openWorkspaceIds
         .map((workspaceId) => workspaces.find((workspace) => workspace.id === workspaceId))
@@ -566,6 +572,20 @@ export class KanbanWorkspaceHome extends LitElement {
         apiKey: this.previewOptions.apiKey,
         workspaceId: workspace.id,
       });
+      const startedProcess = response.execution_processes?.find(
+        (process) => process.workspace_id === workspace.id,
+      ) ?? response.execution_processes?.[0];
+      if (startedProcess?.id) {
+        this.devServerProcessIdsByWorkspace = {
+          ...this.devServerProcessIdsByWorkspace,
+          [workspace.id]: startedProcess.id,
+        };
+        this.devServerProcessStatusByWorkspace = {
+          ...this.devServerProcessStatusByWorkspace,
+          [workspace.id]: startedProcess.status ?? "running",
+        };
+        await this.refreshWorkspaceDevServerProcess(workspace.id);
+      }
       this.actionFeedbackByWorkspace = {
         ...this.actionFeedbackByWorkspace,
         [workspace.id]: response.message?.trim() || "开发服务器已启动",
@@ -602,6 +622,7 @@ export class KanbanWorkspaceHome extends LitElement {
         ...this.actionFeedbackByWorkspace,
         [workspace.id]: response.message?.trim() || "开发服务器已停止",
       };
+      this.clearWorkspaceDevServerProcess(workspace.id);
       await this.loadWorkspaces();
     } catch (error) {
       this.actionFeedbackByWorkspace = {
@@ -977,8 +998,66 @@ export class KanbanWorkspaceHome extends LitElement {
       workspace.status === "running" ||
         workspace.has_running_dev_server ||
         workspace.hasRunningDevServer ||
+        this.devServerProcessStatusByWorkspace[workspace.id] === "running" ||
         this.startingDevServerWorkspaceIds.has(workspace.id),
     );
+  }
+
+  private pruneDevServerProcessState(workspaces: KanbanWorkspace[]) {
+    const workspaceIds = new Set(workspaces.map((workspace) => workspace.id));
+    const nextIds: Record<string, string> = {};
+    const nextStatuses: Record<string, string> = {};
+
+    for (const workspaceId of Object.keys(this.devServerProcessIdsByWorkspace)) {
+      if (!workspaceIds.has(workspaceId)) {
+        continue;
+      }
+      nextIds[workspaceId] = this.devServerProcessIdsByWorkspace[workspaceId];
+      const status = this.devServerProcessStatusByWorkspace[workspaceId];
+      if (status) {
+        nextStatuses[workspaceId] = status;
+      }
+    }
+
+    this.devServerProcessIdsByWorkspace = nextIds;
+    this.devServerProcessStatusByWorkspace = nextStatuses;
+  }
+
+  private clearWorkspaceDevServerProcess(workspaceId: string) {
+    const nextIds = { ...this.devServerProcessIdsByWorkspace };
+    const nextStatuses = { ...this.devServerProcessStatusByWorkspace };
+    delete nextIds[workspaceId];
+    delete nextStatuses[workspaceId];
+    this.devServerProcessIdsByWorkspace = nextIds;
+    this.devServerProcessStatusByWorkspace = nextStatuses;
+  }
+
+  private async refreshWorkspaceDevServerProcess(workspaceId: string) {
+    const processId = this.devServerProcessIdsByWorkspace[workspaceId];
+    if (!this.isApiMode || !processId) {
+      return;
+    }
+
+    try {
+      const response = await fetchExecutionProcess({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        processId,
+      });
+      const status = response.data?.status?.trim();
+      if (!status) {
+        return;
+      }
+      this.devServerProcessStatusByWorkspace = {
+        ...this.devServerProcessStatusByWorkspace,
+        [workspaceId]: status,
+      };
+      if (status !== "running") {
+        this.clearWorkspaceDevServerProcess(workspaceId);
+      }
+    } catch {
+      // 详情接口只是辅助状态源，请求失败时保留当前状态，避免打断主交互。
+    }
   }
 
   private async setupMobileCard() {
@@ -1405,6 +1484,9 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     if (this.stoppingDevServerWorkspaceIds.has(workspace.id)) {
       return "stopping" as const;
+    }
+    if (this.devServerProcessStatusByWorkspace[workspace.id] === "running") {
+      return "running" as const;
     }
     if (
       workspace.status === "running" ||

@@ -1,5 +1,6 @@
 import type {
   ActiveWorkspacesResponse,
+  ExecutionProcessDetail,
   SessionMessagesResponse,
   VibeInfoResponse,
   WorkspaceViewResponse,
@@ -266,6 +267,22 @@ export async function stopWorkspaceDevServer({
     `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/dev-server`,
     {
       method: "DELETE",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function fetchExecutionProcess({
+  baseUrl,
+  apiKey,
+  processId,
+}: RequestOptions & {
+  processId: string;
+}): Promise<{ success?: boolean; data?: ExecutionProcessDetail }> {
+  return fetchJSON<{ success?: boolean; data?: ExecutionProcessDetail }>(
+    `${normalizeBaseUrl(baseUrl)}/api/execution-processes/${processId}`,
+    {
+      method: "GET",
       headers: buildHeaders(apiKey),
     },
   );
