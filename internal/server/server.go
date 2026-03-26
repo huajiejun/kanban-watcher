@@ -328,12 +328,22 @@ func (s *Server) handleWorkspaceDevServerStop(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	log.Printf("[HTTP Server] 收到停止 dev server 请求: method=%s path=%s workspace_id=%s", r.Method, r.URL.Path, workspaceID)
+	processID := strings.TrimSpace(r.URL.Query().Get("process_id"))
+	log.Printf("[HTTP Server] 收到停止 dev server 请求: method=%s path=%s workspace_id=%s process_id=%s", r.Method, r.URL.Path, workspaceID, processID)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	if err := s.proxy.StopDevServer(ctx, workspaceID); err != nil {
+	var err error
+	if processID != "" {
+		log.Printf("[HTTP Server] 工作区 %s 优先按 execution process 停止 dev server: process_id=%s", workspaceID, processID)
+		err = s.proxy.StopExecutionProcess(ctx, processID)
+	} else {
+		log.Printf("[HTTP Server] 工作区 %s 未提供 process_id，回退到 workspace execution stop", workspaceID)
+		err = s.proxy.StopDevServer(ctx, workspaceID)
+	}
+
+	if err != nil {
 		log.Printf("[HTTP Server] 工作区 %s 停止 dev server 失败: %v", workspaceID, err)
 		statusCode := http.StatusInternalServerError
 		if errors.Is(err, context.DeadlineExceeded) {

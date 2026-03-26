@@ -260,11 +260,21 @@ export async function stopWorkspaceDevServer({
   baseUrl,
   apiKey,
   workspaceId,
+  processId,
 }: RequestOptions & {
   workspaceId: string;
+  processId?: string;
 }): Promise<WorkspaceMessageResponse> {
-  return fetchJSON<WorkspaceMessageResponse>(
+  const requestUrl = new URL(
     `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/dev-server`,
+    window.location.origin,
+  );
+  if (processId?.trim()) {
+    requestUrl.searchParams.set("process_id", processId.trim());
+  }
+
+  return fetchJSON<WorkspaceMessageResponse>(
+    `${requestUrl.pathname}${requestUrl.search}`,
     {
       method: "DELETE",
       headers: buildHeaders(apiKey),

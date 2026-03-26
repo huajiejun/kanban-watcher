@@ -2461,6 +2461,7 @@ describe("workspace home helpers", () => {
               name: "运行中的工作区",
               status: "completed",
               has_running_dev_server: true,
+              running_dev_server_process_id: "proc-dev-1",
               browser_url: "https://relay.example/ws-1",
               updated_at: "2026-03-24T12:00:00Z",
             },
@@ -2504,7 +2505,7 @@ describe("workspace home helpers", () => {
     await flushElement(element);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/api/workspace/ws-1/dev-server"),
+      expect.stringContaining("/api/workspace/ws-1/dev-server?process_id=proc-dev-1"),
       expect.objectContaining({ method: "DELETE" }),
     );
   });

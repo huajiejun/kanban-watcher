@@ -615,10 +615,12 @@ export class KanbanWorkspaceHome extends LitElement {
     };
 
     try {
+      const processId = this.devServerProcessIdsByWorkspace[workspace.id]?.trim();
       const response = await stopWorkspaceDevServer({
         baseUrl: this.previewOptions.baseUrl!,
         apiKey: this.previewOptions.apiKey,
         workspaceId: workspace.id,
+        processId: processId || undefined,
       });
       this.actionFeedbackByWorkspace = {
         ...this.actionFeedbackByWorkspace,
