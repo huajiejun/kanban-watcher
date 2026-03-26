@@ -110,6 +110,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/workspace/", s.handleWorkspaceMessage)
 	mux.HandleFunc("/api/info", s.handleInfo)
 	mux.HandleFunc("/api/execution-processes/", s.handleExecutionProcess)
+	// 工作区已读状态代理接口
+	mux.HandleFunc("/api/workspaces/", s.handleWorkspaces)
 
 	// 注册额外的路由
 	for _, route := range s.extraRoutes {
@@ -676,5 +678,49 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r)
+	})
+}
+
+// handleWorkspaces 处理 /api/workspaces/ 相关请求
+// PUT /api/workspaces/{id}/seen - 标记工作区为已读
+func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
+	parts := strings.Split(path, "/")
+
+	// PUT /api/workspaces/{id}/seen
+	if len(parts) == 2 && parts[1] == "seen" && r.Method == http.MethodPut {
+		s.handleWorkspaceSeen(w, r, parts[0])
+		return
+	}
+
+	http.Error(w, "Invalid path", http.StatusBadRequest)
+}
+
+// handleWorkspaceSeen 标记工作区为已读（代理到 vibe-kanban）
+func (s *Server) handleWorkspaceSeen(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	if err := s.proxy.MarkWorkspaceSeen(ctx, workspaceID); err != nil {
+		log.Printf("[HTTP Server] 工作区 %s 标记已读失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	log.Printf("[HTTP Server] 工作区 %s 已标记为已读", workspaceID)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"workspace_id": workspaceID,
 	})
 }

@@ -89,7 +89,7 @@ func GetMessageRoutes(dbStore *store.Store, browserURLTemplate string, publisher
 			handleActiveWorkspaces(w, r, dbStore, browserURLTemplate)
 		},
 		"/api/workspaces/": func(w http.ResponseWriter, r *http.Request) {
-			handleWorkspaceLatestMessages(w, r, dbStore)
+			handleWorkspaceRequest(w, r, dbStore, realtimePublisher)
 		},
 	}
 }
@@ -302,6 +302,52 @@ func handleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbSto
 	}
 
 	getSessionMessagesInternal(w, r, dbStore, *workspace.LatestSessionID, workspace.Name)
+}
+
+// handleWorkspaceRequest 处理工作区相关请求
+func handleWorkspaceRequest(w http.ResponseWriter, r *http.Request, dbStore *store.Store, realtimePublisher *RealtimePublisher) {
+	if dbStore == nil {
+		http.Error(w, "数据库未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
+	parts := strings.Split(path, "/")
+
+	// GET /api/workspaces/{id}/latest-messages
+	if len(parts) == 2 && parts[1] == "latest-messages" && r.Method == http.MethodGet {
+		handleWorkspaceLatestMessages(w, r, dbStore)
+		return
+	}
+
+	// PUT /api/workspaces/{id}/seen - 标记工作区为已读
+	if len(parts) == 2 && parts[1] == "seen" && r.Method == http.MethodPut {
+		handleWorkspaceSeen(w, r, dbStore, realtimePublisher, parts[0])
+		return
+	}
+
+	http.Error(w, "Invalid path", http.StatusBadRequest)
+}
+
+// handleWorkspaceSeen 标记工作区为已读
+func handleWorkspaceSeen(w http.ResponseWriter, r *http.Request, dbStore *store.Store, realtimePublisher *RealtimePublisher, workspaceID string) {
+	if err := dbStore.ClearWorkspaceUnseenTurns(r.Context(), workspaceID); err != nil {
+		http.Error(w, "标记已读失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 广播更新
+	if realtimePublisher != nil {
+		if err := realtimePublisher.PublishWorkspaceSeen(workspaceID); err != nil {
+			// 非关键错误，只记录日志
+			// TODO: 添加日志
+		}
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"success":     true,
+		"workspace_id": workspaceID,
+	})
 }
 
 func handleSessionMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {

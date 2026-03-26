@@ -491,3 +491,24 @@ func decodeExecutorConfig(raw string) (map[string]interface{}, error) {
 	}
 	return cfg, nil
 }
+
+// MarkWorkspaceSeen 标记工作区为已读，调用 vibe-kanban 的 /api/workspaces/{id}/seen API
+func (c *ProxyClient) MarkWorkspaceSeen(ctx context.Context, workspaceID string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("%s/api/workspaces/%s/seen", c.baseURL, workspaceID), nil)
+	if err != nil {
+		return fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("标记工作区已读失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	return nil
+}
