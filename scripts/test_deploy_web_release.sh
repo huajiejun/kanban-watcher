@@ -77,10 +77,6 @@ if ! grep -q "root ${TARGET_DIR};" "${SERVERS_DIR}/kanban-web-release.conf"; the
   exit 1
 fi
 
-if ! grep -q "^run build:web$" "${TMP_DIR}/npm.log" 2>/dev/null; then
-  :
-fi
-
 if ! grep -q "listen 7779;" "${SERVERS_DIR}/kanban-web-release.conf"; then
   echo "generated nginx config missing release port" >&2
   exit 1
