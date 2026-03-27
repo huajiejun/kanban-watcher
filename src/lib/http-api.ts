@@ -3,6 +3,7 @@ import type {
   ExecutionProcessDetail,
   SessionMessagesResponse,
   VibeInfoResponse,
+  WorkspaceFileBrowserPathResponse,
   WorkspaceFrontendPortResponse,
   WorkspaceViewResponse,
   WorkspaceMessageResponse,
@@ -268,6 +269,22 @@ export async function fetchWorkspaceFrontendPort({
     `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/frontend-port`,
     {
       method: "POST",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function fetchWorkspaceFileBrowserPath({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<WorkspaceFileBrowserPathResponse> {
+  return fetchJSON<WorkspaceFileBrowserPathResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/file-browser-path`,
+    {
+      method: "GET",
       headers: buildHeaders(apiKey),
     },
   );

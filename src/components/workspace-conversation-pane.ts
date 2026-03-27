@@ -14,7 +14,9 @@ export class WorkspaceConversationPane extends LitElement {
 
   static properties = {
     workspaceName: { attribute: false },
+    workspaceId: { attribute: false },
     workspacePath: { attribute: false },
+    resolveWorkspacePath: { attribute: false },
     messages: { attribute: false },
     quickButtons: { attribute: false },
     messageDraft: { attribute: false },
@@ -36,7 +38,9 @@ export class WorkspaceConversationPane extends LitElement {
   };
 
   workspaceName = "";
+  workspaceId = "";
   workspacePath = "";
+  resolveWorkspacePath?: () => Promise<string>;
   messages: ConversationPaneMessage[] = [];
   quickButtons: string[] = [];
   messageDraft = "";
@@ -53,6 +57,7 @@ export class WorkspaceConversationPane extends LitElement {
   showWorkspaceWebPreview = false;
   showDevServerPreview = false;
   showFileBrowser = false;
+  private resolvedWorkspacePath = "";
   private quickButtonsExpanded = false;
   private quickButtonsOverflowing = false;
   private readonly collapsedQuickButtonsHeight = 36;
@@ -227,6 +232,9 @@ export class WorkspaceConversationPane extends LitElement {
       changedProperties.has("showFileBrowser")
     ) {
       this.updateQuickButtonsCollapseState();
+    }
+    if (changedProperties.has("workspaceId") || changedProperties.has("workspacePath")) {
+      this.resolvedWorkspacePath = "";
     }
   }
 
@@ -416,13 +424,36 @@ export class WorkspaceConversationPane extends LitElement {
     );
   };
 
-  private toggleFileBrowser = () => {
-    this.showFileBrowser = !this.showFileBrowser;
+  private toggleFileBrowser = async () => {
+    if (this.showFileBrowser) {
+      this.closeFileBrowser();
+      return;
+    }
+
+    this.resolvedWorkspacePath = await this.resolveCurrentWorkspacePath();
+    this.showFileBrowser = true;
   };
 
   private closeFileBrowser = () => {
     this.showFileBrowser = false;
   };
+
+  private async resolveCurrentWorkspacePath() {
+    if (!this.resolveWorkspacePath) {
+      return this.workspacePath;
+    }
+
+    try {
+      const resolved = (await this.resolveWorkspacePath()).trim();
+      return resolved || this.workspacePath;
+    } catch {
+      return this.workspacePath;
+    }
+  }
+
+  private getEffectiveWorkspacePath() {
+    return this.resolvedWorkspacePath || this.workspacePath;
+  }
 
   private isLocalAccess(): boolean {
     const hostname = window.location.hostname;
@@ -440,22 +471,24 @@ export class WorkspaceConversationPane extends LitElement {
       ? this.FILE_BROWSER_LOCAL_URL
       : this.FILE_BROWSER_REMOTE_URL;
 
-    if (!this.workspacePath) {
+    const workspacePath = this.getEffectiveWorkspacePath();
+    if (!workspacePath) {
       return baseUrl;
     }
     // 从环境变量获取 File Browser 根目录前缀（需与远程 File Browser 配置的 root 一致）
     const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
-    const relativePath = this.workspacePath.replace(fbRootPrefix, '');
+    const relativePath = workspacePath.replace(fbRootPrefix, '');
     return `${baseUrl}/files/${relativePath}`;
   }
 
   private getFileBrowserExternalUrl(): string {
     // 新窗口打开链接始终使用远程 URL
-    if (!this.workspacePath) {
+    const workspacePath = this.getEffectiveWorkspacePath();
+    if (!workspacePath) {
       return this.FILE_BROWSER_REMOTE_URL;
     }
     const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
-    const relativePath = this.workspacePath.replace(fbRootPrefix, '');
+    const relativePath = workspacePath.replace(fbRootPrefix, '');
     return `${this.FILE_BROWSER_REMOTE_URL}/files/${relativePath}`;
   }
 

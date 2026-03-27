@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	dispatchsvc "github.com/huajiejun/kanban-watcher/internal/service"
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
+
+const defaultWorktreeBasePath = "/Users/huajiejun/github/vibe-kanban/.vibe-kanban-workspaces"
 
 // Server HTTP 服务器
 type Server struct {
@@ -211,12 +214,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 //   POST /api/workspace/{workspace_id}/stop
 //   POST /api/workspace/{workspace_id}/dev-server
 //   POST /api/workspace/{workspace_id}/frontend-port
+//   GET /api/workspace/{workspace_id}/file-browser-path
 //   DELETE /api/workspace/{workspace_id}/dev-server
 func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspace/")
 	parts := strings.Split(path, "/")
-	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message" && parts[1] != "queue" && parts[1] != "stop" && parts[1] != "dev-server" && parts[1] != "frontend-port") {
-		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up or /api/workspace/{id}/queue or /api/workspace/{id}/stop or /api/workspace/{id}/dev-server or /api/workspace/{id}/frontend-port", http.StatusBadRequest)
+	if len(parts) != 2 || (parts[1] != "follow-up" && parts[1] != "message" && parts[1] != "queue" && parts[1] != "stop" && parts[1] != "dev-server" && parts[1] != "frontend-port" && parts[1] != "file-browser-path") {
+		http.Error(w, "Invalid path. Expected: /api/workspace/{id}/message or /api/workspace/{id}/follow-up or /api/workspace/{id}/queue or /api/workspace/{id}/stop or /api/workspace/{id}/dev-server or /api/workspace/{id}/frontend-port or /api/workspace/{id}/file-browser-path", http.StatusBadRequest)
 		return
 	}
 
@@ -237,6 +241,10 @@ func (s *Server) handleWorkspaceMessage(w http.ResponseWriter, r *http.Request) 
 	}
 	if actionType == "frontend-port" {
 		s.handleWorkspaceFrontendPort(w, r, workspaceID)
+		return
+	}
+	if actionType == "file-browser-path" {
+		s.handleWorkspaceFileBrowserPath(w, r, workspaceID)
 		return
 	}
 
@@ -404,6 +412,49 @@ func shouldAllocateFrontendPort(r *http.Request) bool {
 	return value == "1" || value == "true" || value == "yes"
 }
 
+func (s *Server) handleWorkspaceFileBrowserPath(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.store == nil {
+		http.Error(w, "数据库未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	resolvedWorkspaceID, exists, err := s.store.ResolveWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.Error(w, dispatchsvc.ErrWorkspaceNotFound.Error(), http.StatusConflict)
+		return
+	}
+
+	workspace, err := s.store.GetWorkspaceByID(ctx, resolvedWorkspaceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if workspace == nil {
+		http.Error(w, dispatchsvc.ErrWorkspaceNotFound.Error(), http.StatusConflict)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"workspace_id": resolvedWorkspaceID,
+			"path":         buildWorkspaceFileBrowserPath(workspace.Branch, resolvedWorkspaceID),
+		},
+	})
+}
+
 func isFrontendPortAvailable(port int) bool {
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
@@ -411,6 +462,14 @@ func isFrontendPortAvailable(port int) bool {
 	}
 	_ = listener.Close()
 	return true
+}
+
+func buildWorkspaceFileBrowserPath(branch string, workspaceID string) string {
+	branchSlug := strings.TrimSpace(strings.TrimPrefix(branch, "vibe/"))
+	if branchSlug == "" {
+		branchSlug = workspaceID
+	}
+	return filepath.Join(defaultWorktreeBasePath, branchSlug, "kanban-watcher")
 }
 
 func (s *Server) handleWorkspaceDevServer(w http.ResponseWriter, r *http.Request, workspaceID string) {
