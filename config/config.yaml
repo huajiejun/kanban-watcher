@@ -1,4 +1,4 @@
-kanban_api_url: "https://vk.huajiejun.cn"
+kanban_api_url: "https://vk.huajiejun.cn:999"
 
 mqtt:
   broker: "tcp://home.huajiejun.cn:1883"
