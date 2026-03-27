@@ -27,17 +27,17 @@ type realtimePublisher interface {
 
 // SyncService 同步服务
 type SyncService struct {
-	cfg      *config.Config
-	store    *store.Store
+	cfg       *config.Config
+	store     *store.Store
 	apiClient *api.Client
-	dialer   *websocket.Dialer
-	realtime realtimePublisher
+	dialer    *websocket.Dialer
+	realtime  realtimePublisher
 
-	wsMutex          sync.Mutex
-	workspaceStream  *websocket.Conn
-	sessionStreams   map[string]*websocket.Conn
+	wsMutex           sync.Mutex
+	workspaceStream   *websocket.Conn
+	sessionStreams    map[string]*websocket.Conn
 	processLogStreams map[string]*websocket.Conn
-	historicalLogSem chan struct{}
+	historicalLogSem  chan struct{}
 
 	stopCh chan struct{}
 	wg     sync.WaitGroup
@@ -151,17 +151,17 @@ func (s *SyncService) syncActiveWorkspaces(ctx context.Context) error {
 	for _, ws := range workspaces {
 		activeWorkspaceIDs = append(activeWorkspaceIDs, ws.ID)
 		dbWS := &store.Workspace{
-			ID:              ws.ID,
-			Name:            ws.DisplayName,
-			Branch:          ws.Branch,
-			Archived:        ws.Archived,
-			Pinned:          ws.Pinned,
-			LatestSessionID: ws.Summary.LatestSessionID,
-			IsRunning:       ws.StatusText() == "running",
-			HasPendingApproval: ws.Summary.HasPendingApproval,
-			HasUnseenTurns:     ws.Summary.HasUnseenTurns,
+			ID:                  ws.ID,
+			Name:                ws.DisplayName,
+			Branch:              ws.Branch,
+			Archived:            ws.Archived,
+			Pinned:              ws.Pinned,
+			LatestSessionID:     ws.Summary.LatestSessionID,
+			IsRunning:           ws.StatusText() == "running",
+			HasPendingApproval:  ws.Summary.HasPendingApproval,
+			HasUnseenTurns:      ws.Summary.HasUnseenTurns,
 			HasRunningDevServer: ws.Summary.HasRunningDevServer,
-			LastSeenAt:      seenAt,
+			LastSeenAt:          seenAt,
 		}
 		if ws.Summary.FilesChanged != nil {
 			dbWS.FilesChanged = *ws.Summary.FilesChanged
@@ -320,6 +320,7 @@ func (s *SyncService) subscribeSessionProcesses(ctx context.Context, workspaceID
 		fmt.Fprintf(os.Stderr, "构造 session ws URL 失败 [%s]: %v\n", sessionID, err)
 		return
 	}
+	s.tracef("connect session ws workspace=%s session=%s url=%s", workspaceID, sessionID, wsURL)
 
 	conn, _, err := s.dialer.Dial(wsURL, nil)
 	if err != nil {
@@ -363,12 +364,26 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 				}
 				return
 			}
+			s.tracef("session ws message workspace=%s session=%s raw=%s", workspaceID, sessionID, traceRawMessage(message))
 
 			processes, err := extractExecutionProcesses(message)
 			if err != nil {
+				s.tracef("session ws decode failed workspace=%s session=%s err=%v", workspaceID, sessionID, err)
 				continue
 			}
+			s.tracef("session ws decoded workspace=%s session=%s process_count=%d", workspaceID, sessionID, len(processes))
 			for _, process := range processes {
+				s.tracef(
+					"session ws process workspace=%s session=%s process=%s status=%s run_reason=%s dropped=%t created_at=%v completed_at=%v",
+					workspaceID,
+					sessionID,
+					process.ID,
+					process.Status,
+					process.RunReason,
+					process.Dropped,
+					process.CreatedAt,
+					process.CompletedAt,
+				)
 				ep := toStoreExecutionProcess(workspaceID, process)
 				if err := s.store.UpsertExecutionProcess(ctx, ep); err != nil {
 					fmt.Fprintf(os.Stderr, "保存 execution process 失败 [%s]: %v\n", ep.ID, err)
@@ -436,6 +451,15 @@ func (s *SyncService) subscribeProcessLogs(ctx context.Context, workspaceID, ses
 		fmt.Fprintf(os.Stderr, "构造 process log ws URL 失败 [%s]: %v\n", processID, err)
 		return
 	}
+	s.tracef(
+		"connect process log ws workspace=%s session=%s process=%s status=%s url=%s last_entry_index=%v",
+		workspaceID,
+		sessionID,
+		processID,
+		processStatus,
+		wsURL,
+		lastEntryIndex,
+	)
 
 	conn, _, err := s.dialer.Dial(wsURL, nil)
 	if err != nil {
@@ -492,27 +516,35 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 				}
 				return
 			}
+			s.tracef("process log ws message workspace=%s session=%s process=%s raw=%s", workspaceID, sessionID, processID, traceRawMessage(message))
 
 			patches, err := extractEntryPatches(message)
 			if err != nil {
+				s.tracef("process log decode failed workspace=%s session=%s process=%s err=%v", workspaceID, sessionID, processID, err)
 				continue
 			}
+			s.tracef("process log decoded workspace=%s session=%s process=%s patch_count=%d", workspaceID, sessionID, processID, len(patches))
 			if len(patches) > 0 {
 				receivedEntries = true
 			}
 			for _, patch := range patches {
+				s.tracef("process log patch workspace=%s session=%s process=%s %s", workspaceID, sessionID, processID, tracePatchSummary(patch))
 				if shouldSkipEntryByIndex(lastEntryIndex, patch.EntryIndex) {
+					s.tracef("process log skip by last_entry_index workspace=%s session=%s process=%s idx=%d last_entry_index=%v", workspaceID, sessionID, processID, patch.EntryIndex, lastEntryIndex)
 					continue
 				}
 				mergedEntry, ok := mergeEntryPatch(entryStateByIndex[patch.EntryIndex], patch)
 				if !ok {
+					s.tracef("process log merge incomplete workspace=%s session=%s process=%s idx=%d", workspaceID, sessionID, processID, patch.EntryIndex)
 					continue
 				}
 				if !store.ShouldSync(mergedEntry.EntryType.Type) {
+					s.tracef("process log skip unsynced type workspace=%s session=%s process=%s idx=%d type=%s", workspaceID, sessionID, processID, patch.EntryIndex, mergedEntry.EntryType.Type)
 					continue
 				}
 				entryStateByIndex[patch.EntryIndex] = mergedEntry
 				patch.Entry = mergedEntry
+				s.tracef("process log merged workspace=%s session=%s process=%s %s", workspaceID, sessionID, processID, tracePatchSummary(patch))
 
 				existingEntry, err := s.store.GetProcessEntry(ctx, processID, patch.EntryIndex)
 				if err != nil {
@@ -536,10 +568,23 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 						patch.Entry.Timestamp,
 					)
 				}
-				if !shouldPersistProcessEntryUpdate(existingEntry, entry) {
+				shouldPersist := shouldPersistProcessEntryUpdate(existingEntry, entry)
+				shouldBroadcast := shouldBroadcastRealtimeEntry(existingEntry, entry)
+				s.tracef(
+					"process log decision workspace=%s session=%s process=%s idx=%d persist=%t broadcast=%t existing=%s next=%s raw_ts=%q",
+					workspaceID,
+					sessionID,
+					processID,
+					patch.EntryIndex,
+					shouldPersist,
+					shouldBroadcast,
+					traceProcessEntrySummary(existingEntry),
+					traceProcessEntrySummary(entry),
+					patch.Entry.Timestamp,
+				)
+				if !shouldPersist {
 					continue
 				}
-				shouldBroadcast := shouldBroadcastRealtimeEntry(existingEntry, entry)
 				if err := s.store.UpsertProcessEntry(ctx, entry); err != nil {
 					fmt.Fprintf(os.Stderr, "保存 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
 					_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &patch.EntryIndex, "error", err.Error())
@@ -548,6 +593,7 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 				idx := patch.EntryIndex
 				_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &idx, "active", "")
 				lastEntryIndex = &idx
+				s.tracef("process log persisted workspace=%s session=%s process=%s idx=%d summary=%s", workspaceID, sessionID, processID, patch.EntryIndex, traceProcessEntrySummary(entry))
 				if shouldBroadcast && s.realtime != nil {
 					if err := s.realtime.PublishSessionMessagesAppended(ctx, sessionID, []store.ProcessEntry{*entry}); err != nil {
 						fmt.Fprintf(os.Stderr, "推送实时消息失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
