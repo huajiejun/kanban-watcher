@@ -61,15 +61,22 @@ describe("quick-buttons", () => {
 
     it("extracts numbered list items (1., 2., 3.)", () => {
       const result = extractDynamicButtons("1. 方案A\n2. 方案B\n3. 方案C");
-      expect(result).toContain("1.");
-      expect(result).toContain("2.");
-      expect(result).toContain("3.");
+      expect(result).toContain("方案A");
+      expect(result).toContain("方案B");
+      expect(result).toContain("方案C");
     });
 
     it("extracts parenthesized letters ((A), (B))", () => {
       const result = extractDynamicButtons("你可以选择(A)或(B)");
       expect(result).toContain("(A)");
       expect(result).toContain("(B)");
+    });
+
+    it("extracts bullet list actions as buttons", () => {
+      const result = extractDynamicButtons("- 补充测试\n- 检查边界条件\n- 整理说明");
+      expect(result).toContain("补充测试");
+      expect(result).toContain("检查边界条件");
+      expect(result).toContain("整理说明");
     });
 
     it("normalizes lowercase letters to uppercase", () => {

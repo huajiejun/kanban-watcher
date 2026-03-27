@@ -16,6 +16,9 @@ type PlaygroundCardConfig = {
   llm_enabled?: boolean;
   llm_base_url?: string;
   llm_model?: string;
+  quick_button_rules?: {
+    forbidden_actions?: string[];
+  };
 };
 
 type PlaygroundCard = HTMLElement & {

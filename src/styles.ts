@@ -1514,6 +1514,19 @@ export const cardStyles = css`
     padding: 4px 0;
   }
 
+  .quick-buttons-region {
+    display: grid;
+    gap: 6px;
+  }
+
+  .quick-buttons-viewport {
+    overflow: visible;
+  }
+
+  .quick-buttons-toggle {
+    display: none;
+  }
+
   .quick-button {
     padding: 5px 10px;
     border-radius: 8px;
@@ -1933,6 +1946,35 @@ export const cardStyles = css`
     /* 快捷按钮移动端样式 */
     .quick-buttons {
       gap: 5px;
+    }
+
+    .quick-buttons-region.is-collapsed .quick-buttons-viewport {
+      max-height: 36px;
+      overflow: hidden;
+    }
+
+    .quick-buttons-region.is-collapsible {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      column-gap: 6px;
+    }
+
+    .quick-buttons-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--primary-color, #f59e0b);
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      line-height: 1;
+      border-radius: 999px;
+      cursor: pointer;
     }
 
     .quick-button {

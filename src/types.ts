@@ -208,6 +208,11 @@ export interface ButtonWithReason {
   reason: string;
 }
 
+/** 快捷按钮规则 */
+export interface QuickButtonRules {
+  forbiddenActions?: string[];
+}
+
 /** 方案类响应（方案评价师） */
 export interface ProposalButtonsResponse {
   type: 'proposal';

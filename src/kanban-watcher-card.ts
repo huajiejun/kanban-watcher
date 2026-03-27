@@ -80,6 +80,9 @@ type CardConfig = {
   llm_enabled?: boolean;
   llm_base_url?: string;
   llm_model?: string;
+  quick_button_rules?: {
+    forbidden_actions?: string[];
+  };
 };
 
 type DialogAction = "send" | "queue" | "stop";
@@ -1692,14 +1695,14 @@ export class KanbanWatcherCard extends LitElement {
       return;
     }
 
-    // 构建消息历史（用于短消息时的上下文分析）
+    // 构建消息历史（用于 LLM 上下文分析）
     const recentMessages: SessionMessageResponse[] = messages
       .filter((msg): msg is DialogTextMessage =>
-        msg.kind === "message" && msg.sender === "ai"
+        msg.kind === "message" && (msg.sender === "ai" || msg.sender === "user")
       )
-      .slice(-5)
+      .slice(-3)
       .map((msg) => ({
-        role: "assistant",
+        role: msg.sender === "ai" ? "assistant" : "user",
         content: msg.text,
         timestamp: msg.timestamp,
       }));
@@ -1712,6 +1715,9 @@ export class KanbanWatcherCard extends LitElement {
       llmConfig: {
         baseUrl: this.config?.llm_base_url,
         model: this.config?.llm_model,
+      },
+      quickButtonRules: {
+        forbiddenActions: this.config?.quick_button_rules?.forbidden_actions,
       },
       recentMessages,
     });
