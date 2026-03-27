@@ -71,6 +71,9 @@ func runEventLoop(
 	// 缓存最新的工作区列表，供清理器使用
 	var latestWorkspaces []api.EnrichedWorkspace
 
+	// 首次轮询静默标志：启动后的第一次轮询不触发通知
+	isFirstPoll := true
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -86,6 +89,16 @@ func runEventLoop(
 				}
 			}
 			latestWorkspaces = result.Workspaces
+
+			// 首次轮询静默：只更新菜单栏，不发送通知
+			if isFirstPoll {
+				isFirstPoll = false
+				if trayApp != nil {
+					trayApp.UpdateWorkspaces(result.Workspaces)
+				}
+				continue
+			}
+
 			handlePollResult(ctx, result, sessionExtractor, cfg, wechatNotifier, tracker, trayApp, dialogNotifier)
 		case <-cleanupCh:
 			// 每小时清理一次过期 session
@@ -150,9 +163,14 @@ func handlePollResult(
 ) {
 	workspaces := result.Workspaces
 
-	// 1. 更新菜单栏显示
+	// 1. 更新菜单栏显示（所有实例都更新）
 	if trayApp != nil {
 		trayApp.UpdateWorkspaces(workspaces)
+	}
+
+	// 端口检查：只有主端口 7778 才能发送通知
+	if cfg.HTTPAPI.Port != 7778 {
+		return
 	}
 
 	// 2. 评估通知阈值，获取需要告警的工作区列表
