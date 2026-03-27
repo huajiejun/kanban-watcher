@@ -33,9 +33,14 @@ npm run build:web
 默认行为：
 
 - 执行 `npm run build:web`
-- 同步 `dist/web/` 到 `~/github/knban-watcher-release`
-- 如果 `~/github/knban-watcher-release/nginx.conf` 对应的 nginx 已在运行，则执行 reload
-- 如果未运行，则直接用该配置启动 nginx
+- 同步 `dist/web/` 到 `~/github/kanban-watcher-release`
+- 基于 `config/nginx-web-release.conf.template` 生成 Homebrew `nginx` 的站点配置
+- 将站点配置写入 `/opt/homebrew/etc/nginx/servers/kanban-web-release.conf`
+- 执行 `nginx -t`
+- 如果 Homebrew `nginx` 已启动，则执行 `nginx -s reload`
+- 如果 Homebrew `nginx` 未启动，则执行 `brew services start nginx`
+
+这意味着发布脚本现在统一复用系统主配置 `/opt/homebrew/etc/nginx/nginx.conf`，不再启动单独的 `nginx -c <release/nginx.conf>` 实例。
 
 如果要改发布目录，可以传入目标路径：
 
@@ -118,4 +123,3 @@ Compatibility config without API mode:
 type: custom:kanban-watcher-card
 entity: sensor.kanban_watcher_kanban_watcher。
 ```
-
