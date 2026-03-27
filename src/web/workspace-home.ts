@@ -1834,7 +1834,6 @@ export class KanbanWorkspaceHome extends LitElement {
         .devServerState=${this.getWorkspaceDevServerState(workspace)}
         .showWorkspaceWebPreview=${this.shouldShowWorkspaceWebPreview(workspace)}
         .showDevServerPreview=${this.getWorkspaceDevServerState(workspace) === "running"}
-        .workspaceId=${workspace.id}
         .todoBaseUrl=${this.previewOptions.baseUrl ?? ""}
         .todoApiKey=${this.previewOptions.apiKey}
         .todoPendingCount=${this.todoPendingCountByWorkspace[workspace.id] ?? 0}
