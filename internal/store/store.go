@@ -52,6 +52,7 @@ func (s *Store) InitSchema(ctx context.Context) error {
 			has_pending_approval BOOLEAN NOT NULL DEFAULT FALSE,
 			has_unseen_turns BOOLEAN NOT NULL DEFAULT FALSE,
 			has_running_dev_server BOOLEAN NOT NULL DEFAULT FALSE,
+			frontend_port INT NULL,
 			files_changed INT NOT NULL DEFAULT 0,
 			lines_added INT NOT NULL DEFAULT 0,
 			lines_removed INT NOT NULL DEFAULT 0,
@@ -163,6 +164,7 @@ func (s *Store) InitSchema(ctx context.Context) error {
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_pending_approval BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_unseen_turns BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS has_running_dev_server BOOLEAN NOT NULL DEFAULT FALSE`,
+		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS frontend_port INT NULL`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS files_changed INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_added INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS lines_removed INT NOT NULL DEFAULT 0`,
@@ -266,8 +268,8 @@ func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 		INSERT INTO kw_workspaces (
 			id, name, branch, archived, pinned, latest_session_id, is_running,
 			latest_process_status, has_pending_approval, has_unseen_turns, has_running_dev_server,
-			files_changed, lines_added, lines_removed, last_seen_at, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			frontend_port, files_changed, lines_added, lines_removed, last_seen_at, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
 			name = VALUES(name),
 			branch = VALUES(branch),
@@ -279,6 +281,7 @@ func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 			has_pending_approval = VALUES(has_pending_approval),
 			has_unseen_turns = VALUES(has_unseen_turns),
 			has_running_dev_server = VALUES(has_running_dev_server),
+			frontend_port = COALESCE(VALUES(frontend_port), kw_workspaces.frontend_port),
 			files_changed = VALUES(files_changed),
 			lines_added = VALUES(lines_added),
 			lines_removed = VALUES(lines_removed),
@@ -290,6 +293,7 @@ func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 	_, err := s.execWithRetry(ctx, query,
 		ws.ID, ws.Name, ws.Branch, ws.Archived, ws.Pinned, ws.LatestSessionID,
 		ws.IsRunning, ws.LatestProcessStatus, ws.HasPendingApproval, ws.HasUnseenTurns, ws.HasRunningDevServer,
+		ws.FrontendPort,
 		ws.FilesChanged, ws.LinesAdded, ws.LinesRemoved, ws.LastSeenAt, ws.CreatedAt, ws.UpdatedAt,
 	)
 	if err != nil {
@@ -668,6 +672,7 @@ func (s *Store) MarkMissingWorkspacesArchived(ctx context.Context, activeWorkspa
 		UPDATE kw_workspaces
 		SET archived = TRUE,
 		    is_running = FALSE,
+		    frontend_port = NULL,
 		    synced_at = CURRENT_TIMESTAMP(3),
 		    last_seen_at = ?
 		WHERE archived = FALSE
@@ -739,7 +744,7 @@ func (s *Store) GetWorkspaceByID(ctx context.Context, workspaceID string) (*Work
 	query := `
 		SELECT id, name, branch, archived, pinned, latest_session_id, is_running,
 		       latest_process_status, has_pending_approval, has_unseen_turns, has_running_dev_server,
-		       files_changed, lines_added, lines_removed, last_seen_at, created_at, updated_at, synced_at
+		       frontend_port, files_changed, lines_added, lines_removed, last_seen_at, created_at, updated_at, synced_at
 		FROM kw_workspaces
 		WHERE id = ?
 	`
@@ -759,7 +764,7 @@ func (s *Store) GetWorkspaceBySessionID(ctx context.Context, sessionID string) (
 	query := `
 		SELECT w.id, w.name, w.branch, w.archived, w.pinned, w.latest_session_id, w.is_running,
 		       w.latest_process_status, w.has_pending_approval, w.has_unseen_turns, w.has_running_dev_server,
-		       w.files_changed, w.lines_added, w.lines_removed, w.last_seen_at, w.created_at, w.updated_at, w.synced_at
+		       w.frontend_port, w.files_changed, w.lines_added, w.lines_removed, w.last_seen_at, w.created_at, w.updated_at, w.synced_at
 		FROM kw_workspaces w
 		INNER JOIN kw_sessions s ON w.id = s.workspace_id
 		WHERE s.id = ?
@@ -773,6 +778,111 @@ func (s *Store) GetWorkspaceBySessionID(ctx context.Context, sessionID string) (
 		return nil, fmt.Errorf("get workspace by session: %w", err)
 	}
 	return ws, nil
+}
+
+// GetWorkspaceFrontendPortState 获取工作区端口分配所需的最小状态
+func (s *Store) GetWorkspaceFrontendPortState(ctx context.Context, workspaceID string) (*int, bool, bool, error) {
+	workspace, err := s.GetWorkspaceByID(ctx, workspaceID)
+	if err != nil {
+		return nil, false, false, err
+	}
+	if workspace == nil {
+		return nil, false, false, nil
+	}
+	return workspace.FrontendPort, workspace.Archived, true, nil
+}
+
+// ResolveWorkspaceID 将短前缀或完整工作区 ID 解析成真实工作区 ID
+func (s *Store) ResolveWorkspaceID(ctx context.Context, workspaceID string) (string, bool, error) {
+	if strings.TrimSpace(workspaceID) == "" {
+		return "", false, nil
+	}
+
+	if len(workspaceID) >= 36 {
+		workspace, err := s.GetWorkspaceByID(ctx, workspaceID)
+		if err != nil {
+			return "", false, err
+		}
+		if workspace != nil {
+			return workspace.ID, true, nil
+		}
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id
+		FROM kw_workspaces
+		WHERE id LIKE ?
+		ORDER BY updated_at DESC
+		LIMIT 2
+	`, workspaceID+"%")
+	if err != nil {
+		return "", false, fmt.Errorf("resolve workspace id: %w", err)
+	}
+	defer rows.Close()
+
+	var matchedIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return "", false, fmt.Errorf("scan resolved workspace id: %w", err)
+		}
+		matchedIDs = append(matchedIDs, id)
+	}
+	if err := rows.Err(); err != nil {
+		return "", false, fmt.Errorf("iterate resolved workspace id: %w", err)
+	}
+	if len(matchedIDs) == 0 {
+		return "", false, nil
+	}
+	if len(matchedIDs) > 1 {
+		return "", false, fmt.Errorf("workspace id prefix %q is ambiguous", workspaceID)
+	}
+	return matchedIDs[0], true, nil
+}
+
+// ListAllocatedFrontendPorts 获取未归档工作区已分配的前端端口
+func (s *Store) ListAllocatedFrontendPorts(ctx context.Context, excludeWorkspaceID string) ([]int, error) {
+	query := `
+		SELECT frontend_port
+		FROM kw_workspaces
+		WHERE archived = FALSE
+		  AND frontend_port IS NOT NULL
+	`
+	args := make([]interface{}, 0, 1)
+	if strings.TrimSpace(excludeWorkspaceID) != "" {
+		query += "\n  AND id <> ?"
+		args = append(args, excludeWorkspaceID)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list allocated frontend ports: %w", err)
+	}
+	defer rows.Close()
+
+	var ports []int
+	for rows.Next() {
+		var port int
+		if err := rows.Scan(&port); err != nil {
+			return nil, fmt.Errorf("scan allocated frontend port: %w", err)
+		}
+		ports = append(ports, port)
+	}
+	return ports, nil
+}
+
+// AssignFrontendPort 为工作区记录前端端口
+func (s *Store) AssignFrontendPort(ctx context.Context, workspaceID string, port int) error {
+	_, err := s.execWithRetry(ctx, `
+		UPDATE kw_workspaces
+		SET frontend_port = ?,
+		    synced_at = CURRENT_TIMESTAMP(3)
+		WHERE id = ?
+	`, port, workspaceID)
+	if err != nil {
+		return fmt.Errorf("assign frontend port: %w", err)
+	}
+	return nil
 }
 
 // GetActiveWorkspaceSummaries 获取活跃工作区列表
@@ -1009,11 +1119,12 @@ func scanWorkspace(scanner interface {
 }) (*Workspace, error) {
 	var ws Workspace
 	var latestSessionID, latestProcessStatus sql.NullString
+	var frontendPort sql.NullInt64
 	var createdAt, updatedAt sql.NullTime
 	err := scanner.Scan(
 		&ws.ID, &ws.Name, &ws.Branch, &ws.Archived, &ws.Pinned, &latestSessionID,
 		&ws.IsRunning, &latestProcessStatus, &ws.HasPendingApproval, &ws.HasUnseenTurns, &ws.HasRunningDevServer,
-		&ws.FilesChanged, &ws.LinesAdded, &ws.LinesRemoved, &ws.LastSeenAt, &createdAt, &updatedAt, &ws.SyncedAt,
+		&frontendPort, &ws.FilesChanged, &ws.LinesAdded, &ws.LinesRemoved, &ws.LastSeenAt, &createdAt, &updatedAt, &ws.SyncedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -1023,6 +1134,10 @@ func scanWorkspace(scanner interface {
 	}
 	if latestProcessStatus.Valid {
 		ws.LatestProcessStatus = &latestProcessStatus.String
+	}
+	if frontendPort.Valid {
+		port := int(frontendPort.Int64)
+		ws.FrontendPort = &port
 	}
 	if createdAt.Valid {
 		ws.CreatedAt = &createdAt.Time

@@ -37,6 +37,7 @@ import {
   type WorkspaceSectionKey,
 } from "./components/workspace-section-list";
 import { cardStyles } from "./styles";
+import { getWorkspacePath } from "./lib/workspace-path";
 import type {
   ActiveWorkspacesResponse,
   KanbanEntityAttributes,
@@ -333,6 +334,7 @@ export class KanbanWatcherCard extends LitElement {
         >
           <workspace-conversation-pane
             .workspaceName=${workspace.name}
+            .workspacePath=${getWorkspacePath(workspace)}
             .messages=${messages}
             .smoothRevealMessageKey=${this.smoothRevealMessageKey}
             .messageDraft=${this.messageDraft}
@@ -1334,6 +1336,7 @@ export class KanbanWatcherCard extends LitElement {
     return {
       id: workspace.id,
       name: workspace.name || workspace.id,
+      branch: workspace.branch,
       status: workspace.status || "completed",
       latest_session_id: workspace.latest_session_id,
       has_pending_approval: workspace.has_pending_approval,
