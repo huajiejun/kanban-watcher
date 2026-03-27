@@ -11,6 +11,7 @@ const packageJson = JSON.parse(
 ) as {
   scripts?: Record<string, string>;
 };
+const previewHtml = readFileSync(resolve(process.cwd(), "preview/index.html"), "utf8");
 
 describe("build config", () => {
   it("exposes independent build commands for Home Assistant and web", () => {
@@ -39,5 +40,9 @@ describe("build config", () => {
       main: resolve(process.cwd(), "index.html"),
       preview: resolve(process.cwd(), "preview/index.html"),
     });
+  });
+
+  it("uses a preview entry path that resolves from the preview directory during build", () => {
+    expect(previewHtml).toContain('<script type="module" src="../src/playground.ts"></script>');
   });
 });
