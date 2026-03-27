@@ -355,8 +355,8 @@ export class KanbanWatcherCard extends LitElement {
             .isRunning=${isRunning}
             .canQueue=${canQueue}
             .devServerState=${this.getWorkspaceDevServerState(workspace)}
-            .showWorkspaceWebPreview=${this.canOpenWorkspaceWebPreview(workspace)}
-            .showDevServerPreview=${this.canOpenWorkspaceWebPreview(workspace)}
+            .showWorkspaceWebPreview=${this.shouldShowWorkspaceWebPreview(workspace)}
+            .showDevServerPreview=${this.getWorkspaceDevServerState(workspace) === "running"}
             .renderMessage=${(message: DialogMessage) => this.renderDialogEntry(message)}
             .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
             @pane-close=${this.closeWorkspaceDialog}
@@ -1394,11 +1394,8 @@ export class KanbanWatcherCard extends LitElement {
     );
   }
 
-  private canOpenWorkspaceWebPreview(workspace: KanbanWorkspace) {
-    return Boolean(
-      this.getWorkspacePreviewUrl(workspace) ||
-      this.getWorkspaceDevServerState(workspace) === "running",
-    );
+  private shouldShowWorkspaceWebPreview(workspace: KanbanWorkspace) {
+    return this.getWorkspaceDevServerState(workspace) === "running";
   }
 
   private async resolveWorkspacePreviewUrl(workspace: KanbanWorkspace) {

@@ -94,6 +94,7 @@ describe("kanban-watcher-card mobile web preview", () => {
               id: "ws-1",
               name: "手机工作区",
               status: "completed",
+              has_running_dev_server: true,
               browser_url: "https://relay.example/ws-1",
               updated_at: "2026-03-26T10:00:00Z",
             },
@@ -132,6 +133,8 @@ describe("kanban-watcher-card mobile web preview", () => {
   });
 
   it("accepts the camelCase browserUrl field on mobile", async () => {
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({} as Window);
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -153,6 +156,7 @@ describe("kanban-watcher-card mobile web preview", () => {
               id: "ws-1",
               name: "手机驼峰工作区",
               status: "completed",
+              has_running_dev_server: true,
               browserUrl: "https://relay.example/ws-1-camel",
               updated_at: "2026-03-26T10:00:00Z",
             },
@@ -186,14 +190,13 @@ describe("kanban-watcher-card mobile web preview", () => {
     button?.click();
     await flushCard(element);
 
-    const frame = element.shadowRoot?.querySelector(
-      ".workspace-home-web-preview-frame",
-    ) as HTMLIFrameElement | null;
-
-    expect(frame?.src).toContain("https://relay.example/ws-1-camel");
+    expect(openSpy).toHaveBeenCalledWith("https://relay.example/ws-1-camel", "_blank", "noopener");
+    expect(element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
   });
 
   it("falls back to the frontend port API on mobile and opens the huajiejun preview URL", async () => {
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({} as Window);
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = readRequestUrl(input);
 
@@ -260,14 +263,11 @@ describe("kanban-watcher-card mobile web preview", () => {
     button?.click();
     await flushCard(element);
 
-    const frame = element.shadowRoot?.querySelector(
-      ".workspace-home-web-preview-frame",
-    ) as HTMLIFrameElement | null;
-
-    expect(frame?.src).toContain("https://6020.huajiejun.cn");
+    expect(openSpy).toHaveBeenCalledWith("https://6020.huajiejun.cn", "_blank", "noopener");
+    expect(element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
   });
 
-  it("keeps the mobile web preview button clickable and shows feedback when no preview URL is available", async () => {
+  it("hides the mobile web preview button when the dev server is not running", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -315,12 +315,6 @@ describe("kanban-watcher-card mobile web preview", () => {
     const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
     const button = pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement | null;
 
-    expect(button).not.toBeNull();
-    expect(button?.disabled).toBe(false);
-
-    button?.click();
-    await flushCard(element);
-
-    expect(pane?.shadowRoot?.textContent).toContain("快捷网页地址不可用，请先启动开发服务器。");
+    expect(button).toBeNull();
   });
 });

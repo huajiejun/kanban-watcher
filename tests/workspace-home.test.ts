@@ -739,6 +739,7 @@ describe("workspace home helpers", () => {
 
   it("opens the mobile web preview from the embedded kanban-watcher-card dialog", async () => {
     setWindowWidth(390);
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({} as Window);
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
@@ -761,6 +762,7 @@ describe("workspace home helpers", () => {
               id: "ws-mobile",
               name: "手机端嵌入卡片",
               status: "completed",
+              has_running_dev_server: true,
               browser_url: "https://relay.example/mobile-ws",
               latest_session_id: "session-mobile",
               updated_at: "2026-03-26T10:00:00Z",
@@ -805,16 +807,8 @@ describe("workspace home helpers", () => {
     button?.click();
     await flushElement(element);
 
-    const overlay = card?.shadowRoot?.querySelector(
-      ".workspace-home-web-preview-overlay",
-    ) as HTMLElement | null;
-    const frame = card?.shadowRoot?.querySelector(
-      ".workspace-home-web-preview-frame",
-    ) as HTMLIFrameElement | null;
-
-    expect(overlay).not.toBeNull();
-    expect(overlay?.dataset.layout).toBe("mobile");
-    expect(frame?.src).toContain("https://relay.example/mobile-ws");
+    expect(openSpy).toHaveBeenCalledWith("https://relay.example/mobile-ws", "_blank", "noopener");
+    expect(card?.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
   });
 
   it("keeps a manually closed attention pane closed until attention changes again", async () => {
@@ -2607,6 +2601,7 @@ describe("workspace home helpers", () => {
               id: "ws-1",
               name: "桌面端工作区",
               status: "completed",
+              has_running_dev_server: true,
               browser_url: "https://relay.example/ws-1",
               updated_at: "2026-03-26T10:00:00Z",
             },
@@ -2670,6 +2665,7 @@ describe("workspace home helpers", () => {
               id: "ws-1",
               name: "驼峰地址工作区",
               status: "completed",
+              has_running_dev_server: true,
               browserUrl: "https://relay.example/ws-1-camel",
               updated_at: "2026-03-26T10:00:00Z",
             },
@@ -2809,6 +2805,7 @@ describe("workspace home helpers", () => {
               id: "ws-1",
               name: "手机端工作区",
               status: "completed",
+              has_running_dev_server: true,
               browser_url: "https://relay.example/ws-1",
               updated_at: "2026-03-26T10:00:00Z",
             },
@@ -2841,7 +2838,7 @@ describe("workspace home helpers", () => {
     expect(element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
   });
 
-  it("keeps the workspace web preview button clickable and shows feedback when no preview URL is available", async () => {
+  it("hides the workspace web preview button when the dev server is not running", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -2887,13 +2884,7 @@ describe("workspace home helpers", () => {
     const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
     const button = pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement | null;
 
-    expect(button).not.toBeNull();
-    expect(button?.disabled).toBe(false);
-
-    button?.click();
-    await flushElement(element);
-
-    expect(pane?.shadowRoot?.textContent).toContain("快捷网页地址不可用，请先启动开发服务器。");
+    expect(button).toBeNull();
   });
 
   it("closes the web preview overlay when the close button is clicked", async () => {
@@ -2918,6 +2909,7 @@ describe("workspace home helpers", () => {
               id: "ws-1",
               name: "可关闭快捷网页的工作区",
               status: "completed",
+              has_running_dev_server: true,
               browser_url: "https://relay.example/ws-1",
               updated_at: "2026-03-26T10:00:00Z",
             },
@@ -2972,6 +2964,7 @@ describe("workspace home helpers", () => {
               id: "ws-1",
               name: "可点击遮罩关闭的工作区",
               status: "completed",
+              has_running_dev_server: true,
               browser_url: "https://relay.example/ws-1",
               updated_at: "2026-03-26T10:00:00Z",
             },
@@ -3026,6 +3019,7 @@ describe("workspace home helpers", () => {
               id: "ws-1",
               name: "关闭窗格时联动关闭弹层的工作区",
               status: "completed",
+              has_running_dev_server: true,
               browser_url: "https://relay.example/ws-1",
               updated_at: "2026-03-26T10:00:00Z",
             },

@@ -1540,11 +1540,8 @@ export class KanbanWorkspaceHome extends LitElement {
     );
   }
 
-  private canOpenWorkspaceWebPreview(workspace: KanbanWorkspace) {
-    return Boolean(
-      this.getWorkspacePreviewUrl(workspace) ||
-      this.getWorkspaceDevServerState(workspace) === "running",
-    );
+  private shouldShowWorkspaceWebPreview(workspace: KanbanWorkspace) {
+    return this.getWorkspaceDevServerState(workspace) === "running";
   }
 
   private async resolveWorkspacePreviewUrl(workspace: KanbanWorkspace) {
@@ -1658,8 +1655,8 @@ export class KanbanWorkspaceHome extends LitElement {
         .isRunning=${isRunning}
         .canQueue=${Boolean(isRunning || queueStatus?.status === "queued")}
         .devServerState=${this.getWorkspaceDevServerState(workspace)}
-        .showWorkspaceWebPreview=${this.canOpenWorkspaceWebPreview(workspace)}
-        .showDevServerPreview=${this.canOpenWorkspaceWebPreview(workspace)}
+        .showWorkspaceWebPreview=${this.shouldShowWorkspaceWebPreview(workspace)}
+        .showDevServerPreview=${this.getWorkspaceDevServerState(workspace) === "running"}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>

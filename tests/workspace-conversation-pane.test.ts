@@ -258,6 +258,15 @@ describe("workspace-conversation-pane", () => {
     expect(button?.textContent).not.toContain("🌐");
   });
 
+  it("does not render the workspace web preview entry when the dev server is not running", async () => {
+    const element = createElement();
+
+    await element.updateComplete;
+
+    const button = element.shadowRoot?.querySelector(".dialog-web-preview");
+    expect(button).toBeNull();
+  });
+
   it("declares transparent header controls and a red running dev server toggle", () => {
     const cssText = Array.isArray(cardStyles)
       ? cardStyles.map((style) => style.cssText).join("\n")
