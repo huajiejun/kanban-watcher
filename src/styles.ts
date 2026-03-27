@@ -997,6 +997,25 @@ export const cardStyles = css`
     background: var(--primary-background-color, #0f172a);
   }
 
+  /* Todo Badge */
+  .todo-badge {
+    position: absolute;
+    top: -2px;
+    right: -4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #3b82f6;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+
   .dialog-messages {
     min-height: 0;
     display: grid;
@@ -1878,6 +1897,15 @@ export const cardStyles = css`
     .dialog-dev-server-preview {
       width: 26px;
       height: 26px;
+    }
+
+    .todo-badge {
+      min-width: 14px;
+      height: 14px;
+      font-size: 9px;
+      line-height: 14px;
+      top: -1px;
+      right: -3px;
     }
 
     .dialog-panel-title {

@@ -33,10 +33,12 @@ import {
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
   markWorkspaceSeen,
+  fetchWorkspaceTodos,
   sendWorkspaceMessage,
   startWorkspaceDevServer,
   stopWorkspaceDevServer,
   stopWorkspaceExecution,
+  updateWorkspaceTodo,
   updateWorkspaceView,
 } from "../lib/http-api";
 import type {
@@ -125,6 +127,7 @@ export class KanbanWorkspaceHome extends LitElement {
     extractedButtonsByWorkspace: { attribute: false },
     suggestedButtonsByWorkspace: { attribute: false },
     webPreviewFallbackUrlByWorkspace: { attribute: false },
+    todoPendingCountByWorkspace: { attribute: false },
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
@@ -144,6 +147,7 @@ export class KanbanWorkspaceHome extends LitElement {
   messageDraftByWorkspace: Record<string, string> = {};
   actionFeedbackByWorkspace: Record<string, string> = {};
   queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
+  todoPendingCountByWorkspace: Record<string, number> = {};
   smoothRevealMessageKeyByWorkspace: Record<string, string> = {};
   extractedButtonsByWorkspace: Record<string, string[]> = {};
   suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
@@ -317,7 +321,10 @@ export class KanbanWorkspaceHome extends LitElement {
 
       await Promise.all(
         openWorkspaces.flatMap((workspace) => {
-          const jobs: Promise<void>[] = [this.loadWorkspaceMessages(workspace.id, true)];
+          const jobs: Promise<void>[] = [
+            this.loadWorkspaceMessages(workspace.id, true),
+            this.loadTodoPendingCount(workspace.id),
+          ];
           if (workspace.status === "running") {
             jobs.push(this.loadWorkspaceQueueStatus(workspace.id));
           }
@@ -745,6 +752,45 @@ export class KanbanWorkspaceHome extends LitElement {
       workspace.id,
       Boolean(workspace.needs_attention || workspace.has_pending_approval || workspace.has_unseen_turns),
     );
+  }
+
+  private async handleTodoSelected(workspace: KanbanWorkspace, detail: { content: string; todoId: string }) {
+    this.messageDraftByWorkspace = {
+      ...this.messageDraftByWorkspace,
+      [workspace.id]: detail.content,
+    };
+    await this.handlePaneAction(workspace, "send");
+    try {
+      await updateWorkspaceTodo({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId: workspace.id,
+        todoId: detail.todoId,
+        content: detail.content,
+        isCompleted: true,
+      });
+    } catch {
+      // 静默失败，标记完成不影响主流程
+    }
+  }
+
+  private async loadTodoPendingCount(workspaceId: string) {
+    if (!this.isApiMode) {
+      return;
+    }
+    try {
+      const response = await fetchWorkspaceTodos({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId,
+      });
+      this.todoPendingCountByWorkspace = {
+        ...this.todoPendingCountByWorkspace,
+        [workspaceId]: response.pending_count ?? 0,
+      };
+    } catch {
+      // 静默失败
+    }
   }
 
   private async handlePaneAction(workspace: KanbanWorkspace, action: ConversationPaneAction) {
@@ -1678,6 +1724,10 @@ export class KanbanWorkspaceHome extends LitElement {
         .devServerState=${this.getWorkspaceDevServerState(workspace)}
         .showWorkspaceWebPreview=${this.shouldShowWorkspaceWebPreview(workspace)}
         .showDevServerPreview=${this.getWorkspaceDevServerState(workspace) === "running"}
+        .workspaceId=${workspace.id}
+        .todoBaseUrl=${this.previewOptions.baseUrl ?? ""}
+        .todoApiKey=${this.previewOptions.apiKey}
+        .todoPendingCount=${this.todoPendingCountByWorkspace[workspace.id] ?? 0}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
@@ -1686,6 +1736,8 @@ export class KanbanWorkspaceHome extends LitElement {
         @workspace-web-preview-toggle=${() => void this.handleOpenWebPreview(workspace)}
         @dev-server-preview-toggle=${() => void this.handleOpenPreviewDrawer(workspace)}
         @pane-close=${() => this.handleCloseWorkspace(workspace)}
+        @todo-selected=${(event: CustomEvent<{ content: string; todoId: string }>) =>
+          void this.handleTodoSelected(workspace, event.detail)}
       ></workspace-conversation-pane>
     `;
   }
