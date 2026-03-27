@@ -4,6 +4,8 @@ import type {
   SessionMessagesResponse,
   VibeInfoResponse,
   WorkspaceFrontendPortResponse,
+  WorkspaceTodosResponse,
+  WorkspaceTodo,
   WorkspaceViewResponse,
   WorkspaceMessageResponse,
   WorkspaceQueueStatusResponse,
@@ -326,6 +328,87 @@ export async function markWorkspaceSeen({
     `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/seen`,
     {
       method: "PUT",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function fetchWorkspaceTodos({
+  baseUrl,
+  apiKey,
+  workspaceId,
+  includeCompleted,
+}: RequestOptions & {
+  workspaceId: string;
+  includeCompleted?: boolean;
+}): Promise<WorkspaceTodosResponse> {
+  const query = new URLSearchParams();
+  if (includeCompleted) {
+    query.set("include_completed", "true");
+  }
+  const queryString = query.toString();
+  const url = `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/todos${queryString ? `?${queryString}` : ""}`;
+  return fetchJSON<WorkspaceTodosResponse>(url, {
+    method: "GET",
+    headers: buildHeaders(apiKey),
+  });
+}
+
+export async function createWorkspaceTodo({
+  baseUrl,
+  apiKey,
+  workspaceId,
+  content,
+}: RequestOptions & {
+  workspaceId: string;
+  content: string;
+}): Promise<WorkspaceTodo> {
+  return fetchJSON<WorkspaceTodo>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/todos`,
+    {
+      method: "POST",
+      headers: buildHeaders(apiKey, true),
+      body: JSON.stringify({ content }),
+    },
+  );
+}
+
+export async function updateWorkspaceTodo({
+  baseUrl,
+  apiKey,
+  workspaceId,
+  todoId,
+  content,
+  isCompleted,
+}: RequestOptions & {
+  workspaceId: string;
+  todoId: string;
+  content: string;
+  isCompleted: boolean;
+}): Promise<{ success: boolean }> {
+  return fetchJSON<{ success: boolean }>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/todos/${todoId}`,
+    {
+      method: "PUT",
+      headers: buildHeaders(apiKey, true),
+      body: JSON.stringify({ content, is_completed: isCompleted }),
+    },
+  );
+}
+
+export async function deleteWorkspaceTodo({
+  baseUrl,
+  apiKey,
+  workspaceId,
+  todoId,
+}: RequestOptions & {
+  workspaceId: string;
+  todoId: string;
+}): Promise<{ success: boolean }> {
+  return fetchJSON<{ success: boolean }>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/todos/${todoId}`,
+    {
+      method: "DELETE",
       headers: buildHeaders(apiKey),
     },
   );
