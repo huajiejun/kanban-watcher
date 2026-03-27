@@ -467,8 +467,8 @@ export class WorkspaceConversationPane extends LitElement {
   private handleTodoSelected = (e: CustomEvent<{ content: string; todoId: string }>) => {
     this.showTodoPanel = false;
     this.dispatchEvent(
-      new CustomEvent<{ content: string }>("todo-selected", {
-        detail: { content: e.detail.content },
+      new CustomEvent<{ content: string; todoId: string }>("todo-selected", {
+        detail: { content: e.detail.content, todoId: e.detail.todoId },
         bubbles: true,
         composed: true,
       }),

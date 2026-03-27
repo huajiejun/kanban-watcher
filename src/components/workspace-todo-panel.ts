@@ -38,7 +38,7 @@ export class WorkspaceTodoPanel extends LitElement {
       align-items: center;
       justify-content: center;
       z-index: 10000;
-      animation: fadeIn 0.15s ease-out;
+      animation: fadeIn 0.15s ease-out forwards;
     }
 
     @keyframes fadeIn {
@@ -60,7 +60,7 @@ export class WorkspaceTodoPanel extends LitElement {
       max-height: 600px;
       display: flex;
       flex-direction: column;
-      animation: slideUp 0.2s ease-out;
+      animation: slideUp 0.2s ease-out forwards;
       overflow: hidden;
     }
 
@@ -335,7 +335,7 @@ export class WorkspaceTodoPanel extends LitElement {
     workspaceId: { type: String, attribute: false },
     baseUrl: { type: String, attribute: false },
     apiKey: { type: String, attribute: false },
-    open: { type: Boolean },
+    open: { type: Boolean, reflect: true },
   };
 
   workspaceId = "";
