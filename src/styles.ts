@@ -831,7 +831,6 @@ export const cardStyles = css`
   }
 
   .dialog-dev-server-toggle,
-  .dialog-dev-server-preview,
   .dialog-web-preview {
     width: 32px;
     height: 32px;
