@@ -1,7 +1,9 @@
 package api
 
 import (
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -431,4 +433,96 @@ func reverseMessages(entries []store.ProcessEntry) {
 func writeJSON(w http.ResponseWriter, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func HandleWorkspaceTodos(w http.ResponseWriter, r *http.Request, dbStore *store.Store, workspaceID string, parts []string) {
+	if workspaceID == "" {
+		http.Error(w, "workspace_id is required", http.StatusBadRequest)
+		return
+	}
+
+	if len(parts) == 3 && parts[2] != "" {
+		handleWorkspaceTodoItem(w, r, dbStore, workspaceID, parts[2])
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		includeCompleted := r.URL.Query().Get("include_completed") == "true"
+		todos, pendingCount, err := dbStore.ListWorkspaceTodos(r.Context(), workspaceID, includeCompleted)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"todos":         todos,
+			"pending_count": pendingCount,
+		})
+
+	case http.MethodPost:
+		var req struct {
+			Content string `json:"content"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(req.Content) == "" {
+			http.Error(w, "content is required", http.StatusBadRequest)
+			return
+		}
+		todo := &store.WorkspaceTodo{
+			ID:          generateTodoUUID(),
+			WorkspaceID: workspaceID,
+			Content:     strings.TrimSpace(req.Content),
+		}
+		if err := dbStore.CreateWorkspaceTodo(r.Context(), todo); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(todo)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func handleWorkspaceTodoItem(w http.ResponseWriter, r *http.Request, dbStore *store.Store, workspaceID, todoID string) {
+	switch r.Method {
+	case http.MethodPut:
+		var req struct {
+			Content     string `json:"content"`
+			IsCompleted bool   `json:"is_completed"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if err := dbStore.UpdateWorkspaceTodo(r.Context(), todoID, req.Content, req.IsCompleted); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+
+	case http.MethodDelete:
+		if err := dbStore.DeleteWorkspaceTodo(r.Context(), todoID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func generateTodoUUID() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }

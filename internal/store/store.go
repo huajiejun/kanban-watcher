@@ -183,6 +183,19 @@ func (s *Store) InitSchema(ctx context.Context) error {
 			INDEX idx_token_daily_stat (stat_date),
 			INDEX idx_token_daily_executor (executor)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+		`CREATE TABLE IF NOT EXISTS kw_workspace_todos (
+			id VARCHAR(36) PRIMARY KEY,
+			workspace_id VARCHAR(36) NOT NULL,
+			content VARCHAR(500) NOT NULL,
+			is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+				ON UPDATE CURRENT_TIMESTAMP(3),
+			INDEX idx_kw_todos_workspace (workspace_id),
+			INDEX idx_kw_todos_workspace_completed (workspace_id, is_completed),
+			CONSTRAINT fk_kw_todos_workspace
+				FOREIGN KEY (workspace_id) REFERENCES kw_workspaces(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	}
 
 	for _, stmt := range statements {
@@ -1200,4 +1213,74 @@ func shouldRetryExec(err error) bool {
 
 func BuildProcessLogSubscriptionKey(processID string) string {
 	return "process_log:" + processID
+}
+
+// ListWorkspaceTodos 获取工作区待办列表
+func (s *Store) ListWorkspaceTodos(ctx context.Context, workspaceID string, includeCompleted bool) ([]WorkspaceTodo, int, error) {
+	todos := make([]WorkspaceTodo, 0)
+
+	var pendingCount int
+	err := s.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM kw_workspace_todos WHERE workspace_id = ? AND is_completed = FALSE",
+		workspaceID,
+	).Scan(&pendingCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询待办数量: %w", err)
+	}
+
+	query := "SELECT id, workspace_id, content, is_completed, created_at, updated_at FROM kw_workspace_todos WHERE workspace_id = ?"
+	args := []interface{}{workspaceID}
+	if !includeCompleted {
+		query += " AND is_completed = FALSE"
+	}
+	query += " ORDER BY created_at ASC"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询待办列表: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var t WorkspaceTodo
+		if err := rows.Scan(&t.ID, &t.WorkspaceID, &t.Content, &t.IsCompleted, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("扫描待办行: %w", err)
+		}
+		todos = append(todos, t)
+	}
+
+	return todos, pendingCount, rows.Err()
+}
+
+// CreateWorkspaceTodo 创建工作区待办
+func (s *Store) CreateWorkspaceTodo(ctx context.Context, todo *WorkspaceTodo) error {
+	_, err := s.db.ExecContext(ctx,
+		"INSERT INTO kw_workspace_todos (id, workspace_id, content, is_completed) VALUES (?, ?, ?, FALSE)",
+		todo.ID, todo.WorkspaceID, todo.Content,
+	)
+	if err != nil {
+		return fmt.Errorf("创建待办: %w", err)
+	}
+	return nil
+}
+
+// UpdateWorkspaceTodo 更新工作区待办
+func (s *Store) UpdateWorkspaceTodo(ctx context.Context, id string, content string, isCompleted bool) error {
+	_, err := s.db.ExecContext(ctx,
+		"UPDATE kw_workspace_todos SET content = ?, is_completed = ? WHERE id = ?",
+		content, isCompleted, id,
+	)
+	if err != nil {
+		return fmt.Errorf("更新待办: %w", err)
+	}
+	return nil
+}
+
+// DeleteWorkspaceTodo 删除工作区待办
+func (s *Store) DeleteWorkspaceTodo(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM kw_workspace_todos WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("删除待办: %w", err)
+	}
+	return nil
 }
