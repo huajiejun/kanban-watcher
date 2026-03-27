@@ -810,13 +810,13 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private async handleTodoSelected(workspace: KanbanWorkspace, detail: { content: string; todoId: string }) {
-    if (!this.previewOptions.baseUrl) return;
+    if (!this.isApiMode) return;
     this.messageDraftByWorkspace = {
       ...this.messageDraftByWorkspace,
       [workspace.id]: detail.content,
     };
     await handleTodoSelectedAndSend({
-      baseUrl: this.previewOptions.baseUrl,
+      baseUrl: this.previewOptions.baseUrl ?? "",
       apiKey: this.previewOptions.apiKey,
       workspaceId: workspace.id,
       todoId: detail.todoId,
@@ -827,9 +827,9 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private async loadTodoPendingCount(workspaceId: string) {
-    if (!this.isApiMode || !this.previewOptions.baseUrl) return;
+    if (!this.isApiMode) return;
     const count = await loadTodoPendingCount({
-      baseUrl: this.previewOptions.baseUrl,
+      baseUrl: this.previewOptions.baseUrl ?? "",
       apiKey: this.previewOptions.apiKey,
       workspaceId,
     });

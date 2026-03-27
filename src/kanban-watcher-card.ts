@@ -516,11 +516,11 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private async handleTodoSelected(detail: { content: string; todoId: string }) {
-    if (!this.selectedWorkspaceId || !this.config?.base_url) return;
+    if (!this.selectedWorkspaceId || !this.isApiMode) return;
     this.messageDraft = detail.content;
     await handleTodoSelectedAndSend({
-      baseUrl: this.config.base_url,
-      apiKey: this.config.api_key,
+      baseUrl: this.config?.base_url ?? "",
+      apiKey: this.config?.api_key,
       workspaceId: this.selectedWorkspaceId,
       todoId: detail.todoId,
       content: detail.content,
@@ -530,10 +530,10 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private async loadTodoPendingCount(workspaceId: string) {
-    if (!this.isApiMode || !this.config?.base_url) return;
+    if (!this.isApiMode) return;
     this.todoPendingCount = await loadTodoPendingCount({
-      baseUrl: this.config.base_url,
-      apiKey: this.config.api_key,
+      baseUrl: this.config?.base_url ?? "",
+      apiKey: this.config?.api_key,
       workspaceId,
     });
   }
