@@ -303,8 +303,8 @@ export class WorkspaceConversationPane extends LitElement {
     if (!this.workspacePath) {
       return baseUrl;
     }
-    // 从环境变量获取 File Browser 根目录前缀（需与 File Browser 配置的 root 一致）
-    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun';
+    // 从环境变量获取 File Browser 根目录前缀（需与远程 File Browser 配置的 root 一致）
+    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
     const relativePath = this.workspacePath.replace(fbRootPrefix, '');
     return `${baseUrl}/files/${relativePath}`;
   }
@@ -314,7 +314,7 @@ export class WorkspaceConversationPane extends LitElement {
     if (!this.workspacePath) {
       return this.FILE_BROWSER_REMOTE_URL;
     }
-    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun';
+    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
     const relativePath = this.workspacePath.replace(fbRootPrefix, '');
     return `${this.FILE_BROWSER_REMOTE_URL}/files/${relativePath}`;
   }
