@@ -10,13 +10,12 @@ import {
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
   markWorkspaceSeen,
-  fetchWorkspaceTodos,
   sendWorkspaceMessage,
   startWorkspaceDevServer,
   stopWorkspaceExecution,
   stopWorkspaceDevServer,
-  updateWorkspaceTodo,
 } from "./lib/http-api";
+import { handleTodoSelectedAndSend, loadTodoPendingCount } from "./lib/todo-helpers";
 import { connectRealtime } from "./lib/realtime-api";
 import {
   compactDialogMessageText,
@@ -517,40 +516,26 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private async handleTodoSelected(detail: { content: string; todoId: string }) {
+    if (!this.selectedWorkspaceId || !this.config?.base_url) return;
     this.messageDraft = detail.content;
-    await this.handleActionClick("send");
-    try {
-      if (!this.selectedWorkspaceId || !this.config?.base_url) {
-        return;
-      }
-      await updateWorkspaceTodo({
-        baseUrl: this.config.base_url,
-        apiKey: this.config.api_key,
-        workspaceId: this.selectedWorkspaceId,
-        todoId: detail.todoId,
-        content: detail.content,
-        isCompleted: true,
-      });
-      void this.loadTodoPendingCount(this.selectedWorkspaceId);
-    } catch {
-      // 静默失败
-    }
+    await handleTodoSelectedAndSend({
+      baseUrl: this.config.base_url,
+      apiKey: this.config.api_key,
+      workspaceId: this.selectedWorkspaceId,
+      todoId: detail.todoId,
+      content: detail.content,
+      sendAction: () => this.handleActionClick("send"),
+      refreshCount: (id) => { void this.loadTodoPendingCount(id); },
+    });
   }
 
   private async loadTodoPendingCount(workspaceId: string) {
-    if (!this.isApiMode || !this.config?.base_url) {
-      return;
-    }
-    try {
-      const response = await fetchWorkspaceTodos({
-        baseUrl: this.config.base_url,
-        apiKey: this.config.api_key,
-        workspaceId,
-      });
-      this.todoPendingCount = response.pending_count ?? 0;
-    } catch {
-      // 静默失败
-    }
+    if (!this.isApiMode || !this.config?.base_url) return;
+    this.todoPendingCount = await loadTodoPendingCount({
+      baseUrl: this.config.base_url,
+      apiKey: this.config.api_key,
+      workspaceId,
+    });
   }
 
   private async handleActionClick(action: DialogAction) {

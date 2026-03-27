@@ -1309,23 +1309,31 @@ func (s *Store) CreateWorkspaceTodo(ctx context.Context, todo *WorkspaceTodo) er
 	return nil
 }
 
-// UpdateWorkspaceTodo 更新工作区待办
-func (s *Store) UpdateWorkspaceTodo(ctx context.Context, id string, content string, isCompleted bool) error {
-	_, err := s.db.ExecContext(ctx,
-		"UPDATE kw_workspace_todos SET content = ?, is_completed = ? WHERE id = ?",
-		content, isCompleted, id,
+// UpdateWorkspaceTodo 更新工作区待办（校验 workspace_id 防止跨工作区操作）
+func (s *Store) UpdateWorkspaceTodo(ctx context.Context, workspaceID string, id string, content string, isCompleted bool) error {
+	result, err := s.db.ExecContext(ctx,
+		"UPDATE kw_workspace_todos SET content = ?, is_completed = ? WHERE id = ? AND workspace_id = ?",
+		content, isCompleted, id, workspaceID,
 	)
 	if err != nil {
 		return fmt.Errorf("更新待办: %w", err)
 	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("待办不存在或不属于该工作区")
+	}
 	return nil
 }
 
-// DeleteWorkspaceTodo 删除工作区待办
-func (s *Store) DeleteWorkspaceTodo(ctx context.Context, id string) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM kw_workspace_todos WHERE id = ?", id)
+// DeleteWorkspaceTodo 删除工作区待办（校验 workspace_id 防止跨工作区操作）
+func (s *Store) DeleteWorkspaceTodo(ctx context.Context, workspaceID string, id string) error {
+	result, err := s.db.ExecContext(ctx, "DELETE FROM kw_workspace_todos WHERE id = ? AND workspace_id = ?", id, workspaceID)
 	if err != nil {
 		return fmt.Errorf("删除待办: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("待办不存在或不属于该工作区")
 	}
 	return nil
 }

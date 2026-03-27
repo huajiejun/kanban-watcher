@@ -34,14 +34,13 @@ import {
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
   markWorkspaceSeen,
-  fetchWorkspaceTodos,
   sendWorkspaceMessage,
   startWorkspaceDevServer,
   stopWorkspaceDevServer,
   stopWorkspaceExecution,
-  updateWorkspaceTodo,
   updateWorkspaceView,
 } from "../lib/http-api";
+import { handleTodoSelectedAndSend, loadTodoPendingCount } from "../lib/todo-helpers";
 import type {
   KanbanSessionAttributes,
   KanbanWorkspace,
@@ -811,42 +810,33 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private async handleTodoSelected(workspace: KanbanWorkspace, detail: { content: string; todoId: string }) {
+    if (!this.previewOptions.baseUrl) return;
     this.messageDraftByWorkspace = {
       ...this.messageDraftByWorkspace,
       [workspace.id]: detail.content,
     };
-    await this.handlePaneAction(workspace, "send");
-    try {
-      await updateWorkspaceTodo({
-        baseUrl: this.previewOptions.baseUrl!,
-        apiKey: this.previewOptions.apiKey,
-        workspaceId: workspace.id,
-        todoId: detail.todoId,
-        content: detail.content,
-        isCompleted: true,
-      });
-    } catch {
-      // 静默失败，标记完成不影响主流程
-    }
+    await handleTodoSelectedAndSend({
+      baseUrl: this.previewOptions.baseUrl,
+      apiKey: this.previewOptions.apiKey,
+      workspaceId: workspace.id,
+      todoId: detail.todoId,
+      content: detail.content,
+      sendAction: () => this.handlePaneAction(workspace, "send"),
+      refreshCount: (id) => { void this.loadTodoPendingCount(id); },
+    });
   }
 
   private async loadTodoPendingCount(workspaceId: string) {
-    if (!this.isApiMode) {
-      return;
-    }
-    try {
-      const response = await fetchWorkspaceTodos({
-        baseUrl: this.previewOptions.baseUrl!,
-        apiKey: this.previewOptions.apiKey,
-        workspaceId,
-      });
-      this.todoPendingCountByWorkspace = {
-        ...this.todoPendingCountByWorkspace,
-        [workspaceId]: response.pending_count ?? 0,
-      };
-    } catch {
-      // 静默失败
-    }
+    if (!this.isApiMode || !this.previewOptions.baseUrl) return;
+    const count = await loadTodoPendingCount({
+      baseUrl: this.previewOptions.baseUrl,
+      apiKey: this.previewOptions.apiKey,
+      workspaceId,
+    });
+    this.todoPendingCountByWorkspace = {
+      ...this.todoPendingCountByWorkspace,
+      [workspaceId]: count,
+    };
   }
 
   private async handlePaneAction(workspace: KanbanWorkspace, action: ConversationPaneAction) {
