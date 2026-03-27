@@ -869,9 +869,11 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 // handleWorkspaces 处理 /api/workspaces/ 相关请求
 // PUT /api/workspaces/{id}/seen - 标记工作区为已读
 // GET /api/workspaces/{id}/latest-messages - 获取工作区最新消息
+// GET/POST /api/workspaces/{id}/todos - 待办事项列表
+// PUT/DELETE /api/workspaces/{id}/todos/{todo_id} - 单个待办事项
 func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
-	parts := strings.Split(path, "/")
+	parts := strings.SplitN(path, "/", 3)
 
 	// PUT /api/workspaces/{id}/seen
 	if len(parts) == 2 && parts[1] == "seen" && r.Method == http.MethodPut {
@@ -882,6 +884,12 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 	// GET /api/workspaces/{id}/latest-messages
 	if len(parts) == 2 && parts[1] == "latest-messages" && r.Method == http.MethodGet {
 		api.HandleWorkspaceLatestMessages(w, r, s.store)
+		return
+	}
+
+	// 待办事项路由
+	if len(parts) >= 2 && parts[1] == "todos" {
+		api.HandleWorkspaceTodos(w, r, s.store, parts[0], parts)
 		return
 	}
 

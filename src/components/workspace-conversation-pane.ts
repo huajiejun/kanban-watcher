@@ -4,6 +4,7 @@ import { detectDialogEditLanguage, renderDialogMessage } from "./dialog-message-
 import { cardStyles } from "../styles";
 import type { DialogMessage } from "../lib/dialog-messages";
 import type { WorkspaceQueueStatusResponse } from "../types";
+import "./workspace-todo-panel";
 
 export type ConversationPaneAction = "send" | "queue" | "stop";
 export type ConversationPaneMessage = DialogMessage;
@@ -31,8 +32,11 @@ export class WorkspaceConversationPane extends LitElement {
     canQueue: { type: Boolean },
     devServerState: { attribute: false },
     showWorkspaceWebPreview: { type: Boolean },
-    showDevServerPreview: { type: Boolean },
     showFileBrowser: { type: Boolean },
+    todoBaseUrl: { attribute: false },
+    todoApiKey: { attribute: false },
+    todoPendingCount: { attribute: false },
+    showTodoPanel: { type: Boolean, state: true },
     quickButtonsExpanded: { state: true },
     quickButtonsOverflowing: { state: true },
   };
@@ -55,8 +59,11 @@ export class WorkspaceConversationPane extends LitElement {
   canQueue = false;
   devServerState: DevServerState = "idle";
   showWorkspaceWebPreview = false;
-  showDevServerPreview = false;
   showFileBrowser = false;
+  todoBaseUrl = "";
+  todoApiKey = "";
+  todoPendingCount = 0;
+  private showTodoPanel = false;
   private resolvedWorkspacePath = "";
   private quickButtonsExpanded = false;
   private quickButtonsOverflowing = false;
@@ -80,6 +87,17 @@ export class WorkspaceConversationPane extends LitElement {
           <h2 class="dialog-title">${this.workspaceName}</h2>
         </div>
         <div class="dialog-header-actions">
+          <button
+            class="dialog-action-icon"
+            type="button"
+            aria-label="待办事项"
+            title="待办事项"
+            @click=${this.toggleTodoPanel}
+          >
+            📋${this.todoPendingCount > 0
+              ? html`<span class="todo-badge">${this.todoPendingCount}</span>`
+              : nothing}
+          </button>
           <button
             class="dialog-action-icon"
             type="button"
@@ -141,18 +159,6 @@ export class WorkspaceConversationPane extends LitElement {
           >
             ${devServerToggleSymbol}
           </button>
-          ${this.showDevServerPreview
-            ? html`
-                <button
-                  class="dialog-dev-server-preview"
-                  type="button"
-                  aria-label="打开开发服务器预览"
-                  @click=${this.handleDevServerPreviewToggle}
-                >
-                  🖥
-                </button>
-              `
-            : nothing}
           <button
             class="dialog-close"
             type="button"
@@ -165,6 +171,17 @@ export class WorkspaceConversationPane extends LitElement {
       </div>
 
       ${this.showFileBrowser ? this.renderFileBrowser() : nothing}
+
+      <workspace-todo-panel
+        .workspaceId=${this.workspaceId}
+        .baseUrl=${this.todoBaseUrl}
+        .apiKey=${this.todoApiKey}
+        .open=${this.showTodoPanel}
+        .isRunning=${this.isRunning}
+        @todo-selected=${this.handleTodoSelected}
+        @todo-count-change=${this.handleTodoCountChange}
+        @close=${this.closeTodoPanel}
+      ></workspace-todo-panel>
 
       <section class="dialog-messages">
         <div class="dialog-panel-title">对话消息</div>
@@ -406,15 +423,6 @@ export class WorkspaceConversationPane extends LitElement {
     );
   };
 
-  private handleDevServerPreviewToggle = () => {
-    this.dispatchEvent(
-      new CustomEvent("dev-server-preview-toggle", {
-        bubbles: true,
-        composed: true,
-      }),
-    );
-  };
-
   private handleWorkspaceWebPreviewToggle = () => {
     this.dispatchEvent(
       new CustomEvent("workspace-web-preview-toggle", {
@@ -436,6 +444,29 @@ export class WorkspaceConversationPane extends LitElement {
 
   private closeFileBrowser = () => {
     this.showFileBrowser = false;
+  };
+
+  private toggleTodoPanel = () => {
+    this.showTodoPanel = !this.showTodoPanel;
+  };
+
+  private closeTodoPanel = () => {
+    this.showTodoPanel = false;
+  };
+
+  private handleTodoSelected = (e: CustomEvent<{ content: string; todoId: string }>) => {
+    this.showTodoPanel = false;
+    this.dispatchEvent(
+      new CustomEvent<{ content: string; todoId: string }>("todo-selected", {
+        detail: { content: e.detail.content, todoId: e.detail.todoId },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private handleTodoCountChange = (e: CustomEvent<{ count: number }>) => {
+    this.todoPendingCount = e.detail.count;
   };
 
   private async resolveCurrentWorkspacePath() {

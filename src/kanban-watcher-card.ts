@@ -15,6 +15,7 @@ import {
   stopWorkspaceExecution,
   stopWorkspaceDevServer,
 } from "./lib/http-api";
+import { handleTodoSelectedAndSend, loadTodoPendingCount } from "./lib/todo-helpers";
 import { connectRealtime } from "./lib/realtime-api";
 import {
   compactDialogMessageText,
@@ -145,6 +146,7 @@ export class KanbanWatcherCard extends LitElement {
   private selectedWorkspaceId?: string;
   private messageDraft = "";
   private actionFeedback = "";
+  private todoPendingCount = 0;
   private apiWorkspaces: KanbanWorkspace[] = [];
   private boardLoading = false;
   private boardError = "";
@@ -364,7 +366,9 @@ export class KanbanWatcherCard extends LitElement {
             .canQueue=${canQueue}
             .devServerState=${this.getWorkspaceDevServerState(workspace)}
             .showWorkspaceWebPreview=${this.shouldShowWorkspaceWebPreview(workspace)}
-            .showDevServerPreview=${this.getWorkspaceDevServerState(workspace) === "running"}
+            .todoBaseUrl=${this.config?.base_url ?? ""}
+            .todoApiKey=${this.config?.api_key}
+            .todoPendingCount=${this.todoPendingCount}
             .renderMessage=${(message: DialogMessage) => this.renderDialogEntry(message)}
             .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
             @pane-close=${this.closeWorkspaceDialog}
@@ -377,6 +381,8 @@ export class KanbanWatcherCard extends LitElement {
             @dev-server-toggle=${() => void this.handleWorkspaceDevServerToggle(workspace)}
             @quick-button-click=${(event: CustomEvent<string>) =>
               void this.handleQuickButtonClick(event.detail)}
+            @todo-selected=${(event: CustomEvent<{ content: string; todoId: string }>) =>
+              void this.handleTodoSelected(event.detail)}
           ></workspace-conversation-pane>
         </section>
       </div>
@@ -432,6 +438,8 @@ export class KanbanWatcherCard extends LitElement {
     this.actionFeedback = "";
     this.dialogError = "";
     this.smoothRevealMessageKey = "";
+    this.todoPendingCount = 0;
+    void this.loadTodoPendingCount(workspace.id);
     const nextDialogMessagesByWorkspace = { ...this.dialogMessagesByWorkspace };
     delete nextDialogMessagesByWorkspace[workspace.id];
     this.dialogMessagesByWorkspace = nextDialogMessagesByWorkspace;
@@ -505,6 +513,29 @@ export class KanbanWatcherCard extends LitElement {
   private handleMessageInput = (event: Event) => {
     this.messageDraft = (event.target as HTMLTextAreaElement).value;
   };
+
+  private async handleTodoSelected(detail: { content: string; todoId: string }) {
+    if (!this.selectedWorkspaceId || !this.isApiMode) return;
+    this.messageDraft = detail.content;
+    await handleTodoSelectedAndSend({
+      baseUrl: this.config?.base_url ?? "",
+      apiKey: this.config?.api_key,
+      workspaceId: this.selectedWorkspaceId,
+      todoId: detail.todoId,
+      content: detail.content,
+      sendAction: () => this.handleActionClick("send"),
+      refreshCount: (id) => { void this.loadTodoPendingCount(id); },
+    });
+  }
+
+  private async loadTodoPendingCount(workspaceId: string) {
+    if (!this.isApiMode) return;
+    this.todoPendingCount = await loadTodoPendingCount({
+      baseUrl: this.config?.base_url ?? "",
+      apiKey: this.config?.api_key,
+      workspaceId,
+    });
+  }
 
   private async handleActionClick(action: DialogAction) {
     const queueStatus = this.selectedWorkspaceId

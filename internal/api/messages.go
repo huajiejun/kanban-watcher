@@ -1,7 +1,9 @@
 package api
 
 import (
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -442,4 +444,125 @@ func reverseMessages(entries []store.ProcessEntry) {
 func writeJSON(w http.ResponseWriter, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+const maxTodoContentLen = 500
+const maxTodoBodyBytes = 1024
+
+func HandleWorkspaceTodos(w http.ResponseWriter, r *http.Request, dbStore *store.Store, workspaceID string, parts []string) {
+	if workspaceID == "" {
+		http.Error(w, "workspace_id is required", http.StatusBadRequest)
+		return
+	}
+
+	if len(parts) == 3 && parts[2] != "" {
+		handleWorkspaceTodoItem(w, r, dbStore, workspaceID, parts[2])
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		includeCompleted := r.URL.Query().Get("include_completed") == "true"
+		todos, pendingCount, err := dbStore.ListWorkspaceTodos(r.Context(), workspaceID, includeCompleted)
+		if err != nil {
+			http.Error(w, "查询待办列表失败", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"todos":         todos,
+			"pending_count": pendingCount,
+		})
+
+	case http.MethodPost:
+		r.Body = http.MaxBytesReader(w, r.Body, maxTodoBodyBytes)
+		var req struct {
+			Content string `json:"content"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+		content := strings.TrimSpace(req.Content)
+		if content == "" {
+			http.Error(w, "content is required", http.StatusBadRequest)
+			return
+		}
+		if len(content) > maxTodoContentLen {
+			http.Error(w, "content exceeds 500 characters", http.StatusBadRequest)
+			return
+		}
+		todoID, err := generateTodoUUID()
+		if err != nil {
+			http.Error(w, "生成ID失败", http.StatusInternalServerError)
+			return
+		}
+		todo := &store.WorkspaceTodo{
+			ID:          todoID,
+			WorkspaceID: workspaceID,
+			Content:     content,
+		}
+		if err := dbStore.CreateWorkspaceTodo(r.Context(), todo); err != nil {
+			http.Error(w, "创建待办失败", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(todo)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func handleWorkspaceTodoItem(w http.ResponseWriter, r *http.Request, dbStore *store.Store, workspaceID, todoID string) {
+	switch r.Method {
+	case http.MethodPut:
+		r.Body = http.MaxBytesReader(w, r.Body, maxTodoBodyBytes)
+		var req struct {
+			Content     string `json:"content"`
+			IsCompleted bool   `json:"is_completed"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+		content := strings.TrimSpace(req.Content)
+		if content == "" {
+			http.Error(w, "content is required", http.StatusBadRequest)
+			return
+		}
+		if len(content) > maxTodoContentLen {
+			http.Error(w, "content exceeds 500 characters", http.StatusBadRequest)
+			return
+		}
+		if err := dbStore.UpdateWorkspaceTodo(r.Context(), workspaceID, todoID, content, req.IsCompleted); err != nil {
+			http.Error(w, "更新待办失败", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+
+	case http.MethodDelete:
+		if err := dbStore.DeleteWorkspaceTodo(r.Context(), workspaceID, todoID); err != nil {
+			http.Error(w, "删除待办失败", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func generateTodoUUID() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("生成UUID失败: %w", err)
+	}
+	// 设置 UUID v4 版本和变体位
+	b[6] = (b[6] & 0x0f) | 0x40 // version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // variant 10
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }

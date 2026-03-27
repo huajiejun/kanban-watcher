@@ -204,3 +204,13 @@ type TokenUsageDaily struct {
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
+
+// WorkspaceTodo 工作区待办事项
+type WorkspaceTodo struct {
+	ID          string    `json:"id" db:"id"`
+	WorkspaceID string    `json:"workspace_id" db:"workspace_id"`
+	Content     string    `json:"content" db:"content"`
+	IsCompleted bool      `json:"is_completed" db:"is_completed"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}

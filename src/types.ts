@@ -255,3 +255,19 @@ export interface TodoList {
   totalCount: number;
   percentage: number;
 }
+
+/** 工作区待办事项（数据库持久化） */
+export interface WorkspaceTodo {
+  id: string;
+  workspace_id: string;
+  content: string;
+  is_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 待办列表响应 */
+export interface WorkspaceTodosResponse {
+  todos: WorkspaceTodo[];
+  pending_count: number;
+}
