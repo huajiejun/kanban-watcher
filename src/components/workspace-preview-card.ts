@@ -280,7 +280,12 @@ export class WorkspacePreviewCard extends LitElement {
   }
 
   protected updated(changedProperties: Map<PropertyKey, unknown>) {
-    if (changedProperties.has("previewLines") && this.shouldAutoScroll) {
+    const previousPreviewLines = changedProperties.get("previewLines") as string[] | undefined;
+    if (
+      changedProperties.has("previewLines") &&
+      this.shouldAutoScroll &&
+      !this.arePreviewLinesEqual(previousPreviewLines, this.previewLines)
+    ) {
       this.scrollPreviewLinesToBottom();
     }
   }
@@ -315,6 +320,17 @@ export class WorkspacePreviewCard extends LitElement {
       return;
     }
     container.scrollTop = container.scrollHeight;
+  }
+
+  private arePreviewLinesEqual(previousLines: string[] | undefined, nextLines: string[]) {
+    if (previousLines === nextLines) {
+      return true;
+    }
+    if (!previousLines || previousLines.length !== nextLines.length) {
+      return false;
+    }
+
+    return previousLines.every((line, index) => line === nextLines[index]);
   }
 }
 
