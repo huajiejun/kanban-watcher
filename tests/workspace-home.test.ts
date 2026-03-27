@@ -629,6 +629,221 @@ describe("workspace home helpers", () => {
     expect(element.shadowRoot?.textContent).toContain("实时任务");
   });
 
+  it("prefers last message time over updated_at when rendering workspace card relative time", async () => {
+    vi.setSystemTime(new Date("2026-03-27T12:00:00Z"));
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-time",
+              name: "时间任务",
+              status: "completed",
+              updated_at: "2026-03-27T11:59:45Z",
+              last_message_at: "2026-03-26T10:00:00Z",
+              latest_process_completed_at: "2026-03-26T10:05:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const card = element.shadowRoot?.querySelector(".task-card") as HTMLElement | null;
+    expect(card?.textContent).toContain("1d ago");
+    expect(card?.textContent).not.toContain("just now");
+  });
+
+  it("prefers latest process completed time over a fresher last message for idle workspace cards", async () => {
+    vi.setSystemTime(new Date("2026-03-27T12:00:00Z"));
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-completed-time",
+              name: "完成时间任务",
+              status: "completed",
+              updated_at: "2026-03-27T11:59:55Z",
+              last_message_at: "2026-03-27T11:59:50Z",
+              latest_process_completed_at: "2026-03-26T10:05:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const card = element.shadowRoot?.querySelector(".task-card") as HTMLElement | null;
+    expect(card?.textContent).toContain("1d ago");
+    expect(card?.textContent).not.toContain("just now");
+  });
+
+  it("keeps card relative time stable after workspace snapshot refreshes updated_at", async () => {
+    vi.setSystemTime(new Date("2026-03-27T12:00:00Z"));
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-time-live",
+              name: "时间实时任务",
+              status: "completed",
+              updated_at: "2026-03-27T11:59:45Z",
+              latest_process_completed_at: "2026-03-26T10:05:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    const cardBeforeSnapshot = element.shadowRoot?.querySelector(".task-card") as HTMLElement | null;
+    expect(cardBeforeSnapshot?.textContent).toContain("1d ago");
+
+    FakeWebSocket.instances[0]?.emitOpen();
+    FakeWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-time-live",
+          name: "时间实时任务",
+          status: "completed",
+          updated_at: "2026-03-27T11:59:58Z",
+          latest_process_completed_at: "2026-03-26T10:05:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    const cardAfterSnapshot = element.shadowRoot?.querySelector(".task-card") as HTMLElement | null;
+    expect(cardAfterSnapshot?.textContent).toContain("1d ago");
+    expect(cardAfterSnapshot?.textContent).not.toContain("just now");
+  });
+
+  it("falls back to recently instead of updated_at when no message time is available", async () => {
+    vi.setSystemTime(new Date("2026-03-27T12:00:00Z"));
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-updated-at-only",
+              name: "兜底时间任务",
+              status: "completed",
+              updated_at: "2026-03-27T11:59:50Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const card = element.shadowRoot?.querySelector(".task-card") as HTMLElement | null;
+    expect(card?.textContent).toContain("recently");
+    expect(card?.textContent).not.toContain("just now");
+  });
+
+  it("keeps desktop sidebar order stable when workspace snapshots arrive in a different order", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-beta",
+              name: "Beta 任务",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+            {
+              id: "ws-alpha",
+              name: "Alpha 任务",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const getSidebarNames = () =>
+      Array.from(element.shadowRoot?.querySelectorAll(".workspace-home-sidebar .workspace-name") ?? []).map(
+        (node) => node.textContent?.trim() ?? "",
+      );
+
+    expect(getSidebarNames()).toEqual(["Beta 任务", "Alpha 任务"]);
+
+    FakeWebSocket.instances[0]?.emitOpen();
+    FakeWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-alpha",
+          name: "Alpha 任务",
+          status: "completed",
+          updated_at: "2026-03-24T12:03:00Z",
+        },
+        {
+          id: "ws-beta",
+          name: "Beta 任务",
+          status: "completed",
+          updated_at: "2026-03-24T12:04:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    expect(getSidebarNames()).toEqual(["Beta 任务", "Alpha 任务"]);
+  });
+
   it("does not reconfigure the mobile card on unrelated workspace-home updates", async () => {
     setWindowWidth(390);
 
@@ -1323,7 +1538,7 @@ describe("workspace home helpers", () => {
             {
               id: "ws-attention",
               name: "需要处理的任务",
-              status: "completed",
+              status: "running",
               latest_session_id: "session-1",
               has_pending_approval: true,
               has_unseen_turns: true,
@@ -1344,6 +1559,12 @@ describe("workspace home helpers", () => {
               timestamp: "2026-03-24T12:00:00Z",
             },
           ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/queue-status")) {
+        return createJsonResponse({
+          status: "empty",
         });
       }
 
@@ -1384,6 +1605,162 @@ describe("workspace home helpers", () => {
     const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
 
     expect(paneShadowRoot?.textContent).toContain("实时追加消息");
+  });
+
+  it("ignores realtime appended messages for an idle pane when the last message is already terminal", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-idle",
+              name: "已结束任务",
+              status: "completed",
+              latest_session_id: "session-idle",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-idle/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              process_id: "proc-idle",
+              entry_index: 1,
+              entry_type: "tool_use",
+              content: "命令已完成",
+              timestamp: "2026-03-24T12:00:00Z",
+              tool_info: {
+                tool_name: "命令",
+                status: "completed",
+                action_type: {
+                  action: "command_run",
+                  command: "echo done",
+                },
+              },
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+
+    FakeWebSocket.instances[1]?.emitOpen();
+    FakeWebSocket.instances[1]?.emitMessage({
+      type: "session_messages_appended",
+      session_id: "session-idle",
+      messages: [
+        {
+          process_id: "proc-idle",
+          entry_index: 2,
+          role: "assistant",
+          content: "这条消息不该再进入空闲卡片",
+          timestamp: "2026-03-24T12:01:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+    const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
+
+    expect(paneShadowRoot?.textContent).not.toContain("这条消息不该再进入空闲卡片");
+  });
+
+  it("still appends realtime messages for an idle pane when the last message is non-terminal", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-idle-running-tail",
+              name: "仍在刷流的空闲任务",
+              status: "completed",
+              latest_session_id: "session-tail",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-idle-running-tail/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              process_id: "proc-tail",
+              entry_index: 1,
+              entry_type: "tool_use",
+              content: "命令仍在运行",
+              timestamp: "2026-03-24T12:00:00Z",
+              tool_info: {
+                tool_name: "命令",
+                status: "running",
+                action_type: {
+                  action: "command_run",
+                  command: "sleep 1",
+                },
+              },
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+
+    FakeWebSocket.instances[1]?.emitOpen();
+    FakeWebSocket.instances[1]?.emitMessage({
+      type: "session_messages_appended",
+      session_id: "session-tail",
+      messages: [
+        {
+          process_id: "proc-tail",
+          entry_index: 2,
+          role: "assistant",
+          content: "尾部仍未终态时这条增量应被接收",
+          timestamp: "2026-03-24T12:01:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+    const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
+
+    expect(paneShadowRoot?.textContent).toContain("尾部仍未终态时这条增量应被接收");
   });
 
   it("does not reconnect the active session websocket when workspace snapshot leaves the active session unchanged", async () => {

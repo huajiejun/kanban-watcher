@@ -307,13 +307,14 @@ export class KanbanWorkspaceHome extends LitElement {
       const workspaces = this.isApiMode
         ? await this.fetchApiWorkspaces()
         : this.readMockWorkspaces();
+      const orderedWorkspaces = this.preserveWorkspaceOrder(workspaces);
 
-      await this.hydrateRunningDevServerProcesses(workspaces);
-      this.workspaces = workspaces;
-      this.pruneDevServerProcessState(workspaces);
-      this.pageState = reconcileWorkspacePageState(this.pageState, workspaces);
+      await this.hydrateRunningDevServerProcesses(orderedWorkspaces);
+      this.workspaces = orderedWorkspaces;
+      this.pruneDevServerProcessState(orderedWorkspaces);
+      this.pageState = reconcileWorkspacePageState(this.pageState, orderedWorkspaces);
       const openWorkspaces = this.pageState.openWorkspaceIds
-        .map((workspaceId) => workspaces.find((workspace) => workspace.id === workspaceId))
+        .map((workspaceId) => orderedWorkspaces.find((workspace) => workspace.id === workspaceId))
         .filter((workspace): workspace is KanbanWorkspace => Boolean(workspace));
 
       await Promise.all(
@@ -482,6 +483,33 @@ export class KanbanWorkspaceHome extends LitElement {
       latest_process_completed_at: workspace.latest_process_completed_at,
       needs_attention: Boolean(workspace.has_pending_approval || workspace.has_unseen_turns),
     };
+  }
+
+  private preserveWorkspaceOrder(nextWorkspaces: KanbanWorkspace[]) {
+    if (this.workspaces.length === 0) {
+      return nextWorkspaces;
+    }
+
+    const nextById = new Map(nextWorkspaces.map((workspace) => [workspace.id, workspace]));
+    const ordered: KanbanWorkspace[] = [];
+
+    this.workspaces.forEach((workspace) => {
+      const nextWorkspace = nextById.get(workspace.id);
+      if (!nextWorkspace) {
+        return;
+      }
+      ordered.push(nextWorkspace);
+      nextById.delete(workspace.id);
+    });
+
+    nextWorkspaces.forEach((workspace) => {
+      if (nextById.has(workspace.id)) {
+        ordered.push(workspace);
+        nextById.delete(workspace.id);
+      }
+    });
+
+    return ordered;
   }
 
   private readMockWorkspaces() {
@@ -958,7 +986,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private renderWorkspaceCard(workspace: KanbanWorkspace) {
     const statusMeta = getStatusMeta(workspace);
-    const relativeTime = workspace.relative_time ?? formatRelativeTime(workspace.updated_at);
+    const relativeTime = this.getWorkspaceCardRelativeTime(workspace);
     const filesChanged = workspace.files_changed ?? 0;
     const linesAdded = workspace.lines_added ?? 0;
     const linesRemoved = workspace.lines_removed ?? 0;
@@ -998,6 +1026,15 @@ export class KanbanWorkspaceHome extends LitElement {
           : nothing}
       </div>
     `;
+  }
+
+  private getWorkspaceCardRelativeTime(workspace: KanbanWorkspace) {
+    const timestamp = this.getWorkspaceCardTimestamp(workspace);
+    return timestamp ? formatRelativeTime(timestamp) : "recently";
+  }
+
+  private getWorkspaceCardTimestamp(workspace: KanbanWorkspace) {
+    return workspace.latest_process_completed_at || workspace.last_message_at;
   }
 
   private get previewOptions() {
@@ -1391,7 +1428,9 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     if (event.type === "workspace_snapshot") {
       const previousOpenWorkspaceIds = [...this.pageState.openWorkspaceIds];
-      const nextWorkspaces = (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));
+      const nextWorkspaces = this.preserveWorkspaceOrder(
+        (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace)),
+      );
       void this.hydrateRunningDevServerProcesses(nextWorkspaces);
       this.workspaces = nextWorkspaces;
       this.pruneDevServerProcessState(nextWorkspaces);
@@ -1421,6 +1460,9 @@ export class KanbanWorkspaceHome extends LitElement {
     if (!workspace) {
       return;
     }
+    if (!this.shouldAcceptRealtimeMessages(workspace.id)) {
+      return;
+    }
 
     const existing = this.flattenDialogMessages(this.messagesByWorkspace[workspace.id] ?? []);
     const merged = [...existing];
@@ -1443,6 +1485,31 @@ export class KanbanWorkspaceHome extends LitElement {
       [workspace.id]: this.groupDialogMessages(merged),
     };
     this.requestUpdate();
+  }
+
+  private shouldAcceptRealtimeMessages(workspaceId: string) {
+    const workspace = this.workspaces.find((item) => item.id === workspaceId);
+    if (!workspace) {
+      return false;
+    }
+    if (workspace.status === "running") {
+      return true;
+    }
+
+    const lastMessage = (this.messagesByWorkspace[workspaceId] ?? []).at(-1);
+    if (!lastMessage) {
+      return true;
+    }
+
+    return !this.isRealtimeTerminalMessage(lastMessage);
+  }
+
+  private isRealtimeTerminalMessage(message: DialogMessage) {
+    if (message.kind === "message") {
+      return true;
+    }
+
+    return message.status !== "running" && message.status !== "pending";
   }
 
   private flattenDialogMessages(messages: DialogMessage[]) {
