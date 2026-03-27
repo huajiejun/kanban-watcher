@@ -82,6 +82,7 @@ const MOBILE_BREAKPOINT = 768;
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 3_000;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
+const PREVIEW_DEBUG_STORAGE_KEY = "kanban_watcher_preview_debug";
 
 let kanbanWatcherCardDefinitionPromise: Promise<void> | undefined;
 
@@ -93,6 +94,21 @@ async function ensureKanbanWatcherCardDefined() {
     kanbanWatcherCardDefinitionPromise = import("../index").then(() => undefined);
   }
   await kanbanWatcherCardDefinitionPromise;
+}
+
+function isPreviewDebugEnabled() {
+  try {
+    return window.localStorage.getItem(PREVIEW_DEBUG_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function debugPreview(event: string, details: Record<string, unknown>) {
+  if (!isPreviewDebugEnabled()) {
+    return;
+  }
+  console.debug(`[WorkspacePreview] ${event}`, details);
 }
 
 export function resolveWorkspaceHomeMode(width: number): WorkspaceHomeMode {
@@ -557,6 +573,17 @@ export class KanbanWorkspaceHome extends LitElement {
       });
       const previousMessages = this.messagesByWorkspace[workspaceId] ?? [];
       const nextMessages = normalizeApiMessages(response.messages);
+      const previousPreviewLines = summarizeWorkspacePreview(previousMessages);
+      const nextPreviewLines = summarizeWorkspacePreview(nextMessages);
+
+      debugPreview("messages-loaded", {
+        workspaceId,
+        forceRefresh,
+        responseMessages: response.messages,
+        previousPreviewLines,
+        nextPreviewLines,
+        previewLinesChanged: JSON.stringify(previousPreviewLines) !== JSON.stringify(nextPreviewLines),
+      });
 
       this.messagesByWorkspace = {
         ...this.messagesByWorkspace,

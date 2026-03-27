@@ -301,7 +301,7 @@ func HandleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbSto
 		return
 	}
 
-	getSessionMessagesInternal(w, r, dbStore, *workspace.LatestSessionID, workspace.Name)
+	getSessionMessagesInternal(w, r, dbStore, *workspace.LatestSessionID, workspace.Name, true)
 }
 
 func handleSessionMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
@@ -326,10 +326,10 @@ func handleSessionMessages(w http.ResponseWriter, r *http.Request, dbStore *stor
 		workspaceName = ws.Name
 	}
 
-	getSessionMessagesInternal(w, r, dbStore, parts[0], workspaceName)
+	getSessionMessagesInternal(w, r, dbStore, parts[0], workspaceName, false)
 }
 
-func getSessionMessagesInternal(w http.ResponseWriter, r *http.Request, dbStore *store.Store, sessionID, workspaceName string) {
+func getSessionMessagesInternal(w http.ResponseWriter, r *http.Request, dbStore *store.Store, sessionID, workspaceName string, previewMode bool) {
 	limit := 50
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
@@ -347,7 +347,7 @@ func getSessionMessagesInternal(w http.ResponseWriter, r *http.Request, dbStore 
 		}
 	}
 
-	types := parseTypesFilter(r.URL.Query().Get("types"))
+	types := resolveSessionMessageTypes(r.URL.Query().Get("types"), previewMode)
 	entries, err := dbStore.GetSessionMessages(r.Context(), sessionID, limit, before, types)
 	if err != nil {
 		http.Error(w, "获取消息失败", http.StatusInternalServerError)
@@ -382,6 +382,17 @@ func getSessionMessagesInternal(w http.ResponseWriter, r *http.Request, dbStore 
 	}
 
 	writeJSON(w, resp)
+}
+
+func resolveSessionMessageTypes(raw string, previewMode bool) []string {
+	types := parseTypesFilter(raw)
+	if len(types) > 0 {
+		return types
+	}
+	if !previewMode {
+		return nil
+	}
+	return []string{"assistant_message", "user_message", "error_message"}
 }
 
 func buildToolInfo(entry store.ProcessEntry) map[string]interface{} {

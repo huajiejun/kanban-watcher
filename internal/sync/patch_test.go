@@ -316,24 +316,73 @@ func TestShouldReconnectRunningProcessByLatestStatus(t *testing.T) {
 	}
 }
 
+func TestShouldSubscribeProcessLogs(t *testing.T) {
+	tests := []struct {
+		name       string
+		runReason  string
+		dropped    bool
+		status     string
+		want       bool
+	}{
+		{name: "running codingagent subscribes", runReason: "codingagent", status: "running", want: true},
+		{name: "completed codingagent skips", runReason: "codingagent", status: "completed", want: false},
+		{name: "failed codingagent skips", runReason: "codingagent", status: "failed", want: false},
+		{name: "dropped codingagent skips", runReason: "codingagent", dropped: true, status: "running", want: false},
+		{name: "dev server skips", runReason: "dev_server", status: "running", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldSubscribeProcessLogs(tt.runReason, tt.dropped, tt.status)
+			if got != tt.want {
+				t.Fatalf("shouldSubscribeProcessLogs(%q, %v, %q) = %v, want %v", tt.runReason, tt.dropped, tt.status, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestShouldLogSessionStreamError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		stopping bool
+		want     bool
+	}{
+		{name: "stop closes are ignored", err: errors.New("use of closed network connection"), stopping: true, want: false},
+		{name: "unexpected eof is downgraded", err: errors.New("websocket: close 1006 (abnormal closure): unexpected EOF"), want: false},
+		{name: "bad handshake still logs", err: errors.New("websocket: bad handshake"), want: true},
+		{name: "other errors still log", err: errors.New("read tcp: i/o timeout"), want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldLogSessionStreamError(tt.err, tt.stopping)
+			if got != tt.want {
+				t.Fatalf("shouldLogSessionStreamError(%v, %v) = %v, want %v", tt.err, tt.stopping, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestShouldSkipCompletedProcessSubscription(t *testing.T) {
 	tests := []struct {
 		name   string
 		status string
-		sub    string
+		sub    *store.SyncSubscription
 		want   bool
 	}{
-		{name: "running never skip", status: "running", sub: "completed", want: false},
-		{name: "completed already synced", status: "completed", sub: "completed", want: true},
-		{name: "completed active sync", status: "completed", sub: "active", want: false},
-		{name: "failed already synced", status: "failed", sub: "completed", want: true},
+		{name: "running never skip", status: "running", sub: &store.SyncSubscription{Status: "completed"}, want: false},
+		{name: "completed already synced", status: "completed", sub: &store.SyncSubscription{Status: "completed"}, want: true},
+		{name: "completed active sync without checkpoint", status: "completed", sub: &store.SyncSubscription{Status: "active"}, want: false},
+		{name: "completed active sync with checkpoint", status: "completed", sub: &store.SyncSubscription{Status: "active", LastEntryIndex: intPtr(42)}, want: true},
+		{name: "failed already synced", status: "failed", sub: &store.SyncSubscription{Status: "completed"}, want: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := shouldSkipHistoricalProcess(tt.status, tt.sub)
 			if got != tt.want {
-				t.Fatalf("shouldSkipHistoricalProcess(%q, %q) = %v, want %v", tt.status, tt.sub, got, tt.want)
+				t.Fatalf("shouldSkipHistoricalProcess(%q, %#v) = %v, want %v", tt.status, tt.sub, got, tt.want)
 			}
 		})
 	}
