@@ -25,7 +25,7 @@ type frontendPortStore interface {
 }
 
 type FrontendPortAllocator struct {
-	store          frontendPortStore
+	store           frontendPortStore
 	isPortAvailable func(port int) bool
 }
 
@@ -57,13 +57,6 @@ func (a *FrontendPortAllocator) Allocate(ctx context.Context, workspaceID string
 		return 0, 0, ErrWorkspaceArchived
 	}
 
-	if frontendPort != nil {
-		port := *frontendPort
-		if port >= minFrontendPort && port <= maxFrontendPort && a.isPortAvailable(port) {
-			return port, port + 10000, nil
-		}
-	}
-
 	allocatedPorts, err := a.store.ListAllocatedFrontendPorts(ctx, resolvedWorkspaceID)
 	if err != nil {
 		return 0, 0, err
@@ -71,6 +64,15 @@ func (a *FrontendPortAllocator) Allocate(ctx context.Context, workspaceID string
 	used := make(map[int]struct{}, len(allocatedPorts))
 	for _, port := range allocatedPorts {
 		used[port] = struct{}{}
+	}
+
+	if frontendPort != nil {
+		port := *frontendPort
+		if port >= minFrontendPort && port <= maxFrontendPort && a.isPortAvailable(port) {
+			if _, exists := used[port]; !exists {
+				return port, port + 10000, nil
+			}
+		}
 	}
 
 	for port := minFrontendPort; port <= maxFrontendPort; port++ {
