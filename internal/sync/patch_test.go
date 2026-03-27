@@ -320,20 +320,21 @@ func TestShouldSkipCompletedProcessSubscription(t *testing.T) {
 	tests := []struct {
 		name   string
 		status string
-		sub    string
+		sub    *store.SyncSubscription
 		want   bool
 	}{
-		{name: "running never skip", status: "running", sub: "completed", want: false},
-		{name: "completed already synced", status: "completed", sub: "completed", want: true},
-		{name: "completed active sync", status: "completed", sub: "active", want: false},
-		{name: "failed already synced", status: "failed", sub: "completed", want: true},
+		{name: "running never skip", status: "running", sub: &store.SyncSubscription{Status: "completed"}, want: false},
+		{name: "completed already synced", status: "completed", sub: &store.SyncSubscription{Status: "completed"}, want: true},
+		{name: "completed active sync without checkpoint", status: "completed", sub: &store.SyncSubscription{Status: "active"}, want: false},
+		{name: "completed active sync with checkpoint", status: "completed", sub: &store.SyncSubscription{Status: "active", LastEntryIndex: intPtr(42)}, want: true},
+		{name: "failed already synced", status: "failed", sub: &store.SyncSubscription{Status: "completed"}, want: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := shouldSkipHistoricalProcess(tt.status, tt.sub)
 			if got != tt.want {
-				t.Fatalf("shouldSkipHistoricalProcess(%q, %q) = %v, want %v", tt.status, tt.sub, got, tt.want)
+				t.Fatalf("shouldSkipHistoricalProcess(%q, %#v) = %v, want %v", tt.status, tt.sub, got, tt.want)
 			}
 		})
 	}

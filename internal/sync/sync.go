@@ -430,7 +430,7 @@ func (s *SyncService) subscribeProcessLogs(
 	sub, err := s.store.GetSubscription(ctx, subKey)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "读取订阅状态失败 [%s]: %v\n", processID, err)
-	} else if sub != nil && shouldSkipHistoricalProcess(processStatus, sub.Status) {
+	} else if sub != nil && shouldSkipHistoricalProcess(processStatus, sub) {
 		return
 	}
 	var lastEntryIndex *int
@@ -918,11 +918,17 @@ func shouldReconnectRunningProcessByLatestStatus(status *string) bool {
 	return status != nil && *status == "running"
 }
 
-func shouldSkipHistoricalProcess(processStatus, subscriptionStatus string) bool {
+func shouldSkipHistoricalProcess(processStatus string, sub *store.SyncSubscription) bool {
 	if processStatus == "running" {
 		return false
 	}
-	return subscriptionStatus == "completed"
+	if sub == nil {
+		return false
+	}
+	if sub.LastEntryIndex != nil {
+		return true
+	}
+	return sub.Status == "completed"
 }
 
 func shouldSkipEntryByIndex(lastEntryIndex *int, entryIndex int) bool {
