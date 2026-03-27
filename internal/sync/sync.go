@@ -411,14 +411,21 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 					}
 				}
 				if ep.RunReason == "codingagent" && !ep.Dropped {
-					s.subscribeProcessLogs(ctx, workspaceID, ep.SessionID, ep.ID, ep.Status)
+					s.subscribeProcessLogs(ctx, workspaceID, ep.SessionID, ep.ID, ep.Status, ep.CreatedAt)
 				}
 			}
 		}
 	}
 }
 
-func (s *SyncService) subscribeProcessLogs(ctx context.Context, workspaceID, sessionID, processID, processStatus string) {
+func (s *SyncService) subscribeProcessLogs(
+	ctx context.Context,
+	workspaceID,
+	sessionID,
+	processID,
+	processStatus string,
+	processCreatedAt *time.Time,
+) {
 	subKey := store.BuildProcessLogSubscriptionKey(processID)
 	sub, err := s.store.GetSubscription(ctx, subKey)
 	if err != nil {
@@ -478,10 +485,20 @@ func (s *SyncService) subscribeProcessLogs(ctx context.Context, workspaceID, ses
 	s.wsMutex.Unlock()
 
 	s.wg.Add(1)
-	go s.consumeProcessLogs(ctx, workspaceID, sessionID, processID, processStatus, lastEntryIndex, historicalSlotAcquired, conn)
+	go s.consumeProcessLogs(ctx, workspaceID, sessionID, processID, processStatus, processCreatedAt, lastEntryIndex, historicalSlotAcquired, conn)
 }
 
-func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessionID, processID, processStatus string, lastEntryIndex *int, historicalSlotAcquired bool, conn *websocket.Conn) {
+func (s *SyncService) consumeProcessLogs(
+	ctx context.Context,
+	workspaceID,
+	sessionID,
+	processID,
+	processStatus string,
+	processCreatedAt *time.Time,
+	lastEntryIndex *int,
+	historicalSlotAcquired bool,
+	conn *websocket.Conn,
+) {
 	defer s.wg.Done()
 	var lastErr error
 	receivedEntries := false
@@ -551,7 +568,7 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 					fmt.Fprintf(os.Stderr, "读取已有 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
 					continue
 				}
-				entry, err := s.buildProcessEntry(workspaceID, sessionID, processID, patch, existingEntry)
+				entry, err := s.buildProcessEntry(workspaceID, sessionID, processID, patch, existingEntry, processCreatedAt)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "构建 process entry 失败 [%s]: %v\n", processID, err)
 					continue
@@ -638,10 +655,19 @@ func (s *SyncService) scheduleProcessReconnect(ctx context.Context, workspaceID,
 				fmt.Fprintf(os.Stderr, "读取 execution process 状态失败 [%s]: %v\n", processID, err)
 				return
 			}
+			processRecord, err := s.store.GetExecutionProcess(ctx, processID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "读取 execution process 详情失败 [%s]: %v\n", processID, err)
+				return
+			}
 			if !shouldReconnectRunningProcessByLatestStatus(latestStatus) {
 				return
 			}
-			s.subscribeProcessLogs(ctx, workspaceID, sessionID, processID, *latestStatus)
+			var processCreatedAt *time.Time
+			if processRecord != nil {
+				processCreatedAt = processRecord.CreatedAt
+			}
+			s.subscribeProcessLogs(ctx, workspaceID, sessionID, processID, *latestStatus, processCreatedAt)
 		}
 	}()
 }
@@ -652,21 +678,33 @@ func (s *SyncService) buildProcessEntry(
 	processID string,
 	patch entryPatch,
 	existing *store.ProcessEntry,
+	processCreatedAt *time.Time,
 ) (*store.ProcessEntry, error) {
+	timestampSource := store.ProcessEntryTimestampSourceEntry
 	entryTime, err := parseEntryTimestamp(patch.Entry.Timestamp)
 	if err != nil {
 		if existing != nil {
 			entryTime = existing.EntryTimestamp
-		} else {
+			timestampSource = store.ProcessEntryTimestampSourceExisting
+		} else if processCreatedAt != nil {
+			entryTime = *processCreatedAt
+			timestampSource = store.ProcessEntryTimestampSourceProcessCreatedAt
 			fmt.Fprintf(
 				os.Stderr,
-				"entry_timestamp 解析失败 [%s:%d] raw=%q: %v\n",
+				"entry_timestamp 缺失，使用 process.created_at 兜底 [%s:%d] raw=%q fallback=%s\n",
+				processID,
+				patch.EntryIndex,
+				patch.Entry.Timestamp,
+				entryTime.Format(time.RFC3339Nano),
+			)
+		} else {
+			return nil, fmt.Errorf(
+				"entry_timestamp 解析失败且缺少兜底时间 [%s:%d] raw=%q: %w",
 				processID,
 				patch.EntryIndex,
 				patch.Entry.Timestamp,
 				err,
 			)
-			entryTime = time.Now()
 		}
 	}
 
@@ -688,19 +726,20 @@ func (s *SyncService) buildProcessEntry(
 	hash := sha256.Sum256([]byte(patch.Entry.Content))
 
 	return &store.ProcessEntry{
-		ProcessID:      processID,
-		SessionID:      sessionID,
-		WorkspaceID:    workspaceID,
-		EntryIndex:     patch.EntryIndex,
-		EntryType:      patch.Entry.EntryType.Type,
-		Role:           store.ToRole(patch.Entry.EntryType.Type),
-		Content:        patch.Entry.Content,
-		ToolName:       patch.Entry.EntryType.ToolName,
-		ActionTypeJSON: actionTypeJSON,
-		StatusJSON:     statusJSON,
-		ErrorType:      errorType,
-		EntryTimestamp: entryTime,
-		ContentHash:    hex.EncodeToString(hash[:]),
+		ProcessID:       processID,
+		SessionID:       sessionID,
+		WorkspaceID:     workspaceID,
+		EntryIndex:      patch.EntryIndex,
+		EntryType:       patch.Entry.EntryType.Type,
+		Role:            store.ToRole(patch.Entry.EntryType.Type),
+		Content:         patch.Entry.Content,
+		ToolName:        patch.Entry.EntryType.ToolName,
+		ActionTypeJSON:  actionTypeJSON,
+		StatusJSON:      statusJSON,
+		ErrorType:       errorType,
+		EntryTimestamp:  entryTime,
+		ContentHash:     hex.EncodeToString(hash[:]),
+		TimestampSource: timestampSource,
 	}, nil
 }
 
@@ -892,6 +931,9 @@ func shouldSkipEntryByIndex(lastEntryIndex *int, entryIndex int) bool {
 
 func shouldBroadcastRealtimeEntry(existing, next *store.ProcessEntry) bool {
 	if next == nil {
+		return false
+	}
+	if next.TimestampSource == store.ProcessEntryTimestampSourceProcessCreatedAt {
 		return false
 	}
 	if existing == nil {

@@ -58,11 +58,22 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 		{
 			name: "broadcasts when entry is new",
 			next: &store.ProcessEntry{
-				ProcessID:   "proc-1",
-				EntryIndex:  3,
-				ContentHash: "hash-a",
+				ProcessID:       "proc-1",
+				EntryIndex:      3,
+				ContentHash:     "hash-a",
+				TimestampSource: store.ProcessEntryTimestampSourceEntry,
 			},
 			want: true,
+		},
+		{
+			name: "skips broadcast when new entry falls back to process created_at",
+			next: &store.ProcessEntry{
+				ProcessID:       "proc-1",
+				EntryIndex:      3,
+				ContentHash:     "hash-a",
+				TimestampSource: store.ProcessEntryTimestampSourceProcessCreatedAt,
+			},
+			want: false,
 		},
 		{
 			name: "skips when hash is unchanged for same process entry",
@@ -243,12 +254,67 @@ func TestBuildProcessEntryPreservesExistingTimestampWhenPatchTimestampMissing(t 
 			Role:           "assistant",
 			ContentHash:    "hash-old",
 		},
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("buildProcessEntry 返回错误: %v", err)
 	}
 	if !entry.EntryTimestamp.Equal(existingTime) {
 		t.Fatalf("entry_timestamp = %s, want %s", entry.EntryTimestamp.Format(time.RFC3339Nano), existingTime.Format(time.RFC3339Nano))
+	}
+	if entry.TimestampSource != store.ProcessEntryTimestampSourceExisting {
+		t.Fatalf("timestamp_source = %s, want %s", entry.TimestampSource, store.ProcessEntryTimestampSourceExisting)
+	}
+}
+
+func TestBuildProcessEntryUsesProcessCreatedAtWhenPatchTimestampMissingForNewEntry(t *testing.T) {
+	service := &SyncService{}
+	processCreatedAt := time.Date(2026, 3, 27, 21, 22, 10, 398000000, time.FixedZone("CST", 8*3600))
+
+	entry, err := service.buildProcessEntry(
+		"ws-1",
+		"session-1",
+		"proc-1",
+		entryPatch{
+			EntryIndex: 86,
+			Entry: store.NormalizedEntry{
+				EntryType: store.NormalizedEntryType{Type: "assistant_message"},
+				Content:   "新消息但没有 entry timestamp",
+			},
+		},
+		nil,
+		&processCreatedAt,
+	)
+	if err != nil {
+		t.Fatalf("buildProcessEntry 返回错误: %v", err)
+	}
+	if !entry.EntryTimestamp.Equal(processCreatedAt) {
+		t.Fatalf("entry_timestamp = %s, want %s", entry.EntryTimestamp.Format(time.RFC3339Nano), processCreatedAt.Format(time.RFC3339Nano))
+	}
+	if entry.TimestampSource != store.ProcessEntryTimestampSourceProcessCreatedAt {
+		t.Fatalf("timestamp_source = %s, want %s", entry.TimestampSource, store.ProcessEntryTimestampSourceProcessCreatedAt)
+	}
+}
+
+func TestBuildProcessEntryReturnsErrorWhenTimestampMissingAndNoFallbackAvailable(t *testing.T) {
+	service := &SyncService{}
+
+	_, err := service.buildProcessEntry(
+		"ws-1",
+		"session-1",
+		"proc-1",
+		entryPatch{
+			EntryIndex: 87,
+			Entry: store.NormalizedEntry{
+				EntryType: store.NormalizedEntryType{Type: "assistant_message"},
+				Content:   "没有任何时间来源",
+			},
+		},
+		nil,
+		nil,
+	)
+	if err == nil {
+		t.Fatal("buildProcessEntry 返回 nil 错误, want error")
 	}
 }
 
@@ -262,10 +328,10 @@ func TestMessageContextFromProcessBuildsContextFromExecutorConfig(t *testing.T) 
 	}
 	process.ExecutorAction.Typ.Type = "CodingAgentInitialRequest"
 	process.ExecutorAction.Typ.ExecutorConfig = map[string]interface{}{
-		"executor":  "CLAUDE_CODE",
-		"variant":   "ZHIPU",
-		"model_id":  "glm-4.5",
-		"agent_id":  "coder",
+		"executor": "CLAUDE_CODE",
+		"variant":  "ZHIPU",
+		"model_id": "glm-4.5",
+		"agent_id": "coder",
 	}
 
 	msgCtx, err := messageContextFromProcess("ws-1", process, now)

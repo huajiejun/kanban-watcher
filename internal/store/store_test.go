@@ -166,6 +166,33 @@ func TestGetProcessEntryReturnsNilOnNotFound(t *testing.T) {
 	}
 }
 
+func TestGetExecutionProcessReturnsNilOnNotFound(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, session_id, workspace_id, run_reason, status, executor,
+		       executor_action_type, dropped, created_at, completed_at, synced_at
+		FROM kw_execution_processes
+		WHERE id = ?
+		LIMIT 1
+	`)).
+		WithArgs("missing-proc").
+		WillReturnError(sql.ErrNoRows)
+
+	got, err := store.GetExecutionProcess(context.Background(), "missing-proc")
+	if err != nil {
+		t.Fatalf("GetExecutionProcess 返回错误: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("execution process = %#v, want nil", got)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestGetNextLocalEntryIndexDefaultsToNegativeOne(t *testing.T) {
 	store, mock, cleanup := newMockStore(t)
 	defer cleanup()
