@@ -384,6 +384,7 @@ export class WorkspaceTodoPanel extends LitElement {
   private showArchived = false;
   private isLoading = false;
   private isAdding = false;
+  private editCancelled = false;
 
   updated(changed: Map<PropertyKey, unknown>) {
     if (changed.has("open") && this.open) {
@@ -493,6 +494,7 @@ export class WorkspaceTodoPanel extends LitElement {
   };
 
   private handleStartEdit = (todo: WorkspaceTodo) => {
+    this.editCancelled = false;
     this.editingTodoId = todo.id;
     this.editText = todo.content;
     this.requestUpdate();
@@ -505,6 +507,10 @@ export class WorkspaceTodoPanel extends LitElement {
   };
 
   private handleSaveEdit = async (todo: WorkspaceTodo) => {
+    if (this.editCancelled) {
+      this.editCancelled = false;
+      return;
+    }
     const content = this.editText.trim();
     if (!content) return;
 
@@ -530,6 +536,7 @@ export class WorkspaceTodoPanel extends LitElement {
       e.preventDefault();
       this.handleSaveEdit(todo);
     } else if (e.key === "Escape") {
+      this.editCancelled = true;
       this.handleCancelEdit();
     }
   };
@@ -603,6 +610,7 @@ export class WorkspaceTodoPanel extends LitElement {
                 .value=${this.editText}
                 @input=${this.handleEditInput}
                 @keydown=${(e: KeyboardEvent) => this.handleEditKeydown(e, todo)}
+                @blur=${() => this.handleSaveEdit(todo)}
               />
             `
           : html`<span class="todo-content-text">${todo.content}</span>`}
@@ -622,7 +630,6 @@ export class WorkspaceTodoPanel extends LitElement {
                   class="todo-action-btn btn-delete"
                   title="删除"
                   type="button"
-                  ?disabled=${this.isRunning}
                   @click=${() => this.handleDelete(todo)}
                 >
                   ${unsafeSVG(ICONS.trash)}
