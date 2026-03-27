@@ -663,6 +663,59 @@ describe("workspace home helpers", () => {
     expect(card?.textContent).not.toContain("just now");
   });
 
+  it("keeps card relative time stable after workspace snapshot refreshes updated_at", async () => {
+    vi.setSystemTime(new Date("2026-03-27T12:00:00Z"));
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-time-live",
+              name: "时间实时任务",
+              status: "completed",
+              updated_at: "2026-03-27T11:59:45Z",
+              latest_process_completed_at: "2026-03-26T10:05:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    const cardBeforeSnapshot = element.shadowRoot?.querySelector(".task-card") as HTMLElement | null;
+    expect(cardBeforeSnapshot?.textContent).toContain("1d ago");
+
+    FakeWebSocket.instances[0]?.emitOpen();
+    FakeWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-time-live",
+          name: "时间实时任务",
+          status: "completed",
+          updated_at: "2026-03-27T11:59:58Z",
+          latest_process_completed_at: "2026-03-26T10:05:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    const cardAfterSnapshot = element.shadowRoot?.querySelector(".task-card") as HTMLElement | null;
+    expect(cardAfterSnapshot?.textContent).toContain("1d ago");
+    expect(cardAfterSnapshot?.textContent).not.toContain("just now");
+  });
+
   it("does not reconfigure the mobile card on unrelated workspace-home updates", async () => {
     setWindowWidth(390);
 

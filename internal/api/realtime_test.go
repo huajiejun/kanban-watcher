@@ -145,6 +145,20 @@ func TestPublishWorkspaceViewUpdatedBroadcastsToAllClients(t *testing.T) {
 	}
 }
 
+func TestToRealtimeWorkspaceIncludesLatestProcessCompletedAt(t *testing.T) {
+	completedAt := time.Date(2026, 3, 26, 10, 5, 0, 0, time.UTC)
+	payload := toRealtimeWorkspace(store.ActiveWorkspaceSummary{
+		ID:                       "ws-1",
+		Name:                     "任务一",
+		Status:                   "completed",
+		LatestProcessCompletedAt: &completedAt,
+	})
+
+	if payload.LatestProcessCompletedAt != completedAt.Format(time.RFC3339) {
+		t.Fatalf("LatestProcessCompletedAt = %q, want %q", payload.LatestProcessCompletedAt, completedAt.Format(time.RFC3339))
+	}
+}
+
 func hubRouteHandler(hub *realtime.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		hub.HandleWebSocket(w, r)

@@ -34,6 +34,7 @@ type WorkspacePayload struct {
 	UpdatedAt           string `json:"updated_at,omitempty"`
 	MessageCount        int    `json:"message_count"`
 	LastMessageAt       string `json:"last_message_at,omitempty"`
+	LatestProcessCompletedAt string `json:"latest_process_completed_at,omitempty"`
 }
 
 type MessagePayload struct {
