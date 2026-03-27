@@ -1,4 +1,5 @@
 import { LitElement, html, css, nothing } from "lit";
+import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import type { WorkspaceTodo } from "../types";
 import {
   fetchWorkspaceTodos,
@@ -275,15 +276,30 @@ export class WorkspaceTodoPanel extends LitElement {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 8px 20px;
+      padding: 10px 20px;
       color: #64748b;
       font-size: 13px;
-      text-decoration: line-through;
     }
 
     .todo-archived-item .todo-content-text {
       color: #64748b;
       text-decoration: line-through;
+    }
+
+    .todo-archived-checkbox {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(100, 116, 139, 0.4);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .todo-archived-checkbox svg {
+      display: block;
+      color: #64748b;
     }
 
     .todo-restore-btn {
@@ -601,7 +617,7 @@ export class WorkspaceTodoPanel extends LitElement {
                   type="button"
                   @click=${() => this.handleSend(todo)}
                 >
-                  <svg>${ICONS.send}</svg>
+                  ${unsafeSVG(ICONS.send)}
                 </button>
                 <button
                   class="todo-action-btn"
@@ -609,7 +625,7 @@ export class WorkspaceTodoPanel extends LitElement {
                   type="button"
                   @click=${() => this.handleToggleComplete(todo)}
                 >
-                  <svg>${ICONS.check}</svg>
+                  ${unsafeSVG(ICONS.check)}
                 </button>
                 <button
                   class="todo-action-btn"
@@ -617,7 +633,7 @@ export class WorkspaceTodoPanel extends LitElement {
                   type="button"
                   @click=${() => this.handleStartEdit(todo)}
                 >
-                  <svg>${ICONS.edit}</svg>
+                  ${unsafeSVG(ICONS.edit)}
                 </button>
                 <button
                   class="todo-action-btn btn-delete"
@@ -625,7 +641,7 @@ export class WorkspaceTodoPanel extends LitElement {
                   type="button"
                   @click=${() => this.handleDelete(todo)}
                 >
-                  <svg>${ICONS.trash}</svg>
+                  ${unsafeSVG(ICONS.trash)}
                 </button>
               `}
         </div>
@@ -636,6 +652,9 @@ export class WorkspaceTodoPanel extends LitElement {
   private renderArchivedItem(todo: WorkspaceTodo) {
     return html`
       <div class="todo-archived-item">
+        <div class="todo-archived-checkbox">
+          ${unsafeSVG(ICONS.check)}
+        </div>
         <span class="todo-content-text">${todo.content}</span>
         <button
           class="todo-restore-btn"
@@ -643,7 +662,7 @@ export class WorkspaceTodoPanel extends LitElement {
           type="button"
           @click=${() => this.handleRestore(todo)}
         >
-          <svg>${ICONS.restore}</svg>
+          ${unsafeSVG(ICONS.restore)}
         </button>
       </div>
     `;
@@ -705,7 +724,7 @@ export class WorkspaceTodoPanel extends LitElement {
                               @click=${this.toggleArchived}
                             >
                               <span class="chevron-icon">
-                                <svg>${ICONS.chevronDown}</svg>
+                                ${unsafeSVG(ICONS.chevronDown)}
                               </span>
                               <span>已完成 (${this.completedTodos.length})</span>
                             </div>
