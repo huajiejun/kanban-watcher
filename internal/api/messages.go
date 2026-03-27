@@ -88,9 +88,8 @@ func GetMessageRoutes(dbStore *store.Store, browserURLTemplate string, publisher
 		"/api/workspaces/active": func(w http.ResponseWriter, r *http.Request) {
 			handleActiveWorkspaces(w, r, dbStore, browserURLTemplate)
 		},
-		"/api/workspaces/": func(w http.ResponseWriter, r *http.Request) {
-			handleWorkspaceLatestMessages(w, r, dbStore)
-		},
+		// 注意：/api/workspaces/ 路由由 server.go 的 handleWorkspaces 统一处理
+		// 包括：/api/workspaces/{id}/seen（代理到 vibe-kanban）和 /api/workspaces/{id}/latest-messages
 	}
 }
 
@@ -274,7 +273,8 @@ func BuildLocalMenuSummary(summary store.ActiveWorkspaceSummary) (string, string
 	return "", "empty"
 }
 
-func handleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
+// HandleWorkspaceLatestMessages 处理获取工作区最新消息的请求
+func HandleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return

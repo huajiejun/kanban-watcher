@@ -8,6 +8,7 @@ import {
   fetchVibeInfo,
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
+  markWorkspaceSeen,
   sendWorkspaceMessage,
   startWorkspaceDevServer,
   stopWorkspaceExecution,
@@ -423,6 +424,25 @@ export class KanbanWatcherCard extends LitElement {
       if (workspace.status === "running" && (shouldRefreshQueueStatus || !this.queueStatusByWorkspace[workspace.id])) {
         void this.loadWorkspaceQueueStatus(workspace.id);
       }
+    }
+
+    // 点击卡片查看内容后，标记工作区为已读，将状态从"需要注意"变为"空闲"
+    const hasUnseenTurns = workspace.has_unseen_turns || workspace.hasUnseenActivity;
+    if (hasUnseenTurns && this.isApiMode && this.config) {
+      const workspaceId = workspace.id;
+      void markWorkspaceSeen({
+        baseUrl: this.config.base_url!,
+        apiKey: this.config.api_key ?? undefined,
+        workspaceId,
+      }).then(() => {
+        this.apiWorkspaces = this.apiWorkspaces.map((ws) =>
+          ws.id === workspaceId
+            ? { ...ws, has_unseen_turns: false, hasUnseenActivity: false }
+            : ws
+        );
+      }).catch((error) => {
+        console.error("标记工作区已读失败:", error);
+      });
     }
   }
 

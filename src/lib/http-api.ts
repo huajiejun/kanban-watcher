@@ -314,3 +314,19 @@ export async function fetchExecutionProcess({
     },
   );
 }
+
+export async function markWorkspaceSeen({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<{ success?: boolean; workspace_id?: string }> {
+  return fetchJSON<{ success?: boolean; workspace_id?: string }>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/seen`,
+    {
+      method: "PUT",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}

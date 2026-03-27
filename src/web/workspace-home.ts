@@ -32,6 +32,7 @@ import {
   fetchWorkspaceView,
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
+  markWorkspaceSeen,
   sendWorkspaceMessage,
   startWorkspaceDevServer,
   stopWorkspaceDevServer,
@@ -559,6 +560,26 @@ export class KanbanWorkspaceHome extends LitElement {
     void this.loadWorkspaceMessages(workspace.id, true);
     if (workspace.status === "running") {
       void this.loadWorkspaceQueueStatus(workspace.id);
+    }
+
+    // 点击卡片查看内容后，标记工作区为已读，将状态从"需要注意"变为"空闲"
+    const hasUnseenTurns = workspace.has_unseen_turns || workspace.hasUnseenActivity;
+    if (hasUnseenTurns && this.isApiMode) {
+      const workspaceId = workspace.id;
+      void markWorkspaceSeen({
+        baseUrl: this.baseUrl,
+        apiKey: this.apiKey ?? undefined,
+        workspaceId,
+      }).then(() => {
+        // 乐观更新：立即更新本地状态，不等待下一次同步
+        this.workspaces = this.workspaces.map((ws) =>
+          ws.id === workspaceId
+            ? { ...ws, has_unseen_turns: false, hasUnseenActivity: false }
+            : ws
+        );
+      }).catch((error) => {
+        console.error("标记工作区已读失败:", error);
+      });
     }
   }
 
