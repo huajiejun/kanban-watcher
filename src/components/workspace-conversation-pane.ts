@@ -249,9 +249,11 @@ export class WorkspaceConversationPane extends LitElement {
               <button
                 class="quick-buttons-toggle"
                 type="button"
+                aria-label=${this.quickButtonsExpanded ? "收起快捷按钮" : "展开快捷按钮"}
+                title=${this.quickButtonsExpanded ? "收起快捷按钮" : "展开快捷按钮"}
                 @click=${this.toggleQuickButtonsExpanded}
               >
-                ${this.quickButtonsExpanded ? "收起" : "展开更多"}
+                ${this.quickButtonsExpanded ? "▴" : "▾"}
               </button>
             `
           : nothing}

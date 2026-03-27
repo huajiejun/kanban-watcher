@@ -1868,18 +1868,27 @@ export const cardStyles = css`
       overflow: hidden;
     }
 
+    .quick-buttons-region.is-collapsible {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      column-gap: 6px;
+    }
+
     .quick-buttons-toggle {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: fit-content;
+      width: 24px;
+      height: 24px;
       padding: 0;
       border: 0;
       background: transparent;
       color: var(--primary-color, #f59e0b);
       font: inherit;
-      font-size: 0.76rem;
+      font-size: 0.9rem;
       font-weight: 600;
+      line-height: 1;
+      border-radius: 999px;
       cursor: pointer;
     }
 

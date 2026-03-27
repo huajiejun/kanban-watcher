@@ -74,7 +74,7 @@ describe("workspace-conversation-pane", () => {
     expect(element.shadowRoot?.textContent).toContain("消息已同步");
   });
 
-  it("collapses quick buttons to one row on mobile and expands on toggle", async () => {
+  it("collapses quick buttons to one row on mobile and expands on the right-side icon toggle", async () => {
     const element = createElement();
     element.quickButtons = [
       "继续执行",
@@ -104,14 +104,16 @@ describe("workspace-conversation-pane", () => {
     const toggle = element.shadowRoot?.querySelector(".quick-buttons-toggle") as HTMLButtonElement | null;
     const region = element.shadowRoot?.querySelector(".quick-buttons-region");
 
-    expect(toggle?.textContent).toContain("展开");
+    expect(toggle?.getAttribute("aria-label")).toContain("展开");
+    expect(toggle?.textContent?.trim()).toBe("▾");
     expect(region?.classList.contains("is-collapsed")).toBe(true);
 
     toggle?.click();
     await element.updateComplete;
 
     expect(region?.classList.contains("is-expanded")).toBe(true);
-    expect(toggle?.textContent).toContain("收起");
+    expect(toggle?.getAttribute("aria-label")).toContain("收起");
+    expect(toggle?.textContent?.trim()).toBe("▴");
   });
 
   it("applies status accent class to the pane shell", async () => {
@@ -292,6 +294,7 @@ describe("workspace-conversation-pane", () => {
     expect(cssText).toContain("background: transparent");
     expect(cssText).toContain(".dialog-dev-server-toggle[data-dev-server-state=\"running\"]");
     expect(cssText).toContain("color: var(--error-color, #f87171)");
+    expect(cssText).toContain(".quick-buttons-region.is-collapsible");
     expect(cssText).toContain(".quick-buttons-region.is-collapsed .quick-buttons-viewport");
     expect(cssText).toContain(".quick-buttons-toggle");
   });
