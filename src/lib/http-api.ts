@@ -3,6 +3,7 @@ import type {
   ExecutionProcessDetail,
   SessionMessagesResponse,
   VibeInfoResponse,
+  WorkspaceFrontendPortResponse,
   WorkspaceViewResponse,
   WorkspaceMessageResponse,
   WorkspaceQueueStatusResponse,
@@ -249,6 +250,22 @@ export async function startWorkspaceDevServer({
 }): Promise<WorkspaceMessageResponse> {
   return fetchJSON<WorkspaceMessageResponse>(
     `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/dev-server`,
+    {
+      method: "POST",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function fetchWorkspaceFrontendPort({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<WorkspaceFrontendPortResponse> {
+  return fetchJSON<WorkspaceFrontendPortResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspace/${workspaceId}/frontend-port`,
     {
       method: "POST",
       headers: buildHeaders(apiKey),

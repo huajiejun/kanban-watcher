@@ -157,7 +157,9 @@ allocate_ports_from_manager() {
     api_key="$(read_manager_api_key)"
     request_url="$MANAGER_API_BASE/api/workspace/$WORKTREE_ID/frontend-port"
     if [ -n "$api_key" ]; then
-        request_url="$request_url?api_key=$api_key"
+        request_url="$request_url?api_key=$api_key&allocate=true"
+    else
+        request_url="$request_url?allocate=true"
     fi
 
     if ! response=$(curl -fsS -X POST "$request_url"); then

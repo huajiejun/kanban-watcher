@@ -8,10 +8,10 @@ import (
 
 type allocatorStoreStub struct {
 	workspace       *storeWorkspaceState
-	occupiedPorts  []int
-	assignedPort   *int
-	assignCalls    int
-	resolvedID     string
+	occupiedPorts   []int
+	assignedPort    *int
+	assignCalls     int
+	resolvedID      string
 	getWorkspaceErr error
 }
 
@@ -103,6 +103,35 @@ func TestFrontendPortAllocatorReusesExistingPort(t *testing.T) {
 	}
 	if store.assignCalls != 0 {
 		t.Fatalf("assign calls = %d, want 0", store.assignCalls)
+	}
+}
+
+func TestFrontendPortAllocatorReassignsDuplicatedRecordedPort(t *testing.T) {
+	existing := 6020
+	store := &allocatorStoreStub{
+		workspace:     &storeWorkspaceState{ID: "ws-1", FrontendPort: &existing},
+		occupiedPorts: []int{6020},
+	}
+	allocator := NewFrontendPortAllocator(store, func(port int) bool {
+		return true
+	})
+
+	frontendPort, backendPort, err := allocator.Allocate(context.Background(), "ws-1")
+	if err != nil {
+		t.Fatalf("Allocate 返回错误: %v", err)
+	}
+
+	if frontendPort != 6021 {
+		t.Fatalf("frontend port = %d, want 6021", frontendPort)
+	}
+	if backendPort != 16021 {
+		t.Fatalf("backend port = %d, want 16021", backendPort)
+	}
+	if store.assignCalls != 1 {
+		t.Fatalf("assign calls = %d, want 1", store.assignCalls)
+	}
+	if store.assignedPort == nil || *store.assignedPort != 6021 {
+		t.Fatalf("assigned port = %#v, want 6021", store.assignedPort)
 	}
 }
 
