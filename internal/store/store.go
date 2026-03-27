@@ -192,10 +192,10 @@ func (s *Store) InitSchema(ctx context.Context) error {
 			updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 				ON UPDATE CURRENT_TIMESTAMP(3),
 			INDEX idx_kw_todos_workspace (workspace_id),
-			INDEX idx_kw_todos_workspace_completed (workspace_id, is_completed),
-			CONSTRAINT fk_kw_todos_workspace
-				FOREIGN KEY (workspace_id) REFERENCES kw_workspaces(id) ON DELETE CASCADE
+			INDEX idx_kw_todos_workspace_completed (workspace_id, is_completed)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+		`ALTER TABLE kw_workspace_todos ADD CONSTRAINT fk_kw_todos_workspace
+			FOREIGN KEY (workspace_id) REFERENCES kw_workspaces(id) ON DELETE CASCADE`,
 	}
 
 	for _, stmt := range statements {
@@ -211,7 +211,9 @@ func (s *Store) InitSchema(ctx context.Context) error {
 				strings.Contains(errMsg, "errno 121") ||
 				strings.Contains(errMsg, "1061") ||
 				strings.Contains(errMsg, "Duplicate key name") ||
-				strings.Contains(errMsg, "1005") {
+				strings.Contains(errMsg, "1005") ||
+				strings.Contains(errMsg, "1215") ||
+				strings.Contains(errMsg, "Cannot add foreign key constraint") {
 				continue
 			}
 			return fmt.Errorf("执行 schema: %w", err)
