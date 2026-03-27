@@ -74,6 +74,9 @@ type CardConfig = {
   llm_enabled?: boolean;
   llm_base_url?: string;
   llm_model?: string;
+  quick_button_rules?: {
+    forbidden_actions?: string[];
+  };
 };
 
 type DialogAction = "send" | "queue" | "stop";
@@ -1569,6 +1572,9 @@ export class KanbanWatcherCard extends LitElement {
       llmConfig: {
         baseUrl: this.config?.llm_base_url,
         model: this.config?.llm_model,
+      },
+      quickButtonRules: {
+        forbiddenActions: this.config?.quick_button_rules?.forbidden_actions,
       },
       recentMessages,
     });

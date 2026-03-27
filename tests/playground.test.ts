@@ -10,13 +10,16 @@ import { previewEntityId } from "../src/dev/preview-fixture";
 describe("preview page config", () => {
   it("reads base_url, api_key and messages_limit from URL params", () => {
     const options = readPreviewApiOptions(
-      new URL("http://localhost:5173/preview?base_url=https://watcher.huajiejun.cn&api_key=test-key&messages_limit=30"),
+      new URL("http://localhost:5173/preview?base_url=https://watcher.huajiejun.cn&api_key=test-key&messages_limit=30&quick_button_forbidden_actions=%E9%83%A8%E7%BD%B2,%E5%90%88%E5%B9%B6%E4%BB%A3%E7%A0%81"),
     );
 
     expect(options).toEqual({
       baseUrl: "https://watcher.huajiejun.cn",
       apiKey: "test-key",
       messagesLimit: 30,
+      quickButtonRules: {
+        forbiddenActions: ["部署", "合并代码"],
+      },
     });
   });
 
@@ -37,6 +40,9 @@ describe("preview page config", () => {
         baseUrl: "https://watcher.huajiejun.cn",
         apiKey: "test-key",
         messagesLimit: 30,
+        quickButtonRules: {
+          forbiddenActions: ["部署", "合并代码"],
+        },
       }),
     ).toEqual({
       entity: previewEntityId,
@@ -45,6 +51,9 @@ describe("preview page config", () => {
       messages_limit: 30,
       llm_enabled: true,
       llm_base_url: "/llm-api",
+      quick_button_rules: {
+        forbidden_actions: ["部署", "合并代码"],
+      },
     });
   });
 
@@ -53,6 +62,9 @@ describe("preview page config", () => {
       entity: previewEntityId,
       llm_enabled: true,
       llm_base_url: "/llm-api",
+      quick_button_rules: {
+        forbidden_actions: expect.any(Array),
+      },
     });
   });
 

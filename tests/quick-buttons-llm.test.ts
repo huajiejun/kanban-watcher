@@ -64,6 +64,31 @@ describe("quick-buttons-llm", () => {
       }
     });
 
+    it("uses AI AGENT next-step prompt and injects forbidden actions for decision messages", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: '{"actions": [{"button": "补充测试", "reason": "容易执行"}]}',
+              },
+            },
+          ],
+        }),
+      });
+
+      await analyzeButtonsWithLLM("代码修改已完成", "http://localhost:1234", "local-model", {
+        forbiddenActions: ["部署", "合并代码"],
+      });
+
+      const requestBody = JSON.parse(String(mockFetch.mock.calls[0]?.[1]?.body));
+      expect(requestBody.messages[0].content).toContain("AI AGENT");
+      expect(requestBody.messages[0].content).toContain("后续可以做什么");
+      expect(requestBody.messages[0].content).toContain("部署");
+      expect(requestBody.messages[0].content).toContain("合并代码");
+    });
+
     it("returns default decision result when LLM returns invalid JSON", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -153,7 +178,35 @@ describe("quick-buttons-llm", () => {
       expect(result.type).toBe('decision');
       if (result.type === 'decision') {
         expect(result.actions).toContainEqual({ button: "运行测试", reason: "验证修改" });
-        expect(result.actions).toContainEqual({ button: "提交代码", reason: "测试通过" });
+        expect(result.actions).not.toContainEqual({ button: "提交代码", reason: "测试通过" });
+      }
+    });
+
+    it("filters forbidden actions from decision results", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content:
+                  '{"actions": [{"button": "部署服务", "reason": "上线验证"}, {"button": "补充测试", "reason": "低风险"}]}',
+              },
+            },
+          ],
+        }),
+      });
+
+      const result = await analyzeButtonsWithLLM(
+        "代码修改已完成",
+        "http://localhost:1234",
+        "local-model",
+        { forbiddenActions: ["部署"] }
+      );
+
+      expect(result.type).toBe("decision");
+      if (result.type === "decision") {
+        expect(result.actions).toEqual([{ button: "补充测试", reason: "低风险" }]);
       }
     });
   });
@@ -293,11 +346,42 @@ describe("quick-buttons-llm", () => {
       expect(result.type).toBe('decision');
       expect(result.extractedButtons).toEqual([]);
       expect(result.suggestedButtons).toEqual([
-        { button: "运行测试", reason: "验证修改" },
-        { button: "提交代码", reason: "测试通过" }
+        { button: "运行测试", reason: "验证修改" }
       ]);
       expect(result.dynamicButtons).toContain("运行测试");
-      expect(result.dynamicButtons).toContain("提交代码");
+      expect(result.dynamicButtons).not.toContain("提交代码");
+    });
+
+    it("filters forbidden suggested buttons in getQuickButtonsWithLLM", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content:
+                  '{"actions": [{"button": "合并代码", "reason": "准备结束"}, {"button": "补充测试", "reason": "低风险"}]}',
+              },
+            },
+          ],
+        }),
+      });
+
+      const result = await getQuickButtonsWithLLM({
+        message: "代码修改已完成",
+        workspaceStatus: "attention",
+        llmEnabled: true,
+        llmConfig: {
+          baseUrl: "http://localhost:1234",
+        },
+        quickButtonRules: {
+          forbiddenActions: ["合并代码"],
+        },
+      });
+
+      expect(result.type).toBe("decision");
+      expect(result.suggestedButtons).toEqual([{ button: "补充测试", reason: "低风险" }]);
+      expect(result.dynamicButtons).toEqual(["补充测试"]);
     });
   });
 });
