@@ -59,7 +59,7 @@ export class WorkspaceConversationPane extends LitElement {
 
   // File Browser 配置
   private readonly FILE_BROWSER_LOCAL_URL = import.meta.env.VITE_FILE_BROWSER_URL || "http://127.0.0.1:9394";
-  private readonly FILE_BROWSER_REMOTE_URL = import.meta.env.VITE_FILE_BROWSER_REMOTE_URL || "https://file.huajiejun.cn";
+  private readonly FILE_BROWSER_REMOTE_URL = import.meta.env.VITE_FILE_BROWSER_REMOTE_URL || "https://file.huajiejun.cn:999";
 
   protected render() {
     const isQueued = this.queueStatus?.status === "queued";

@@ -39,7 +39,7 @@ function readStringParam(params: URLSearchParams, key: string) {
 }
 
 const env = getPlaygroundEnv();
-const DEFAULT_BASE_URL = env.VITE_BASE_URL || "http://127.0.0.1:7778";
+const DEFAULT_BASE_URL = env.VITE_BASE_URL || (env.VITE_BACKEND_PORT ? `http://127.0.0.1:${env.VITE_BACKEND_PORT}` : "http://127.0.0.1:7778");
 const DEFAULT_API_KEY = env.VITE_API_KEY || "";
 
 function readCommaSeparatedParam(params: URLSearchParams, key: string) {

@@ -1,6 +1,6 @@
 import type { KanbanWorkspace } from "../types";
 
-const WORKSPACE_WEB_PREVIEW_DOMAIN = "huajiejun.cn";
+const WORKSPACE_WEB_PREVIEW_DOMAIN = "huajiejun.cn:999";
 
 export function getWorkspaceEmbeddedPreviewUrl(
   workspace: KanbanWorkspace,
