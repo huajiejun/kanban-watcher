@@ -716,6 +716,38 @@ describe("workspace home helpers", () => {
     expect(cardAfterSnapshot?.textContent).not.toContain("just now");
   });
 
+  it("falls back to recently instead of updated_at when no message time is available", async () => {
+    vi.setSystemTime(new Date("2026-03-27T12:00:00Z"));
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-updated-at-only",
+              name: "兜底时间任务",
+              status: "completed",
+              updated_at: "2026-03-27T11:59:50Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const card = element.shadowRoot?.querySelector(".task-card") as HTMLElement | null;
+    expect(card?.textContent).toContain("recently");
+    expect(card?.textContent).not.toContain("just now");
+  });
+
   it("does not reconfigure the mobile card on unrelated workspace-home updates", async () => {
     setWindowWidth(390);
 

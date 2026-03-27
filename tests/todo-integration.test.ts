@@ -138,6 +138,24 @@ describe("Todo Integration", () => {
     expect(cardText).not.toContain("just now");
   });
 
+  it("falls back to recently instead of updated_at in mobile card mode", async () => {
+    await import("../src/index");
+
+    const card = await renderEntityCard([
+      {
+        id: "ws-mobile-updated-only",
+        name: "手机端兜底时间任务",
+        status: "completed",
+        updated_at: "2026-03-21T11:59:50Z",
+        relative_time: "just now",
+      },
+    ]);
+
+    const cardText = card.shadowRoot?.querySelector(".task-card")?.textContent ?? "";
+    expect(cardText).toContain("recently");
+    expect(cardText).not.toContain("just now");
+  });
+
   describe("TodoProgressPopup component", () => {
     it("should render TodoProgressPopup in dialog header", async () => {
       // Import the card component

@@ -811,7 +811,7 @@ export class KanbanWatcherCard extends LitElement {
     const timeSource = this.getWorkspaceDisplayTimeSource(workspace);
 
     return {
-      relativeTime: timeSource ? formatRelativeTime(timeSource) : workspace.relative_time || "recently",
+      relativeTime: timeSource ? formatRelativeTime(timeSource) : "recently",
       filesChanged: workspace.files_changed ?? 0,
       linesAdded: workspace.lines_added ?? 0,
       linesRemoved: workspace.lines_removed ?? 0,
@@ -1391,10 +1391,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private mapApiWorkspace(workspace: LocalWorkspaceSummary): KanbanWorkspace {
-    const displayTimeSource =
-      workspace.latest_process_completed_at ||
-      workspace.last_message_at ||
-      workspace.updated_at;
+    const displayTimeSource = workspace.latest_process_completed_at || workspace.last_message_at;
 
     return {
       id: workspace.id,
@@ -1410,7 +1407,7 @@ export class KanbanWatcherCard extends LitElement {
       latest_process_completed_at: workspace.latest_process_completed_at,
       updated_at: workspace.updated_at,
       last_message_at: workspace.last_message_at,
-      relative_time: formatRelativeTime(displayTimeSource),
+      relative_time: displayTimeSource ? formatRelativeTime(displayTimeSource) : "recently",
       files_changed: workspace.files_changed ?? 0,
       lines_added: workspace.lines_added ?? 0,
       lines_removed: workspace.lines_removed ?? 0,
@@ -1421,12 +1418,7 @@ export class KanbanWatcherCard extends LitElement {
     const completionTimeSource =
       workspace.latest_process_completed_at ||
       (workspace.status === "completed" ? workspace.completed_at : undefined);
-    return (
-      completionTimeSource ||
-      workspace.last_message_at ||
-      workspace.updated_at ||
-      this.entityAttributes?.updated_at
-    );
+    return completionTimeSource || workspace.last_message_at;
   }
 
   private getWorkspacePreviewUrl(workspace: KanbanWorkspace) {
