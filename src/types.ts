@@ -151,6 +151,15 @@ export interface WorkspaceFrontendPortResponse {
   message?: string;
 }
 
+export interface WorkspaceFileBrowserPathResponse {
+  success?: boolean;
+  data?: {
+    workspace_id?: string;
+    path?: string;
+  };
+  message?: string;
+}
+
 export interface WorkspaceQueueStatusResponse {
   success?: boolean;
   workspace_id?: string;

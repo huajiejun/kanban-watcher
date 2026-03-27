@@ -99,4 +99,26 @@ describe("workspace-preview-card", () => {
 
     expect(lines.scrollTop).toBe(100);
   });
+
+  it("does not auto scroll when preview lines content stays the same", async () => {
+    const element = createElement();
+    await element.updateComplete;
+
+    const lines = element.shadowRoot?.querySelector(".workspace-preview-lines") as HTMLDivElement;
+    Object.defineProperty(lines, "scrollHeight", {
+      configurable: true,
+      value: 600,
+    });
+    Object.defineProperty(lines, "clientHeight", {
+      configurable: true,
+      value: 200,
+    });
+
+    lines.scrollTop = 120;
+
+    element.previewLines = [...element.previewLines];
+    await element.updateComplete;
+
+    expect(lines.scrollTop).toBe(120);
+  });
 });

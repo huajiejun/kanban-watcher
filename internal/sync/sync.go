@@ -27,17 +27,17 @@ type realtimePublisher interface {
 
 // SyncService 同步服务
 type SyncService struct {
-	cfg      *config.Config
-	store    *store.Store
+	cfg       *config.Config
+	store     *store.Store
 	apiClient *api.Client
-	dialer   *websocket.Dialer
-	realtime realtimePublisher
+	dialer    *websocket.Dialer
+	realtime  realtimePublisher
 
-	wsMutex          sync.Mutex
-	workspaceStream  *websocket.Conn
-	sessionStreams   map[string]*websocket.Conn
+	wsMutex           sync.Mutex
+	workspaceStream   *websocket.Conn
+	sessionStreams    map[string]*websocket.Conn
 	processLogStreams map[string]*websocket.Conn
-	historicalLogSem chan struct{}
+	historicalLogSem  chan struct{}
 
 	stopCh chan struct{}
 	wg     sync.WaitGroup
@@ -151,17 +151,17 @@ func (s *SyncService) syncActiveWorkspaces(ctx context.Context) error {
 	for _, ws := range workspaces {
 		activeWorkspaceIDs = append(activeWorkspaceIDs, ws.ID)
 		dbWS := &store.Workspace{
-			ID:              ws.ID,
-			Name:            ws.DisplayName,
-			Branch:          ws.Branch,
-			Archived:        ws.Archived,
-			Pinned:          ws.Pinned,
-			LatestSessionID: ws.Summary.LatestSessionID,
-			IsRunning:       ws.StatusText() == "running",
-			HasPendingApproval: ws.Summary.HasPendingApproval,
-			HasUnseenTurns:     ws.Summary.HasUnseenTurns,
+			ID:                  ws.ID,
+			Name:                ws.DisplayName,
+			Branch:              ws.Branch,
+			Archived:            ws.Archived,
+			Pinned:              ws.Pinned,
+			LatestSessionID:     ws.Summary.LatestSessionID,
+			IsRunning:           ws.StatusText() == "running",
+			HasPendingApproval:  ws.Summary.HasPendingApproval,
+			HasUnseenTurns:      ws.Summary.HasUnseenTurns,
 			HasRunningDevServer: ws.Summary.HasRunningDevServer,
-			LastSeenAt:      seenAt,
+			LastSeenAt:          seenAt,
 		}
 		if ws.Summary.FilesChanged != nil {
 			dbWS.FilesChanged = *ws.Summary.FilesChanged
@@ -320,6 +320,7 @@ func (s *SyncService) subscribeSessionProcesses(ctx context.Context, workspaceID
 		fmt.Fprintf(os.Stderr, "构造 session ws URL 失败 [%s]: %v\n", sessionID, err)
 		return
 	}
+	s.tracef("connect session ws workspace=%s session=%s url=%s", workspaceID, sessionID, wsURL)
 
 	conn, _, err := s.dialer.Dial(wsURL, nil)
 	if err != nil {
@@ -358,17 +359,33 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 			_, message, err := conn.ReadMessage()
 			if err != nil {
 				lastErr = err
-				if !isClosedConnectionOnStop(err, s.isStopping()) {
+				if shouldLogSessionStreamError(err, s.isStopping()) {
 					fmt.Fprintf(os.Stderr, "读取 session ws 失败 [%s]: %v\n", sessionID, err)
+				} else {
+					s.tracef("session ws closed workspace=%s session=%s err=%v", workspaceID, sessionID, err)
 				}
 				return
 			}
+			s.tracef("session ws message workspace=%s session=%s raw=%s", workspaceID, sessionID, traceRawMessage(message))
 
 			processes, err := extractExecutionProcesses(message)
 			if err != nil {
+				s.tracef("session ws decode failed workspace=%s session=%s err=%v", workspaceID, sessionID, err)
 				continue
 			}
+			s.tracef("session ws decoded workspace=%s session=%s process_count=%d", workspaceID, sessionID, len(processes))
 			for _, process := range processes {
+				s.tracef(
+					"session ws process workspace=%s session=%s process=%s status=%s run_reason=%s dropped=%t created_at=%v completed_at=%v",
+					workspaceID,
+					sessionID,
+					process.ID,
+					process.Status,
+					process.RunReason,
+					process.Dropped,
+					process.CreatedAt,
+					process.CompletedAt,
+				)
 				ep := toStoreExecutionProcess(workspaceID, process)
 				if err := s.store.UpsertExecutionProcess(ctx, ep); err != nil {
 					fmt.Fprintf(os.Stderr, "保存 execution process 失败 [%s]: %v\n", ep.ID, err)
@@ -395,20 +412,27 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 						fmt.Fprintf(os.Stderr, "推送工作区快照失败 [%s]: %v\n", workspaceID, err)
 					}
 				}
-				if ep.RunReason == "codingagent" && !ep.Dropped {
-					s.subscribeProcessLogs(ctx, workspaceID, ep.SessionID, ep.ID, ep.Status)
+				if shouldSubscribeProcessLogs(ep.RunReason, ep.Dropped, ep.Status) {
+					s.subscribeProcessLogs(ctx, workspaceID, ep.SessionID, ep.ID, ep.Status, ep.CreatedAt)
 				}
 			}
 		}
 	}
 }
 
-func (s *SyncService) subscribeProcessLogs(ctx context.Context, workspaceID, sessionID, processID, processStatus string) {
+func (s *SyncService) subscribeProcessLogs(
+	ctx context.Context,
+	workspaceID,
+	sessionID,
+	processID,
+	processStatus string,
+	processCreatedAt *time.Time,
+) {
 	subKey := store.BuildProcessLogSubscriptionKey(processID)
 	sub, err := s.store.GetSubscription(ctx, subKey)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "读取订阅状态失败 [%s]: %v\n", processID, err)
-	} else if sub != nil && shouldSkipHistoricalProcess(processStatus, sub.Status) {
+	} else if sub != nil && shouldSkipHistoricalProcess(processStatus, sub) {
 		return
 	}
 	var lastEntryIndex *int
@@ -436,6 +460,15 @@ func (s *SyncService) subscribeProcessLogs(ctx context.Context, workspaceID, ses
 		fmt.Fprintf(os.Stderr, "构造 process log ws URL 失败 [%s]: %v\n", processID, err)
 		return
 	}
+	s.tracef(
+		"connect process log ws workspace=%s session=%s process=%s status=%s url=%s last_entry_index=%v",
+		workspaceID,
+		sessionID,
+		processID,
+		processStatus,
+		wsURL,
+		lastEntryIndex,
+	)
 
 	conn, _, err := s.dialer.Dial(wsURL, nil)
 	if err != nil {
@@ -454,10 +487,20 @@ func (s *SyncService) subscribeProcessLogs(ctx context.Context, workspaceID, ses
 	s.wsMutex.Unlock()
 
 	s.wg.Add(1)
-	go s.consumeProcessLogs(ctx, workspaceID, sessionID, processID, processStatus, lastEntryIndex, historicalSlotAcquired, conn)
+	go s.consumeProcessLogs(ctx, workspaceID, sessionID, processID, processStatus, processCreatedAt, lastEntryIndex, historicalSlotAcquired, conn)
 }
 
-func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessionID, processID, processStatus string, lastEntryIndex *int, historicalSlotAcquired bool, conn *websocket.Conn) {
+func (s *SyncService) consumeProcessLogs(
+	ctx context.Context,
+	workspaceID,
+	sessionID,
+	processID,
+	processStatus string,
+	processCreatedAt *time.Time,
+	lastEntryIndex *int,
+	historicalSlotAcquired bool,
+	conn *websocket.Conn,
+) {
 	defer s.wg.Done()
 	var lastErr error
 	receivedEntries := false
@@ -492,42 +535,63 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 				}
 				return
 			}
+			s.tracef("process log ws message workspace=%s session=%s process=%s raw=%s", workspaceID, sessionID, processID, traceRawMessage(message))
 
 			patches, err := extractEntryPatches(message)
 			if err != nil {
+				s.tracef("process log decode failed workspace=%s session=%s process=%s err=%v", workspaceID, sessionID, processID, err)
 				continue
 			}
+			s.tracef("process log decoded workspace=%s session=%s process=%s patch_count=%d", workspaceID, sessionID, processID, len(patches))
 			if len(patches) > 0 {
 				receivedEntries = true
 			}
 			for _, patch := range patches {
+				s.tracef("process log patch workspace=%s session=%s process=%s %s", workspaceID, sessionID, processID, tracePatchSummary(patch))
 				if shouldSkipEntryByIndex(lastEntryIndex, patch.EntryIndex) {
+					s.tracef("process log skip by last_entry_index workspace=%s session=%s process=%s idx=%d last_entry_index=%v", workspaceID, sessionID, processID, patch.EntryIndex, lastEntryIndex)
 					continue
 				}
 				mergedEntry, ok := mergeEntryPatch(entryStateByIndex[patch.EntryIndex], patch)
 				if !ok {
+					s.tracef("process log merge incomplete workspace=%s session=%s process=%s idx=%d", workspaceID, sessionID, processID, patch.EntryIndex)
 					continue
 				}
 				if !store.ShouldSync(mergedEntry.EntryType.Type) {
+					s.tracef("process log skip unsynced type workspace=%s session=%s process=%s idx=%d type=%s", workspaceID, sessionID, processID, patch.EntryIndex, mergedEntry.EntryType.Type)
 					continue
 				}
 				entryStateByIndex[patch.EntryIndex] = mergedEntry
 				patch.Entry = mergedEntry
+				s.tracef("process log merged workspace=%s session=%s process=%s %s", workspaceID, sessionID, processID, tracePatchSummary(patch))
 
-				entry, err := s.buildProcessEntry(workspaceID, sessionID, processID, patch)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "构建 process entry 失败 [%s]: %v\n", processID, err)
-					continue
-				}
 				existingEntry, err := s.store.GetProcessEntry(ctx, processID, patch.EntryIndex)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "读取已有 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
 					continue
 				}
-				if !shouldPersistProcessEntryUpdate(existingEntry, entry) {
+				entry, err := s.buildProcessEntry(workspaceID, sessionID, processID, patch, existingEntry, processCreatedAt)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "构建 process entry 失败 [%s]: %v\n", processID, err)
 					continue
 				}
+				shouldPersist := shouldPersistProcessEntryUpdate(existingEntry, entry)
 				shouldBroadcast := shouldBroadcastRealtimeEntry(existingEntry, entry)
+				s.tracef(
+					"process log decision workspace=%s session=%s process=%s idx=%d persist=%t broadcast=%t existing=%s next=%s raw_ts=%q",
+					workspaceID,
+					sessionID,
+					processID,
+					patch.EntryIndex,
+					shouldPersist,
+					shouldBroadcast,
+					traceProcessEntrySummary(existingEntry),
+					traceProcessEntrySummary(entry),
+					patch.Entry.Timestamp,
+				)
+				if !shouldPersist {
+					continue
+				}
 				if err := s.store.UpsertProcessEntry(ctx, entry); err != nil {
 					fmt.Fprintf(os.Stderr, "保存 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
 					_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &patch.EntryIndex, "error", err.Error())
@@ -536,6 +600,7 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 				idx := patch.EntryIndex
 				_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &idx, "active", "")
 				lastEntryIndex = &idx
+				s.tracef("process log persisted workspace=%s session=%s process=%s idx=%d summary=%s", workspaceID, sessionID, processID, patch.EntryIndex, traceProcessEntrySummary(entry))
 				if shouldBroadcast && s.realtime != nil {
 					if err := s.realtime.PublishSessionMessagesAppended(ctx, sessionID, []store.ProcessEntry{*entry}); err != nil {
 						fmt.Fprintf(os.Stderr, "推送实时消息失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
@@ -580,18 +645,58 @@ func (s *SyncService) scheduleProcessReconnect(ctx context.Context, workspaceID,
 				fmt.Fprintf(os.Stderr, "读取 execution process 状态失败 [%s]: %v\n", processID, err)
 				return
 			}
+			processRecord, err := s.store.GetExecutionProcess(ctx, processID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "读取 execution process 详情失败 [%s]: %v\n", processID, err)
+				return
+			}
 			if !shouldReconnectRunningProcessByLatestStatus(latestStatus) {
 				return
 			}
-			s.subscribeProcessLogs(ctx, workspaceID, sessionID, processID, *latestStatus)
+			var processCreatedAt *time.Time
+			if processRecord != nil {
+				processCreatedAt = processRecord.CreatedAt
+			}
+			s.subscribeProcessLogs(ctx, workspaceID, sessionID, processID, *latestStatus, processCreatedAt)
 		}
 	}()
 }
 
-func (s *SyncService) buildProcessEntry(workspaceID, sessionID, processID string, patch entryPatch) (*store.ProcessEntry, error) {
+func (s *SyncService) buildProcessEntry(
+	workspaceID,
+	sessionID,
+	processID string,
+	patch entryPatch,
+	existing *store.ProcessEntry,
+	processCreatedAt *time.Time,
+) (*store.ProcessEntry, error) {
+	timestampSource := store.ProcessEntryTimestampSourceEntry
 	entryTime, err := parseEntryTimestamp(patch.Entry.Timestamp)
 	if err != nil {
-		entryTime = time.Now()
+		if existing != nil {
+			entryTime = existing.EntryTimestamp
+			timestampSource = store.ProcessEntryTimestampSourceExisting
+		} else if processCreatedAt != nil {
+			entryTime = *processCreatedAt
+			timestampSource = store.ProcessEntryTimestampSourceProcessCreatedAt
+			s.tracef(
+				"entry timestamp fallback workspace=%s session=%s process=%s idx=%d raw=%q fallback=%s",
+				workspaceID,
+				sessionID,
+				processID,
+				patch.EntryIndex,
+				patch.Entry.Timestamp,
+				entryTime.Format(time.RFC3339Nano),
+			)
+		} else {
+			return nil, fmt.Errorf(
+				"entry_timestamp 解析失败且缺少兜底时间 [%s:%d] raw=%q: %w",
+				processID,
+				patch.EntryIndex,
+				patch.Entry.Timestamp,
+				err,
+			)
+		}
 	}
 
 	var actionTypeJSON, statusJSON, errorType *string
@@ -612,19 +717,20 @@ func (s *SyncService) buildProcessEntry(workspaceID, sessionID, processID string
 	hash := sha256.Sum256([]byte(patch.Entry.Content))
 
 	return &store.ProcessEntry{
-		ProcessID:      processID,
-		SessionID:      sessionID,
-		WorkspaceID:    workspaceID,
-		EntryIndex:     patch.EntryIndex,
-		EntryType:      patch.Entry.EntryType.Type,
-		Role:           store.ToRole(patch.Entry.EntryType.Type),
-		Content:        patch.Entry.Content,
-		ToolName:       patch.Entry.EntryType.ToolName,
-		ActionTypeJSON: actionTypeJSON,
-		StatusJSON:     statusJSON,
-		ErrorType:      errorType,
-		EntryTimestamp: entryTime,
-		ContentHash:    hex.EncodeToString(hash[:]),
+		ProcessID:       processID,
+		SessionID:       sessionID,
+		WorkspaceID:     workspaceID,
+		EntryIndex:      patch.EntryIndex,
+		EntryType:       patch.Entry.EntryType.Type,
+		Role:            store.ToRole(patch.Entry.EntryType.Type),
+		Content:         patch.Entry.Content,
+		ToolName:        patch.Entry.EntryType.ToolName,
+		ActionTypeJSON:  actionTypeJSON,
+		StatusJSON:      statusJSON,
+		ErrorType:       errorType,
+		EntryTimestamp:  entryTime,
+		ContentHash:     hex.EncodeToString(hash[:]),
+		TimestampSource: timestampSource,
 	}, nil
 }
 
@@ -803,11 +909,21 @@ func shouldReconnectRunningProcessByLatestStatus(status *string) bool {
 	return status != nil && *status == "running"
 }
 
-func shouldSkipHistoricalProcess(processStatus, subscriptionStatus string) bool {
+func shouldSubscribeProcessLogs(runReason string, dropped bool, processStatus string) bool {
+	return runReason == "codingagent" && !dropped && processStatus == "running"
+}
+
+func shouldSkipHistoricalProcess(processStatus string, sub *store.SyncSubscription) bool {
 	if processStatus == "running" {
 		return false
 	}
-	return subscriptionStatus == "completed"
+	if sub == nil {
+		return false
+	}
+	if sub.LastEntryIndex != nil {
+		return true
+	}
+	return sub.Status == "completed"
 }
 
 func shouldSkipEntryByIndex(lastEntryIndex *int, entryIndex int) bool {
@@ -818,10 +934,48 @@ func shouldBroadcastRealtimeEntry(existing, next *store.ProcessEntry) bool {
 	if next == nil {
 		return false
 	}
+	if next.TimestampSource == store.ProcessEntryTimestampSourceProcessCreatedAt {
+		return false
+	}
+	if next.EntryType == "tool_use" {
+		nextStatus, nextHasStatus := toolUseRealtimeStatus(next.StatusJSON)
+		if nextHasStatus && nextStatus == "running" {
+			return false
+		}
+		if existing != nil {
+			existingStatus, existingHasStatus := toolUseRealtimeStatus(existing.StatusJSON)
+			if nextStatus == existingStatus && nextHasStatus == existingHasStatus {
+				return false
+			}
+		}
+	}
 	if existing == nil {
 		return true
 	}
 	return realtimeEntrySignature(existing) != realtimeEntrySignature(next)
+}
+
+func toolUseRealtimeStatus(raw *string) (string, bool) {
+	if raw == nil || strings.TrimSpace(*raw) == "" {
+		return "", false
+	}
+
+	var status struct {
+		Status string `json:"status"`
+		State  string `json:"state"`
+	}
+	if err := json.Unmarshal([]byte(*raw), &status); err != nil {
+		return "", false
+	}
+
+	value := strings.TrimSpace(status.Status)
+	if value == "" {
+		value = strings.TrimSpace(status.State)
+	}
+	if value == "" {
+		return "", false
+	}
+	return strings.ToLower(value), true
 }
 
 func realtimeEntrySignature(entry *store.ProcessEntry) string {
@@ -857,7 +1011,25 @@ func shouldPersistProcessEntryUpdate(existing, next *store.ProcessEntry) bool {
 	if existing == nil {
 		return true
 	}
-	return !next.EntryTimestamp.Before(existing.EntryTimestamp)
+	return processEntryUpdateSignature(existing) != processEntryUpdateSignature(next)
+}
+
+func processEntryUpdateSignature(entry *store.ProcessEntry) string {
+	if entry == nil {
+		return ""
+	}
+	parts := []string{
+		entry.ProcessID,
+		strconv.Itoa(entry.EntryIndex),
+		entry.EntryType,
+		entry.Role,
+		entry.ContentHash,
+		derefString(entry.ToolName),
+		derefString(entry.ActionTypeJSON),
+		derefString(entry.StatusJSON),
+		derefString(entry.ErrorType),
+	}
+	return strings.Join(parts, "::")
 }
 
 func resolveProcessSubscriptionStatus(processStatus string, receivedEntries bool, stopping bool, err error) (string, string) {
@@ -884,6 +1056,17 @@ func resolveProcessSubscriptionStatus(processStatus string, receivedEntries bool
 
 func isClosedConnectionOnStop(err error, stopping bool) bool {
 	return stopping && err != nil && strings.Contains(err.Error(), "use of closed network connection")
+}
+
+func shouldLogSessionStreamError(err error, stopping bool) bool {
+	if isClosedConnectionOnStop(err, stopping) {
+		return false
+	}
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return !strings.Contains(msg, "close 1006") || !strings.Contains(msg, "unexpected EOF")
 }
 
 func (s *SyncService) upsertProcessSubscription(ctx context.Context, processID, sessionID, workspaceID, processStatus string, lastEntryIndex *int, status, lastErr string) error {

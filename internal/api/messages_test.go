@@ -40,6 +40,31 @@ func TestParseTypesFilter(t *testing.T) {
 	}
 }
 
+func TestResolveSessionMessageTypesUsesPreviewDefaultsForWorkspaceLatestMessages(t *testing.T) {
+	got := resolveSessionMessageTypes("", true)
+	want := []string{"assistant_message", "user_message", "error_message"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("types = %#v, want %#v", got, want)
+	}
+}
+
+func TestResolveSessionMessageTypesKeepsAllTypesForSessionMessagesWhenFilterMissing(t *testing.T) {
+	got := resolveSessionMessageTypes("", false)
+	if got != nil {
+		t.Fatalf("types = %#v, want nil", got)
+	}
+}
+
+func TestResolveSessionMessageTypesPreservesExplicitFilter(t *testing.T) {
+	got := resolveSessionMessageTypes("assistant_message,tool_use", true)
+	want := []string{"assistant_message", "tool_use"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("types = %#v, want %#v", got, want)
+	}
+}
+
 func TestMessageResponseJSONWithToolInfo(t *testing.T) {
 	resp := MessageResponse{
 		ID:        1,

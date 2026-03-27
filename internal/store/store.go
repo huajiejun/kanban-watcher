@@ -462,6 +462,39 @@ func (s *Store) GetExecutionProcessStatus(ctx context.Context, processID string)
 	return &status, nil
 }
 
+// GetExecutionProcess 获取 execution process 详情
+func (s *Store) GetExecutionProcess(ctx context.Context, processID string) (*ExecutionProcess, error) {
+	query := `
+		SELECT id, session_id, workspace_id, run_reason, status, executor,
+		       executor_action_type, dropped, created_at, completed_at, synced_at
+		FROM kw_execution_processes
+		WHERE id = ?
+		LIMIT 1
+	`
+
+	var ep ExecutionProcess
+	if err := s.db.QueryRowContext(ctx, query, processID).Scan(
+		&ep.ID,
+		&ep.SessionID,
+		&ep.WorkspaceID,
+		&ep.RunReason,
+		&ep.Status,
+		&ep.Executor,
+		&ep.ExecutorActionType,
+		&ep.Dropped,
+		&ep.CreatedAt,
+		&ep.CompletedAt,
+		&ep.SyncedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get execution process: %w", err)
+	}
+
+	return &ep, nil
+}
+
 // GetLatestCodingAgentProcessByWorkspaceID 获取工作区最近的 codingagent execution process
 func (s *Store) GetLatestCodingAgentProcessByWorkspaceID(ctx context.Context, workspaceID string) (*ExecutionProcess, error) {
 	query := `
@@ -638,7 +671,6 @@ func (s *Store) UpsertProcessEntry(ctx context.Context, entry *ProcessEntry) err
 			action_type_json = VALUES(action_type_json),
 			status_json = VALUES(status_json),
 			error_type = VALUES(error_type),
-			entry_timestamp = VALUES(entry_timestamp),
 			content_hash = VALUES(content_hash)
 	`
 	_, err := s.execWithRetry(ctx, query,

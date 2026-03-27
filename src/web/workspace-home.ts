@@ -27,6 +27,7 @@ import {
   cancelWorkspaceQueue,
   fetchExecutionProcess,
   fetchActiveWorkspaces,
+  fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
   fetchVibeInfo,
   fetchWorkspaceView,
@@ -83,6 +84,7 @@ const MOBILE_BREAKPOINT = 768;
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 3_000;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
+const PREVIEW_DEBUG_STORAGE_KEY = "kanban_watcher_preview_debug";
 
 let kanbanWatcherCardDefinitionPromise: Promise<void> | undefined;
 
@@ -94,6 +96,21 @@ async function ensureKanbanWatcherCardDefined() {
     kanbanWatcherCardDefinitionPromise = import("../index").then(() => undefined);
   }
   await kanbanWatcherCardDefinitionPromise;
+}
+
+function isPreviewDebugEnabled() {
+  try {
+    return window.localStorage.getItem(PREVIEW_DEBUG_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function debugPreview(event: string, details: Record<string, unknown>) {
+  if (!isPreviewDebugEnabled()) {
+    return;
+  }
+  console.debug(`[WorkspacePreview] ${event}`, details);
 }
 
 export function resolveWorkspaceHomeMode(width: number): WorkspaceHomeMode {
@@ -310,13 +327,14 @@ export class KanbanWorkspaceHome extends LitElement {
       const workspaces = this.isApiMode
         ? await this.fetchApiWorkspaces()
         : this.readMockWorkspaces();
+      const orderedWorkspaces = this.preserveWorkspaceOrder(workspaces);
 
-      await this.hydrateRunningDevServerProcesses(workspaces);
-      this.workspaces = workspaces;
-      this.pruneDevServerProcessState(workspaces);
-      this.pageState = reconcileWorkspacePageState(this.pageState, workspaces);
+      await this.hydrateRunningDevServerProcesses(orderedWorkspaces);
+      this.workspaces = orderedWorkspaces;
+      this.pruneDevServerProcessState(orderedWorkspaces);
+      this.pageState = reconcileWorkspacePageState(this.pageState, orderedWorkspaces);
       const openWorkspaces = this.pageState.openWorkspaceIds
-        .map((workspaceId) => workspaces.find((workspace) => workspace.id === workspaceId))
+        .map((workspaceId) => orderedWorkspaces.find((workspace) => workspace.id === workspaceId))
         .filter((workspace): workspace is KanbanWorkspace => Boolean(workspace));
 
       await Promise.all(
@@ -490,6 +508,33 @@ export class KanbanWorkspaceHome extends LitElement {
     };
   }
 
+  private preserveWorkspaceOrder(nextWorkspaces: KanbanWorkspace[]) {
+    if (this.workspaces.length === 0) {
+      return nextWorkspaces;
+    }
+
+    const nextById = new Map(nextWorkspaces.map((workspace) => [workspace.id, workspace]));
+    const ordered: KanbanWorkspace[] = [];
+
+    this.workspaces.forEach((workspace) => {
+      const nextWorkspace = nextById.get(workspace.id);
+      if (!nextWorkspace) {
+        return;
+      }
+      ordered.push(nextWorkspace);
+      nextById.delete(workspace.id);
+    });
+
+    nextWorkspaces.forEach((workspace) => {
+      if (nextById.has(workspace.id)) {
+        ordered.push(workspace);
+        nextById.delete(workspace.id);
+      }
+    });
+
+    return ordered;
+  }
+
   private readMockWorkspaces() {
     const attributes = createPreviewHass().states[previewEntityId]?.attributes;
     return Array.isArray(attributes?.workspaces) ? attributes.workspaces : [];
@@ -535,6 +580,17 @@ export class KanbanWorkspaceHome extends LitElement {
       });
       const previousMessages = this.messagesByWorkspace[workspaceId] ?? [];
       const nextMessages = normalizeApiMessages(response.messages);
+      const previousPreviewLines = summarizeWorkspacePreview(previousMessages);
+      const nextPreviewLines = summarizeWorkspacePreview(nextMessages);
+
+      debugPreview("messages-loaded", {
+        workspaceId,
+        forceRefresh,
+        responseMessages: response.messages,
+        previousPreviewLines,
+        nextPreviewLines,
+        previewLinesChanged: JSON.stringify(previousPreviewLines) !== JSON.stringify(nextPreviewLines),
+      });
 
       this.messagesByWorkspace = {
         ...this.messagesByWorkspace,
@@ -1003,7 +1059,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private renderWorkspaceCard(workspace: KanbanWorkspace) {
     const statusMeta = getStatusMeta(workspace);
-    const relativeTime = workspace.relative_time ?? formatRelativeTime(workspace.updated_at);
+    const relativeTime = this.getWorkspaceCardRelativeTime(workspace);
     const filesChanged = workspace.files_changed ?? 0;
     const linesAdded = workspace.lines_added ?? 0;
     const linesRemoved = workspace.lines_removed ?? 0;
@@ -1043,6 +1099,15 @@ export class KanbanWorkspaceHome extends LitElement {
           : nothing}
       </div>
     `;
+  }
+
+  private getWorkspaceCardRelativeTime(workspace: KanbanWorkspace) {
+    const timestamp = this.getWorkspaceCardTimestamp(workspace);
+    return timestamp ? formatRelativeTime(timestamp) : "recently";
+  }
+
+  private getWorkspaceCardTimestamp(workspace: KanbanWorkspace) {
+    return workspace.latest_process_completed_at || workspace.last_message_at;
   }
 
   private get previewOptions() {
@@ -1436,7 +1501,9 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     if (event.type === "workspace_snapshot") {
       const previousOpenWorkspaceIds = [...this.pageState.openWorkspaceIds];
-      const nextWorkspaces = (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));
+      const nextWorkspaces = this.preserveWorkspaceOrder(
+        (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace)),
+      );
       void this.hydrateRunningDevServerProcesses(nextWorkspaces);
       this.workspaces = nextWorkspaces;
       this.pruneDevServerProcessState(nextWorkspaces);
@@ -1466,6 +1533,9 @@ export class KanbanWorkspaceHome extends LitElement {
     if (!workspace) {
       return;
     }
+    if (!this.shouldAcceptRealtimeMessages(workspace.id)) {
+      return;
+    }
 
     const existing = this.flattenDialogMessages(this.messagesByWorkspace[workspace.id] ?? []);
     const merged = [...existing];
@@ -1488,6 +1558,31 @@ export class KanbanWorkspaceHome extends LitElement {
       [workspace.id]: this.groupDialogMessages(merged),
     };
     this.requestUpdate();
+  }
+
+  private shouldAcceptRealtimeMessages(workspaceId: string) {
+    const workspace = this.workspaces.find((item) => item.id === workspaceId);
+    if (!workspace) {
+      return false;
+    }
+    if (workspace.status === "running") {
+      return true;
+    }
+
+    const lastMessage = (this.messagesByWorkspace[workspaceId] ?? []).at(-1);
+    if (!lastMessage) {
+      return true;
+    }
+
+    return !this.isRealtimeTerminalMessage(lastMessage);
+  }
+
+  private isRealtimeTerminalMessage(message: DialogMessage) {
+    if (message.kind === "message") {
+      return true;
+    }
+
+    return message.status !== "running" && message.status !== "pending";
   }
 
   private flattenDialogMessages(messages: DialogMessage[]) {
@@ -1607,6 +1702,19 @@ export class KanbanWorkspaceHome extends LitElement {
     );
   }
 
+  private async resolveWorkspaceFileBrowserPath(workspaceId: string, fallbackPath: string) {
+    if (!this.isApiMode) {
+      return fallbackPath;
+    }
+
+    const response = await fetchWorkspaceFileBrowserPath({
+      baseUrl: this.previewOptions.baseUrl!,
+      apiKey: this.previewOptions.apiKey,
+      workspaceId,
+    });
+    return response.data?.path?.trim() || fallbackPath;
+  }
+
   private shouldShowWorkspaceWebPreview(workspace: KanbanWorkspace) {
     return this.getWorkspaceDevServerState(workspace) === "running";
   }
@@ -1711,7 +1819,9 @@ export class KanbanWorkspaceHome extends LitElement {
     return html`
       <workspace-conversation-pane
         .workspaceName=${workspace.name}
+        .workspaceId=${workspace.id}
         .workspacePath=${workspacePath}
+        .resolveWorkspacePath=${() => this.resolveWorkspaceFileBrowserPath(workspace.id, workspacePath)}
         .messages=${this.messagesByWorkspace[workspace.id] ?? []}
         .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
         .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}
