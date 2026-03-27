@@ -55,7 +55,7 @@ script_pid=$!
 sleep 3
 wait $script_pid || true
 
-if ! grep -q "127.0.0.1:7778/api/workspace/bf66/frontend-port?api_key=test-key" "$TEST_CURL_ARGS_FILE"; then
+if ! grep -q "127.0.0.1:7778/api/workspace/bf66/frontend-port?api_key=test-key&allocate=true" "$TEST_CURL_ARGS_FILE"; then
   echo "FAIL: 未调用固定管理端口的前端端口接口"
   exit 1
 fi

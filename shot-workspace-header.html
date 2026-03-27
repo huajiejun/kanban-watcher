@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>工作区表头截图引导</title>
+  </head>
+  <body>
+    <script>
+      window.localStorage.setItem(
+        "kanban-watcher.workspace-home.state.v1",
+        JSON.stringify({
+          openWorkspaceIds: ["approval-needed"],
+          activeWorkspaceId: "approval-needed",
+          dismissedAttentionIds: [],
+        }),
+      );
+      window.location.replace("/");
+    </script>
+  </body>
+</html>

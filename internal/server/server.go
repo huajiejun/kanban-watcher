@@ -21,17 +21,17 @@ import (
 
 // Server HTTP 服务器
 type Server struct {
-	proxy        *api.ProxyClient
-	dispatcher   workspaceMessageDispatcher
-	port         int
-	apiKey       string
-	authEnabled  bool
-	jwtService   *auth.JWTService
-	authHandler  *AuthHandler
-	httpServer   *http.Server
-	extraRoutes  []routeRegistration
-	staticFS     fs.FS
-	store        *store.Store
+	proxy         *api.ProxyClient
+	dispatcher    workspaceMessageDispatcher
+	port          int
+	apiKey        string
+	authEnabled   bool
+	jwtService    *auth.JWTService
+	authHandler   *AuthHandler
+	httpServer    *http.Server
+	extraRoutes   []routeRegistration
+	staticFS      fs.FS
+	store         *store.Store
 	portAllocator frontendPortAllocator
 }
 
@@ -306,6 +306,11 @@ func (s *Server) handleWorkspaceFrontendPort(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	if !shouldAllocateFrontendPort(r) {
+		s.handleWorkspaceFrontendPortLookup(w, r, workspaceID)
+		return
+	}
+
 	allocator := s.portAllocator
 	if allocator == nil {
 		if s.store == nil {
@@ -337,11 +342,64 @@ func (s *Server) handleWorkspaceFrontendPort(w http.ResponseWriter, r *http.Requ
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"data": map[string]interface{}{
-			"workspace_id":   workspaceID,
-			"frontend_port":  frontendPort,
-			"backend_port":   backendPort,
+			"workspace_id":  workspaceID,
+			"frontend_port": frontendPort,
+			"backend_port":  backendPort,
 		},
 	})
+}
+
+func (s *Server) handleWorkspaceFrontendPortLookup(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.store == nil {
+		http.Error(w, "数据库未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	resolvedWorkspaceID, exists, err := s.store.ResolveWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.Error(w, dispatchsvc.ErrWorkspaceNotFound.Error(), http.StatusConflict)
+		return
+	}
+
+	frontendPort, archived, exists, err := s.store.GetWorkspaceFrontendPortState(ctx, resolvedWorkspaceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.Error(w, dispatchsvc.ErrWorkspaceNotFound.Error(), http.StatusConflict)
+		return
+	}
+	if archived {
+		http.Error(w, dispatchsvc.ErrWorkspaceArchived.Error(), http.StatusConflict)
+		return
+	}
+	if frontendPort == nil {
+		http.Error(w, "workspace frontend port not assigned", http.StatusConflict)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"workspace_id":  resolvedWorkspaceID,
+			"frontend_port": *frontendPort,
+			"backend_port":  *frontendPort + 10000,
+		},
+	})
+}
+
+func shouldAllocateFrontendPort(r *http.Request) bool {
+	value := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("allocate")))
+	return value == "1" || value == "true" || value == "yes"
 }
 
 func isFrontendPortAvailable(port int) bool {
