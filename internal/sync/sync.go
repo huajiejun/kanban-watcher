@@ -514,14 +514,14 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 				entryStateByIndex[patch.EntryIndex] = mergedEntry
 				patch.Entry = mergedEntry
 
-				entry, err := s.buildProcessEntry(workspaceID, sessionID, processID, patch)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "构建 process entry 失败 [%s]: %v\n", processID, err)
-					continue
-				}
 				existingEntry, err := s.store.GetProcessEntry(ctx, processID, patch.EntryIndex)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "读取已有 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
+					continue
+				}
+				entry, err := s.buildProcessEntry(workspaceID, sessionID, processID, patch, existingEntry)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "构建 process entry 失败 [%s]: %v\n", processID, err)
 					continue
 				}
 				if existingEntry != nil && !entry.EntryTimestamp.Equal(existingEntry.EntryTimestamp) {
@@ -600,18 +600,28 @@ func (s *SyncService) scheduleProcessReconnect(ctx context.Context, workspaceID,
 	}()
 }
 
-func (s *SyncService) buildProcessEntry(workspaceID, sessionID, processID string, patch entryPatch) (*store.ProcessEntry, error) {
+func (s *SyncService) buildProcessEntry(
+	workspaceID,
+	sessionID,
+	processID string,
+	patch entryPatch,
+	existing *store.ProcessEntry,
+) (*store.ProcessEntry, error) {
 	entryTime, err := parseEntryTimestamp(patch.Entry.Timestamp)
 	if err != nil {
-		fmt.Fprintf(
-			os.Stderr,
-			"entry_timestamp 解析失败 [%s:%d] raw=%q: %v\n",
-			processID,
-			patch.EntryIndex,
-			patch.Entry.Timestamp,
-			err,
-		)
-		entryTime = time.Now()
+		if existing != nil {
+			entryTime = existing.EntryTimestamp
+		} else {
+			fmt.Fprintf(
+				os.Stderr,
+				"entry_timestamp 解析失败 [%s:%d] raw=%q: %v\n",
+				processID,
+				patch.EntryIndex,
+				patch.Entry.Timestamp,
+				err,
+			)
+			entryTime = time.Now()
+		}
 	}
 
 	var actionTypeJSON, statusJSON, errorType *string
@@ -877,7 +887,25 @@ func shouldPersistProcessEntryUpdate(existing, next *store.ProcessEntry) bool {
 	if existing == nil {
 		return true
 	}
-	return !next.EntryTimestamp.Before(existing.EntryTimestamp)
+	return processEntryUpdateSignature(existing) != processEntryUpdateSignature(next)
+}
+
+func processEntryUpdateSignature(entry *store.ProcessEntry) string {
+	if entry == nil {
+		return ""
+	}
+	parts := []string{
+		entry.ProcessID,
+		strconv.Itoa(entry.EntryIndex),
+		entry.EntryType,
+		entry.Role,
+		entry.ContentHash,
+		derefString(entry.ToolName),
+		derefString(entry.ActionTypeJSON),
+		derefString(entry.StatusJSON),
+		derefString(entry.ErrorType),
+	}
+	return strings.Join(parts, "::")
 }
 
 func resolveProcessSubscriptionStatus(processStatus string, receivedEntries bool, stopping bool, err error) (string, string) {

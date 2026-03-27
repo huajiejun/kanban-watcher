@@ -154,16 +154,58 @@ func TestShouldPersistProcessEntryUpdate(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "keeps same timestamp updates",
+			name: "skips same timestamp replay when content is unchanged",
 			existing: &store.ProcessEntry{
 				ProcessID:      "proc-1",
 				EntryIndex:     2,
 				EntryTimestamp: baseTime,
+				ContentHash:    "same-hash",
 			},
 			next: &store.ProcessEntry{
 				ProcessID:      "proc-1",
 				EntryIndex:     2,
 				EntryTimestamp: baseTime,
+				ContentHash:    "same-hash",
+			},
+			want: false,
+		},
+		{
+			name: "skips replay when only timestamp changes",
+			existing: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime,
+				EntryType:      "assistant_message",
+				Role:           "assistant",
+				ContentHash:    "same-hash",
+			},
+			next: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime.Add(5 * time.Second),
+				EntryType:      "assistant_message",
+				Role:           "assistant",
+				ContentHash:    "same-hash",
+			},
+			want: false,
+		},
+		{
+			name: "keeps updates when content changes",
+			existing: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime,
+				EntryType:      "assistant_message",
+				Role:           "assistant",
+				ContentHash:    "hash-a",
+			},
+			next: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime.Add(5 * time.Second),
+				EntryType:      "assistant_message",
+				Role:           "assistant",
+				ContentHash:    "hash-b",
 			},
 			want: true,
 		},
@@ -175,6 +217,38 @@ func TestShouldPersistProcessEntryUpdate(t *testing.T) {
 				t.Fatalf("shouldPersistProcessEntryUpdate(%+v, %+v) = %v, want %v", tt.existing, tt.next, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildProcessEntryPreservesExistingTimestampWhenPatchTimestampMissing(t *testing.T) {
+	service := &SyncService{}
+	existingTime := time.Date(2026, 3, 27, 21, 22, 10, 398000000, time.FixedZone("CST", 8*3600))
+
+	entry, err := service.buildProcessEntry(
+		"ws-1",
+		"session-1",
+		"proc-1",
+		entryPatch{
+			EntryIndex: 85,
+			Entry: store.NormalizedEntry{
+				EntryType: store.NormalizedEntryType{Type: "assistant_message"},
+				Content:   "历史消息",
+			},
+		},
+		&store.ProcessEntry{
+			ProcessID:      "proc-1",
+			EntryIndex:     85,
+			EntryTimestamp: existingTime,
+			EntryType:      "assistant_message",
+			Role:           "assistant",
+			ContentHash:    "hash-old",
+		},
+	)
+	if err != nil {
+		t.Fatalf("buildProcessEntry 返回错误: %v", err)
+	}
+	if !entry.EntryTimestamp.Equal(existingTime) {
+		t.Fatalf("entry_timestamp = %s, want %s", entry.EntryTimestamp.Format(time.RFC3339Nano), existingTime.Format(time.RFC3339Nano))
 	}
 }
 

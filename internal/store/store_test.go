@@ -87,7 +87,21 @@ func TestUpsertProcessEntryUsesProcessIndexUniqueKey(t *testing.T) {
 		ContentHash:    "hash-5",
 	}
 
-	mock.ExpectExec("INSERT INTO kw_process_entries").
+	mock.ExpectExec(regexp.QuoteMeta(`
+		INSERT INTO kw_process_entries (
+			process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+			tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			entry_type = VALUES(entry_type),
+			role = VALUES(role),
+			content = VALUES(content),
+			tool_name = VALUES(tool_name),
+			action_type_json = VALUES(action_type_json),
+			status_json = VALUES(status_json),
+			error_type = VALUES(error_type),
+			content_hash = VALUES(content_hash)
+	`)).
 		WithArgs(
 			entry.ProcessID, entry.SessionID, entry.WorkspaceID, entry.EntryIndex,
 			entry.EntryType, entry.Role, entry.Content, entry.ToolName, entry.ActionTypeJSON,

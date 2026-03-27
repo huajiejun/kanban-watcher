@@ -612,7 +612,6 @@ func (s *Store) UpsertProcessEntry(ctx context.Context, entry *ProcessEntry) err
 			action_type_json = VALUES(action_type_json),
 			status_json = VALUES(status_json),
 			error_type = VALUES(error_type),
-			entry_timestamp = VALUES(entry_timestamp),
 			content_hash = VALUES(content_hash)
 	`
 	_, err := s.execWithRetry(ctx, query,
