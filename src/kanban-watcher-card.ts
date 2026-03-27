@@ -1336,6 +1336,7 @@ export class KanbanWatcherCard extends LitElement {
     return {
       id: workspace.id,
       name: workspace.name || workspace.id,
+      branch: workspace.branch,
       status: workspace.status || "completed",
       latest_session_id: workspace.latest_session_id,
       has_pending_approval: workspace.has_pending_approval,
