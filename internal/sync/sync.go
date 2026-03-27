@@ -524,6 +524,18 @@ func (s *SyncService) consumeProcessLogs(ctx context.Context, workspaceID, sessi
 					fmt.Fprintf(os.Stderr, "读取已有 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
 					continue
 				}
+				if existingEntry != nil && !entry.EntryTimestamp.Equal(existingEntry.EntryTimestamp) {
+					fmt.Fprintf(
+						os.Stderr,
+						"process entry 时间戳变化 [%s:%d] old=%s new=%s type=%s raw=%q\n",
+						processID,
+						patch.EntryIndex,
+						existingEntry.EntryTimestamp.Format(time.RFC3339Nano),
+						entry.EntryTimestamp.Format(time.RFC3339Nano),
+						entry.EntryType,
+						patch.Entry.Timestamp,
+					)
+				}
 				if !shouldPersistProcessEntryUpdate(existingEntry, entry) {
 					continue
 				}
@@ -591,6 +603,14 @@ func (s *SyncService) scheduleProcessReconnect(ctx context.Context, workspaceID,
 func (s *SyncService) buildProcessEntry(workspaceID, sessionID, processID string, patch entryPatch) (*store.ProcessEntry, error) {
 	entryTime, err := parseEntryTimestamp(patch.Entry.Timestamp)
 	if err != nil {
+		fmt.Fprintf(
+			os.Stderr,
+			"entry_timestamp 解析失败 [%s:%d] raw=%q: %v\n",
+			processID,
+			patch.EntryIndex,
+			patch.Entry.Timestamp,
+			err,
+		)
 		entryTime = time.Now()
 	}
 
