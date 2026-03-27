@@ -359,8 +359,10 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 			_, message, err := conn.ReadMessage()
 			if err != nil {
 				lastErr = err
-				if !isClosedConnectionOnStop(err, s.isStopping()) {
+				if shouldLogSessionStreamError(err, s.isStopping()) {
 					fmt.Fprintf(os.Stderr, "读取 session ws 失败 [%s]: %v\n", sessionID, err)
+				} else {
+					s.tracef("session ws closed workspace=%s session=%s err=%v", workspaceID, sessionID, err)
 				}
 				return
 			}
@@ -1050,6 +1052,17 @@ func resolveProcessSubscriptionStatus(processStatus string, receivedEntries bool
 
 func isClosedConnectionOnStop(err error, stopping bool) bool {
 	return stopping && err != nil && strings.Contains(err.Error(), "use of closed network connection")
+}
+
+func shouldLogSessionStreamError(err error, stopping bool) bool {
+	if isClosedConnectionOnStop(err, stopping) {
+		return false
+	}
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return !strings.Contains(msg, "close 1006") || !strings.Contains(msg, "unexpected EOF")
 }
 
 func (s *SyncService) upsertProcessSubscription(ctx context.Context, processID, sessionID, workspaceID, processStatus string, lastEntryIndex *int, status, lastErr string) error {

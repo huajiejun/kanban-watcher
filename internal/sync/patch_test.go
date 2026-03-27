@@ -316,6 +316,29 @@ func TestShouldReconnectRunningProcessByLatestStatus(t *testing.T) {
 	}
 }
 
+func TestShouldLogSessionStreamError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		stopping bool
+		want     bool
+	}{
+		{name: "stop closes are ignored", err: errors.New("use of closed network connection"), stopping: true, want: false},
+		{name: "unexpected eof is downgraded", err: errors.New("websocket: close 1006 (abnormal closure): unexpected EOF"), want: false},
+		{name: "bad handshake still logs", err: errors.New("websocket: bad handshake"), want: true},
+		{name: "other errors still log", err: errors.New("read tcp: i/o timeout"), want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldLogSessionStreamError(tt.err, tt.stopping)
+			if got != tt.want {
+				t.Fatalf("shouldLogSessionStreamError(%v, %v) = %v, want %v", tt.err, tt.stopping, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestShouldSkipCompletedProcessSubscription(t *testing.T) {
 	tests := []struct {
 		name   string
