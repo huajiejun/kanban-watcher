@@ -412,7 +412,7 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 						fmt.Fprintf(os.Stderr, "推送工作区快照失败 [%s]: %v\n", workspaceID, err)
 					}
 				}
-				if ep.RunReason == "codingagent" && !ep.Dropped {
+				if shouldSubscribeProcessLogs(ep.RunReason, ep.Dropped, ep.Status) {
 					s.subscribeProcessLogs(ctx, workspaceID, ep.SessionID, ep.ID, ep.Status, ep.CreatedAt)
 				}
 			}
@@ -907,6 +907,10 @@ func shouldReconnectProcessLog(processStatus string, receivedEntries bool, err e
 
 func shouldReconnectRunningProcessByLatestStatus(status *string) bool {
 	return status != nil && *status == "running"
+}
+
+func shouldSubscribeProcessLogs(runReason string, dropped bool, processStatus string) bool {
+	return runReason == "codingagent" && !dropped && processStatus == "running"
 }
 
 func shouldSkipHistoricalProcess(processStatus string, sub *store.SyncSubscription) bool {

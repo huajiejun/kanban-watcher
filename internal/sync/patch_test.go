@@ -316,6 +316,31 @@ func TestShouldReconnectRunningProcessByLatestStatus(t *testing.T) {
 	}
 }
 
+func TestShouldSubscribeProcessLogs(t *testing.T) {
+	tests := []struct {
+		name       string
+		runReason  string
+		dropped    bool
+		status     string
+		want       bool
+	}{
+		{name: "running codingagent subscribes", runReason: "codingagent", status: "running", want: true},
+		{name: "completed codingagent skips", runReason: "codingagent", status: "completed", want: false},
+		{name: "failed codingagent skips", runReason: "codingagent", status: "failed", want: false},
+		{name: "dropped codingagent skips", runReason: "codingagent", dropped: true, status: "running", want: false},
+		{name: "dev server skips", runReason: "dev_server", status: "running", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldSubscribeProcessLogs(tt.runReason, tt.dropped, tt.status)
+			if got != tt.want {
+				t.Fatalf("shouldSubscribeProcessLogs(%q, %v, %q) = %v, want %v", tt.runReason, tt.dropped, tt.status, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestShouldLogSessionStreamError(t *testing.T) {
 	tests := []struct {
 		name     string
