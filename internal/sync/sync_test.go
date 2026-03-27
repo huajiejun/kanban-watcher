@@ -66,6 +66,18 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "skips broadcast for new running tool_use entry",
+			next: &store.ProcessEntry{
+				ProcessID:       "proc-1",
+				EntryIndex:      4,
+				EntryType:       "tool_use",
+				ContentHash:     "hash-tool-running",
+				StatusJSON:      stringPtr(`{"status":"running"}`),
+				TimestampSource: store.ProcessEntryTimestampSourceEntry,
+			},
+			want: false,
+		},
+		{
 			name: "skips broadcast when new entry falls back to process created_at",
 			next: &store.ProcessEntry{
 				ProcessID:       "proc-1",
@@ -104,7 +116,7 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "broadcasts when tool status changes with same content hash",
+			name: "broadcasts when tool status changes to terminal state with same content hash",
 			existing: &store.ProcessEntry{
 				ProcessID:   "proc-1",
 				EntryIndex:  3,
@@ -120,6 +132,24 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 				StatusJSON:  stringPtr(`{"state":"success"}`),
 			},
 			want: true,
+		},
+		{
+			name: "skips when tool status remains running with same content hash",
+			existing: &store.ProcessEntry{
+				ProcessID:   "proc-1",
+				EntryIndex:  3,
+				EntryType:   "tool_use",
+				ContentHash: "hash-a",
+				StatusJSON:  stringPtr(`{"state":"running"}`),
+			},
+			next: &store.ProcessEntry{
+				ProcessID:   "proc-1",
+				EntryIndex:  3,
+				EntryType:   "tool_use",
+				ContentHash: "hash-a",
+				StatusJSON:  stringPtr(`{"state":"running","step":"streaming"}`),
+			},
+			want: false,
 		},
 	}
 
