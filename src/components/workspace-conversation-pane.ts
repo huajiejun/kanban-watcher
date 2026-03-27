@@ -82,7 +82,6 @@ export class WorkspaceConversationPane extends LitElement {
             class="dialog-web-preview"
             type="button"
             aria-label=${this.showWorkspaceWebPreview ? "打开快捷网页" : "快捷网页暂不可用"}
-            ?disabled=${!this.showWorkspaceWebPreview}
             @click=${this.handleWorkspaceWebPreviewToggle}
           >
             <svg

@@ -664,6 +664,10 @@ export class KanbanWorkspaceHome extends LitElement {
   private async handleOpenPreviewDrawer(workspace: KanbanWorkspace) {
     const previewUrl = await this.resolveWorkspacePreviewUrl(workspace);
     if (!previewUrl) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: "快捷网页地址不可用，请先启动开发服务器。",
+      };
       return;
     }
     this.previewDrawerWorkspaceId = workspace.id;
@@ -678,6 +682,10 @@ export class KanbanWorkspaceHome extends LitElement {
   private async handleOpenWebPreview(workspace: KanbanWorkspace) {
     const previewUrl = await this.resolveWorkspacePreviewUrl(workspace);
     if (!previewUrl) {
+      this.actionFeedbackByWorkspace = {
+        ...this.actionFeedbackByWorkspace,
+        [workspace.id]: "快捷网页地址不可用，请先启动开发服务器。",
+      };
       return;
     }
     this.webPreviewWorkspaceId = workspace.id;

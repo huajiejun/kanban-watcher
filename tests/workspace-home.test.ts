@@ -2847,7 +2847,7 @@ describe("workspace home helpers", () => {
     expect(dialog?.classList.contains("is-mobile")).toBe(true);
   });
 
-  it("renders a disabled workspace web preview button when browser_url is missing", async () => {
+  it("keeps the workspace web preview button clickable and shows feedback when no preview URL is available", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -2894,7 +2894,12 @@ describe("workspace home helpers", () => {
     const button = pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement | null;
 
     expect(button).not.toBeNull();
-    expect(button?.disabled).toBe(true);
+    expect(button?.disabled).toBe(false);
+
+    button?.click();
+    await flushElement(element);
+
+    expect(pane?.shadowRoot?.textContent).toContain("快捷网页地址不可用，请先启动开发服务器。");
   });
 
   it("closes the web preview overlay when the close button is clicked", async () => {

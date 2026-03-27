@@ -272,4 +272,61 @@ describe("kanban-watcher-card mobile web preview", () => {
 
     expect(frame?.src).toContain("https://6020.huajiejun.cn");
   });
+
+  it("keeps the mobile web preview button clickable and shows feedback when no preview URL is available", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: null,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "手机无地址工作区",
+              status: "completed",
+              updated_at: "2026-03-26T10:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "消息一" }],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForBoard(element);
+
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushCard(element);
+
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
+    const button = pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement | null;
+
+    expect(button).not.toBeNull();
+    expect(button?.disabled).toBe(false);
+
+    button?.click();
+    await flushCard(element);
+
+    expect(pane?.shadowRoot?.textContent).toContain("快捷网页地址不可用，请先启动开发服务器。");
+  });
 });
