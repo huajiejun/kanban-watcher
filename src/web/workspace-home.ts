@@ -27,6 +27,7 @@ import {
   cancelWorkspaceQueue,
   fetchExecutionProcess,
   fetchActiveWorkspaces,
+  fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
   fetchVibeInfo,
   fetchWorkspaceView,
@@ -1561,6 +1562,19 @@ export class KanbanWorkspaceHome extends LitElement {
     );
   }
 
+  private async resolveWorkspaceFileBrowserPath(workspaceId: string, fallbackPath: string) {
+    if (!this.isApiMode) {
+      return fallbackPath;
+    }
+
+    const response = await fetchWorkspaceFileBrowserPath({
+      baseUrl: this.previewOptions.baseUrl!,
+      apiKey: this.previewOptions.apiKey,
+      workspaceId,
+    });
+    return response.data?.path?.trim() || fallbackPath;
+  }
+
   private shouldShowWorkspaceWebPreview(workspace: KanbanWorkspace) {
     return this.getWorkspaceDevServerState(workspace) === "running";
   }
@@ -1665,7 +1679,9 @@ export class KanbanWorkspaceHome extends LitElement {
     return html`
       <workspace-conversation-pane
         .workspaceName=${workspace.name}
+        .workspaceId=${workspace.id}
         .workspacePath=${workspacePath}
+        .resolveWorkspacePath=${() => this.resolveWorkspaceFileBrowserPath(workspace.id, workspacePath)}
         .messages=${this.messagesByWorkspace[workspace.id] ?? []}
         .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
         .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}

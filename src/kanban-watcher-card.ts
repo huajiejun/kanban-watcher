@@ -4,6 +4,7 @@ import { detectDialogEditLanguage, renderDialogMessage } from "./components/dial
 import {
   cancelWorkspaceQueue,
   fetchActiveWorkspaces,
+  fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
   fetchVibeInfo,
   fetchWorkspaceLatestMessages,
@@ -350,7 +351,10 @@ export class KanbanWatcherCard extends LitElement {
         >
           <workspace-conversation-pane
             .workspaceName=${workspace.name}
+            .workspaceId=${workspace.id}
             .workspacePath=${getWorkspacePath(workspace)}
+            .resolveWorkspacePath=${() =>
+              this.resolveWorkspaceFileBrowserPath(workspace.id, getWorkspacePath(workspace))}
             .messages=${messages}
             .smoothRevealMessageKey=${this.smoothRevealMessageKey}
             .messageDraft=${this.messageDraft}
@@ -397,6 +401,19 @@ export class KanbanWatcherCard extends LitElement {
       return "正在加载消息...";
     }
     return this.isApiMode ? "消息已切换为本地持久化接口。" : "消息操作暂未接入真实接口。";
+  }
+
+  private async resolveWorkspaceFileBrowserPath(workspaceId: string, fallbackPath: string) {
+    if (!this.isApiMode) {
+      return fallbackPath;
+    }
+
+    const response = await fetchWorkspaceFileBrowserPath({
+      baseUrl: this.config!.base_url!,
+      apiKey: this.config?.api_key,
+      workspaceId,
+    });
+    return response.data?.path?.trim() || fallbackPath;
   }
 
   private toggleSection(key: SectionKey) {

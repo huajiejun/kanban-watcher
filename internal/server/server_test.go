@@ -237,6 +237,65 @@ func TestHandleWorkspaceMessageReturnsConflictWhenFrontendPortAllocationFails(t 
 	}
 }
 
+func TestHandleWorkspaceMessageReturnsFileBrowserPath(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("创建 sqlmock 失败: %v", err)
+	}
+	defer db.Close()
+
+	dbStore := &store.Store{}
+	setStoreDB(t, dbStore, db)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id
+		FROM kw_workspaces
+		WHERE id LIKE ?
+		ORDER BY updated_at DESC
+		LIMIT 2
+	`)).
+		WithArgs("ws-1%").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("ws-1"))
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, name, branch, archived, pinned, latest_session_id, is_running,
+		       latest_process_status, has_pending_approval, has_unseen_turns, has_running_dev_server,
+		       frontend_port, files_changed, lines_added, lines_removed, last_seen_at, created_at, updated_at, synced_at
+		FROM kw_workspaces
+		WHERE id = ?
+	`)).
+		WithArgs("ws-1").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "name", "branch", "archived", "pinned", "latest_session_id", "is_running",
+			"latest_process_status", "has_pending_approval", "has_unseen_turns", "has_running_dev_server",
+			"frontend_port", "files_changed", "lines_added", "lines_removed", "last_seen_at", "created_at", "updated_at", "synced_at",
+		}).AddRow(
+			"ws-1", "Workspace 1", "vibe/resolved-branch", false, false, nil, false,
+			nil, false, false, false, nil, 0, 0, 0, time.Now(), time.Now(), time.Now(), time.Now(),
+		))
+
+	srv := NewServer(nil, 0, "test-key", true, nil, nil)
+	srv.SetStore(dbStore)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/workspace/ws-1/file-browser-path", nil)
+	rr := httptest.NewRecorder()
+
+	srv.handleWorkspaceMessage(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"workspace_id":"ws-1"`) {
+		t.Fatalf("body = %s, want workspace_id", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"path":"/Users/huajiejun/github/vibe-kanban/.vibe-kanban-workspaces/resolved-branch/kanban-watcher"`) {
+		t.Fatalf("body = %s, want resolved file browser path", rr.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestHandleWorkspaceMessageStartsDevServerPersistsExecutionProcess(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
