@@ -27,6 +27,7 @@ import {
   cancelWorkspaceQueue,
   fetchExecutionProcess,
   fetchActiveWorkspaces,
+  fetchWorkspaceFrontendPort,
   fetchVibeInfo,
   fetchWorkspaceView,
   fetchWorkspaceLatestMessages,
@@ -68,6 +69,10 @@ import {
   readPreviewApiOptions,
 } from "../lib/preview-options";
 import { getWorkspacePath } from "../lib/workspace-path";
+import {
+  buildWorkspacePreviewUrlFromFrontendPort,
+  getWorkspaceEmbeddedPreviewUrl,
+} from "../lib/workspace-web-preview";
 
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
@@ -118,6 +123,7 @@ export class KanbanWorkspaceHome extends LitElement {
     smoothRevealMessageKeyByWorkspace: { attribute: false },
     extractedButtonsByWorkspace: { attribute: false },
     suggestedButtonsByWorkspace: { attribute: false },
+    webPreviewFallbackUrlByWorkspace: { attribute: false },
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
@@ -140,6 +146,7 @@ export class KanbanWorkspaceHome extends LitElement {
   smoothRevealMessageKeyByWorkspace: Record<string, string> = {};
   extractedButtonsByWorkspace: Record<string, string[]> = {};
   suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
+  webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
   private refreshTimer?: number;
   private dialogRefreshTimer?: number;
@@ -654,8 +661,9 @@ export class KanbanWorkspaceHome extends LitElement {
     }
   }
 
-  private handleOpenPreviewDrawer(workspace: KanbanWorkspace) {
-    if (!this.getWorkspaceEmbeddedPreviewUrl(workspace)) {
+  private async handleOpenPreviewDrawer(workspace: KanbanWorkspace) {
+    const previewUrl = await this.resolveWorkspacePreviewUrl(workspace);
+    if (!previewUrl) {
       return;
     }
     this.previewDrawerWorkspaceId = workspace.id;
@@ -667,8 +675,9 @@ export class KanbanWorkspaceHome extends LitElement {
     this.requestUpdate();
   };
 
-  private handleOpenWebPreview(workspace: KanbanWorkspace) {
-    if (!this.getWorkspaceEmbeddedPreviewUrl(workspace)) {
+  private async handleOpenWebPreview(workspace: KanbanWorkspace) {
+    const previewUrl = await this.resolveWorkspacePreviewUrl(workspace);
+    if (!previewUrl) {
       return;
     }
     this.webPreviewWorkspaceId = workspace.id;
@@ -1501,29 +1510,49 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private get activeWorkspaceBrowserUrl() {
-    return this.activeWorkspace ? this.getWorkspaceEmbeddedPreviewUrl(this.activeWorkspace) : "";
+    return this.activeWorkspace ? this.getWorkspacePreviewUrl(this.activeWorkspace) : "";
   }
 
-  private getWorkspaceEmbeddedPreviewUrl(workspace: KanbanWorkspace) {
-    const browserUrl = workspace.browser_url?.trim() || workspace.browserUrl?.trim() || "";
-    if (!browserUrl) {
+  private getWorkspacePreviewUrl(workspace: KanbanWorkspace) {
+    return (
+      getWorkspaceEmbeddedPreviewUrl(workspace, this.previewProxyPort) ||
+      this.webPreviewFallbackUrlByWorkspace[workspace.id] ||
+      ""
+    );
+  }
+
+  private canOpenWorkspaceWebPreview(workspace: KanbanWorkspace) {
+    return Boolean(
+      this.getWorkspacePreviewUrl(workspace) ||
+      this.getWorkspaceDevServerState(workspace) === "running",
+    );
+  }
+
+  private async resolveWorkspacePreviewUrl(workspace: KanbanWorkspace) {
+    const existingUrl = this.getWorkspacePreviewUrl(workspace);
+    if (existingUrl) {
+      return existingUrl;
+    }
+    if (this.getWorkspaceDevServerState(workspace) !== "running" || !this.isApiMode) {
       return "";
     }
 
-    try {
-      const parsed = new URL(browserUrl);
-      const host = parsed.hostname.toLowerCase();
-      const isLocalhost = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
-      if (!isLocalhost || !this.previewProxyPort) {
-        return parsed.toString();
-      }
-
-      const devServerPort = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
-      const path = `${parsed.pathname}${parsed.search}`;
-      return `http://${devServerPort}.localhost:${this.previewProxyPort}${path}`;
-    } catch {
-      return browserUrl;
+    const response = await fetchWorkspaceFrontendPort({
+      baseUrl: this.previewOptions.baseUrl!,
+      apiKey: this.previewOptions.apiKey,
+      workspaceId: workspace.id,
+    });
+    const frontendPort = response.data?.frontend_port;
+    if (!frontendPort) {
+      return "";
     }
+
+    const previewUrl = buildWorkspacePreviewUrlFromFrontendPort(frontendPort);
+    this.webPreviewFallbackUrlByWorkspace = {
+      ...this.webPreviewFallbackUrlByWorkspace,
+      [workspace.id]: previewUrl,
+    };
+    return previewUrl;
   }
 
   private getWorkspaceDevServerState(workspace: KanbanWorkspace) {
@@ -1610,15 +1639,15 @@ export class KanbanWorkspaceHome extends LitElement {
         .isRunning=${isRunning}
         .canQueue=${Boolean(isRunning || queueStatus?.status === "queued")}
         .devServerState=${this.getWorkspaceDevServerState(workspace)}
-        .showWorkspaceWebPreview=${Boolean(this.getWorkspaceEmbeddedPreviewUrl(workspace))}
-        .showDevServerPreview=${Boolean(this.getWorkspaceEmbeddedPreviewUrl(workspace))}
+        .showWorkspaceWebPreview=${this.canOpenWorkspaceWebPreview(workspace)}
+        .showDevServerPreview=${this.canOpenWorkspaceWebPreview(workspace)}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
           void this.handlePaneAction(workspace, event.detail)}
         @dev-server-toggle=${() => void this.handleWorkspaceDevServerToggle(workspace)}
-        @workspace-web-preview-toggle=${() => this.handleOpenWebPreview(workspace)}
-        @dev-server-preview-toggle=${() => this.handleOpenPreviewDrawer(workspace)}
+        @workspace-web-preview-toggle=${() => void this.handleOpenWebPreview(workspace)}
+        @dev-server-preview-toggle=${() => void this.handleOpenPreviewDrawer(workspace)}
         @pane-close=${() => this.handleCloseWorkspace(workspace)}
       ></workspace-conversation-pane>
     `;
@@ -1626,7 +1655,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private renderPreviewDrawer() {
     const workspace = this.workspaces.find((item) => item.id === this.previewDrawerWorkspaceId);
-    const previewUrl = workspace ? this.getWorkspaceEmbeddedPreviewUrl(workspace) : "";
+    const previewUrl = workspace ? this.getWorkspacePreviewUrl(workspace) : "";
     if (!workspace || !previewUrl) {
       return nothing;
     }
@@ -1654,7 +1683,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private renderWebPreviewOverlay() {
     const workspace = this.workspaces.find((item) => item.id === this.webPreviewWorkspaceId);
-    const previewUrl = workspace ? this.getWorkspaceEmbeddedPreviewUrl(workspace) : "";
+    const previewUrl = workspace ? this.getWorkspacePreviewUrl(workspace) : "";
     if (!workspace || !previewUrl) {
       return nothing;
     }

@@ -4,6 +4,7 @@ import { detectDialogEditLanguage, renderDialogMessage } from "./components/dial
 import {
   cancelWorkspaceQueue,
   fetchActiveWorkspaces,
+  fetchWorkspaceFrontendPort,
   fetchVibeInfo,
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
@@ -39,6 +40,10 @@ import {
 } from "./components/workspace-section-list";
 import { cardStyles } from "./styles";
 import { getWorkspacePath } from "./lib/workspace-path";
+import {
+  buildWorkspacePreviewUrlFromFrontendPort,
+  getWorkspaceEmbeddedPreviewUrl,
+} from "./lib/workspace-web-preview";
 import type {
   ActiveWorkspacesResponse,
   KanbanEntityAttributes,
@@ -115,6 +120,7 @@ export class KanbanWatcherCard extends LitElement {
     dynamicButtonsByWorkspace: { state: true },
     todosByWorkspace: { state: true },
     webPreviewWorkspaceId: { state: true },
+    webPreviewFallbackUrlByWorkspace: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -162,6 +168,7 @@ export class KanbanWatcherCard extends LitElement {
   private todosByWorkspace: Record<string, TodoItem[]> = {};
   private webPreviewWorkspaceId?: string;
   private previewProxyPort?: number;
+  private webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
 
   connectedCallback() {
     super.connectedCallback();
@@ -348,8 +355,8 @@ export class KanbanWatcherCard extends LitElement {
             .isRunning=${isRunning}
             .canQueue=${canQueue}
             .devServerState=${this.getWorkspaceDevServerState(workspace)}
-            .showWorkspaceWebPreview=${Boolean(this.getWorkspaceEmbeddedPreviewUrl(workspace))}
-            .showDevServerPreview=${Boolean(this.getWorkspaceEmbeddedPreviewUrl(workspace))}
+            .showWorkspaceWebPreview=${this.canOpenWorkspaceWebPreview(workspace)}
+            .showDevServerPreview=${this.canOpenWorkspaceWebPreview(workspace)}
             .renderMessage=${(message: DialogMessage) => this.renderDialogEntry(message)}
             .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
             @pane-close=${this.closeWorkspaceDialog}
@@ -358,7 +365,7 @@ export class KanbanWatcherCard extends LitElement {
             }}
             @action-click=${(event: CustomEvent<DialogAction>) =>
               void this.handleActionClick(event.detail)}
-            @workspace-web-preview-toggle=${() => this.handleOpenWebPreview(workspace)}
+            @workspace-web-preview-toggle=${() => void this.handleOpenWebPreview(workspace)}
             @dev-server-toggle=${() => void this.handleWorkspaceDevServerToggle(workspace)}
             @quick-button-click=${(event: CustomEvent<string>) =>
               void this.handleQuickButtonClick(event.detail)}
@@ -1379,30 +1386,51 @@ export class KanbanWatcherCard extends LitElement {
     };
   }
 
-  private getWorkspaceEmbeddedPreviewUrl(workspace: KanbanWorkspace) {
-    const browserUrl = workspace.browser_url?.trim() || workspace.browserUrl?.trim() || "";
-    if (!browserUrl) {
+  private getWorkspacePreviewUrl(workspace: KanbanWorkspace) {
+    return (
+      getWorkspaceEmbeddedPreviewUrl(workspace, this.previewProxyPort) ||
+      this.webPreviewFallbackUrlByWorkspace[workspace.id] ||
+      ""
+    );
+  }
+
+  private canOpenWorkspaceWebPreview(workspace: KanbanWorkspace) {
+    return Boolean(
+      this.getWorkspacePreviewUrl(workspace) ||
+      this.getWorkspaceDevServerState(workspace) === "running",
+    );
+  }
+
+  private async resolveWorkspacePreviewUrl(workspace: KanbanWorkspace) {
+    const existingUrl = this.getWorkspacePreviewUrl(workspace);
+    if (existingUrl) {
+      return existingUrl;
+    }
+    if (this.getWorkspaceDevServerState(workspace) !== "running" || !this.isApiMode) {
       return "";
     }
 
-    try {
-      const parsed = new URL(browserUrl);
-      const host = parsed.hostname.toLowerCase();
-      const isLocalhost = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
-      if (!isLocalhost || !this.previewProxyPort) {
-        return parsed.toString();
-      }
-
-      const devServerPort = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
-      const path = `${parsed.pathname}${parsed.search}`;
-      return `http://${devServerPort}.localhost:${this.previewProxyPort}${path}`;
-    } catch {
-      return browserUrl;
+    const response = await fetchWorkspaceFrontendPort({
+      baseUrl: this.config!.base_url!,
+      apiKey: this.config?.api_key,
+      workspaceId: workspace.id,
+    });
+    const frontendPort = response.data?.frontend_port;
+    if (!frontendPort) {
+      return "";
     }
+
+    const previewUrl = buildWorkspacePreviewUrlFromFrontendPort(frontendPort);
+    this.webPreviewFallbackUrlByWorkspace = {
+      ...this.webPreviewFallbackUrlByWorkspace,
+      [workspace.id]: previewUrl,
+    };
+    return previewUrl;
   }
 
-  private handleOpenWebPreview(workspace: KanbanWorkspace) {
-    if (!this.getWorkspaceEmbeddedPreviewUrl(workspace)) {
+  private async handleOpenWebPreview(workspace: KanbanWorkspace) {
+    const previewUrl = await this.resolveWorkspacePreviewUrl(workspace);
+    if (!previewUrl) {
       return;
     }
     this.webPreviewWorkspaceId = workspace.id;
@@ -1424,7 +1452,7 @@ export class KanbanWatcherCard extends LitElement {
 
   private renderWebPreviewOverlay() {
     const workspace = this.allWorkspaces.find((item) => item.id === this.webPreviewWorkspaceId);
-    const previewUrl = workspace ? this.getWorkspaceEmbeddedPreviewUrl(workspace) : "";
+    const previewUrl = workspace ? this.getWorkspacePreviewUrl(workspace) : "";
     if (!workspace || !previewUrl) {
       return nothing;
     }

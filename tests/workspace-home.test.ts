@@ -2709,6 +2709,81 @@ describe("workspace home helpers", () => {
     expect(frame?.src).toContain("https://relay.example/ws-1-camel");
   });
 
+  it("falls back to the frontend port API and opens the huajiejun preview URL", async () => {
+    setWindowWidth(1440);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: null,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "端口兜底工作区",
+              status: "completed",
+              has_running_dev_server: true,
+              updated_at: "2026-03-26T10:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({ messages: [{ role: "assistant", content: "消息一" }] });
+      }
+
+      if (url.includes("/api/workspace/ws-1/frontend-port")) {
+        expect(init?.method).toBe("POST");
+        return createJsonResponse({
+          success: true,
+          data: {
+            workspace_id: "ws-1",
+            frontend_port: 6020,
+            backend_port: 16020,
+          },
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
+    const button = pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement | null;
+
+    expect(button).not.toBeNull();
+    expect(button?.disabled).toBe(false);
+
+    button?.click();
+    await flushElement(element);
+
+    const frame = element.shadowRoot?.querySelector(
+      ".workspace-home-web-preview-frame",
+    ) as HTMLIFrameElement | null;
+
+    expect(frame).not.toBeNull();
+    expect(frame?.src).toContain("https://6020.huajiejun.cn");
+  });
+
   it("uses a full-screen web preview layout on mobile", async () => {
     setWindowWidth(390);
 
