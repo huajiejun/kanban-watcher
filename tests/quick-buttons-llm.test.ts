@@ -212,6 +212,46 @@ describe("quick-buttons-llm", () => {
   });
 
   describe("getQuickButtonsWithLLM", () => {
+    it("uses the last 3 messages with order markers as LLM analysis context", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content:
+                  '{"actions": [{"button": "补充测试", "reason": "低风险"}]}',
+              },
+            },
+          ],
+        }),
+      });
+
+      await getQuickButtonsWithLLM({
+        message: "最后一条很短",
+        workspaceStatus: "attention",
+        llmEnabled: true,
+        llmConfig: {
+          baseUrl: "http://localhost:1234",
+        },
+        recentMessages: [
+          { role: "user", content: "第一条用户消息" },
+          { role: "assistant", content: "第二条助手消息" },
+          { role: "user", content: "第三条用户追问" },
+          { role: "assistant", content: "第四条助手结论" },
+        ],
+      });
+
+      const requestBody = JSON.parse(String(mockFetch.mock.calls[0]?.[1]?.body));
+      expect(requestBody.messages[1].content).not.toContain("第一条用户消息");
+      expect(requestBody.messages[1].content).toContain("第1条");
+      expect(requestBody.messages[1].content).toContain("第二条助手消息");
+      expect(requestBody.messages[1].content).toContain("第2条");
+      expect(requestBody.messages[1].content).toContain("第三条用户追问");
+      expect(requestBody.messages[1].content).toContain("第3条");
+      expect(requestBody.messages[1].content).toContain("第四条助手结论");
+    });
+
     it("returns only static buttons when workspace is running", async () => {
       const result = await getQuickButtonsWithLLM({
         message: "请选择方案1或方案2",

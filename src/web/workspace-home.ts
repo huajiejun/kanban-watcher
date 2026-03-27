@@ -1792,12 +1792,12 @@ export class KanbanWorkspaceHome extends LitElement {
     };
 
     const recentMessages = messages
-      .filter((message): message is Extract<DialogMessage, { kind: "message"; sender: "ai" }> =>
-        message.kind === "message" && message.sender === "ai",
+      .filter((message): message is Extract<DialogMessage, { kind: "message"; sender: "ai" | "user" }> =>
+        message.kind === "message" && (message.sender === "ai" || message.sender === "user"),
       )
-      .slice(-5)
+      .slice(-3)
       .map((message) => ({
-        role: "assistant",
+        role: message.sender === "ai" ? "assistant" : "user",
         content: message.text,
         timestamp: message.timestamp,
       }));

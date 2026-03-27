@@ -202,28 +202,24 @@ interface QuickButtonsRequest {
 }
 
 /** 构建 LLM 分析的上下文消息
- * 如果最后一条消息少于100字符，则取最近5条 assistant_message 作为上下文
+ * 统一取最后3条消息，并显式标记顺序与角色。
  */
 function buildAnalysisContext(
   lastMessage: string,
   recentMessages?: SessionMessageResponse[]
 ): string {
-  // 如果消息足够长，直接使用
-  if (lastMessage.length >= 100) {
-    return lastMessage;
-  }
-
-  // 如果提供了历史消息，提取最近5条 assistant_message
   if (recentMessages && recentMessages.length > 0) {
-    const assistantMessages = recentMessages
-      .filter((msg) => msg.role === "assistant" || msg.role === "ai")
-      .slice(-5);
+    const orderedMessages = recentMessages
+      .filter((msg) => typeof msg.content === "string" && msg.content.trim().length > 0)
+      .slice(-3);
 
-    if (assistantMessages.length > 0) {
-      const context = assistantMessages
-        .map((msg) => msg.content || "")
-        .filter((content) => content.length > 0)
-        .join("\n\n---\n\n");
+    if (orderedMessages.length > 0) {
+      const context = orderedMessages
+        .map((msg, index) => {
+          const role = msg.role === "assistant" || msg.role === "ai" ? "AI" : "用户";
+          return `第${index + 1}条（${role}）：${msg.content?.trim()}`;
+        })
+        .join("\n");
 
       if (context.length > 0) {
         return context;
@@ -231,8 +227,7 @@ function buildAnalysisContext(
     }
   }
 
-  // 回退到单条消息
-  return lastMessage;
+  return `第1条（AI）：${lastMessage}`;
 }
 
 /** LLM 分析结果 */
