@@ -904,6 +904,7 @@ export const cardStyles = css`
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
     transition: background-color 160ms ease;
   }
 
