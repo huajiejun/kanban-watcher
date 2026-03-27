@@ -679,6 +679,13 @@ export class KanbanWorkspaceHome extends LitElement {
     this.requestUpdate();
   };
 
+  private openWorkspacePreviewPage(previewUrl: string) {
+    const opened = window.open(previewUrl, "_blank", "noopener");
+    if (!opened) {
+      window.location.assign(previewUrl);
+    }
+  }
+
   private async handleOpenWebPreview(workspace: KanbanWorkspace) {
     const previewUrl = await this.resolveWorkspacePreviewUrl(workspace);
     if (!previewUrl) {
@@ -686,6 +693,10 @@ export class KanbanWorkspaceHome extends LitElement {
         ...this.actionFeedbackByWorkspace,
         [workspace.id]: "快捷网页地址不可用，请先启动开发服务器。",
       };
+      return;
+    }
+    if (window.innerWidth <= MOBILE_BREAKPOINT) {
+      this.openWorkspacePreviewPage(previewUrl);
       return;
     }
     this.webPreviewWorkspaceId = workspace.id;

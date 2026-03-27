@@ -70,7 +70,9 @@ describe("kanban-watcher-card mobile web preview", () => {
     document.body.innerHTML = "";
   });
 
-  it("opens a full-screen web preview overlay from browser_url on mobile", async () => {
+  it("opens the web preview in a new page from browser_url on mobile", async () => {
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({} as Window);
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -125,16 +127,8 @@ describe("kanban-watcher-card mobile web preview", () => {
     button?.click();
     await flushCard(element);
 
-    const overlay = element.shadowRoot?.querySelector(
-      ".workspace-home-web-preview-overlay",
-    ) as HTMLElement | null;
-    const frame = element.shadowRoot?.querySelector(
-      ".workspace-home-web-preview-frame",
-    ) as HTMLIFrameElement | null;
-
-    expect(overlay).not.toBeNull();
-    expect(overlay?.dataset.layout).toBe("mobile");
-    expect(frame?.src).toContain("https://relay.example/ws-1");
+    expect(openSpy).toHaveBeenCalledWith("https://relay.example/ws-1", "_blank", "noopener");
+    expect(element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
   });
 
   it("accepts the camelCase browserUrl field on mobile", async () => {

@@ -2784,8 +2784,9 @@ describe("workspace home helpers", () => {
     expect(frame?.src).toContain("https://6020.huajiejun.cn");
   });
 
-  it("uses a full-screen web preview layout on mobile", async () => {
+  it("opens the web preview in a new page on mobile", async () => {
     setWindowWidth(390);
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({} as Window);
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
@@ -2836,15 +2837,8 @@ describe("workspace home helpers", () => {
     (pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement).click();
     await flushElement(element);
 
-    const overlay = element.shadowRoot?.querySelector(
-      ".workspace-home-web-preview-overlay",
-    ) as HTMLElement | null;
-    const dialog = element.shadowRoot?.querySelector(
-      ".workspace-home-web-preview-modal",
-    ) as HTMLElement | null;
-
-    expect(overlay?.dataset.layout).toBe("mobile");
-    expect(dialog?.classList.contains("is-mobile")).toBe(true);
+    expect(openSpy).toHaveBeenCalledWith("https://relay.example/ws-1", "_blank", "noopener");
+    expect(element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
   });
 
   it("keeps the workspace web preview button clickable and shows feedback when no preview URL is available", async () => {

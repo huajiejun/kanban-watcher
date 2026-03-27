@@ -1434,6 +1434,13 @@ export class KanbanWatcherCard extends LitElement {
       this.actionFeedback = "快捷网页地址不可用，请先启动开发服务器。";
       return;
     }
+    if (window.innerWidth <= 768) {
+      const opened = window.open(previewUrl, "_blank", "noopener");
+      if (!opened) {
+        window.location.assign(previewUrl);
+      }
+      return;
+    }
     this.webPreviewWorkspaceId = workspace.id;
   }
 
