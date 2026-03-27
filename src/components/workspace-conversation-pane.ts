@@ -34,7 +34,6 @@ export class WorkspaceConversationPane extends LitElement {
     showWorkspaceWebPreview: { type: Boolean },
     showDevServerPreview: { type: Boolean },
     showFileBrowser: { type: Boolean },
-    workspaceId: { attribute: false },
     todoBaseUrl: { attribute: false },
     todoApiKey: { attribute: false },
     todoPendingCount: { attribute: false },
@@ -63,7 +62,6 @@ export class WorkspaceConversationPane extends LitElement {
   showWorkspaceWebPreview = false;
   showDevServerPreview = false;
   showFileBrowser = false;
-  workspaceId = "";
   todoBaseUrl = "";
   todoApiKey = "";
   todoPendingCount = 0;
