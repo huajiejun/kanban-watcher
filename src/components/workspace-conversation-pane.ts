@@ -30,6 +30,8 @@ export class WorkspaceConversationPane extends LitElement {
     devServerState: { attribute: false },
     showDevServerPreview: { type: Boolean },
     showFileBrowser: { type: Boolean },
+    quickButtonsExpanded: { state: true },
+    quickButtonsOverflowing: { state: true },
   };
 
   workspaceName = "";
@@ -49,6 +51,9 @@ export class WorkspaceConversationPane extends LitElement {
   devServerState: DevServerState = "idle";
   showDevServerPreview = false;
   showFileBrowser = false;
+  private quickButtonsExpanded = false;
+  private quickButtonsOverflowing = false;
+  private readonly collapsedQuickButtonsHeight = 36;
 
   // File Browser 配置
   private readonly FILE_BROWSER_LOCAL_URL = import.meta.env.VITE_FILE_BROWSER_URL || "http://127.0.0.1:9394";
@@ -124,7 +129,7 @@ export class WorkspaceConversationPane extends LitElement {
         ${isQueued
           ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
           : nothing}
-        ${this.quickButtonsTemplate ?? this.renderQuickButtons()}
+        ${this.renderQuickButtonsArea()}
         <textarea
           class="message-input"
           rows="2"
@@ -168,6 +173,26 @@ export class WorkspaceConversationPane extends LitElement {
     if (changedProperties.has("messages")) {
       this.scrollMessagesToBottom();
     }
+    if (changedProperties.has("quickButtons") || changedProperties.has("quickButtonsTemplate")) {
+      this.quickButtonsExpanded = false;
+    }
+    if (
+      changedProperties.has("quickButtons") ||
+      changedProperties.has("quickButtonsTemplate") ||
+      changedProperties.has("showFileBrowser")
+    ) {
+      this.updateQuickButtonsCollapseState();
+    }
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener("resize", this.handleViewportResize);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener("resize", this.handleViewportResize);
+    super.disconnectedCallback();
   }
 
   focusComposer() {
@@ -196,6 +221,40 @@ export class WorkspaceConversationPane extends LitElement {
             ${text}
           </button>
         `)}
+      </div>
+    `;
+  }
+
+  private renderQuickButtonsArea() {
+    if (!this.quickButtonsTemplate && this.quickButtons.length === 0) {
+      return nothing;
+    }
+
+    const shouldCollapse = this.quickButtonsOverflowing && this.isMobileViewport();
+
+    return html`
+      <div
+        class=${[
+          "quick-buttons-region",
+          shouldCollapse ? "is-collapsible" : "",
+          shouldCollapse && !this.quickButtonsExpanded ? "is-collapsed" : "",
+          shouldCollapse && this.quickButtonsExpanded ? "is-expanded" : "",
+        ].filter(Boolean).join(" ")}
+      >
+        <div class="quick-buttons-viewport">
+          ${this.quickButtonsTemplate ?? this.renderQuickButtons()}
+        </div>
+        ${shouldCollapse
+          ? html`
+              <button
+                class="quick-buttons-toggle"
+                type="button"
+                @click=${this.toggleQuickButtonsExpanded}
+              >
+                ${this.quickButtonsExpanded ? "收起" : "展开更多"}
+              </button>
+            `
+          : nothing}
       </div>
     `;
   }
@@ -236,6 +295,32 @@ export class WorkspaceConversationPane extends LitElement {
         composed: true,
       }),
     );
+  }
+
+  private handleViewportResize = () => {
+    this.updateQuickButtonsCollapseState();
+  };
+
+  private toggleQuickButtonsExpanded = () => {
+    this.quickButtonsExpanded = !this.quickButtonsExpanded;
+  };
+
+  private isMobileViewport() {
+    return window.innerWidth <= 640;
+  }
+
+  private updateQuickButtonsCollapseState() {
+    const quickButtons = this.shadowRoot?.querySelector(".quick-buttons") as HTMLDivElement | null;
+    if (!quickButtons || !this.isMobileViewport()) {
+      this.quickButtonsOverflowing = false;
+      this.quickButtonsExpanded = false;
+      return;
+    }
+
+    this.quickButtonsOverflowing = quickButtons.scrollHeight > this.collapsedQuickButtonsHeight;
+    if (!this.quickButtonsOverflowing) {
+      this.quickButtonsExpanded = false;
+    }
   }
 
   private emitAction(action: ConversationPaneAction) {

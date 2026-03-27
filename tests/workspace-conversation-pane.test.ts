@@ -74,6 +74,46 @@ describe("workspace-conversation-pane", () => {
     expect(element.shadowRoot?.textContent).toContain("消息已同步");
   });
 
+  it("collapses quick buttons to one row on mobile and expands on toggle", async () => {
+    const element = createElement();
+    element.quickButtons = [
+      "继续执行",
+      "总结状态",
+      "补充测试",
+      "检查边界",
+      "整理说明",
+    ];
+
+    vi.stubGlobal("innerWidth", 390);
+    await element.updateComplete;
+
+    const quickButtons = element.shadowRoot?.querySelector(".quick-buttons") as HTMLDivElement | null;
+    expect(quickButtons).not.toBeNull();
+    Object.defineProperty(quickButtons, "scrollHeight", {
+      configurable: true,
+      value: 72,
+    });
+
+    (
+      element as WorkspaceConversationPane & {
+        updateQuickButtonsCollapseState: () => void;
+      }
+    ).updateQuickButtonsCollapseState();
+    await element.updateComplete;
+
+    const toggle = element.shadowRoot?.querySelector(".quick-buttons-toggle") as HTMLButtonElement | null;
+    const region = element.shadowRoot?.querySelector(".quick-buttons-region");
+
+    expect(toggle?.textContent).toContain("展开");
+    expect(region?.classList.contains("is-collapsed")).toBe(true);
+
+    toggle?.click();
+    await element.updateComplete;
+
+    expect(region?.classList.contains("is-expanded")).toBe(true);
+    expect(toggle?.textContent).toContain("收起");
+  });
+
   it("applies status accent class to the pane shell", async () => {
     const element = createElement();
     (element as WorkspaceConversationPane & { statusAccentClass?: string }).statusAccentClass =
@@ -252,6 +292,8 @@ describe("workspace-conversation-pane", () => {
     expect(cssText).toContain("background: transparent");
     expect(cssText).toContain(".dialog-dev-server-toggle[data-dev-server-state=\"running\"]");
     expect(cssText).toContain("color: var(--error-color, #f87171)");
+    expect(cssText).toContain(".quick-buttons-region.is-collapsed .quick-buttons-viewport");
+    expect(cssText).toContain(".quick-buttons-toggle");
   });
 
   it("emits dedicated header events for dev server toggle and preview open", async () => {
