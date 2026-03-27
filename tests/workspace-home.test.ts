@@ -2777,7 +2777,7 @@ describe("workspace home helpers", () => {
     ) as HTMLIFrameElement | null;
 
     expect(frame).not.toBeNull();
-    expect(frame?.src).toContain("https://6020.huajiejun.cn");
+    expect(frame?.src).toContain("https://6020.huajiejun.cn:999");
   });
 
   it("opens the web preview in a new page on mobile", async () => {

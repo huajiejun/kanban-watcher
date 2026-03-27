@@ -1,6 +1,6 @@
 // 从环境变量获取后端端口，默认 7778
 const backendPort = process.env.VITE_BACKEND_PORT || "7778";
-const devPreviewHosts = Array.from({ length: 11 }, (_, index) => `${6020 + index}.huajiejun.cn`);
+const devPreviewHosts = Array.from({ length: 11 }, (_, index) => `${6020 + index}.huajiejun.cn:999`);
 
 export const sharedViteConfig = {
   test: {

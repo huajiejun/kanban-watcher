@@ -263,7 +263,7 @@ describe("kanban-watcher-card mobile web preview", () => {
     button?.click();
     await flushCard(element);
 
-    expect(openSpy).toHaveBeenCalledWith("https://6020.huajiejun.cn", "_blank", "noopener");
+    expect(openSpy).toHaveBeenCalledWith("https://6020.huajiejun.cn:999", "_blank", "noopener");
     expect(element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
   });
 
