@@ -380,6 +380,7 @@ export class WorkspaceTodoPanel extends LitElement {
       this.completedTodos = [];
     } finally {
       this.isLoading = false;
+      this.requestUpdate();
     }
   }
 
@@ -403,6 +404,7 @@ export class WorkspaceTodoPanel extends LitElement {
     if (!content || this.isAdding) return;
 
     this.isAdding = true;
+    this.requestUpdate();
     try {
       await createWorkspaceTodo({
         baseUrl: this.baseUrl,
@@ -416,6 +418,7 @@ export class WorkspaceTodoPanel extends LitElement {
       // silently fail on add error
     } finally {
       this.isAdding = false;
+      this.requestUpdate();
     }
   };
 
@@ -464,11 +467,13 @@ export class WorkspaceTodoPanel extends LitElement {
   private handleStartEdit = (todo: WorkspaceTodo) => {
     this.editingTodoId = todo.id;
     this.editText = todo.content;
+    this.requestUpdate();
   };
 
   private handleCancelEdit = () => {
     this.editingTodoId = null;
     this.editText = "";
+    this.requestUpdate();
   };
 
   private handleSaveEdit = async (todo: WorkspaceTodo) => {
@@ -534,6 +539,7 @@ export class WorkspaceTodoPanel extends LitElement {
 
   private toggleArchived = () => {
     this.showArchived = !this.showArchived;
+    this.requestUpdate();
   };
 
   private handleClose = () => {
