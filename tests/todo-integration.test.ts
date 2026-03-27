@@ -80,6 +80,19 @@ async function renderApiCard(options: { baseUrl?: string; apiKey?: string } = {}
   return card;
 }
 
+async function renderEntityCard(workspaces: KanbanWorkspace[]) {
+  const card = document.createElement(
+    "kanban-watcher-card",
+  ) as KanbanWatcherCardElement;
+  card.setConfig({
+    entity: entityId,
+  });
+  card.hass = createHass(workspaces);
+  document.body.append(card);
+  await settleCard(card);
+  return card;
+}
+
 async function settleCard(card: KanbanWatcherCardElement) {
   await Promise.resolve();
   await Promise.resolve();
@@ -104,6 +117,25 @@ describe("Todo Integration", () => {
     document.body.innerHTML = "";
     vi.restoreAllMocks();
     MockWebSocket.reset();
+  });
+
+  it("prefers timestamp recalculation over entity relative_time in mobile card mode", async () => {
+    await import("../src/index");
+
+    const card = await renderEntityCard([
+      {
+        id: "ws-mobile-time",
+        name: "手机端时间任务",
+        status: "completed",
+        latest_process_completed_at: "2026-03-20T12:00:00Z",
+        updated_at: "2026-03-21T11:59:50Z",
+        relative_time: "just now",
+      },
+    ]);
+
+    const cardText = card.shadowRoot?.querySelector(".task-card")?.textContent ?? "";
+    expect(cardText).toContain("1d ago");
+    expect(cardText).not.toContain("just now");
   });
 
   describe("TodoProgressPopup component", () => {
