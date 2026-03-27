@@ -392,7 +392,7 @@ export class WorkspaceTodoPanel extends LitElement {
   }
 
   private async loadTodos() {
-    if (!this.workspaceId || !this.baseUrl) return;
+    if (!this.workspaceId) return;
     this.isLoading = true;
 
     try {
