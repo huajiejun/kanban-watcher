@@ -573,18 +573,6 @@ func (s *SyncService) consumeProcessLogs(
 					fmt.Fprintf(os.Stderr, "构建 process entry 失败 [%s]: %v\n", processID, err)
 					continue
 				}
-				if existingEntry != nil && !entry.EntryTimestamp.Equal(existingEntry.EntryTimestamp) {
-					fmt.Fprintf(
-						os.Stderr,
-						"process entry 时间戳变化 [%s:%d] old=%s new=%s type=%s raw=%q\n",
-						processID,
-						patch.EntryIndex,
-						existingEntry.EntryTimestamp.Format(time.RFC3339Nano),
-						entry.EntryTimestamp.Format(time.RFC3339Nano),
-						entry.EntryType,
-						patch.Entry.Timestamp,
-					)
-				}
 				shouldPersist := shouldPersistProcessEntryUpdate(existingEntry, entry)
 				shouldBroadcast := shouldBroadcastRealtimeEntry(existingEntry, entry)
 				s.tracef(
@@ -689,9 +677,10 @@ func (s *SyncService) buildProcessEntry(
 		} else if processCreatedAt != nil {
 			entryTime = *processCreatedAt
 			timestampSource = store.ProcessEntryTimestampSourceProcessCreatedAt
-			fmt.Fprintf(
-				os.Stderr,
-				"entry_timestamp 缺失，使用 process.created_at 兜底 [%s:%d] raw=%q fallback=%s\n",
+			s.tracef(
+				"entry timestamp fallback workspace=%s session=%s process=%s idx=%d raw=%q fallback=%s",
+				workspaceID,
+				sessionID,
 				processID,
 				patch.EntryIndex,
 				patch.Entry.Timestamp,
