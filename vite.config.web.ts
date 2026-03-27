@@ -4,6 +4,7 @@ import { sharedViteConfig } from "./vite.shared";
 
 export default defineConfig({
   ...sharedViteConfig,
+  base: "./",
   build: {
     outDir: "dist/web",
     rollupOptions: {

@@ -28,10 +28,22 @@ describe("preview page config", () => {
       new URL("http://localhost:5173/preview?base_url=&api_key=&messages_limit=0"),
     );
 
-    // 当 URL 参数为空时，使用环境变量（.env.local）或默认值
-    expect(options.baseUrl).toBe("http://127.0.0.1:7778");
+    // 当 URL 参数为空时，默认走相对路径代理，避免浏览器直连后端端口
+    expect(options.baseUrl).toBe("");
     expect(options.apiKey).toBe(import.meta.env.VITE_API_KEY || "");
     expect(options.messagesLimit).toBeUndefined();
+  });
+
+  it("describes relative proxy mode when base_url is empty", () => {
+    expect(
+      describePreviewMode({
+        baseUrl: "",
+        messagesLimit: 30,
+      }),
+    ).toEqual({
+      title: "当前预览：真实 API",
+      detail: "预览页正在直连 （通过 Vite 代理），弹窗首次加载 30 条消息。",
+    });
   });
 
   it("builds API card config when base_url is provided", () => {

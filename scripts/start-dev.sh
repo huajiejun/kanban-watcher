@@ -264,7 +264,8 @@ show_status() {
     echo "访问地址:"
     echo "  本地前端: http://localhost:$FRONTEND_PORT"
     echo "  本地后端: http://localhost:$BACKEND_PORT"
-    echo "  外网访问: http://47.96.112.110:2453/$FRONTEND_PORT/"
+    echo "  外网前端入口: http://47.96.112.110:2453/$FRONTEND_PORT/"
+    echo "  外网 API 入口: http://47.96.112.110:2453/$FRONTEND_PORT/api/"
     echo "============================================"
 }
 
@@ -407,7 +408,9 @@ start_services() {
     echo "  后端: http://localhost:$BACKEND_PORT"
     echo ""
     echo "外网访问 (通过 Nginx 代理):"
-    echo "  http://47.96.112.110:2453/$FRONTEND_PORT/"
+    echo "  前端入口: http://47.96.112.110:2453/$FRONTEND_PORT/"
+    echo "  API 入口: http://47.96.112.110:2453/$FRONTEND_PORT/api/"
+    echo "  说明: 浏览器应始终访问前端入口，由 Nginx 转发 /api 和 WebSocket 到后端 $BACKEND_PORT"
     echo ""
     echo "日志文件:"
     echo "  后端: $BACKEND_LOG_FILE"

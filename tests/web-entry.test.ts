@@ -12,5 +12,7 @@ describe("web entry page mode", () => {
     expect(getPageMode(new URL("http://localhost:5173/preview"))).toBe("preview");
     expect(getPageMode(new URL("http://localhost:5173/preview/"))).toBe("preview");
     expect(getPageMode(new URL("http://localhost:5173/preview?foo=bar"))).toBe("preview");
+    expect(getPageMode(new URL("http://localhost:2453/6020/preview"))).toBe("preview");
+    expect(getPageMode(new URL("http://localhost:2453/6020/preview/"))).toBe("preview");
   });
 });

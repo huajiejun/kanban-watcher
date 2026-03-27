@@ -32,6 +32,7 @@ describe("build config", () => {
   });
 
   it("builds the web app as a multi-page site", () => {
+    expect(webConfig.base).toBe("./");
     expect(webConfig.build?.outDir).toBe("dist/web");
     expect(webConfig.build?.lib).toBeUndefined();
     expect(webConfig.build?.rollupOptions?.input).toMatchObject({
