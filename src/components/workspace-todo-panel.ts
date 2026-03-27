@@ -9,7 +9,6 @@ import {
 } from "../lib/http-api";
 
 const ICONS = {
-  send: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
   check: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
   edit: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   trash: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
@@ -184,6 +183,15 @@ export class WorkspaceTodoPanel extends LitElement {
       border-color: #3b82f6;
     }
 
+    .todo-checkbox:disabled {
+      cursor: not-allowed;
+      opacity: 0.4;
+    }
+
+    .todo-checkbox:disabled:hover {
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
     .todo-checkbox svg {
       display: none;
     }
@@ -231,6 +239,12 @@ export class WorkspaceTodoPanel extends LitElement {
     .todo-action-btn.btn-delete:hover {
       background: rgba(239, 68, 68, 0.15);
       color: #f87171;
+    }
+
+    .todo-action-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
     }
 
     .todo-edit-input {
@@ -352,12 +366,14 @@ export class WorkspaceTodoPanel extends LitElement {
     baseUrl: { type: String, attribute: false },
     apiKey: { type: String, attribute: false },
     open: { type: Boolean, reflect: true },
+    isRunning: { type: Boolean, attribute: false },
   };
 
   workspaceId = "";
   baseUrl = "";
   apiKey = "";
   open = false;
+  isRunning = false;
 
   private todos: WorkspaceTodo[] = [];
   private pendingTodos: WorkspaceTodo[] = [];
@@ -450,20 +466,16 @@ export class WorkspaceTodoPanel extends LitElement {
     this.requestUpdate();
   };
 
-  private handleToggleComplete = async (todo: WorkspaceTodo) => {
-    try {
-      await updateWorkspaceTodo({
-        baseUrl: this.baseUrl,
-        apiKey: this.apiKey,
-        workspaceId: this.workspaceId,
-        todoId: todo.id,
-        content: todo.content,
-        isCompleted: !todo.is_completed,
-      });
-      await this.loadTodos();
-    } catch {
-      // silently fail
-    }
+  private handleToggleComplete = (todo: WorkspaceTodo) => {
+    if (this.isRunning) return;
+    this.dispatchEvent(
+      new CustomEvent<{ content: string; todoId: string }>("todo-selected", {
+        detail: { content: todo.content, todoId: todo.id },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    this.open = false;
   };
 
   private handleDelete = async (todo: WorkspaceTodo) => {
@@ -526,17 +538,6 @@ export class WorkspaceTodoPanel extends LitElement {
     this.editText = (e.target as HTMLInputElement).value;
   };
 
-  private handleSend = (todo: WorkspaceTodo) => {
-    this.dispatchEvent(
-      new CustomEvent<{ content: string; todoId: string }>("todo-selected", {
-        detail: { content: todo.content, todoId: todo.id },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-    this.open = false;
-  };
-
   private handleRestore = async (todo: WorkspaceTodo) => {
     try {
       await updateWorkspaceTodo({
@@ -574,20 +575,18 @@ export class WorkspaceTodoPanel extends LitElement {
     }
   };
 
-  private handleDoubleClick = (todo: WorkspaceTodo) => {
-    this.handleSend(todo);
-  };
-
   private renderPendingItem(todo: WorkspaceTodo) {
     const isEditing = this.editingTodoId === todo.id;
 
     return html`
-      <div class="todo-item" @dblclick=${() => this.handleDoubleClick(todo)}>
+      <div class="todo-item">
         <div
           class="todo-checkbox"
           role="checkbox"
           aria-checked="false"
           tabindex="0"
+          title="发送并完成"
+          ?disabled=${this.isRunning}
           @click=${() => this.handleToggleComplete(todo)}
           @keydown=${(e: KeyboardEvent) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -613,22 +612,6 @@ export class WorkspaceTodoPanel extends LitElement {
             : html`
                 <button
                   class="todo-action-btn"
-                  title="发送到对话"
-                  type="button"
-                  @click=${() => this.handleSend(todo)}
-                >
-                  ${unsafeSVG(ICONS.send)}
-                </button>
-                <button
-                  class="todo-action-btn"
-                  title="完成"
-                  type="button"
-                  @click=${() => this.handleToggleComplete(todo)}
-                >
-                  ${unsafeSVG(ICONS.check)}
-                </button>
-                <button
-                  class="todo-action-btn"
                   title="编辑"
                   type="button"
                   @click=${() => this.handleStartEdit(todo)}
@@ -639,6 +622,7 @@ export class WorkspaceTodoPanel extends LitElement {
                   class="todo-action-btn btn-delete"
                   title="删除"
                   type="button"
+                  ?disabled=${this.isRunning}
                   @click=${() => this.handleDelete(todo)}
                 >
                   ${unsafeSVG(ICONS.trash)}

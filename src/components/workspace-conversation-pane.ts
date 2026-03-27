@@ -188,6 +188,7 @@ export class WorkspaceConversationPane extends LitElement {
         .baseUrl=${this.todoBaseUrl}
         .apiKey=${this.todoApiKey}
         .open=${this.showTodoPanel}
+        .isRunning=${this.isRunning}
         @todo-selected=${this.handleTodoSelected}
         @todo-count-change=${this.handleTodoCountChange}
         @close=${this.closeTodoPanel}
