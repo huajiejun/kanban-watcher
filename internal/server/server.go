@@ -809,6 +809,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 
 // handleWorkspaces 处理 /api/workspaces/ 相关请求
 // PUT /api/workspaces/{id}/seen - 标记工作区为已读
+// GET /api/workspaces/{id}/latest-messages - 获取工作区最新消息
 func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
 	parts := strings.Split(path, "/")
@@ -816,6 +817,12 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 	// PUT /api/workspaces/{id}/seen
 	if len(parts) == 2 && parts[1] == "seen" && r.Method == http.MethodPut {
 		s.handleWorkspaceSeen(w, r, parts[0])
+		return
+	}
+
+	// GET /api/workspaces/{id}/latest-messages
+	if len(parts) == 2 && parts[1] == "latest-messages" && r.Method == http.MethodGet {
+		api.HandleWorkspaceLatestMessages(w, r, s.store)
 		return
 	}
 

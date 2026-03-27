@@ -88,9 +88,8 @@ func GetMessageRoutes(dbStore *store.Store, browserURLTemplate string, publisher
 		"/api/workspaces/active": func(w http.ResponseWriter, r *http.Request) {
 			handleActiveWorkspaces(w, r, dbStore, browserURLTemplate)
 		},
-		"/api/workspaces/": func(w http.ResponseWriter, r *http.Request) {
-			handleWorkspaceRequest(w, r, dbStore, realtimePublisher)
-		},
+		// 注意：/api/workspaces/ 路由由 server.go 的 handleWorkspaces 统一处理
+		// 包括：/api/workspaces/{id}/seen（代理到 vibe-kanban）和 /api/workspaces/{id}/latest-messages
 	}
 }
 
@@ -274,7 +273,8 @@ func BuildLocalMenuSummary(summary store.ActiveWorkspaceSummary) (string, string
 	return "", "empty"
 }
 
-func handleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
+// HandleWorkspaceLatestMessages 处理获取工作区最新消息的请求
+func HandleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -302,26 +302,6 @@ func handleWorkspaceLatestMessages(w http.ResponseWriter, r *http.Request, dbSto
 	}
 
 	getSessionMessagesInternal(w, r, dbStore, *workspace.LatestSessionID, workspace.Name)
-}
-
-// handleWorkspaceRequest 处理工作区相关请求
-// 注意：/api/workspaces/{id}/seen 由 server.go 的 handleWorkspaces 处理（代理到 vibe-kanban）
-func handleWorkspaceRequest(w http.ResponseWriter, r *http.Request, dbStore *store.Store, _ *RealtimePublisher) {
-	if dbStore == nil {
-		http.Error(w, "数据库未初始化", http.StatusInternalServerError)
-		return
-	}
-
-	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
-	parts := strings.Split(path, "/")
-
-	// GET /api/workspaces/{id}/latest-messages
-	if len(parts) == 2 && parts[1] == "latest-messages" && r.Method == http.MethodGet {
-		handleWorkspaceLatestMessages(w, r, dbStore)
-		return
-	}
-
-	http.Error(w, "Invalid path", http.StatusBadRequest)
 }
 
 func handleSessionMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store) {
