@@ -2,6 +2,7 @@ import { LitElement, css, html } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 
 import { renderMessageMarkdown } from "../lib/render-message-markdown";
+import "./diff-stats-tag";
 
 const AUTO_SCROLL_TOLERANCE_PX = 8;
 
@@ -231,11 +232,13 @@ export class WorkspacePreviewCard extends LitElement {
     workspaceName: { attribute: false },
     statusAccentClass: { attribute: false },
     previewLines: { attribute: false },
+    diffStats: { attribute: false },
   };
 
   workspaceName = "";
   statusAccentClass = "is-idle";
   previewLines: string[] = [];
+  diffStats: { files_changed: number; lines_added: number; lines_removed: number } | undefined;
   private shouldAutoScroll = true;
 
   protected render() {

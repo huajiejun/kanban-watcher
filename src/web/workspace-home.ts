@@ -1776,6 +1776,7 @@ export class KanbanWorkspaceHome extends LitElement {
         .workspaceName=${workspace.name}
         .statusAccentClass=${statusAccentClass}
         .previewLines=${previewLines}
+        .diffStats=${workspace.diff_stats}
         @preview-activate=${() => this.handleOpenWorkspace(workspace)}
         @preview-close=${() => this.handleCloseWorkspace(workspace)}
       ></workspace-preview-card>
