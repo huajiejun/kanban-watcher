@@ -1823,7 +1823,6 @@ export class KanbanWorkspaceHome extends LitElement {
         .canQueue=${Boolean(isRunning || queueStatus?.status === "queued")}
         .devServerState=${this.getWorkspaceDevServerState(workspace)}
         .showWorkspaceWebPreview=${this.shouldShowWorkspaceWebPreview(workspace)}
-        .showDevServerPreview=${this.getWorkspaceDevServerState(workspace) === "running"}
         .todoBaseUrl=${this.previewOptions.baseUrl ?? ""}
         .todoApiKey=${this.previewOptions.apiKey}
         .todoPendingCount=${this.todoPendingCountByWorkspace[workspace.id] ?? 0}
@@ -1833,7 +1832,6 @@ export class KanbanWorkspaceHome extends LitElement {
           void this.handlePaneAction(workspace, event.detail)}
         @dev-server-toggle=${() => void this.handleWorkspaceDevServerToggle(workspace)}
         @workspace-web-preview-toggle=${() => void this.handleOpenWebPreview(workspace)}
-        @dev-server-preview-toggle=${() => void this.handleOpenPreviewDrawer(workspace)}
         @pane-close=${() => this.handleCloseWorkspace(workspace)}
         @todo-selected=${(event: CustomEvent<{ content: string; todoId: string }>) =>
           void this.handleTodoSelected(workspace, event.detail)}

@@ -32,7 +32,6 @@ export class WorkspaceConversationPane extends LitElement {
     canQueue: { type: Boolean },
     devServerState: { attribute: false },
     showWorkspaceWebPreview: { type: Boolean },
-    showDevServerPreview: { type: Boolean },
     showFileBrowser: { type: Boolean },
     todoBaseUrl: { attribute: false },
     todoApiKey: { attribute: false },
@@ -60,7 +59,6 @@ export class WorkspaceConversationPane extends LitElement {
   canQueue = false;
   devServerState: DevServerState = "idle";
   showWorkspaceWebPreview = false;
-  showDevServerPreview = false;
   showFileBrowser = false;
   todoBaseUrl = "";
   todoApiKey = "";
@@ -161,18 +159,6 @@ export class WorkspaceConversationPane extends LitElement {
           >
             ${devServerToggleSymbol}
           </button>
-          ${this.showDevServerPreview
-            ? html`
-                <button
-                  class="dialog-dev-server-preview"
-                  type="button"
-                  aria-label="打开开发服务器预览"
-                  @click=${this.handleDevServerPreviewToggle}
-                >
-                  🖥
-                </button>
-              `
-            : nothing}
           <button
             class="dialog-close"
             type="button"
@@ -431,15 +417,6 @@ export class WorkspaceConversationPane extends LitElement {
   private handleDevServerToggle = () => {
     this.dispatchEvent(
       new CustomEvent("dev-server-toggle", {
-        bubbles: true,
-        composed: true,
-      }),
-    );
-  };
-
-  private handleDevServerPreviewToggle = () => {
-    this.dispatchEvent(
-      new CustomEvent("dev-server-preview-toggle", {
         bubbles: true,
         composed: true,
       }),

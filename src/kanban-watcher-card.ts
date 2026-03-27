@@ -366,7 +366,6 @@ export class KanbanWatcherCard extends LitElement {
             .canQueue=${canQueue}
             .devServerState=${this.getWorkspaceDevServerState(workspace)}
             .showWorkspaceWebPreview=${this.shouldShowWorkspaceWebPreview(workspace)}
-            .showDevServerPreview=${this.getWorkspaceDevServerState(workspace) === "running"}
             .todoBaseUrl=${this.config?.base_url ?? ""}
             .todoApiKey=${this.config?.api_key}
             .todoPendingCount=${this.todoPendingCount}
