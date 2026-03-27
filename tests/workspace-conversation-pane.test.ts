@@ -285,6 +285,30 @@ describe("workspace-conversation-pane", () => {
     expect(preview).not.toBeNull();
   });
 
+  it("renders the workspace web preview entry as a gray svg icon without emoji background", async () => {
+    const element = createElement();
+    (element as WorkspaceConversationPane & { showWorkspaceWebPreview?: boolean }).showWorkspaceWebPreview =
+      true;
+
+    await element.updateComplete;
+
+    const button = element.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement | null;
+    const icon = button?.querySelector(".dialog-web-preview-icon");
+
+    expect(button).not.toBeNull();
+    expect(icon?.tagName).toBe("svg");
+    expect(button?.textContent).not.toContain("🌐");
+  });
+
+  it("does not render the workspace web preview entry when the dev server is not running", async () => {
+    const element = createElement();
+
+    await element.updateComplete;
+
+    const button = element.shadowRoot?.querySelector(".dialog-web-preview");
+    expect(button).toBeNull();
+  });
+
   it("declares transparent header controls and a red running dev server toggle", () => {
     const cssText = Array.isArray(cardStyles)
       ? cardStyles.map((style) => style.cssText).join("\n")

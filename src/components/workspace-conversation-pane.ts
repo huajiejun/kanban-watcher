@@ -28,6 +28,7 @@ export class WorkspaceConversationPane extends LitElement {
     isRunning: { type: Boolean },
     canQueue: { type: Boolean },
     devServerState: { attribute: false },
+    showWorkspaceWebPreview: { type: Boolean },
     showDevServerPreview: { type: Boolean },
     showFileBrowser: { type: Boolean },
     quickButtonsExpanded: { state: true },
@@ -49,6 +50,7 @@ export class WorkspaceConversationPane extends LitElement {
   isRunning = false;
   canQueue = false;
   devServerState: DevServerState = "idle";
+  showWorkspaceWebPreview = false;
   showDevServerPreview = false;
   showFileBrowser = false;
   private quickButtonsExpanded = false;
@@ -57,6 +59,7 @@ export class WorkspaceConversationPane extends LitElement {
 
   // File Browser 配置
   private readonly FILE_BROWSER_LOCAL_URL = import.meta.env.VITE_FILE_BROWSER_URL || "http://127.0.0.1:9394";
+  private readonly FILE_BROWSER_REMOTE_URL = import.meta.env.VITE_FILE_BROWSER_REMOTE_URL || "https://file.huajiejun.cn";
 
   protected render() {
     const isQueued = this.queueStatus?.status === "queued";
@@ -81,6 +84,48 @@ export class WorkspaceConversationPane extends LitElement {
           >
             📁
           </button>
+          ${this.showWorkspaceWebPreview
+            ? html`
+                <button
+                  class="dialog-web-preview"
+                  type="button"
+                  aria-label="打开快捷网页"
+                  @click=${this.handleWorkspaceWebPreviewToggle}
+                >
+                  <svg
+                    class="dialog-web-preview-icon"
+                    viewBox="0 0 20 20"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="M10 2.25a7.75 7.75 0 1 1 0 15.5a7.75 7.75 0 0 1 0-15.5Z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                    />
+                    <path
+                      d="M10 2.75c2.05 2.08 3.2 4.66 3.2 7.25S12.05 15.17 10 17.25c-2.05-2.08-3.2-4.66-3.2-7.25S7.95 4.83 10 2.75Z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                    />
+                    <path
+                      d="M3 10h14M4.6 5.5h10.8M4.6 14.5h10.8"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                    />
+                  </svg>
+                </button>
+              `
+            : nothing}
           <button
             class="dialog-dev-server-toggle"
             type="button"
@@ -362,6 +407,15 @@ export class WorkspaceConversationPane extends LitElement {
     );
   };
 
+  private handleWorkspaceWebPreviewToggle = () => {
+    this.dispatchEvent(
+      new CustomEvent("workspace-web-preview-toggle", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
   private toggleFileBrowser = () => {
     this.showFileBrowser = !this.showFileBrowser;
   };
@@ -370,14 +424,39 @@ export class WorkspaceConversationPane extends LitElement {
     this.showFileBrowser = false;
   };
 
+  private isLocalAccess(): boolean {
+    const hostname = window.location.hostname;
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname.startsWith("192.168.") ||
+      hostname.startsWith("10.")
+    );
+  }
+
   private getFileBrowserUrl(): string {
+    // iframe 使用根据访问方式选择 URL
+    const baseUrl = this.isLocalAccess()
+      ? this.FILE_BROWSER_LOCAL_URL
+      : this.FILE_BROWSER_REMOTE_URL;
+
     if (!this.workspacePath) {
-      return this.FILE_BROWSER_LOCAL_URL;
+      return baseUrl;
     }
-    // 从环境变量获取 File Browser 根目录前缀
+    // 从环境变量获取 File Browser 根目录前缀（需与远程 File Browser 配置的 root 一致）
     const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
     const relativePath = this.workspacePath.replace(fbRootPrefix, '');
-    return `${this.FILE_BROWSER_LOCAL_URL}/files/${relativePath}`;
+    return `${baseUrl}/files/${relativePath}`;
+  }
+
+  private getFileBrowserExternalUrl(): string {
+    // 新窗口打开链接始终使用远程 URL
+    if (!this.workspacePath) {
+      return this.FILE_BROWSER_REMOTE_URL;
+    }
+    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
+    const relativePath = this.workspacePath.replace(fbRootPrefix, '');
+    return `${this.FILE_BROWSER_REMOTE_URL}/files/${relativePath}`;
   }
 
   private renderFileBrowser() {
@@ -389,7 +468,7 @@ export class WorkspaceConversationPane extends LitElement {
             <div class="file-browser-actions">
               <a
                 class="file-browser-link"
-                href=${this.getFileBrowserUrl()}
+                href=${this.getFileBrowserExternalUrl()}
                 target="_blank"
                 title="在新窗口打开"
               >

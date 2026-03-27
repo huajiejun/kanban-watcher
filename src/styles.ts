@@ -313,7 +313,7 @@ export const workspaceHomeStyles = css`
     justify-content: space-between;
     gap: 6px;
     width: auto;
-    min-height: 44px;
+    min-height: 36px;
     padding: 0 12px;
     border-radius: 0 8px 8px 0;
     border: 0;
@@ -454,6 +454,68 @@ export const workspaceHomeStyles = css`
   .workspace-home-pane-preview-rail workspace-preview-card {
     flex: 1 1 0;
     min-height: 0;
+  }
+
+  .workspace-home-web-preview-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    background: rgba(15, 23, 42, 0.56);
+    backdrop-filter: blur(8px);
+  }
+
+  .workspace-home-web-preview-modal {
+    width: min(1120px, 100%);
+    height: min(760px, calc(100vh - 120px));
+    border-radius: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.96);
+    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.42);
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .workspace-home-web-preview-modal.is-mobile {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .workspace-home-web-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  .workspace-home-web-preview-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .workspace-home-web-preview-close {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .workspace-home-web-preview-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #020617;
   }
 
   .workspace-home-placeholder {
@@ -769,7 +831,8 @@ export const cardStyles = css`
   }
 
   .dialog-dev-server-toggle,
-  .dialog-dev-server-preview {
+  .dialog-dev-server-preview,
+  .dialog-web-preview {
     width: 32px;
     height: 32px;
     border: 0;
@@ -790,9 +853,31 @@ export const cardStyles = css`
   }
 
   .dialog-dev-server-toggle:disabled,
-  .dialog-dev-server-preview:disabled {
+  .dialog-dev-server-preview:disabled,
+  .dialog-web-preview:disabled {
     cursor: default;
     opacity: 0.72;
+  }
+
+  .dialog-web-preview {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--secondary-text-color, #94a3b8);
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+
+  .dialog-web-preview:hover,
+  .dialog-web-preview:focus-visible {
+    background: color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+    outline: none;
+  }
+
+  .dialog-web-preview-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
   }
 
   .dialog-close {

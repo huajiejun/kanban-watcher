@@ -141,6 +141,16 @@ export interface WorkspaceMessageResponse {
   execution_processes?: ExecutionProcessDetail[];
 }
 
+export interface WorkspaceFrontendPortResponse {
+  success?: boolean;
+  data?: {
+    workspace_id?: string;
+    frontend_port?: number;
+    backend_port?: number;
+  };
+  message?: string;
+}
+
 export interface WorkspaceQueueStatusResponse {
   success?: boolean;
   workspace_id?: string;
