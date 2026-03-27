@@ -1323,7 +1323,7 @@ describe("workspace home helpers", () => {
             {
               id: "ws-attention",
               name: "需要处理的任务",
-              status: "completed",
+              status: "running",
               latest_session_id: "session-1",
               has_pending_approval: true,
               has_unseen_turns: true,
@@ -1344,6 +1344,12 @@ describe("workspace home helpers", () => {
               timestamp: "2026-03-24T12:00:00Z",
             },
           ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/queue-status")) {
+        return createJsonResponse({
+          status: "empty",
         });
       }
 
@@ -1384,6 +1390,162 @@ describe("workspace home helpers", () => {
     const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
 
     expect(paneShadowRoot?.textContent).toContain("实时追加消息");
+  });
+
+  it("ignores realtime appended messages for an idle pane when the last message is already terminal", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-idle",
+              name: "已结束任务",
+              status: "completed",
+              latest_session_id: "session-idle",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-idle/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              process_id: "proc-idle",
+              entry_index: 1,
+              entry_type: "tool_use",
+              content: "命令已完成",
+              timestamp: "2026-03-24T12:00:00Z",
+              tool_info: {
+                tool_name: "命令",
+                status: "completed",
+                action_type: {
+                  action: "command_run",
+                  command: "echo done",
+                },
+              },
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+
+    FakeWebSocket.instances[1]?.emitOpen();
+    FakeWebSocket.instances[1]?.emitMessage({
+      type: "session_messages_appended",
+      session_id: "session-idle",
+      messages: [
+        {
+          process_id: "proc-idle",
+          entry_index: 2,
+          role: "assistant",
+          content: "这条消息不该再进入空闲卡片",
+          timestamp: "2026-03-24T12:01:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+    const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
+
+    expect(paneShadowRoot?.textContent).not.toContain("这条消息不该再进入空闲卡片");
+  });
+
+  it("still appends realtime messages for an idle pane when the last message is non-terminal", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-idle-running-tail",
+              name: "仍在刷流的空闲任务",
+              status: "completed",
+              latest_session_id: "session-tail",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-idle-running-tail/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              process_id: "proc-tail",
+              entry_index: 1,
+              entry_type: "tool_use",
+              content: "命令仍在运行",
+              timestamp: "2026-03-24T12:00:00Z",
+              tool_info: {
+                tool_name: "命令",
+                status: "running",
+                action_type: {
+                  action: "command_run",
+                  command: "sleep 1",
+                },
+              },
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+
+    FakeWebSocket.instances[1]?.emitOpen();
+    FakeWebSocket.instances[1]?.emitMessage({
+      type: "session_messages_appended",
+      session_id: "session-tail",
+      messages: [
+        {
+          process_id: "proc-tail",
+          entry_index: 2,
+          role: "assistant",
+          content: "尾部仍未终态时这条增量应被接收",
+          timestamp: "2026-03-24T12:01:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+    const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
+
+    expect(paneShadowRoot?.textContent).toContain("尾部仍未终态时这条增量应被接收");
   });
 
   it("does not reconnect the active session websocket when workspace snapshot leaves the active session unchanged", async () => {

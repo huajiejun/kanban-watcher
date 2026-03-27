@@ -1421,6 +1421,9 @@ export class KanbanWorkspaceHome extends LitElement {
     if (!workspace) {
       return;
     }
+    if (!this.shouldAcceptRealtimeMessages(workspace.id)) {
+      return;
+    }
 
     const existing = this.flattenDialogMessages(this.messagesByWorkspace[workspace.id] ?? []);
     const merged = [...existing];
@@ -1443,6 +1446,31 @@ export class KanbanWorkspaceHome extends LitElement {
       [workspace.id]: this.groupDialogMessages(merged),
     };
     this.requestUpdate();
+  }
+
+  private shouldAcceptRealtimeMessages(workspaceId: string) {
+    const workspace = this.workspaces.find((item) => item.id === workspaceId);
+    if (!workspace) {
+      return false;
+    }
+    if (workspace.status === "running") {
+      return true;
+    }
+
+    const lastMessage = (this.messagesByWorkspace[workspaceId] ?? []).at(-1);
+    if (!lastMessage) {
+      return true;
+    }
+
+    return !this.isRealtimeTerminalMessage(lastMessage);
+  }
+
+  private isRealtimeTerminalMessage(message: DialogMessage) {
+    if (message.kind === "message") {
+      return true;
+    }
+
+    return message.status !== "running" && message.status !== "pending";
   }
 
   private flattenDialogMessages(messages: DialogMessage[]) {
