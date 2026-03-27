@@ -203,6 +203,17 @@ func (s *Store) InitSchema(ctx context.Context) error {
 			continue
 		}
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
+			// 表已存在或约束/索引重复（errno 121）时跳过，不阻塞启动
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "already exists") ||
+				strings.Contains(errMsg, "1050") ||
+				strings.Contains(errMsg, "errno: 121") ||
+				strings.Contains(errMsg, "errno 121") ||
+				strings.Contains(errMsg, "1061") ||
+				strings.Contains(errMsg, "Duplicate key name") ||
+				strings.Contains(errMsg, "1005") {
+				continue
+			}
 			return fmt.Errorf("执行 schema: %w", err)
 		}
 	}
