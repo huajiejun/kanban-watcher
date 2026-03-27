@@ -54,6 +54,7 @@ export class WorkspaceConversationPane extends LitElement {
 
   // File Browser 配置
   private readonly FILE_BROWSER_LOCAL_URL = import.meta.env.VITE_FILE_BROWSER_URL || "http://127.0.0.1:9394";
+  private readonly FILE_BROWSER_REMOTE_URL = import.meta.env.VITE_FILE_BROWSER_REMOTE_URL || "https://file.huajiejun.cn";
 
   protected render() {
     const isQueued = this.queueStatus?.status === "queued";
@@ -336,14 +337,39 @@ export class WorkspaceConversationPane extends LitElement {
     this.showFileBrowser = false;
   };
 
+  private isLocalAccess(): boolean {
+    const hostname = window.location.hostname;
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname.startsWith("192.168.") ||
+      hostname.startsWith("10.")
+    );
+  }
+
   private getFileBrowserUrl(): string {
+    // iframe 使用根据访问方式选择 URL
+    const baseUrl = this.isLocalAccess()
+      ? this.FILE_BROWSER_LOCAL_URL
+      : this.FILE_BROWSER_REMOTE_URL;
+
     if (!this.workspacePath) {
-      return this.FILE_BROWSER_LOCAL_URL;
+      return baseUrl;
     }
-    // 从环境变量获取 File Browser 根目录前缀
+    // 从环境变量获取 File Browser 根目录前缀（需与远程 File Browser 配置的 root 一致）
     const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
     const relativePath = this.workspacePath.replace(fbRootPrefix, '');
-    return `${this.FILE_BROWSER_LOCAL_URL}/files/${relativePath}`;
+    return `${baseUrl}/files/${relativePath}`;
+  }
+
+  private getFileBrowserExternalUrl(): string {
+    // 新窗口打开链接始终使用远程 URL
+    if (!this.workspacePath) {
+      return this.FILE_BROWSER_REMOTE_URL;
+    }
+    const fbRootPrefix = import.meta.env.VITE_FILE_BROWSER_ROOT_PREFIX || '/Users/huajiejun/github';
+    const relativePath = this.workspacePath.replace(fbRootPrefix, '');
+    return `${this.FILE_BROWSER_REMOTE_URL}/files/${relativePath}`;
   }
 
   private renderFileBrowser() {
@@ -355,7 +381,7 @@ export class WorkspaceConversationPane extends LitElement {
             <div class="file-browser-actions">
               <a
                 class="file-browser-link"
-                href=${this.getFileBrowserUrl()}
+                href=${this.getFileBrowserExternalUrl()}
                 target="_blank"
                 title="在新窗口打开"
               >
