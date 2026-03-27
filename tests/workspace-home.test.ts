@@ -663,6 +663,40 @@ describe("workspace home helpers", () => {
     expect(card?.textContent).not.toContain("just now");
   });
 
+  it("prefers latest process completed time over a fresher last message for idle workspace cards", async () => {
+    vi.setSystemTime(new Date("2026-03-27T12:00:00Z"));
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-completed-time",
+              name: "完成时间任务",
+              status: "completed",
+              updated_at: "2026-03-27T11:59:55Z",
+              last_message_at: "2026-03-27T11:59:50Z",
+              latest_process_completed_at: "2026-03-26T10:05:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const card = element.shadowRoot?.querySelector(".task-card") as HTMLElement | null;
+    expect(card?.textContent).toContain("1d ago");
+    expect(card?.textContent).not.toContain("just now");
+  });
+
   it("keeps card relative time stable after workspace snapshot refreshes updated_at", async () => {
     vi.setSystemTime(new Date("2026-03-27T12:00:00Z"));
 
@@ -746,6 +780,68 @@ describe("workspace home helpers", () => {
     const card = element.shadowRoot?.querySelector(".task-card") as HTMLElement | null;
     expect(card?.textContent).toContain("recently");
     expect(card?.textContent).not.toContain("just now");
+  });
+
+  it("keeps desktop sidebar order stable when workspace snapshots arrive in a different order", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-beta",
+              name: "Beta 任务",
+              status: "completed",
+              updated_at: "2026-03-24T12:01:00Z",
+            },
+            {
+              id: "ws-alpha",
+              name: "Alpha 任务",
+              status: "completed",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const getSidebarNames = () =>
+      Array.from(element.shadowRoot?.querySelectorAll(".workspace-home-sidebar .workspace-name") ?? []).map(
+        (node) => node.textContent?.trim() ?? "",
+      );
+
+    expect(getSidebarNames()).toEqual(["Beta 任务", "Alpha 任务"]);
+
+    FakeWebSocket.instances[0]?.emitOpen();
+    FakeWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-alpha",
+          name: "Alpha 任务",
+          status: "completed",
+          updated_at: "2026-03-24T12:03:00Z",
+        },
+        {
+          id: "ws-beta",
+          name: "Beta 任务",
+          status: "completed",
+          updated_at: "2026-03-24T12:04:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    expect(getSidebarNames()).toEqual(["Beta 任务", "Alpha 任务"]);
   });
 
   it("does not reconfigure the mobile card on unrelated workspace-home updates", async () => {
