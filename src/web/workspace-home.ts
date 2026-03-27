@@ -958,7 +958,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private renderWorkspaceCard(workspace: KanbanWorkspace) {
     const statusMeta = getStatusMeta(workspace);
-    const relativeTime = workspace.relative_time ?? formatRelativeTime(workspace.updated_at);
+    const relativeTime = workspace.relative_time ?? formatRelativeTime(this.getWorkspaceCardTimestamp(workspace));
     const filesChanged = workspace.files_changed ?? 0;
     const linesAdded = workspace.lines_added ?? 0;
     const linesRemoved = workspace.lines_removed ?? 0;
@@ -998,6 +998,10 @@ export class KanbanWorkspaceHome extends LitElement {
           : nothing}
       </div>
     `;
+  }
+
+  private getWorkspaceCardTimestamp(workspace: KanbanWorkspace) {
+    return workspace.last_message_at || workspace.latest_process_completed_at || workspace.updated_at;
   }
 
   private get previewOptions() {
