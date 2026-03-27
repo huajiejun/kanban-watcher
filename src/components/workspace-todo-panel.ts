@@ -428,6 +428,7 @@ export class WorkspaceTodoPanel extends LitElement {
 
   private handleInputChange = (e: Event) => {
     this.newTodoContent = (e.target as HTMLInputElement).value;
+    this.requestUpdate();
   };
 
   private handleToggleComplete = async (todo: WorkspaceTodo) => {
