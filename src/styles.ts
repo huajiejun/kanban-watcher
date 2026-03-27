@@ -852,7 +852,6 @@ export const cardStyles = css`
   }
 
   .dialog-dev-server-toggle:disabled,
-  .dialog-dev-server-preview:disabled,
   .dialog-web-preview:disabled {
     cursor: default;
     opacity: 0.72;
@@ -1893,8 +1892,7 @@ export const cardStyles = css`
       height: 26px;
     }
 
-    .dialog-dev-server-toggle,
-    .dialog-dev-server-preview {
+    .dialog-dev-server-toggle {
       width: 26px;
       height: 26px;
     }
