@@ -451,19 +451,22 @@ export async function fetchWorkspaceRepos({
   default_target_branch: string | null;
 }[]> {
   return fetchJSON<{
-    id: string;
-    name: string;
-    path: string;
-    display_name: string;
-    target_branch: string;
-    default_target_branch: string | null;
-  }[]>(
+    success: boolean;
+    data?: {
+      id: string;
+      name: string;
+      path: string;
+      display_name: string;
+      target_branch: string;
+      default_target_branch: string | null;
+    }[];
+  }>(
     `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/repos`,
     {
       method: "GET",
       headers: buildHeaders(apiKey),
     },
-  );
+  ).then((result) => result.data ?? []);
 }
 
 export async function fetchRepoBranches({
@@ -525,11 +528,11 @@ export async function getFirstUserMessage({
 }: RequestOptions & {
   workspaceId: string;
 }): Promise<string> {
-  return fetchJSON<{ message?: string }>(
+  return fetchJSON<{ success: boolean; data?: string; message?: string }>(
     `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/messages/first`,
     {
       method: "GET",
       headers: buildHeaders(apiKey),
     },
-  ).then((result) => result.message ?? "");
+  ).then((result) => result.data ?? "");
 }
