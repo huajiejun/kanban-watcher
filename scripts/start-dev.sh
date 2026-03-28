@@ -261,13 +261,7 @@ show_status() {
     local websocket_main_backend
     runtime_role="$(describe_runtime_role "$BACKEND_PORT")"
     websocket_main_backend="$(describe_websocket_main_backend "$BACKEND_PORT")"
-    echo "============================================"
-    echo "Worktree ID: $WORKTREE_ID"
-    echo "后端端口: $BACKEND_PORT"
-    echo "前端端口: $FRONTEND_PORT"
-    echo "运行角色: $runtime_role"
-    echo "WebSocket 主后端: $websocket_main_backend"
-    echo "============================================"
+
 
     # 检查后端状态
     BACKEND_PID=$(get_port_pid $BACKEND_PORT)
@@ -292,6 +286,14 @@ show_status() {
     echo "  外网前端入口: http://47.96.112.110:2453/$FRONTEND_PORT/"
     echo "  外网 API 入口: http://47.96.112.110:2453/$FRONTEND_PORT/api/"
     echo "============================================"
+
+     echo "============================================"
+      echo "Worktree ID: $WORKTREE_ID"
+      echo "后端端口: $BACKEND_PORT"
+      echo "前端端口: $FRONTEND_PORT"
+      echo "运行角色: $runtime_role"
+      echo "WebSocket 主后端: $websocket_main_backend"
+      echo "============================================"
 }
 
 show_logs() {
@@ -419,13 +421,7 @@ start_services() {
     local websocket_main_backend
     runtime_role="$(describe_runtime_role "$BACKEND_PORT")"
     websocket_main_backend="$(describe_websocket_main_backend "$BACKEND_PORT")"
-    echo "============================================"
-    echo "Worktree ID: $WORKTREE_ID"
-    echo "后端端口: $BACKEND_PORT"
-    echo "前端端口: $FRONTEND_PORT"
-    echo "运行角色: $runtime_role"
-    echo "WebSocket 主后端: $websocket_main_backend"
-    echo "============================================"
+
 
     start_backend || exit 1
     start_frontend || exit 1
@@ -452,6 +448,14 @@ start_services() {
     echo "  停止: ./scripts/start-dev.sh stop $WORKTREE_ID"
     echo "  状态: ./scripts/start-dev.sh status $WORKTREE_ID"
     echo "  重启: ./scripts/start-dev.sh restart $WORKTREE_ID"
+    echo "============================================"
+
+    echo "============================================"
+    echo "Worktree ID: $WORKTREE_ID"
+    echo "后端端口: $BACKEND_PORT"
+    echo "前端端口: $FRONTEND_PORT"
+    echo "运行角色: $runtime_role"
+    echo "WebSocket 主后端: $websocket_main_backend"
     echo "============================================"
 }
 
