@@ -806,6 +806,25 @@ export class KanbanWorkspaceHome extends LitElement {
     );
   }
 
+  private handleMenuAction(workspace: KanbanWorkspace, action: string) {
+    switch (action) {
+      case "create-pr":
+        // TODO: 打开 PR 创建对话框
+        console.log("创建 PR:", workspace.id);
+        break;
+      case "open-branch":
+        // TODO: 打开分支
+        console.log("打开分支:", workspace.id);
+        break;
+      case "delete":
+        // TODO: 删除工作区
+        console.log("删除工作区:", workspace.id);
+        break;
+      default:
+        console.warn("未知菜单操作:", action);
+    }
+  }
+
   private async handleTodoSelected(workspace: KanbanWorkspace, detail: { content: string; todoId: string }) {
     if (!this.isApiMode) return;
     if (workspace.status === "running") return;
@@ -1825,6 +1844,7 @@ export class KanbanWorkspaceHome extends LitElement {
         .previewLines=${previewLines}
         @preview-activate=${() => this.handleOpenWorkspace(workspace)}
         @preview-close=${() => this.handleCloseWorkspace(workspace)}
+        @menu-action=${(e: CustomEvent) => this.handleMenuAction(workspace, e.detail.action)}
       ></workspace-preview-card>
     `;
   }
