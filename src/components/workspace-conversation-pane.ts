@@ -572,6 +572,7 @@ export class WorkspaceConversationPane extends LitElement {
     if (!messageList) {
       return;
     }
+    this.shouldAutoScroll = true;
     messageList.scrollTop = messageList.scrollHeight;
   }
 
