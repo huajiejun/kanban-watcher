@@ -80,8 +80,6 @@ import {
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
 const MOBILE_BREAKPOINT = 768;
-const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
-const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 3_000;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
 const ACTIVE_PANE_MESSAGE_TYPES = [
   "assistant_message",
@@ -175,8 +173,6 @@ export class KanbanWorkspaceHome extends LitElement {
   suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
-  private refreshTimer?: number;
-  private dialogRefreshTimer?: number;
   private boardRealtimeRetryTimer?: number;
   private realtimeRetryTimer?: number;
   private boardRealtimeSocket?: WebSocket;
@@ -222,7 +218,6 @@ export class KanbanWorkspaceHome extends LitElement {
       writePersistedWorkspacePageState(this.pageState);
       if (this.isApiMode) {
         void this.pushWorkspaceView();
-        this.updateDialogPolling();
       }
     }
     if (this.isApiMode && (changedProperties.has("pageState") || changedProperties.has("workspaces"))) {
@@ -375,7 +370,6 @@ export class KanbanWorkspaceHome extends LitElement {
     await this.loadWorkspaces();
     if (!this.apiAccessBlocked) {
       this.connectBoardRealtimeIfNeeded();
-      this.startBoardPolling();
     }
   }
 
@@ -1294,8 +1288,6 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private stopRealtimeSync() {
-    this.stopBoardPolling();
-    this.stopDialogPolling();
     if (this.boardRealtimeRetryTimer) {
       window.clearTimeout(this.boardRealtimeRetryTimer);
       this.boardRealtimeRetryTimer = undefined;
@@ -1318,53 +1310,6 @@ export class KanbanWorkspaceHome extends LitElement {
     this.realtimeConnected = false;
   }
 
-  private startBoardPolling() {
-    if (this.refreshTimer) {
-      return;
-    }
-    this.refreshTimer = window.setInterval(() => {
-      void this.loadWorkspaces();
-    }, DEFAULT_REFRESH_INTERVAL_MS);
-  }
-
-  private stopBoardPolling() {
-    if (!this.refreshTimer) {
-      return;
-    }
-    window.clearInterval(this.refreshTimer);
-    this.refreshTimer = undefined;
-  }
-
-  private startDialogPolling() {
-    if (this.dialogRefreshTimer) {
-      return;
-    }
-    this.dialogRefreshTimer = window.setInterval(() => {
-      for (const workspace of this.getDialogPollingWorkspaces()) {
-        void this.loadWorkspaceMessages(workspace.id, true);
-        if (workspace.status === "running") {
-          void this.loadWorkspaceQueueStatus(workspace.id);
-        }
-      }
-    }, DEFAULT_DIALOG_FALLBACK_INTERVAL_MS);
-  }
-
-  private stopDialogPolling() {
-    if (!this.dialogRefreshTimer) {
-      return;
-    }
-    window.clearInterval(this.dialogRefreshTimer);
-    this.dialogRefreshTimer = undefined;
-  }
-
-  private updateDialogPolling() {
-    if (!this.isApiMode || this.getDialogPollingWorkspaces().length === 0) {
-      this.stopDialogPolling();
-      return;
-    }
-    this.startDialogPolling();
-  }
-
   private connectBoardRealtimeIfNeeded() {
     if (!this.isApiMode || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
@@ -1377,7 +1322,6 @@ export class KanbanWorkspaceHome extends LitElement {
           return;
         }
         this.boardRealtimeConnected = true;
-        this.stopBoardPolling();
         if (this.boardRealtimeRetryTimer) {
           window.clearTimeout(this.boardRealtimeRetryTimer);
           this.boardRealtimeRetryTimer = undefined;
@@ -1389,7 +1333,6 @@ export class KanbanWorkspaceHome extends LitElement {
         }
         this.boardRealtimeConnected = false;
         void this.loadWorkspaces();
-        this.startBoardPolling();
         this.scheduleBoardRealtimeReconnect();
       },
       onMessage: (event) => {
@@ -1422,7 +1365,6 @@ export class KanbanWorkspaceHome extends LitElement {
           return;
         }
         this.realtimeConnected = true;
-        this.updateDialogPolling();
         if (this.realtimeRetryTimer) {
           window.clearTimeout(this.realtimeRetryTimer);
           this.realtimeRetryTimer = undefined;
@@ -1437,7 +1379,6 @@ export class KanbanWorkspaceHome extends LitElement {
         if (workspace) {
           void this.loadWorkspaceMessages(workspace.id, true);
         }
-        this.updateDialogPolling();
         this.scheduleRealtimeReconnect();
       },
       onMessage: (event) => {
@@ -1676,20 +1617,6 @@ export class KanbanWorkspaceHome extends LitElement {
     const previousIdentity = previousLastMessage ? getDialogMessageIdentity(previousLastMessage) : "";
 
     return nextIdentity !== previousIdentity ? nextIdentity : "";
-  }
-
-  private getDialogPollingWorkspaces() {
-    const openWorkspaces = this.pageState.openWorkspaceIds
-      .map((workspaceId) => this.workspaces.find((workspace) => workspace.id === workspaceId))
-      .filter((workspace): workspace is KanbanWorkspace => Boolean(workspace));
-
-    if (!this.realtimeConnected || !this.activeWorkspace) {
-      return openWorkspaces;
-    }
-
-    return openWorkspaces.filter((workspace) =>
-      workspace.id !== this.activeWorkspace?.id || workspace.status === "running",
-    );
   }
 
   private get activeWorkspace() {

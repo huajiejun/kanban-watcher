@@ -518,7 +518,7 @@ describe("workspace home helpers", () => {
     expect(element.shadowRoot?.querySelectorAll("workspace-conversation-pane")).toHaveLength(2);
   });
 
-  it("keeps polling opened panes when websocket is unavailable", async () => {
+  it("does not poll opened panes on a timer when websocket is unavailable", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -567,7 +567,6 @@ describe("workspace home helpers", () => {
     const latestMessageRequestsBeforeTick = fetchMock.mock.calls.filter(([url]) =>
       String(url).includes("/api/workspaces/ws-attention/latest-messages"),
     );
-    expect(latestMessageRequestsBeforeTick).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(30_000);
     await flushElement(element);
@@ -575,7 +574,7 @@ describe("workspace home helpers", () => {
     const latestMessageRequestsAfterTick = fetchMock.mock.calls.filter(([url]) =>
       String(url).includes("/api/workspaces/ws-attention/latest-messages"),
     );
-    expect(latestMessageRequestsAfterTick.length).toBeGreaterThan(1);
+    expect(latestMessageRequestsAfterTick).toHaveLength(latestMessageRequestsBeforeTick.length);
   });
 
   it("uses board websocket snapshots to update the workspace list in api mode", async () => {
@@ -2376,7 +2375,7 @@ describe("workspace home helpers", () => {
     expect(persisted).toContain("\"dismissedAttentionIds\":[\"ws-attention\"]");
   });
 
-  it("polls other opened panes while the active pane stays on websocket updates", async () => {
+  it("does not poll other opened panes while the active pane stays on websocket updates", async () => {
     setWindowWidth(1920);
 
     let ws2MessageRevision = 0;
@@ -2465,17 +2464,12 @@ describe("workspace home helpers", () => {
     const ws2AfterTick = fetchMock.mock.calls.filter(([url]) =>
       String(url).includes("/api/workspaces/ws-2/latest-messages"),
     );
-    const panes = [
-      ...(element.shadowRoot?.querySelectorAll("workspace-conversation-pane") ?? []),
-    ] as Array<HTMLElement & { shadowRoot: ShadowRoot }>;
-    const secondPaneReveal = panes[1]?.shadowRoot?.querySelector(".message-bubble.is-smooth-reveal");
 
     expect(ws1AfterTick).toHaveLength(ws1BeforeTick.length);
-    expect(ws2AfterTick.length).toBeGreaterThan(ws2BeforeTick.length);
-    expect(secondPaneReveal?.textContent).toContain("任务二消息已刷新");
+    expect(ws2AfterTick).toHaveLength(ws2BeforeTick.length);
   });
 
-  it("still polls the active running pane to backfill missed realtime tail messages", async () => {
+  it("does not poll the active running pane to backfill missed realtime tail messages", async () => {
     setWindowWidth(1920);
 
     let wsRunningMessageRevision = 0;
@@ -2540,8 +2534,8 @@ describe("workspace home helpers", () => {
     const bubbles = [...(pane.shadowRoot?.querySelectorAll(".message-bubble") ?? [])];
     const latestBubble = bubbles.at(-1) as HTMLElement | undefined;
 
-    expect(afterTick.length).toBeGreaterThan(beforeTick.length);
-    expect(latestBubble?.textContent).toContain("运行中消息已补齐尾部");
+    expect(afterTick).toHaveLength(beforeTick.length);
+    expect(latestBubble?.textContent).toContain("运行中消息");
   });
 
   it("hydrates running panes with stop and queue controls", async () => {
