@@ -177,8 +177,6 @@ export class KanbanWorkspaceHome extends LitElement {
   private realtimeRetryTimer?: number;
   private boardRealtimeSocket?: WebSocket;
   private realtimeSocket?: WebSocket;
-  private boardRealtimeConnected = false;
-  private realtimeConnected = false;
   private lastSidebarSyncPaneCount = this.pageState.openWorkspaceIds.length;
   private hasHydratedRemoteWorkspaceView = false;
   private isApplyingRemoteWorkspaceView = false;
@@ -1306,8 +1304,6 @@ export class KanbanWorkspaceHome extends LitElement {
       this.realtimeSocket = undefined;
       socket.close();
     }
-    this.boardRealtimeConnected = false;
-    this.realtimeConnected = false;
   }
 
   private connectBoardRealtimeIfNeeded() {
@@ -1321,7 +1317,6 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.boardRealtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.boardRealtimeConnected = true;
         if (this.boardRealtimeRetryTimer) {
           window.clearTimeout(this.boardRealtimeRetryTimer);
           this.boardRealtimeRetryTimer = undefined;
@@ -1331,7 +1326,6 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.boardRealtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.boardRealtimeConnected = false;
         void this.loadWorkspaces();
         this.scheduleBoardRealtimeReconnect();
       },
@@ -1353,7 +1347,6 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     const sessionId = this.activeWorkspace?.latest_session_id ?? this.activeWorkspace?.last_session_id;
     if (!sessionId) {
-      this.realtimeConnected = false;
       return;
     }
     const socket = connectRealtime({
@@ -1364,7 +1357,6 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.realtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.realtimeConnected = true;
         if (this.realtimeRetryTimer) {
           window.clearTimeout(this.realtimeRetryTimer);
           this.realtimeRetryTimer = undefined;
@@ -1374,7 +1366,6 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.realtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.realtimeConnected = false;
         const workspace = this.activeWorkspace;
         if (workspace) {
           void this.loadWorkspaceMessages(workspace.id, true);
