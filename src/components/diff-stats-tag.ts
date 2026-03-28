@@ -77,7 +77,8 @@ export class DiffStatsTag extends LitElement {
     `;
   }
 
-  private handleClick = () => {
+  private handleClick = (event: Event) => {
+    event.stopPropagation();
     this.dispatchEvent(new CustomEvent("diff-details-request", {
       bubbles: true,
       composed: true,
