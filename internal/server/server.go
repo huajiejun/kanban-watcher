@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/auth"
 	dispatchsvc "github.com/huajiejun/kanban-watcher/internal/service"
@@ -945,6 +946,12 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("[HTTP Server] handleWorkspaces path=%s parts=%v method=%s", path, parts, r.Method)
+	// WebSocket 代理: /api/workspaces/{id}/git/diff/ws
+	if len(parts) == 3 && parts[1] == "git" && parts[2] == "diff/ws" {
+		s.handleGitDiffWsProxy(w, r, parts[0])
+		return
+	}
+
 	http.Error(w, "Invalid path", http.StatusBadRequest)
 }
 
@@ -1105,4 +1112,78 @@ func (s *Server) handleRepoBranches(w http.ResponseWriter, r *http.Request, repo
 		"success": true,
 		"data":    branches,
 	})
+}
+
+// handleGitDiffWsProxy 将前端 WebSocket 连接代理到主后端的 git diff 流
+func (s *Server) handleGitDiffWsProxy(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	backendURL := strings.Replace(s.proxy.BaseURL(), "http://", "ws://", 1)
+	backendURL = strings.Replace(backendURL, "https://", "wss://", 1)
+	targetURL := fmt.Sprintf("%s/api/workspaces/%s/git/diff/ws", backendURL, workspaceID)
+
+	log.Printf("[WS Proxy] 代理 git diff ws: workspace=%s target=%s", workspaceID, targetURL)
+
+	// 升级前端 WebSocket 连接
+	upgrader := gorillaws.Upgrader{
+		CheckOrigin: func(r *http.Request) bool { return true },
+	}
+	clientConn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("[WS Proxy] 升级前端连接失败: %v", err)
+		return
+	}
+	defer clientConn.Close()
+
+	// 连接后端 WebSocket
+	backendConn, _, err := gorillaws.DefaultDialer.Dial(targetURL, nil)
+	if err != nil {
+		log.Printf("[WS Proxy] 连接后端失败: %v", err)
+		clientConn.WriteMessage(gorillaws.CloseMessage, gorillaws.FormatCloseMessage(
+			gorillaws.CloseInternalServerErr, "backend connection failed"))
+		return
+	}
+	defer backendConn.Close()
+
+	log.Printf("[WS Proxy] 连接建立: workspace=%s", workspaceID)
+
+	// 双向转发
+	errCh := make(chan error, 2)
+
+	// 前端 -> 后端
+	go func() {
+		for {
+			msgType, msg, err := clientConn.ReadMessage()
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if err := backendConn.WriteMessage(msgType, msg); err != nil {
+				errCh <- err
+				return
+			}
+		}
+	}()
+
+	// 后端 -> 前端
+	go func() {
+		for {
+			msgType, msg, err := backendConn.ReadMessage()
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if err := clientConn.WriteMessage(msgType, msg); err != nil {
+				errCh <- err
+				return
+			}
+		}
+	}()
+
+	// 等待任一方向断开
+	<-errCh
+	log.Printf("[WS Proxy] 连接关闭: workspace=%s", workspaceID)
 }

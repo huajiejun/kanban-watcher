@@ -3,8 +3,9 @@ import { LitElement, html, nothing } from "lit";
 import { detectDialogEditLanguage, renderDialogMessage } from "./dialog-message-renderer";
 import { cardStyles } from "../styles";
 import type { DialogMessage } from "../lib/dialog-messages";
-import type { WorkspaceQueueStatusResponse } from "../types";
+import type { DiffStats, WorkspaceQueueStatusResponse } from "../types";
 import "./workspace-todo-panel";
+import "./diff-stats-tag";
 
 export type ConversationPaneAction = "send" | "queue" | "stop";
 export type ConversationPaneMessage = DialogMessage;
@@ -37,6 +38,7 @@ export class WorkspaceConversationPane extends LitElement {
     todoApiKey: { attribute: false },
     todoPendingCount: { attribute: false },
     showTodoPanel: { type: Boolean, state: true },
+    diffStats: { attribute: false },
     quickButtonsExpanded: { state: true },
     quickButtonsOverflowing: { state: true },
   };
@@ -65,6 +67,7 @@ export class WorkspaceConversationPane extends LitElement {
   todoPendingCount = 0;
   private showTodoPanel = false;
   private resolvedWorkspacePath = "";
+  diffStats: DiffStats | undefined;
   private quickButtonsExpanded = false;
   private quickButtonsOverflowing = false;
   private readonly collapsedQuickButtonsHeight = 36;
@@ -198,6 +201,17 @@ export class WorkspaceConversationPane extends LitElement {
           ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
           : nothing}
         ${this.renderQuickButtonsArea()}
+        ${this.diffStats && this.diffStats.files_changed > 0
+          ? html`
+              <div class="diff-stats-banner" @click=${this.handleDiffStatsClick}>
+                <span class="diff-stats-text">
+                  ${this.diffStats.files_changed} 个文件已更改
+                  <span class="diff-stats-added">+${this.diffStats.lines_added}</span>
+                  <span class="diff-stats-removed">-${this.diffStats.lines_removed}</span>
+                </span>
+              </div>
+            `
+          : nothing}
         <textarea
           class="message-input"
           rows="2"
@@ -420,6 +434,16 @@ export class WorkspaceConversationPane extends LitElement {
       new CustomEvent("dev-server-toggle", {
         bubbles: true,
         composed: true,
+      }),
+    );
+  };
+
+  private handleDiffStatsClick = () => {
+    this.dispatchEvent(
+      new CustomEvent("diff-details-request", {
+        bubbles: true,
+        composed: true,
+        detail: this.diffStats,
       }),
     );
   };

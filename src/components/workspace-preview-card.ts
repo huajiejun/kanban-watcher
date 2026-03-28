@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 
 import { renderMessageMarkdown } from "../lib/render-message-markdown";
+import "./diff-stats-tag";
 
 const AUTO_SCROLL_TOLERANCE_PX = 8;
 const PREVIEW_DEBUG_STORAGE_KEY = "kanban_watcher_preview_debug";
@@ -346,6 +347,7 @@ export class WorkspacePreviewCard extends LitElement {
     previewLines: { attribute: false },
     showMenu: { type: Boolean },
     prUrl: { attribute: false },
+    diffStats: { attribute: false },
   };
 
   workspaceName = "";
@@ -353,6 +355,7 @@ export class WorkspacePreviewCard extends LitElement {
   previewLines: string[] = [];
   showMenu = false;
   prUrl = "";
+  diffStats: { files_changed: number; lines_added: number; lines_removed: number } | undefined;
   private shouldAutoScroll = true;
   private readonly debugInstanceId = ++previewCardInstanceSeed;
 
@@ -395,6 +398,9 @@ export class WorkspacePreviewCard extends LitElement {
           >
             <div class="workspace-preview-title-banner">
               <div class="workspace-preview-title">${this.workspaceName}</div>
+              <diff-stats-tag
+                .stats=${this.diffStats}
+              ></diff-stats-tag>
             </div>
           </button>
           <button
