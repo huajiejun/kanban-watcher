@@ -526,7 +526,7 @@ export async function getFirstUserMessage({
   workspaceId: string;
 }): Promise<string> {
   return fetchJSON<{ message?: string }>(
-    `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/first-message`,
+    `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/messages/first`,
     {
       method: "GET",
       headers: buildHeaders(apiKey),
