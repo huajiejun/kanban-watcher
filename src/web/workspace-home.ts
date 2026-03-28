@@ -1781,6 +1781,13 @@ export class KanbanWorkspaceHome extends LitElement {
         .todoBaseUrl=${this.previewOptions.baseUrl ?? ""}
         .todoApiKey=${this.previewOptions.apiKey}
         .todoPendingCount=${this.todoPendingCountByWorkspace[workspace.id] ?? 0}
+        .diffStats=${workspace.files_changed
+          ? {
+              files_changed: workspace.files_changed,
+              lines_added: workspace.lines_added ?? 0,
+              lines_removed: workspace.lines_removed ?? 0,
+            }
+          : undefined}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
@@ -1790,6 +1797,10 @@ export class KanbanWorkspaceHome extends LitElement {
         @pane-close=${() => this.handleCloseWorkspace(workspace)}
         @todo-selected=${(event: CustomEvent<{ content: string; todoId: string }>) =>
           void this.handleTodoSelected(workspace, event.detail)}
+        @diff-details-request=${(e: CustomEvent) => {
+          e.stopPropagation();
+          this.handleOpenDiffDetails(workspace, e.detail);
+        }}
       ></workspace-conversation-pane>
     `;
   }
