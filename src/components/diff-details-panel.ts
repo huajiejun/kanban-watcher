@@ -1,10 +1,10 @@
 import { LitElement, html, css, nothing } from "lit";
-import type { DiffStats, RepoBranchStatus } from "../types";
-import { fetchWorkspaceBranchStatus, formatDiffStats } from "../lib/diff-api";
+import type { Diff, DiffStats } from "../types";
+import { connectDiffStream } from "../lib/diff-api";
 
 /**
  * 差异文件详情面板
- * 展示工作区的 git 分支状态和差异统计
+ * 连接 WebSocket diff 流，展示变更文件列表和差异内容
  */
 export class DiffDetailsPanel extends LitElement {
   static styles = css`
@@ -25,8 +25,8 @@ export class DiffDetailsPanel extends LitElement {
 
     .panel {
       position: relative;
-      width: 420px;
-      max-width: 90vw;
+      width: 560px;
+      max-width: 95vw;
       background: var(--primary-background-color, #0f172a);
       border-left: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
@@ -39,7 +39,7 @@ export class DiffDetailsPanel extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 20px;
+      padding: 14px 18px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       flex-shrink: 0;
     }
@@ -53,7 +53,7 @@ export class DiffDetailsPanel extends LitElement {
     .panel-close {
       background: none;
       border: none;
-      color: var(--text-primary-color, #94a3b8);
+      color: var(--text-secondary-color, #94a3b8);
       font-size: 18px;
       cursor: pointer;
       padding: 4px 8px;
@@ -68,16 +68,17 @@ export class DiffDetailsPanel extends LitElement {
     .panel-body {
       flex: 1;
       overflow-y: auto;
-      padding: 16px 20px;
+      padding: 14px 18px;
     }
 
+    /* 统计摘要 */
     .stats-summary {
       display: flex;
       gap: 16px;
-      padding: 12px 16px;
+      padding: 10px 14px;
       background: rgba(255, 255, 255, 0.04);
       border-radius: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .stat-item {
@@ -98,72 +99,101 @@ export class DiffDetailsPanel extends LitElement {
       font-weight: 600;
     }
 
-    .stat-value.files {
-      color: var(--text-primary-color, #e2e8f0);
-    }
+    .stat-value.files { color: var(--text-primary-color, #e2e8f0); }
+    .stat-value.added { color: #22c55e; }
+    .stat-value.removed { color: #ef4444; }
 
-    .stat-value.added {
-      color: #22c55e;
-    }
-
-    .stat-value.removed {
-      color: #ef4444;
-    }
-
-    .section-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-secondary-color, #64748b);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
-
-    .repo-item {
-      padding: 10px 12px;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-
-    .repo-name {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-primary-color, #e2e8f0);
-      margin-bottom: 6px;
-    }
-
-    .repo-branch {
-      font-size: 12px;
-      color: var(--text-secondary-color, #94a3b8);
-      margin-bottom: 6px;
-    }
-
-    .repo-meta {
+    /* 文件列表 */
+    .file-list {
       display: flex;
-      gap: 12px;
-      font-size: 11px;
-      color: var(--text-secondary-color, #64748b);
+      flex-direction: column;
+      gap: 2px;
     }
 
-    .repo-meta-item {
+    .file-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 120ms ease;
+    }
+
+    .file-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .file-row {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 8px;
     }
 
-    .repo-meta-item.is-ahead {
-      color: #22c55e;
+    .file-icon {
+      font-size: 12px;
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0;
     }
 
-    .repo-meta-item.is-behind {
-      color: #f59e0b;
+    .file-icon.is-added { color: #22c55e; }
+    .file-icon.is-deleted { color: #ef4444; }
+    .file-icon.is-modified { color: #f59e0b; }
+    .file-icon.is-renamed { color: #8b5cf6; }
+
+    .file-path {
+      font-size: 12.5px;
+      color: var(--text-primary-color, #e2e8f0);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .repo-meta-item.is-conflicted {
-      color: #ef4444;
+    .file-stats {
+      display: flex;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      flex-shrink: 0;
     }
 
+    .file-stats .added { color: #22c55e; }
+    .file-stats .removed { color: #ef4444; }
+
+    /* 差异内容展开 */
+    .diff-content {
+      margin-top: 6px;
+      padding: 8px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.25);
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 11.5px;
+      line-height: 1.5;
+      overflow-x: auto;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre;
+    }
+
+    .diff-line {
+      display: block;
+      padding: 0 4px;
+    }
+
+    .diff-line.is-add { color: #22c55e; background: rgba(34, 197, 94, 0.08); }
+    .diff-line.is-remove { color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+    .diff-line.is-context { color: var(--text-secondary-color, #94a3b8); }
+
+    .diff-content-omitted {
+      margin-top: 6px;
+      padding: 6px 8px;
+      font-size: 11px;
+      color: var(--text-secondary-color, #64748b);
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 4px;
+    }
+
+    /* 状态 */
     .loading {
       display: flex;
       align-items: center;
@@ -188,6 +218,27 @@ export class DiffDetailsPanel extends LitElement {
       color: var(--text-secondary-color, #64748b);
       font-size: 13px;
     }
+
+    /* 手机端 */
+    @media (max-width: 640px) {
+      .panel {
+        width: 100%;
+        max-width: 100vw;
+      }
+
+      .stats-summary {
+        gap: 10px;
+        padding: 8px 10px;
+      }
+
+      .stat-value {
+        font-size: 15px;
+      }
+
+      .file-path {
+        font-size: 11.5px;
+      }
+    }
   `;
 
   static properties = {
@@ -197,6 +248,10 @@ export class DiffDetailsPanel extends LitElement {
     diffStats: { attribute: false },
     baseUrl: { attribute: false },
     apiKey: { attribute: false },
+    _diffs: { state: true },
+    _loading: { state: true },
+    _error: { state: true },
+    _expandedPath: { state: true },
   };
 
   open = false;
@@ -206,39 +261,73 @@ export class DiffDetailsPanel extends LitElement {
   baseUrl = "";
   apiKey: string | undefined;
 
-  private branchStatuses: RepoBranchStatus[] = [];
-  private loading = false;
-  private error: string | undefined;
+  private _diffs: Diff[] = [];
+  private _loading = false;
+  private _error: string | undefined;
+  private _expandedPath: string | undefined;
+  private _closeStream: (() => void) | undefined;
 
   protected updated(changedProperties: Map<PropertyKey, unknown>) {
-    if (changedProperties.has("open") && this.open) {
-      void this.loadBranchStatus();
+    if (changedProperties.has("open")) {
+      if (this.open) {
+        this.connectStream();
+      } else {
+        this.disconnectStream();
+      }
     }
   }
 
-  private async loadBranchStatus() {
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.disconnectStream();
+  }
+
+  private connectStream() {
+    this.disconnectStream();
+    this._loading = true;
+    this._error = undefined;
+    this._diffs = [];
+    this._expandedPath = undefined;
+    this.requestUpdate();
+
     if (!this.baseUrl || !this.workspaceId) {
+      this._loading = false;
       return;
     }
 
-    this.loading = true;
-    this.error = undefined;
-    this.requestUpdate();
+    this._closeStream = connectDiffStream(
+      this.baseUrl,
+      this.workspaceId,
+      this.apiKey,
+      {
+        onDiff: (diff: Diff) => {
+          const path = diff.newPath || diff.oldPath || "";
+          this._diffs = [...this._diffs.filter((d) => (d.newPath || d.oldPath) !== path), diff];
+          this._loading = false;
+          this.requestUpdate();
+        },
+        onError: (err: Error) => {
+          this._error = err.message;
+          this._loading = false;
+          this.requestUpdate();
+        },
+        onClose: () => {
+          this._loading = false;
+          this.requestUpdate();
+        },
+      },
+    );
+  }
 
-    try {
-      this.branchStatuses = await fetchWorkspaceBranchStatus({
-        baseUrl: this.baseUrl,
-        apiKey: this.apiKey,
-        workspaceId: this.workspaceId,
-      });
-    } catch (err) {
-      this.error = err instanceof Error ? err.message : "加载分支状态失败";
-    } finally {
-      this.loading = false;
+  private disconnectStream() {
+    if (this._closeStream) {
+      this._closeStream();
+      this._closeStream = undefined;
     }
   }
 
   private handleClose = () => {
+    this.disconnectStream();
     this.open = false;
     this.dispatchEvent(new CustomEvent("diff-details-close", {
       bubbles: true,
@@ -250,6 +339,11 @@ export class DiffDetailsPanel extends LitElement {
     this.handleClose();
   };
 
+  private toggleFile = (path: string) => {
+    this._expandedPath = this._expandedPath === path ? undefined : path;
+    this.requestUpdate();
+  };
+
   render() {
     if (!this.open) {
       return nothing;
@@ -259,7 +353,7 @@ export class DiffDetailsPanel extends LitElement {
       <div class="overlay" @click=${this.handleOverlayClick}></div>
       <aside class="panel">
         <div class="panel-header">
-          <div class="panel-title">${this.workspaceName} - 差异文件</div>
+          <div class="panel-title">${this.workspaceName} — 变更文件</div>
           <button class="panel-close" type="button" @click=${this.handleClose}>✕</button>
         </div>
         <div class="panel-body">
@@ -290,58 +384,91 @@ export class DiffDetailsPanel extends LitElement {
   }
 
   private renderBody() {
-    if (this.loading) {
-      return html`<div class="loading">加载中...</div>`;
+    if (this._loading && this._diffs.length === 0) {
+      return html`<div class="loading">加载文件列表...</div>`;
     }
 
-    if (this.error) {
-      return html`<div class="error">${this.error}</div>`;
+    if (this._error) {
+      return html`<div class="error">${this._error}</div>`;
     }
 
-    if (this.branchStatuses.length === 0) {
-      return html`<div class="empty">暂无分支信息</div>`;
+    if (this._diffs.length === 0) {
+      return html`<div class="empty">暂无变更文件</div>`;
     }
 
     return html`
-      <div class="section-title">仓库分支状态</div>
-      ${this.branchStatuses.map((repo) => this.renderRepoItem(repo))}
+      <div class="file-list">
+        ${this._diffs.map((diff) => this.renderFileItem(diff))}
+      </div>
     `;
   }
 
-  private renderRepoItem(repo: RepoBranchStatus) {
-    const { status } = repo;
+  private renderFileItem(diff: Diff) {
+    const path = diff.newPath || diff.oldPath || "";
+    const changeKind = diff.change?.toLowerCase() || "modified";
+    const icon = this.getChangeIcon(changeKind);
+    const isExpanded = this._expandedPath === path;
+
     return html`
-      <div class="repo-item">
-        <div class="repo-name">${repo.repo_name}</div>
-        <div class="repo-branch">${status.target_branch_name}</div>
-        <div class="repo-meta">
-          <span class="repo-meta-item ${status.commits_ahead > 0 ? "is-ahead" : ""}">
-            ↑${status.commits_ahead}
-          </span>
-          <span class="repo-meta-item ${status.commits_behind > 0 ? "is-behind" : ""}">
-            ↓${status.commits_behind}
-          </span>
-          ${status.has_uncommitted_changes
-            ? html`<span class="repo-meta-item is-behind">
-                ${status.uncommitted_count} 未提交
-              </span>`
-            : nothing}
-          ${status.untracked_count > 0
-            ? html`<span class="repo-meta-item">
-                ${status.untracked_count} 未跟踪
-              </span>`
-            : nothing}
-          ${status.is_rebase_in_progress
-            ? html`<span class="repo-meta-item is-conflicted">rebase 进行中</span>`
-            : nothing}
-          ${status.conflicted_files.length > 0
-            ? html`<span class="repo-meta-item is-conflicted">
-                ${status.conflicted_files.length} 冲突
-              </span>`
+      <div class="file-item" @click=${() => this.toggleFile(path)}>
+        <div class="file-row">
+          <span class="file-icon is-${changeKind}">${icon}</span>
+          <span class="file-path" title=${path}>${path}</span>
+          ${(diff.additions != null && diff.additions > 0) || (diff.deletions != null && diff.deletions > 0)
+            ? html`
+                <span class="file-stats">
+                  ${diff.additions ? html`<span class="added">+${diff.additions}</span>` : nothing}
+                  ${diff.deletions ? html`<span class="removed">-${diff.deletions}</span>` : nothing}
+                </span>
+              `
             : nothing}
         </div>
+        ${isExpanded ? this.renderDiffContent(diff) : nothing}
       </div>
     `;
+  }
+
+  private renderDiffContent(diff: Diff) {
+    if (diff.contentOmitted) {
+      return html`<div class="diff-content-omitted">文件内容过大，差异已省略</div>`;
+    }
+
+    const oldLines = (diff.oldContent || "").split("\n");
+    const newLines = (diff.newContent || "").split("\n");
+
+    if (oldLines.length === 1 && !oldLines[0] && newLines.length === 1 && !newLines[0]) {
+      return html`<div class="diff-content-omitted">无内容差异</div>`;
+    }
+
+    const lines: { text: string; type: string }[] = [];
+
+    for (const line of oldLines) {
+      if (line) lines.push({ text: line, type: "remove" });
+    }
+    for (const line of newLines) {
+      if (line) lines.push({ text: line, type: "add" });
+    }
+
+    if (lines.length === 0) {
+      return nothing;
+    }
+
+    return html`
+      <div class="diff-content">
+        ${lines.map((line) => html`
+          <span class="diff-line is-${line.type}">${line.text}</span>
+        `)}
+      </div>
+    `;
+  }
+
+  private getChangeIcon(kind: string): string {
+    switch (kind) {
+      case "added": return "+";
+      case "deleted": return "−";
+      case "renamed": return "→";
+      default: return "●";
+    }
   }
 }
 

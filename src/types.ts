@@ -35,19 +35,19 @@ export interface KanbanWorkspace {
 }
 
 // 差异文件变更类型
-export type DiffKind = "added" | "modified" | "deleted" | "renamed";
+export type DiffKind = "Added" | "Deleted" | "Modified" | "Renamed";
 
-// 文件差异
+// 文件差异（字段名匹配后端 camelCase 序列化）
 export interface Diff {
   change: DiffKind;
-  old_path?: string;
-  new_path?: string;
-  old_content?: string;
-  new_content?: string;
+  oldPath?: string;
+  newPath?: string;
+  oldContent?: string;
+  newContent?: string;
   additions?: number;
   deletions?: number;
-  content_omitted: boolean;
-  repo_id?: string;
+  contentOmitted: boolean;
+  repoId?: string;
 }
 
 // 差异统计

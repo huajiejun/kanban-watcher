@@ -1,4 +1,4 @@
-import type { DiffStats, RepoBranchStatus } from "../types";
+import type { Diff, DiffStats, RepoBranchStatus } from "../types";
 
 type RequestOptions = {
   baseUrl: string;
@@ -114,9 +114,91 @@ export function extractDiffStatsFromBranchStatus(
   for (const repo of branchStatusList) {
     if (repo.status.has_uncommitted_changes) {
       result.files_changed += repo.status.uncommitted_count;
-      // 注意：分支状态 API 不提供行数统计，这里只统计文件数
     }
   }
 
   return result;
+}
+
+// ───────────────────────────────────────────
+// WebSocket Diff Stream
+// ───────────────────────────────────────────
+
+/** WebSocket diff 流中单条 patch 里的 Diff 值 */
+interface WsDiffValue {
+  type: "DIFF";
+  content: Diff;
+}
+
+/** WebSocket diff 流消息 */
+interface WsDiffMessage {
+  type: "json_patch";
+  data: Array<{
+    op: string;
+    path: string;
+    value?: WsDiffValue;
+  }>;
+}
+
+function toDiffWsUrl(baseUrl: string, workspaceId: string, apiKey?: string) {
+  const normalized = baseUrl ? baseUrl.replace(/\/+$/, "") : window.location.origin;
+  const url = new URL(`${normalized}/api/workspaces/${workspaceId}/git/diff/ws`);
+  if (apiKey) {
+    url.searchParams.set("api_key", apiKey);
+  }
+  if (url.protocol === "https:") {
+    url.protocol = "wss:";
+  } else if (url.protocol === "http:") {
+    url.protocol = "ws:";
+  }
+  return url.toString();
+}
+
+export type DiffStreamCallbacks = {
+  onDiff: (diff: Diff) => void;
+  onError?: (error: Error) => void;
+  onClose?: () => void;
+};
+
+/**
+ * 连接 WebSocket diff 流，收集文件差异列表
+ * 返回关闭函数
+ */
+export function connectDiffStream(
+  baseUrl: string,
+  workspaceId: string,
+  apiKey: string | undefined,
+  callbacks: DiffStreamCallbacks,
+): () => void {
+  const url = toDiffWsUrl(baseUrl, workspaceId, apiKey);
+  const socket = new WebSocket(url);
+
+  socket.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(String(event.data)) as WsDiffMessage;
+      if (msg.type === "json_patch" && Array.isArray(msg.data)) {
+        for (const op of msg.data) {
+          if (op.value?.type === "DIFF" && op.value.content) {
+            callbacks.onDiff(op.value.content);
+          }
+        }
+      }
+    } catch {
+      // ignore invalid payload
+    }
+  };
+
+  socket.onerror = () => {
+    callbacks.onError?.(new Error("Diff 流连接失败"));
+  };
+
+  socket.onclose = () => {
+    callbacks.onClose?.();
+  };
+
+  return () => {
+    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+      socket.close();
+    }
+  };
 }
