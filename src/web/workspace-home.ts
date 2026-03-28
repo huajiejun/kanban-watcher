@@ -1545,7 +1545,7 @@ export class KanbanWorkspaceHome extends LitElement {
       }
     }
 
-    merged.sort((left, right) => this.compareDialogTimestamps(left.timestamp, right.timestamp));
+    merged.sort((left, right) => this.compareDialogMessageOrder(left, right));
     this.messagesByWorkspace = {
       ...this.messagesByWorkspace,
       [workspace.id]: this.groupDialogMessages(merged),
@@ -1621,6 +1621,32 @@ export class KanbanWorkspaceHome extends LitElement {
       return leftValue - rightValue;
     }
     return left.localeCompare(right);
+  }
+
+  private compareDialogMessageOrder(left: DialogMessage, right: DialogMessage) {
+    if (
+      "processId" in left &&
+      "processId" in right &&
+      left.processId &&
+      left.processId === right.processId &&
+      typeof left.entryIndex === "number" &&
+      typeof right.entryIndex === "number" &&
+      left.entryIndex !== right.entryIndex
+    ) {
+      return left.entryIndex - right.entryIndex;
+    }
+
+    if (
+      "messageId" in left &&
+      "messageId" in right &&
+      typeof left.messageId === "number" &&
+      typeof right.messageId === "number" &&
+      left.messageId !== right.messageId
+    ) {
+      return left.messageId - right.messageId;
+    }
+
+    return this.compareDialogTimestamps(left.timestamp, right.timestamp);
   }
 
   private resolveSmoothRevealMessageKey(

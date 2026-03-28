@@ -7,6 +7,9 @@ export type DialogTextMessage = {
   sender: "user" | "ai";
   text: string;
   timestamp?: string;
+  processId?: string;
+  entryIndex?: number;
+  messageId?: number;
 };
 
 export type DialogToolMessage = {
@@ -20,6 +23,9 @@ export type DialogToolMessage = {
   icon: string;
   command?: string;
   timestamp?: string;
+  processId?: string;
+  entryIndex?: number;
+  messageId?: number;
   changes?: Array<{
     action: "write" | "edit" | "delete" | "rename";
     content?: string;
@@ -90,6 +96,9 @@ export function normalizeApiMessagesFlat(messages: SessionMessageResponse[] | un
         sender: message.role === "user" ? "user" : "ai",
         text: compactDialogMessageText(message.content),
         timestamp: message.timestamp,
+        processId: message.process_id,
+        entryIndex: message.entry_index,
+        messageId: message.id,
       } satisfies DialogTextMessage;
     })
     .filter((message): message is DialogTextMessage | DialogToolMessage => Boolean(message));
@@ -126,6 +135,9 @@ function normalizeApiToolMessage(message: SessionMessageResponse) {
     command: summary.command,
     changes: summary.changes,
     timestamp: message.timestamp,
+    processId: message.process_id,
+    entryIndex: message.entry_index,
+    messageId: message.id,
   } satisfies DialogToolMessage;
 }
 

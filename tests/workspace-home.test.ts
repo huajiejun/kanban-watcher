@@ -1634,6 +1634,108 @@ describe("workspace home helpers", () => {
     expect(paneShadowRoot?.textContent).toContain("实时追加消息");
   });
 
+  it("keeps realtime appended process messages at the tail even when timestamps are older", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-tail",
+              name: "尾部排序测试",
+              status: "running",
+              latest_session_id: "session-tail",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-tail/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              process_id: "proc-tail",
+              entry_index: 1,
+              role: "assistant",
+              content: "第一条",
+              timestamp: "2026-03-24T12:00:10Z",
+            },
+            {
+              process_id: "proc-tail",
+              entry_index: 2,
+              role: "assistant",
+              content: "第二条",
+              timestamp: "2026-03-24T12:00:20Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 4567,
+            },
+            realtime: {
+              enabled: true,
+              base_url: "http://127.0.0.1:7778",
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspace-view")) {
+        return createJsonResponse({
+          open_workspace_ids: [],
+          dismissed_attention_ids: [],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-tail/queue-status")) {
+        return createJsonResponse({
+          status: "running",
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    FakeWebSocket.instances[1]?.emitOpen();
+    FakeWebSocket.instances[1]?.emitMessage({
+      type: "session_messages_appended",
+      session_id: "session-tail",
+      messages: [
+        {
+          process_id: "proc-tail",
+          entry_index: 3,
+          role: "assistant",
+          content: "第三条",
+          timestamp: "2026-03-24T12:00:05Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement & { messages?: Array<{ text?: string }> };
+
+    expect(pane.messages?.map((message) => message.text)).toEqual(["第一条", "第二条", "第三条"]);
+  });
+
   it("still appends realtime messages for an idle pane even when the last message is already terminal", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
