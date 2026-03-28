@@ -179,6 +179,7 @@ export class KanbanWatcherCard extends LitElement {
   private todosByWorkspace: Record<string, TodoItem[]> = {};
   private webPreviewWorkspaceId?: string;
   private previewProxyPort?: number;
+  private realtimeBaseUrl?: string;
   private webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
   private diffDetailsWorkspaceId?: string;
   private diffDetailsStats?: { files_changed: number; lines_added: number; lines_removed: number };
@@ -909,7 +910,7 @@ export class KanbanWatcherCard extends LitElement {
         .workspaceName=${workspace.name}
         .workspaceId=${workspace.id}
         .diffStats=${this.diffDetailsStats}
-        .baseUrl=${this.config?.base_url ?? ""}
+        .baseUrl=${this.realtimeBaseUrl ?? this.config?.base_url ?? ""}
         .apiKey=${this.config?.api_key}
         @diff-details-close=${this.handleCloseDiffDetails}
       ></diff-details-panel>
@@ -1141,6 +1142,7 @@ export class KanbanWatcherCard extends LitElement {
         apiKey: this.config.api_key,
       });
       this.previewProxyPort = response.data?.config?.preview_proxy_port;
+      this.realtimeBaseUrl = response.data?.realtime?.base_url || this.config?.base_url;
     } catch {
       this.previewProxyPort = undefined;
     }
