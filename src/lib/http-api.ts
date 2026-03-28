@@ -436,6 +436,36 @@ export async function deleteWorkspaceTodo({
   );
 }
 
+export async function fetchWorkspaceRepos({
+  baseUrl,
+  apiKey,
+  workspaceId,
+}: RequestOptions & {
+  workspaceId: string;
+}): Promise<{
+  id: string;
+  name: string;
+  path: string;
+  display_name: string;
+  target_branch: string;
+  default_target_branch: string | null;
+}[]> {
+  return fetchJSON<{
+    id: string;
+    name: string;
+    path: string;
+    display_name: string;
+    target_branch: string;
+    default_target_branch: string | null;
+  }[]>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/repos`,
+    {
+      method: "GET",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
 export async function fetchRepoBranches({
   baseUrl,
   apiKey,
