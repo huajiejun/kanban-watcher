@@ -306,6 +306,10 @@ export class DiffDetailsPanel extends LitElement {
           this._loading = false;
           this.requestUpdate();
         },
+        onReady: () => {
+          this._loading = false;
+          this.requestUpdate();
+        },
         onError: (err: Error) => {
           this._error = err.message;
           this._loading = false;

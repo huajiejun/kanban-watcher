@@ -164,6 +164,7 @@ function toDiffWsUrl(baseUrl: string, workspaceId: string, apiKey?: string) {
 
 export type DiffStreamCallbacks = {
   onDiff: (diff: Diff) => void;
+  onReady?: () => void;
   onError?: (error: Error) => void;
   onClose?: () => void;
 };
@@ -179,28 +180,44 @@ export function connectDiffStream(
   callbacks: DiffStreamCallbacks,
 ): () => void {
   const url = toDiffWsUrl(baseUrl, workspaceId, apiKey);
+  console.log("[diff-stream] connecting:", url);
   const socket = new WebSocket(url);
+
+  socket.onopen = () => {
+    console.log("[diff-stream] connected");
+  };
 
   socket.onmessage = (event) => {
     try {
-      const msg = JSON.parse(String(event.data)) as WsMessage;
+      const raw = String(event.data);
+      const msg = JSON.parse(raw) as WsMessage;
+
       if ("JsonPatch" in msg && Array.isArray(msg.JsonPatch)) {
+        console.log("[diff-stream] JsonPatch ops:", msg.JsonPatch.length);
         for (const op of msg.JsonPatch) {
+          console.log("[diff-stream] op:", op.op, "path:", op.path, "type:", op.value?.type);
           if (op.value?.type === "DIFF" && op.value.content) {
             callbacks.onDiff(op.value.content);
           }
         }
+      } else if ("Ready" in msg) {
+        console.log("[diff-stream] Ready received");
+        callbacks.onReady?.();
+      } else {
+        console.log("[diff-stream] unknown msg:", raw.slice(0, 200));
       }
-    } catch {
-      // ignore invalid payload
+    } catch (err) {
+      console.error("[diff-stream] parse error:", err);
     }
   };
 
-  socket.onerror = () => {
+  socket.onerror = (evt) => {
+    console.error("[diff-stream] error", evt);
     callbacks.onError?.(new Error("Diff 流连接失败"));
   };
 
-  socket.onclose = () => {
+  socket.onclose = (evt) => {
+    console.log("[diff-stream] closed:", evt.code, evt.reason);
     callbacks.onClose?.();
   };
 
