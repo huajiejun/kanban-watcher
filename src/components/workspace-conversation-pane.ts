@@ -455,6 +455,7 @@ export class WorkspaceConversationPane extends LitElement {
   };
 
   private handleTodoSelected = (e: CustomEvent<{ content: string; todoId: string }>) => {
+    e.stopPropagation(); // 阻止原始事件冒泡，避免 workspace-home 收到两个 todo-selected 事件
     this.showTodoPanel = false;
     this.dispatchEvent(
       new CustomEvent<{ content: string; todoId: string }>("todo-selected", {
