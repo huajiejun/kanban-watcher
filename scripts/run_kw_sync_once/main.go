@@ -31,7 +31,12 @@ func main() {
 		},
 	}
 
-	st, err := storepkg.NewStore(cfg.Database.DSN())
+	st, err := storepkg.NewStoreWithOptions(cfg.Database.DSN(), storepkg.Options{
+		MaxOpenConns:    4,
+		MaxIdleConns:    4,
+		ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeSecs) * time.Second,
+		ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeSecs) * time.Second,
+	})
 	if err != nil {
 		panic(err)
 	}

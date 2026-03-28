@@ -2028,6 +2028,192 @@ describe("workspace home helpers", () => {
     expect(FakeWebSocket.instances[1]?.url).toContain("session_id=session-1");
   });
 
+  it("refreshes the active workspace messages when workspace snapshot updates its message version", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-attention",
+              name: "需要处理的任务",
+              status: "completed",
+              latest_session_id: "session-1",
+              has_pending_approval: true,
+              has_unseen_turns: true,
+              last_message_at: "2026-03-24T12:00:00Z",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              process_id: "proc-1",
+              entry_index: 1,
+              role: "assistant",
+              content: "初始消息",
+              timestamp: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    const initialMessageRequestCount = fetchMock.mock.calls.filter(([input]) =>
+      readRequestUrl(input).includes("/api/workspaces/ws-attention/latest-messages")
+    ).length;
+
+    FakeWebSocket.instances[0]?.emitOpen();
+    FakeWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-attention",
+          name: "需要处理的任务",
+          status: "completed",
+          latest_session_id: "session-1",
+          has_pending_approval: true,
+          has_unseen_turns: true,
+          last_message_at: "2026-03-24T12:01:00Z",
+          updated_at: "2026-03-24T12:01:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    const refreshedMessageRequestCount = fetchMock.mock.calls.filter(([input]) =>
+      readRequestUrl(input).includes("/api/workspaces/ws-attention/latest-messages")
+    ).length;
+
+    expect(refreshedMessageRequestCount).toBe(initialMessageRequestCount + 1);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+  });
+
+  it("keeps the newer active pane messages when an older refresh response resolves later", async () => {
+    let resolveFirstMessages: ((response: Response) => void) | undefined;
+    let resolveSecondMessages: ((response: Response) => void) | undefined;
+    let latestMessagesRequestCount = 0;
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return Promise.resolve(createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-attention",
+              name: "需要处理的任务",
+              status: "completed",
+              latest_session_id: "session-1",
+              has_pending_approval: true,
+              has_unseen_turns: true,
+              last_message_at: "2026-03-24T12:00:00Z",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        }));
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/latest-messages")) {
+        latestMessagesRequestCount += 1;
+        return new Promise<Response>((resolve) => {
+          if (latestMessagesRequestCount === 1) {
+            resolveFirstMessages = resolve;
+            return;
+          }
+          resolveSecondMessages = resolve;
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-attention/seen")) {
+        return Promise.resolve(createJsonResponse({ success: true }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch URL: ${url}`));
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    FakeWebSocket.instances[0]?.emitOpen();
+    FakeWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-attention",
+          name: "需要处理的任务",
+          status: "completed",
+          latest_session_id: "session-1",
+          has_pending_approval: true,
+          has_unseen_turns: true,
+          last_message_at: "2026-03-24T12:01:00Z",
+          updated_at: "2026-03-24T12:01:00Z",
+        },
+      ],
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(latestMessagesRequestCount).toBe(2);
+
+    resolveSecondMessages?.(createJsonResponse({
+      messages: [
+        {
+          process_id: "proc-new",
+          entry_index: 2,
+          role: "assistant",
+          content: "新的消息",
+          timestamp: "2026-03-24T12:01:00Z",
+        },
+      ],
+    }));
+    await flushElement(element);
+
+    resolveFirstMessages?.(createJsonResponse({
+      messages: [
+        {
+          process_id: "proc-old",
+          entry_index: 1,
+          role: "assistant",
+          content: "旧的消息",
+          timestamp: "2026-03-24T12:00:00Z",
+        },
+      ],
+    }));
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+    const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
+
+    expect(paneShadowRoot?.textContent).toContain("新的消息");
+    expect(paneShadowRoot?.textContent).not.toContain("旧的消息");
+  });
+
   it("keeps pane order and switches the active workspace without focusing the composer", async () => {
     setWindowWidth(1920);
 

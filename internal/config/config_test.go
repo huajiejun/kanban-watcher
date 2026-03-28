@@ -1,6 +1,11 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestApplyDefaultsSetsConversationSyncDefaults(t *testing.T) {
 	cfg := &Config{}
@@ -116,5 +121,81 @@ func TestApplyDefaultsPreservesExplicitRuntimeRole(t *testing.T) {
 	}
 	if cfg.Runtime.RealtimeBaseURL != "https://main.example.com" {
 		t.Fatalf("realtime base url = %q, want https://main.example.com", cfg.Runtime.RealtimeBaseURL)
+	}
+}
+
+func TestApplyDefaultsUsesWorkerRoleWhenKanbanPortOverridesDefaultMainPort(t *testing.T) {
+	t.Setenv("KANBAN_PORT", "16027")
+
+	cfg := defaultConfig()
+	cfg.Runtime = RuntimeConfig{}
+
+	applyDefaults(cfg)
+
+	if cfg.HTTPAPI.Port != 16027 {
+		t.Fatalf("http api port = %d, want %d", cfg.HTTPAPI.Port, 16027)
+	}
+	if cfg.Runtime.Role != RuntimeRoleWorker {
+		t.Fatalf("runtime role = %q, want %q", cfg.Runtime.Role, RuntimeRoleWorker)
+	}
+}
+
+func TestLoadConfigUsesWorkerRoleWhenKanbanPortOverridesConfigWithoutRuntimeRole(t *testing.T) {
+	t.Setenv("KANBAN_PORT", "16027")
+
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	configDir := filepath.Join(homeDir, ".config", "kanban-watcher")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("创建配置目录失败: %v", err)
+	}
+
+	configPath := filepath.Join(configDir, "config.yaml")
+	configYAML := []byte(`
+kanban_api_url: "https://vk.huajiejun.cn:999"
+http_api:
+  port: 7778
+  api_key: "wolale1990"
+`)
+	if err := os.WriteFile(configPath, configYAML, 0o644); err != nil {
+		t.Fatalf("写入配置文件失败: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig 返回错误: %v", err)
+	}
+
+	if cfg.HTTPAPI.Port != 16027 {
+		t.Fatalf("http api port = %d, want %d", cfg.HTTPAPI.Port, 16027)
+	}
+	if cfg.Runtime.Role != RuntimeRoleWorker {
+		t.Fatalf("runtime role = %q, want %q", cfg.Runtime.Role, RuntimeRoleWorker)
+	}
+}
+
+func TestDatabaseConfigDSNIncludesTimeouts(t *testing.T) {
+	cfg := DatabaseConfig{
+		Host:                "127.0.0.1",
+		Port:                3306,
+		User:                "root",
+		Password:            "pw",
+		Database:            "kanban",
+		DialTimeoutSeconds:  3,
+		ReadTimeoutSeconds:  15,
+		WriteTimeoutSeconds: 15,
+	}
+
+	got := cfg.DSN()
+
+	for _, want := range []string{
+		"timeout=3s",
+		"readTimeout=15s",
+		"writeTimeout=15s",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("dsn = %q, want substring %q", got, want)
+		}
 	}
 }

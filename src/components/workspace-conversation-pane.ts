@@ -71,6 +71,7 @@ export class WorkspaceConversationPane extends LitElement {
   private quickButtonsExpanded = false;
   private quickButtonsOverflowing = false;
   private readonly collapsedQuickButtonsHeight = 36;
+  private shouldAutoScroll = true;
 
   // File Browser 配置
   private readonly FILE_BROWSER_LOCAL_URL = import.meta.env.VITE_FILE_BROWSER_URL || "http://127.0.0.1:9394";
@@ -188,7 +189,7 @@ export class WorkspaceConversationPane extends LitElement {
 
       <section class="dialog-messages">
         <div class="dialog-panel-title">对话消息</div>
-        <div class="message-list">
+        <div class="message-list" @scroll=${this.handleMessageListScroll}>
           ${this.messages.map((message) =>
             this.renderMessage ? this.renderMessage(message) : this.renderEntry(message),
           )}
@@ -251,7 +252,7 @@ export class WorkspaceConversationPane extends LitElement {
   }
 
   protected updated(changedProperties: Map<PropertyKey, unknown>) {
-    if (changedProperties.has("messages")) {
+    if (changedProperties.has("messages") && this.shouldAutoScroll) {
       this.scrollMessagesToBottom();
     }
     if (changedProperties.has("quickButtons") || changedProperties.has("quickButtonsTemplate")) {
@@ -479,6 +480,7 @@ export class WorkspaceConversationPane extends LitElement {
   };
 
   private handleTodoSelected = (e: CustomEvent<{ content: string; todoId: string }>) => {
+    e.stopPropagation(); // 阻止原始事件冒泡，避免 workspace-home 收到两个 todo-selected 事件
     this.showTodoPanel = false;
     this.dispatchEvent(
       new CustomEvent<{ content: string; todoId: string }>("todo-selected", {
@@ -595,8 +597,18 @@ export class WorkspaceConversationPane extends LitElement {
     if (!messageList) {
       return;
     }
+    this.shouldAutoScroll = true;
     messageList.scrollTop = messageList.scrollHeight;
   }
+
+  private handleMessageListScroll = () => {
+    const messageList = this.shadowRoot?.querySelector(".message-list") as HTMLDivElement | null;
+    if (!messageList) {
+      return;
+    }
+    const distanceToBottom = messageList.scrollHeight - messageList.clientHeight - messageList.scrollTop;
+    this.shouldAutoScroll = distanceToBottom <= 8;
+  };
 
   private toggleToolMessage = (toolKey: string) => {
     const next = new Set(this.expandedToolMessageKeys);

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -55,14 +56,19 @@ type UserConfig struct {
 
 // DatabaseConfig 数据库连接参数
 type DatabaseConfig struct {
-	Host             string   `yaml:"host"`                  // 数据库主机地址
-	Port             int      `yaml:"port"`                  // 数据库端口
-	User             string   `yaml:"user"`                  // 用户名
-	Password         string   `yaml:"password"`              // 密码
-	Database         string   `yaml:"database"`              // 数据库名
-	SyncIntervalSecs int      `yaml:"sync_interval_seconds"` // 同步间隔（秒）
-	BatchSize        int      `yaml:"batch_size"`            // 批量大小
-	MessageTypes     []string `yaml:"message_types"`         // 同步的消息类型
+	Host                string   `yaml:"host"`                    // 数据库主机地址
+	Port                int      `yaml:"port"`                    // 数据库端口
+	User                string   `yaml:"user"`                    // 用户名
+	Password            string   `yaml:"password"`                // 密码
+	Database            string   `yaml:"database"`                // 数据库名
+	SyncIntervalSecs    int      `yaml:"sync_interval_seconds"`   // 同步间隔（秒）
+	BatchSize           int      `yaml:"batch_size"`              // 批量大小
+	MessageTypes        []string `yaml:"message_types"`           // 同步的消息类型
+	DialTimeoutSeconds  int      `yaml:"dial_timeout_seconds"`    // 建连超时（秒）
+	ReadTimeoutSeconds  int      `yaml:"read_timeout_seconds"`    // 读超时（秒）
+	WriteTimeoutSeconds int      `yaml:"write_timeout_seconds"`   // 写超时（秒）
+	ConnMaxLifetimeSecs int      `yaml:"conn_max_lifetime_secs"`  // 连接最大生存时间（秒）
+	ConnMaxIdleTimeSecs int      `yaml:"conn_max_idle_time_secs"` // 连接最大空闲时间（秒）
 }
 
 // HTTPAPIConfig 本地 HTTP API 配置
@@ -79,8 +85,22 @@ func (c DatabaseConfig) IsEnabled() bool {
 
 // DSN 生成数据库连接字符串
 func (c DatabaseConfig) DSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local",
-		c.User, c.Password, c.Host, c.Port, c.Database)
+	query := url.Values{}
+	query.Set("charset", "utf8mb4")
+	query.Set("parseTime", "true")
+	query.Set("loc", "Local")
+	if c.DialTimeoutSeconds > 0 {
+		query.Set("timeout", fmt.Sprintf("%ds", c.DialTimeoutSeconds))
+	}
+	if c.ReadTimeoutSeconds > 0 {
+		query.Set("readTimeout", fmt.Sprintf("%ds", c.ReadTimeoutSeconds))
+	}
+	if c.WriteTimeoutSeconds > 0 {
+		query.Set("writeTimeout", fmt.Sprintf("%ds", c.WriteTimeoutSeconds))
+	}
+
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s",
+		c.User, c.Password, c.Host, c.Port, c.Database, query.Encode())
 }
 
 // TokenStatsConfig Token 用量统计配置
@@ -221,12 +241,18 @@ func defaultConfig() *Config {
 			End:   "01:00", // 跨午夜：08:00 到次日 01:00
 		},
 		PollIntervalSecs: 15, // 默认 15 秒轮询一次
+		Database: DatabaseConfig{
+			DialTimeoutSeconds:  3,
+			ReadTimeoutSeconds:  15,
+			WriteTimeoutSeconds: 15,
+			ConnMaxLifetimeSecs: 180,
+			ConnMaxIdleTimeSecs: 30,
+		},
 		HTTPAPI: HTTPAPIConfig{
 			Port:   7778,
 			APIKey: "change-me",
 		},
 		Runtime: RuntimeConfig{
-			Role:            RuntimeRoleMain,
 			RealtimeBaseURL: "http://127.0.0.1:7778",
 		},
 		Auth: AuthConfig{
@@ -272,6 +298,21 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.PollIntervalSecs <= 0 {
 		cfg.PollIntervalSecs = 15
+	}
+	if cfg.Database.DialTimeoutSeconds <= 0 {
+		cfg.Database.DialTimeoutSeconds = 3
+	}
+	if cfg.Database.ReadTimeoutSeconds <= 0 {
+		cfg.Database.ReadTimeoutSeconds = 15
+	}
+	if cfg.Database.WriteTimeoutSeconds <= 0 {
+		cfg.Database.WriteTimeoutSeconds = 15
+	}
+	if cfg.Database.ConnMaxLifetimeSecs <= 0 {
+		cfg.Database.ConnMaxLifetimeSecs = 180
+	}
+	if cfg.Database.ConnMaxIdleTimeSecs <= 0 {
+		cfg.Database.ConnMaxIdleTimeSecs = 30
 	}
 	if cfg.HTTPAPI.Port <= 0 {
 		cfg.HTTPAPI.Port = 7778
@@ -349,6 +390,7 @@ func writeExampleConfig(path string) error {
 	example.WeChat.Secret = "YOUR_SECRET"
 	example.WeChat.ToUser = "@all"
 	example.HTTPAPI.APIKey = "YOUR_API_KEY"
+	example.Runtime.Role = RuntimeRoleMain
 	data, err := yaml.Marshal(example)
 	if err != nil {
 		return err

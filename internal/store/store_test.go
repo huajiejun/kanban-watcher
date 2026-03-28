@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -224,6 +225,58 @@ func TestUpsertProcessEntriesUsesSingleBatchStatement(t *testing.T) {
 
 	if err := store.UpsertProcessEntries(context.Background(), entries); err != nil {
 		t.Fatalf("UpsertProcessEntries 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestUpsertSubscriptionPreservesLastEntryIndexWhenIncomingValueIsNil(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	now := time.Now()
+	sub := &SyncSubscription{
+		SubscriptionKey:  "process_log:proc-1",
+		SubscriptionType: "process_log_stream",
+		TargetID:         "proc-1",
+		SessionID:        stringPtr("session-1"),
+		WorkspaceID:      stringPtr("ws-1"),
+		LastEntryIndex:   nil,
+		Status:           "error",
+		LastError:        stringPtr("unexpected EOF"),
+		LastSeenAt:       now,
+	}
+
+	mock.ExpectExec(regexp.QuoteMeta(`
+		INSERT INTO kw_sync_subscriptions (
+			subscription_key, subscription_type, target_id, session_id, workspace_id,
+			last_entry_index, status, last_error, last_seen_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			session_id = VALUES(session_id),
+			workspace_id = VALUES(workspace_id),
+			last_entry_index = COALESCE(VALUES(last_entry_index), last_entry_index),
+			status = VALUES(status),
+			last_error = VALUES(last_error),
+			last_seen_at = VALUES(last_seen_at)
+	`)).
+		WithArgs(
+			sub.SubscriptionKey,
+			sub.SubscriptionType,
+			sub.TargetID,
+			sub.SessionID,
+			sub.WorkspaceID,
+			sub.LastEntryIndex,
+			sub.Status,
+			sub.LastError,
+			sub.LastSeenAt,
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	if err := store.UpsertSubscription(context.Background(), sub); err != nil {
+		t.Fatalf("UpsertSubscription 返回错误: %v", err)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -622,6 +675,34 @@ func TestShouldRetryExec(t *testing.T) {
 				t.Fatalf("shouldRetryExec(%v) = %v, want %v", tt.err, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestFormatDBStatsIncludesConnectionCounters(t *testing.T) {
+	stats := sql.DBStats{
+		OpenConnections:   4,
+		InUse:             2,
+		Idle:              2,
+		WaitCount:         3,
+		MaxIdleClosed:     1,
+		MaxIdleTimeClosed: 5,
+		MaxLifetimeClosed: 7,
+	}
+
+	got := formatDBStats(stats)
+
+	for _, want := range []string{
+		"open=4",
+		"in_use=2",
+		"idle=2",
+		"wait_count=3",
+		"max_idle_closed=1",
+		"max_idle_time_closed=5",
+		"max_lifetime_closed=7",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("stats string = %q, want substring %q", got, want)
+		}
 	}
 }
 
