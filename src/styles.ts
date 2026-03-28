@@ -551,6 +551,31 @@ export const workspaceHomeStyles = css`
       background: rgba(20, 20, 24, 0.95);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      gap: 4px;
+    }
+
+    .mobile-drawer-toggle {
+      position: absolute;
+      left: 10px;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .mobile-drawer-toggle:active {
+      background: rgba(148, 163, 184, 0.2);
+      color: #e5e7eb;
     }
 
     .mobile-header-nav {

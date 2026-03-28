@@ -3,6 +3,7 @@ import { LitElement, html, nothing } from "lit";
 import "../components/workspace-conversation-pane";
 import "../components/workspace-preview-card";
 import "../components/mobile-kanban-board";
+import "../components/mobile-project-drawer";
 import type {
   ConversationPaneAction,
 } from "../components/workspace-conversation-pane";
@@ -150,6 +151,8 @@ export class KanbanWorkspaceHome extends LitElement {
     webPreviewFallbackUrlByWorkspace: { attribute: false },
     todoPendingCountByWorkspace: { attribute: false },
     mobileActiveTab: { attribute: false },
+    drawerOpen: { type: Boolean, attribute: false },
+    kanbanProjectId: { attribute: false },
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
@@ -168,6 +171,8 @@ export class KanbanWorkspaceHome extends LitElement {
   messageErrorByWorkspace: Record<string, string> = {};
   messageDraftByWorkspace: Record<string, string> = {};
   mobileActiveTab: "workspaces" | "issues" = "workspaces";
+  drawerOpen = false;
+  kanbanProjectId = "";
   actionFeedbackByWorkspace: Record<string, string> = {};
   queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
   todoPendingCountByWorkspace: Record<string, number> = {};
@@ -238,6 +243,15 @@ export class KanbanWorkspaceHome extends LitElement {
       return html`
         <main class="workspace-home-shell">
           <header class="workspace-home-mobile-header">
+            ${this.mobileActiveTab === "issues"
+              ? html`<button
+                  class="mobile-drawer-toggle"
+                  type="button"
+                  @click=${() => { this.drawerOpen = true; }}
+                >
+                  ☰
+                </button>`
+              : nothing}
             <nav class="mobile-header-nav">
               <button
                 class="mobile-header-item"
@@ -272,9 +286,24 @@ export class KanbanWorkspaceHome extends LitElement {
                 <mobile-kanban-board
                   baseUrl=${this.previewOptions.baseUrl ?? ""}
                   apiKey=${this.previewOptions.apiKey}
+                  .selectedProjectId=${this.kanbanProjectId}
                 ></mobile-kanban-board>
               </section>
             `}
+          ${this.mobileActiveTab === "issues"
+            ? html`<mobile-project-drawer
+                baseUrl=${this.previewOptions.baseUrl ?? ""}
+                apiKey=${this.previewOptions.apiKey}
+                .open=${this.drawerOpen}
+                @project-changed=${(e: CustomEvent) => {
+                  this.kanbanProjectId = e.detail.projectId;
+                  this.drawerOpen = false;
+                }}
+                @drawer-closed=${() => {
+                  this.drawerOpen = false;
+                }}
+              ></mobile-project-drawer>`
+            : nothing}
         </main>
       `;
     }
