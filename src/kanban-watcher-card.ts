@@ -372,6 +372,13 @@ export class KanbanWatcherCard extends LitElement {
             .todoBaseUrl=${this.config?.base_url ?? ""}
             .todoApiKey=${this.config?.api_key}
             .todoPendingCount=${this.todoPendingCount}
+            .diffStats=${workspace.files_changed
+              ? {
+                  files_changed: workspace.files_changed ?? 0,
+                  lines_added: workspace.lines_added ?? 0,
+                  lines_removed: workspace.lines_removed ?? 0,
+                }
+              : undefined}
             .renderMessage=${(message: DialogMessage) => this.renderDialogEntry(message)}
             .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
             @pane-close=${this.closeWorkspaceDialog}
