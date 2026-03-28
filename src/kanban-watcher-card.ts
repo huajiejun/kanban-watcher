@@ -42,6 +42,7 @@ import {
   type WorkspaceSectionKey,
 } from "./components/workspace-section-list";
 import { cardStyles } from "./styles";
+import { getStatusMeta } from "./lib/status-meta";
 import { getWorkspacePath } from "./lib/workspace-path";
 import {
   buildWorkspacePreviewUrlFromFrontendPort,
@@ -332,6 +333,7 @@ export class KanbanWatcherCard extends LitElement {
 
     const messages = this.getDialogMessages(workspace);
     const isRunning = workspace.status === "running";
+    const statusAccentClass = getStatusMeta(workspace).accentClass;
     const canQueue = isRunning || this.optimisticQueueWorkspaceIds.has(workspace.id);
     const queueStatus = this.queueStatusByWorkspace[workspace.id];
     const isQueued = canQueue && queueStatus?.status === "queued";
@@ -363,6 +365,7 @@ export class KanbanWatcherCard extends LitElement {
             .currentFeedback=${this.currentFeedback}
             .queueStatus=${queueStatus}
             .isRunning=${isRunning}
+            .statusAccentClass=${statusAccentClass}
             .canQueue=${canQueue}
             .devServerState=${this.getWorkspaceDevServerState(workspace)}
             .showWorkspaceWebPreview=${this.shouldShowWorkspaceWebPreview(workspace)}
