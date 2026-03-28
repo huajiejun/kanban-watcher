@@ -451,13 +451,32 @@ export class DiffDetailsPanel extends LitElement {
       return html`<div class="diff-content-omitted">无内容差异</div>`;
     }
 
+    // 合并新旧内容，连续空行压缩为最多保留一行
     const lines: { text: string; type: string }[] = [];
+    let prevEmpty = false;
 
     for (const line of oldLines) {
-      if (line) lines.push({ text: line, type: "remove" });
+      if (!line.trim()) {
+        if (!prevEmpty) {
+          lines.push({ text: "", type: "remove" });
+          prevEmpty = true;
+        }
+        continue;
+      }
+      prevEmpty = false;
+      lines.push({ text: line, type: "remove" });
     }
+
     for (const line of newLines) {
-      if (line) lines.push({ text: line, type: "add" });
+      if (!line.trim()) {
+        if (!prevEmpty) {
+          lines.push({ text: "", type: "add" });
+          prevEmpty = true;
+        }
+        continue;
+      }
+      prevEmpty = false;
+      lines.push({ text: line, type: "add" });
     }
 
     if (lines.length === 0) {
