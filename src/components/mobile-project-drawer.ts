@@ -38,7 +38,7 @@ export class MobileProjectDrawer extends LitElement {
       left: 0;
       top: 0;
       height: 100%;
-      width: 280px;
+      width: 220px;
       background: color-mix(
         in srgb,
         var(--primary-background-color, #111827) 95%,
@@ -61,13 +61,13 @@ export class MobileProjectDrawer extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 14px;
+      padding: 8px 10px;
       border-bottom: 1px solid rgba(148, 163, 184, 0.1);
       flex-shrink: 0;
     }
 
     .drawer-org-name {
-      font-size: 0.88rem;
+      font-size: 0.78rem;
       font-weight: 600;
       color: #e5e7eb;
       overflow: hidden;
@@ -76,13 +76,13 @@ export class MobileProjectDrawer extends LitElement {
     }
 
     .drawer-close {
-      width: 28px;
-      height: 28px;
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
       border: none;
       background: rgba(148, 163, 184, 0.15);
       color: #94a3b8;
-      font-size: 1.1rem;
+      font-size: 0.9rem;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -111,14 +111,14 @@ export class MobileProjectDrawer extends LitElement {
     .project-item {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       width: 100%;
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 7px 10px;
+      border-radius: 6px;
       border: none;
       background: transparent;
       color: #cbd5e1;
-      font-size: 0.85rem;
+      font-size: 0.78rem;
       text-align: left;
       cursor: pointer;
       transition: background 0.15s, color 0.15s;
@@ -139,8 +139,8 @@ export class MobileProjectDrawer extends LitElement {
     }
 
     .project-dot {
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       flex-shrink: 0;
     }
@@ -206,6 +206,18 @@ export class MobileProjectDrawer extends LitElement {
       if (orgId) {
         await this.handleOrgChange(orgId);
       }
+
+      // 首次初始化时，自动恢复上次选择的项目
+      if (this.isFirstInit && this.selectedProjectId) {
+        this.isFirstInit = false;
+        this.dispatchEvent(
+          new CustomEvent("project-changed", {
+            detail: { projectId: this.selectedProjectId },
+            bubbles: true,
+            composed: true,
+          })
+        );
+      }
     } catch (err) {
       console.error("加载组织失败:", err);
     } finally {
@@ -240,6 +252,8 @@ export class MobileProjectDrawer extends LitElement {
       console.error("加载项目失败:", err);
     }
   }
+
+  private isFirstInit = true;
 
   handleProjectClick(projectId: string) {
     this.selectedProjectId = projectId;
