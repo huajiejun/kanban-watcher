@@ -13,26 +13,27 @@ export class DiffDetailsPanel extends LitElement {
       inset: 0;
       z-index: 100;
       display: flex;
-      align-items: stretch;
-      justify-content: flex-end;
+      align-items: center;
+      justify-content: center;
     }
 
     .overlay {
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.4);
+      background: rgba(0, 0, 0, 0.5);
     }
 
     .panel {
       position: relative;
-      width: 560px;
-      max-width: 95vw;
+      width: calc(100vw - 32px);
+      height: calc(100vh - 32px);
+      max-width: 1200px;
       background: var(--primary-background-color, #0f172a);
-      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     }
 
     .panel-header {
@@ -144,9 +145,7 @@ export class DiffDetailsPanel extends LitElement {
       color: var(--text-primary-color, #e2e8f0);
       flex: 1;
       min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      word-break: break-all;
     }
 
     .file-stats {
@@ -162,15 +161,15 @@ export class DiffDetailsPanel extends LitElement {
 
     /* 差异内容展开 */
     .diff-content {
-      margin-top: 6px;
-      padding: 8px;
-      border-radius: 4px;
-      background: rgba(0, 0, 0, 0.25);
+      margin-top: 8px;
+      padding: 10px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.3);
       font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-      font-size: 11.5px;
-      line-height: 1.5;
+      font-size: 12px;
+      line-height: 1.6;
       overflow-x: auto;
-      max-height: 300px;
+      max-height: 60vh;
       overflow-y: auto;
       white-space: pre;
     }
@@ -223,7 +222,10 @@ export class DiffDetailsPanel extends LitElement {
     @media (max-width: 640px) {
       .panel {
         width: 100%;
+        height: 100%;
         max-width: 100vw;
+        max-height: 100vh;
+        border-radius: 0;
       }
 
       .stats-summary {
@@ -237,6 +239,11 @@ export class DiffDetailsPanel extends LitElement {
 
       .file-path {
         font-size: 11.5px;
+      }
+
+      .diff-content {
+        max-height: 50vh;
+        font-size: 11px;
       }
     }
   `;
