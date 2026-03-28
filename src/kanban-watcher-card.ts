@@ -136,6 +136,7 @@ export class KanbanWatcherCard extends LitElement {
     todosByWorkspace: { state: true },
     webPreviewWorkspaceId: { state: true },
     webPreviewFallbackUrlByWorkspace: { state: true },
+    activeMenuWorkspaceId: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -186,6 +187,7 @@ export class KanbanWatcherCard extends LitElement {
   private previewProxyPort?: number;
   private realtimeBaseUrl?: string;
   private webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
+  private activeMenuWorkspaceId?: string;
 
   connectedCallback() {
     super.connectedCallback();
@@ -278,6 +280,8 @@ export class KanbanWatcherCard extends LitElement {
       getWorkspaceDisplayMeta: (workspace) => this.getWorkspaceDisplayMeta(workspace),
       onToggleSection: (key) => this.toggleSection(key),
       onSelectWorkspace: (workspace) => this.openWorkspaceDialog(workspace),
+      onMenuAction: (workspace, action) => this.handleWorkspaceMenuAction(workspace, action),
+      activeMenuWorkspaceId: this.activeMenuWorkspaceId,
     });
   }
 
@@ -499,6 +503,30 @@ export class KanbanWatcherCard extends LitElement {
       }).catch((error) => {
         console.error("标记工作区已读失败:", error);
       });
+    }
+  }
+
+  private handleWorkspaceMenuAction(workspace: KanbanWorkspace, action: string) {
+    if (action === "toggle-menu") {
+      this.activeMenuWorkspaceId = this.activeMenuWorkspaceId === workspace.id ? undefined : workspace.id;
+      return;
+    }
+    this.activeMenuWorkspaceId = undefined;
+    switch (action) {
+      case "create-pr":
+        // TODO: 打开 PR 创建对话框
+        console.log("创建 PR:", workspace.id);
+        break;
+      case "open-branch":
+        // TODO: 打开分支
+        console.log("打开分支:", workspace.id);
+        break;
+      case "delete":
+        // TODO: 删除工作区
+        console.log("删除工作区:", workspace.id);
+        break;
+      default:
+        console.warn("未知菜单操作:", action);
     }
   }
 
