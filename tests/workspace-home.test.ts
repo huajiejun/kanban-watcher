@@ -582,6 +582,20 @@ describe("workspace home helpers", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+            realtime: {
+              base_url: "http://127.0.0.1:7778",
+            },
+          },
+        });
+      }
+
       if (url.includes("/api/workspaces/active")) {
         return createJsonResponse({
           workspaces: [
@@ -610,7 +624,7 @@ describe("workspace home helpers", () => {
 
     expect(element.shadowRoot?.textContent).toContain("初始任务");
     expect(FakeWebSocket.instances).toHaveLength(1);
-    expect(FakeWebSocket.instances[0]?.url).toContain("/api/realtime/ws");
+    expect(FakeWebSocket.instances[0]?.url).toBe("ws://127.0.0.1:7778/api/realtime/ws");
 
     FakeWebSocket.instances[0]?.emitOpen();
     FakeWebSocket.instances[0]?.emitMessage({
@@ -1532,6 +1546,17 @@ describe("workspace home helpers", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            realtime: {
+              base_url: "http://127.0.0.1:7778",
+            },
+          },
+        });
+      }
+
       if (url.includes("/api/workspaces/active")) {
         return createJsonResponse({
           workspaces: [
@@ -1581,7 +1606,9 @@ describe("workspace home helpers", () => {
     await flushElement(element);
 
     expect(FakeWebSocket.instances).toHaveLength(2);
+    expect(FakeWebSocket.instances[0]?.url).toBe("ws://127.0.0.1:7778/api/realtime/ws");
     expect(FakeWebSocket.instances[1]?.url).toContain("session_id=session-1");
+    expect(FakeWebSocket.instances[1]?.url).toContain("ws://127.0.0.1:7778/api/realtime/ws");
 
     FakeWebSocket.instances[1]?.emitOpen();
     FakeWebSocket.instances[1]?.emitMessage({

@@ -91,6 +91,14 @@ type syncResult struct {
 	SessionExtractErrorCount int
 }
 
+type runtimeFeatures struct {
+	role            string
+	enableSync      bool
+	enableRealtime  bool
+	enableNotify    bool
+	realtimeBaseURL string
+}
+
 type syncNowDeps struct {
 	loadConfig      func() (*config.Config, error)
 	newFetcher      func(string) workspaceFetcher
@@ -205,6 +213,8 @@ func syncCurrentData(
 func runDaemon() error {
 	// 先加载配置，获取端口号
 	cfg := config.MustLoad()
+	features := resolveRuntimeFeatures(cfg)
+	log.Printf("[Role] %s: sync=%t realtime=%t notify=%t", features.role, features.enableSync, features.enableRealtime, features.enableNotify)
 
 	// 单实例检查：使用端口号作为实例ID，支持多端口运行
 	instanceID := fmt.Sprintf("%d", cfg.HTTPAPI.Port)
@@ -243,12 +253,15 @@ func runDaemon() error {
 			} else {
 				fmt.Fprintf(os.Stdout, "数据库连接成功\n")
 
-				// 启动同步服务
-				syncService := sync.NewSyncService(cfg, dbStore)
-				realtimeHub := realtime.NewHub()
-				realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
-				syncService.SetRealtimePublisher(realtimePublisher)
-				go syncService.Start(context.Background())
+				if features.enableSync {
+					syncService := sync.NewSyncService(cfg, dbStore)
+					if features.enableRealtime {
+						realtimeHub := realtime.NewHub()
+						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
+						syncService.SetRealtimePublisher(realtimePublisher)
+					}
+					go syncService.Start(context.Background())
+				}
 
 				// 启动 token stats collector
 				if cfg.TokenStats.IsEnabled() {
@@ -277,6 +290,11 @@ func runDaemon() error {
 	staticFS, _ := fs.Sub(webFS, "web")
 
 	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, cfg.Auth.IsEnabled(), jwtService, staticFS)
+	httpServer.SetRuntimeInfo(server.RuntimeInfo{
+		Role:            features.role,
+		RealtimeEnabled: features.enableRealtime,
+		RealtimeBaseURL: features.realtimeBaseURL,
+	})
 
 	// 设置认证处理器
 	authHandler := &server.AuthHandler{
@@ -300,6 +318,8 @@ func runDaemon() error {
 		if realtimePublisher != nil {
 			pattern, handler := realtimePublisher.Route()
 			httpServer.RegisterRoute(pattern, handler)
+		} else if !features.enableRealtime {
+			httpServer.RegisterRoute("/api/realtime/ws", httpServer.HandleRealtimeUnavailable)
 		}
 	}
 
@@ -309,9 +329,11 @@ func runDaemon() error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	pollResults := make(chan poller.PollResult, 2)
-	go poller.Run(ctx, cfg, apiClient, pollResults)
-	go runEventLoop(ctx, pollResults, dbStore, sessionExtractor, cfg, wechatNotifier, tracker, trayApp, dialogNotifier)
+	if features.enableNotify {
+		pollResults := make(chan poller.PollResult, 2)
+		go poller.Run(ctx, cfg, apiClient, pollResults)
+		go runEventLoop(ctx, pollResults, dbStore, sessionExtractor, cfg, wechatNotifier, tracker, trayApp, dialogNotifier)
+	}
 
 	systray.Run(trayApp.OnReady, trayApp.OnExit(cancel))
 
@@ -330,6 +352,8 @@ func runDaemon() error {
 func runHeadless() error {
 	// 先加载配置，获取端口号
 	cfg := config.MustLoad()
+	features := resolveRuntimeFeatures(cfg)
+	log.Printf("[Role] %s: sync=%t realtime=%t notify=%t", features.role, features.enableSync, features.enableRealtime, features.enableNotify)
 
 	// 单实例检查：使用端口号作为实例ID，支持多端口运行
 	instanceID := fmt.Sprintf("%d", cfg.HTTPAPI.Port)
@@ -364,11 +388,15 @@ func runHeadless() error {
 				dbStore = nil
 			} else {
 				fmt.Fprintf(os.Stdout, "数据库连接成功\n")
-				syncService := sync.NewSyncService(cfg, dbStore)
-				realtimeHub := realtime.NewHub()
-				realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
-				syncService.SetRealtimePublisher(realtimePublisher)
-				go syncService.Start(context.Background())
+				if features.enableSync {
+					syncService := sync.NewSyncService(cfg, dbStore)
+					if features.enableRealtime {
+						realtimeHub := realtime.NewHub()
+						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
+						syncService.SetRealtimePublisher(realtimePublisher)
+					}
+					go syncService.Start(context.Background())
+				}
 
 				// 启动 token stats collector
 				if cfg.TokenStats.IsEnabled() {
@@ -396,6 +424,11 @@ func runHeadless() error {
 	staticFS, _ := fs.Sub(webFS, "web")
 
 	httpServer := server.NewServer(proxyClient, cfg.HTTPAPI.Port, cfg.HTTPAPI.APIKey, cfg.Auth.IsEnabled(), jwtService, staticFS)
+	httpServer.SetRuntimeInfo(server.RuntimeInfo{
+		Role:            features.role,
+		RealtimeEnabled: features.enableRealtime,
+		RealtimeBaseURL: features.realtimeBaseURL,
+	})
 
 	// 设置认证处理器
 	authHandler := &server.AuthHandler{
@@ -415,6 +448,8 @@ func runHeadless() error {
 		if realtimePublisher != nil {
 			pattern, handler := realtimePublisher.Route()
 			httpServer.RegisterRoute(pattern, handler)
+		} else if !features.enableRealtime {
+			httpServer.RegisterRoute("/api/realtime/ws", httpServer.HandleRealtimeUnavailable)
 		}
 	}
 	if err := httpServer.Start(); err != nil {
@@ -424,9 +459,11 @@ func runHeadless() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	pollResults := make(chan poller.PollResult, 2)
-	go poller.Run(ctx, cfg, apiClient, pollResults)
-	go runEventLoop(ctx, pollResults, dbStore, sessionExtractor, cfg, wechatNotifier, tracker, nil, dialogNotifier)
+	if features.enableNotify {
+		pollResults := make(chan poller.PollResult, 2)
+		go poller.Run(ctx, cfg, apiClient, pollResults)
+		go runEventLoop(ctx, pollResults, dbStore, sessionExtractor, cfg, wechatNotifier, tracker, nil, dialogNotifier)
+	}
 
 	fmt.Fprintln(os.Stdout, "headless 模式已启动")
 	<-ctx.Done()
@@ -466,6 +503,20 @@ func collectSnapshots(extractor *sessionlog.Extractor, workspaces []api.Enriched
 		snapshots = append(snapshots, snapshot)
 	}
 	return snapshots, errCount
+}
+
+func resolveRuntimeFeatures(cfg *config.Config) runtimeFeatures {
+	role := cfg.Runtime.Role
+	if role == "" {
+		role = config.RuntimeRoleWorker
+	}
+	return runtimeFeatures{
+		role:            role,
+		enableSync:      cfg.Runtime.IsMain(),
+		enableRealtime:  cfg.Runtime.IsMain(),
+		enableNotify:    cfg.Runtime.IsMain(),
+		realtimeBaseURL: cfg.Runtime.RealtimeBaseURL,
+	}
 }
 
 // generateRandomSecret 生成随机密钥
