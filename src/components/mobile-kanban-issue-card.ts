@@ -1,6 +1,5 @@
 import { LitElement, html, css, nothing } from "lit";
-import { updateIssue } from "../lib/issue-api";
-import type { RemoteIssue, RemoteProjectStatus } from "../types/issue";
+import type { RemoteIssue } from "../types/issue";
 
 export class MobileKanbanIssueCard extends LitElement {
   static styles = css`
@@ -72,104 +71,14 @@ export class MobileKanbanIssueCard extends LitElement {
       font-size: 0.68rem;
       color: rgba(148, 163, 184, 0.6);
     }
-
-    /* 展开后的操作区域 */
-    .issue-expanded {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid rgba(148, 163, 184, 0.1);
-    }
-
-    .expanded-desc {
-      font-size: 0.78rem;
-      color: var(--secondary-text-color, #94a3b8);
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-height: 120px;
-      overflow-y: auto;
-    }
-
-    .action-row {
-      display: flex;
-      gap: 6px;
-      margin-top: 10px;
-      flex-wrap: wrap;
-    }
-
-    .action-btn {
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      background: rgba(148, 163, 184, 0.08);
-      color: #cbd5e1;
-      font-size: 0.72rem;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .action-btn:active {
-      background: rgba(148, 163, 184, 0.16);
-    }
-
-    .action-btn.danger {
-      border-color: rgba(248, 113, 113, 0.3);
-      color: #f87171;
-      background: rgba(248, 113, 113, 0.08);
-    }
-
-    /* 状态选择器 */
-    .status-picker {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-      flex-wrap: wrap;
-    }
-
-    .status-option {
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      background: rgba(148, 163, 184, 0.08);
-      color: #cbd5e1;
-      font-size: 0.72rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .status-option:active {
-      background: rgba(148, 163, 184, 0.16);
-    }
-
-    .status-option-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
   `;
 
   issue: RemoteIssue = null!;
   statusColor = "";
-  statuses: RemoteProjectStatus[] = [];
-  baseUrl = "";
-  apiKey = "";
-  expanded = false;
-  showStatusPicker = false;
-  moving = false;
 
   static properties = {
     issue: { type: Object },
     statusColor: { type: String },
-    statuses: { type: Array },
-    baseUrl: { type: String },
-    apiKey: { type: String },
-    expanded: { type: Boolean },
-    showStatusPicker: { type: Boolean },
-    moving: { type: Boolean },
   };
 
   private get priorityLabel(): string {
@@ -214,29 +123,13 @@ export class MobileKanbanIssueCard extends LitElement {
   }
 
   private handleCardClick() {
-    this.expanded = !this.expanded;
-    this.showStatusPicker = false;
-  }
-
-  private async handleMoveStatus(newStatusId: string) {
-    this.moving = true;
-    try {
-      await updateIssue(
-        { baseUrl: this.baseUrl, apiKey: this.apiKey },
-        this.issue.id,
-        { status_id: newStatusId }
-      );
-      this.dispatchEvent(
-        new CustomEvent("issue-updated", {
-          bubbles: true,
-          composed: true,
-        })
-      );
-    } catch (err) {
-      console.error("移动状态失败:", err);
-    } finally {
-      this.moving = false;
-    }
+    this.dispatchEvent(
+      new CustomEvent("open-issue-detail", {
+        detail: { issue: this.issue },
+        bubbles: true,
+        composed: true,
+      })
+    );
   }
 
   protected render() {
@@ -265,47 +158,6 @@ export class MobileKanbanIssueCard extends LitElement {
         <div class="issue-meta">
           <span>${this.timeAgo}</span>
         </div>
-
-        ${this.expanded
-          ? html`
-              <div class="issue-expanded" @click=${(e: Event) => e.stopPropagation()}>
-                ${this.issue.description
-                  ? html`<div class="expanded-desc">
-                      ${this.issue.description}
-                    </div>`
-                  : nothing}
-                <div class="action-row">
-                  <button
-                    class="action-btn"
-                    type="button"
-                    @click=${() =>
-                      (this.showStatusPicker = !this.showStatusPicker)}
-                  >
-                    ${this.moving ? "移动中..." : "移动状态"}
-                  </button>
-                </div>
-                ${this.showStatusPicker
-                  ? html`<div class="status-picker">
-                      ${this.statuses.map(
-                        (s) => html`
-                          <button
-                            class="status-option"
-                            type="button"
-                            @click=${() => this.handleMoveStatus(s.id)}
-                          >
-                            <span
-                              class="status-option-dot"
-                              style="background: ${s.color || "#94a3b8"}"
-                            ></span>
-                            ${s.name}
-                          </button>
-                        `
-                      )}
-                    </div>`
-                  : nothing}
-              </div>
-            `
-          : nothing}
       </div>
     `;
   }

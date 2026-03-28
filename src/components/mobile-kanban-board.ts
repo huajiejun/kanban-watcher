@@ -9,6 +9,7 @@ import type {
   KanbanColumn,
 } from "../types/issue";
 import "./mobile-kanban-column";
+import "./mobile-issue-detail-panel";
 
 export class MobileKanbanBoard extends LitElement {
   static styles = css`
@@ -115,6 +116,8 @@ export class MobileKanbanBoard extends LitElement {
   loading = false;
   error = "";
   activeColumnIndex = 0;
+  selectedIssue: RemoteIssue | null = null;
+  panelVisible = false;
 
   static properties = {
     baseUrl: { type: String, attribute: "base-url" },
@@ -125,6 +128,8 @@ export class MobileKanbanBoard extends LitElement {
     loading: { type: Boolean, attribute: false },
     error: { attribute: false },
     activeColumnIndex: { type: Number, attribute: false },
+    selectedIssue: { attribute: false },
+    panelVisible: { type: Boolean, attribute: false },
   };
 
   updated(changed: Map<string, unknown>) {
@@ -200,6 +205,22 @@ export class MobileKanbanBoard extends LitElement {
     void this.loadBoard();
   }
 
+  private handleOpenIssueDetail(e: CustomEvent) {
+    const { issue } = e.detail;
+    this.selectedIssue = { ...issue };
+    this.panelVisible = true;
+  }
+
+  private handleIssueDetailUpdated() {
+    void this.loadBoard();
+  }
+
+  private handleIssueDeleted() {
+    this.panelVisible = false;
+    this.selectedIssue = null;
+    void this.loadBoard();
+  }
+
   private scrollToColumn(index: number) {
     const container = this.renderRoot.querySelector(".kanban-columns");
     if (!container) return;
@@ -271,7 +292,10 @@ export class MobileKanbanBoard extends LitElement {
     // 正常看板
     return html`
       <div class="kanban-board">
-        <div class="kanban-columns">
+        <div
+          class="kanban-columns"
+          @open-issue-detail=${this.handleOpenIssueDetail}
+        >
           ${this.columns.map(
             (col) =>
               html`<mobile-kanban-column
@@ -310,6 +334,15 @@ export class MobileKanbanBoard extends LitElement {
           .apiKey=${this.apiKey}
           @issue-created=${this.handleIssueCreated}
         ></mobile-issue-create-dialog>
+        <mobile-issue-detail-panel
+          .issue=${this.selectedIssue}
+          .statuses=${this.statuses}
+          .baseUrl=${this.baseUrl}
+          .apiKey=${this.apiKey}
+          .visible=${this.panelVisible}
+          @issue-updated=${this.handleIssueDetailUpdated}
+          @issue-deleted=${this.handleIssueDeleted}
+        ></mobile-issue-detail-panel>
       </div>
     `;
   }
