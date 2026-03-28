@@ -548,7 +548,7 @@ export const workspaceHomeStyles = css`
       align-items: center;
       justify-content: center;
       padding: 5px 10px;
-      background: rgba(0, 0, 0, 0.9);
+      background: rgba(15, 15, 18, 0.95);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid rgba(148, 163, 184, 0.12);
     }
