@@ -176,6 +176,7 @@ export class KanbanWatcherCard extends LitElement {
   private todosByWorkspace: Record<string, TodoItem[]> = {};
   private webPreviewWorkspaceId?: string;
   private previewProxyPort?: number;
+  private realtimeBaseUrl?: string;
   private webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
 
   connectedCallback() {
@@ -1093,8 +1094,10 @@ export class KanbanWatcherCard extends LitElement {
         apiKey: this.config.api_key,
       });
       this.previewProxyPort = response.data?.config?.preview_proxy_port;
+      this.realtimeBaseUrl = response.data?.realtime?.base_url || this.config.base_url;
     } catch {
       this.previewProxyPort = undefined;
+      this.realtimeBaseUrl = this.config.base_url;
     }
   }
 
@@ -1172,8 +1175,9 @@ export class KanbanWatcherCard extends LitElement {
     if (this.config?.base_url === undefined || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
     }
+    const realtimeBaseUrl = this.realtimeBaseUrl || this.config.base_url;
     const socket = connectRealtime({
-      baseUrl: this.config.base_url,
+      baseUrl: realtimeBaseUrl,
       apiKey: this.config.api_key,
       onOpen: () => {
         if (this.boardRealtimeSocket !== socket || !this.isConnected) {
@@ -1221,8 +1225,9 @@ export class KanbanWatcherCard extends LitElement {
       this.realtimeConnected = false;
       return;
     }
+    const realtimeBaseUrl = this.realtimeBaseUrl || this.config.base_url;
     const socket = connectRealtime({
-      baseUrl: this.config.base_url,
+      baseUrl: realtimeBaseUrl,
       apiKey: this.config.api_key,
       sessionId,
       onOpen: () => {
