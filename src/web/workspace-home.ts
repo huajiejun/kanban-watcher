@@ -77,6 +77,7 @@ import {
 } from "../lib/workspace-web-preview";
 import {
   ACTIVE_PANE_MESSAGE_TYPES,
+  didSelectedWorkspaceMessageVersionChange,
   getSelectedWorkspaceSessionId,
   loadRealtimeRuntimeInfo,
 } from "../lib/realtime-sync";
@@ -1427,13 +1428,23 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     if (event.type === "workspace_snapshot") {
       const previousOpenWorkspaceIds = [...this.pageState.openWorkspaceIds];
+      const previousWorkspaces = this.workspaces;
       const nextWorkspaces = this.preserveWorkspaceOrder(
         (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace)),
       );
+      const shouldRefreshActiveWorkspaceMessages = didSelectedWorkspaceMessageVersionChange({
+        previousSelectedWorkspaceId: this.pageState.activeWorkspaceId,
+        previousWorkspaces,
+        currentSelectedWorkspaceId: this.pageState.activeWorkspaceId,
+        currentWorkspaces: nextWorkspaces,
+      });
       void this.hydrateRunningDevServerProcesses(nextWorkspaces);
       this.workspaces = nextWorkspaces;
       this.pruneDevServerProcessState(nextWorkspaces);
       this.pageState = reconcileWorkspacePageState(this.pageState, this.workspaces);
+      if (shouldRefreshActiveWorkspaceMessages && this.pageState.activeWorkspaceId) {
+        void this.loadWorkspaceMessages(this.pageState.activeWorkspaceId, true);
+      }
       const newlyOpenedWorkspaceIds = this.pageState.openWorkspaceIds.filter(
         (workspaceId) => !previousOpenWorkspaceIds.includes(workspaceId),
       );

@@ -45,8 +45,10 @@ import { getStatusMeta } from "./lib/status-meta";
 import { getWorkspacePath } from "./lib/workspace-path";
 import {
   ACTIVE_PANE_MESSAGE_TYPES,
+  didSelectedWorkspaceMessageVersionChange,
   didSelectedWorkspaceSessionChange,
   getSelectedWorkspaceSessionId,
+  getWorkspaceMessageVersion,
   loadRealtimeRuntimeInfo,
 } from "./lib/realtime-sync";
 import {
@@ -1325,9 +1327,22 @@ export class KanbanWatcherCard extends LitElement {
 
   private handleRealtimeEvent(event: RealtimeEvent) {
     if (event.type === "workspace_snapshot") {
-      this.apiWorkspaces = this.normalizeApiWorkspaces({
+      const previousWorkspaces = this.apiWorkspaces;
+      const nextWorkspaces = this.normalizeApiWorkspaces({
         workspaces: event.workspaces,
       });
+      const shouldRefreshSelectedWorkspaceMessages =
+        Boolean(this.selectedWorkspaceId) &&
+        didSelectedWorkspaceMessageVersionChange({
+          previousSelectedWorkspaceId: this.selectedWorkspaceId,
+          previousWorkspaces,
+          currentSelectedWorkspaceId: this.selectedWorkspaceId,
+          currentWorkspaces: nextWorkspaces,
+        });
+      this.apiWorkspaces = nextWorkspaces;
+      if (shouldRefreshSelectedWorkspaceMessages && this.selectedWorkspaceId) {
+        void this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+      }
       this.requestUpdate();
       return;
     }
@@ -1614,7 +1629,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private getWorkspaceMessageVersion(workspace: KanbanWorkspace) {
-    return workspace.last_message_at || workspace.updated_at || workspace.latest_session_id || "";
+    return getWorkspaceMessageVersion(workspace);
   }
 
   private applyWorkspaceSessionId(workspaceId: string, sessionId?: string) {

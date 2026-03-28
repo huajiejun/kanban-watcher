@@ -7,8 +7,10 @@ vi.mock("../src/lib/http-api", () => ({
 import type { KanbanWorkspace } from "../src/types";
 import {
   ACTIVE_PANE_MESSAGE_TYPES,
+  didSelectedWorkspaceMessageVersionChange,
   didSelectedWorkspaceSessionChange,
   getSelectedWorkspaceSessionId,
+  getWorkspaceMessageVersion,
   getWorkspaceSessionId,
   loadRealtimeRuntimeInfo,
 } from "../src/lib/realtime-sync";
@@ -96,6 +98,23 @@ describe("realtime-sync", () => {
     expect(getSelectedWorkspaceSessionId("missing", [workspace])).toBeUndefined();
   });
 
+  it("extracts workspace message versions consistently", () => {
+    const workspace: KanbanWorkspace = {
+      id: "ws-1",
+      name: "任务一",
+      status: "running",
+      latest_session_id: "session-latest",
+      updated_at: "2026-03-28T09:00:00Z",
+      last_message_at: "2026-03-28T09:01:00Z",
+    };
+
+    expect(getWorkspaceMessageVersion(workspace)).toBe("2026-03-28T09:01:00Z");
+    expect(getWorkspaceMessageVersion({
+      ...workspace,
+      last_message_at: undefined,
+    })).toBe("2026-03-28T09:00:00Z");
+  });
+
   it("detects selected workspace session changes", () => {
     const previousWorkspaces: KanbanWorkspace[] = [
       {
@@ -122,6 +141,41 @@ describe("realtime-sync", () => {
     })).toBe(true);
 
     expect(didSelectedWorkspaceSessionChange({
+      previousSelectedWorkspaceId: "ws-1",
+      previousWorkspaces,
+      currentSelectedWorkspaceId: "ws-1",
+      currentWorkspaces: previousWorkspaces,
+    })).toBe(false);
+  });
+
+  it("detects selected workspace message version changes", () => {
+    const previousWorkspaces: KanbanWorkspace[] = [
+      {
+        id: "ws-1",
+        name: "任务一",
+        status: "running",
+        latest_session_id: "session-1",
+        last_message_at: "2026-03-28T09:00:00Z",
+      },
+    ];
+    const currentWorkspaces: KanbanWorkspace[] = [
+      {
+        id: "ws-1",
+        name: "任务一",
+        status: "running",
+        latest_session_id: "session-1",
+        last_message_at: "2026-03-28T09:01:00Z",
+      },
+    ];
+
+    expect(didSelectedWorkspaceMessageVersionChange({
+      previousSelectedWorkspaceId: "ws-1",
+      previousWorkspaces,
+      currentSelectedWorkspaceId: "ws-1",
+      currentWorkspaces,
+    })).toBe(true);
+
+    expect(didSelectedWorkspaceMessageVersionChange({
       previousSelectedWorkspaceId: "ws-1",
       previousWorkspaces,
       currentSelectedWorkspaceId: "ws-1",
