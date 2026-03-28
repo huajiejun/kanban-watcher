@@ -162,14 +162,14 @@ export class DiffDetailsPanel extends LitElement {
     /* 差异内容展开 */
     .diff-content {
       margin-top: 8px;
-      padding: 10px;
+      padding: 8px;
       border-radius: 6px;
       background: rgba(0, 0, 0, 0.3);
       font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-      font-size: 12px;
-      line-height: 1.6;
+      font-size: 11.5px;
+      line-height: 1.4;
       overflow-x: auto;
-      max-height: 60vh;
+      max-height: 70vh;
       overflow-y: auto;
       white-space: pre;
     }
@@ -177,6 +177,12 @@ export class DiffDetailsPanel extends LitElement {
     .diff-line {
       display: block;
       padding: 0 4px;
+      min-height: 0;
+    }
+
+    .diff-line.is-empty {
+      display: block;
+      height: 4px;
     }
 
     .diff-line.is-add { color: #22c55e; background: rgba(34, 197, 94, 0.08); }
@@ -242,8 +248,18 @@ export class DiffDetailsPanel extends LitElement {
       }
 
       .diff-content {
-        max-height: 50vh;
-        font-size: 11px;
+        max-height: 60vh;
+        font-size: 10.5px;
+        line-height: 1.3;
+        padding: 6px;
+      }
+
+      .diff-line {
+        padding: 0 2px;
+      }
+
+      .diff-line.is-empty {
+        height: 3px;
       }
     }
   `;
@@ -451,43 +467,36 @@ export class DiffDetailsPanel extends LitElement {
       return html`<div class="diff-content-omitted">无内容差异</div>`;
     }
 
-    // 合并新旧内容，连续空行压缩为最多保留一行
+    // 过滤空行，只保留有内容的行
     const lines: { text: string; type: string }[] = [];
-    let prevEmpty = false;
 
     for (const line of oldLines) {
-      if (!line.trim()) {
-        if (!prevEmpty) {
-          lines.push({ text: "", type: "remove" });
-          prevEmpty = true;
-        }
-        continue;
+      if (line.trim()) {
+        lines.push({ text: line, type: "remove" });
       }
-      prevEmpty = false;
-      lines.push({ text: line, type: "remove" });
     }
 
     for (const line of newLines) {
-      if (!line.trim()) {
-        if (!prevEmpty) {
-          lines.push({ text: "", type: "add" });
-          prevEmpty = true;
-        }
-        continue;
+      if (line.trim()) {
+        lines.push({ text: line, type: "add" });
       }
-      prevEmpty = false;
-      lines.push({ text: line, type: "add" });
     }
 
     if (lines.length === 0) {
       return nothing;
     }
 
+    // 限制最大显示行数，避免卡顿
+    const MAX_LINES = 500;
+    const truncated = lines.length > MAX_LINES;
+    const displayLines = truncated ? lines.slice(0, MAX_LINES) : lines;
+
     return html`
       <div class="diff-content">
-        ${lines.map((line) => html`
+        ${displayLines.map((line) => html`
           <span class="diff-line is-${line.type}">${line.text}</span>
         `)}
+        ${truncated ? html`<span class="diff-line is-context">... 还有 ${lines.length - MAX_LINES} 行未显示</span>` : nothing}
       </div>
     `;
   }
