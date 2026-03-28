@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from "lit";
 
 import "../components/workspace-conversation-pane";
 import "../components/workspace-preview-card";
+import "../components/diff-details-panel";
 import type {
   ConversationPaneAction,
 } from "../components/workspace-conversation-pane";
@@ -187,6 +188,8 @@ export class KanbanWorkspaceHome extends LitElement {
   private realtimeBaseUrl?: string;
   private previewDrawerWorkspaceId?: string;
   private webPreviewWorkspaceId?: string;
+  private diffDetailsWorkspaceId?: string;
+  private diffDetailsStats?: { files_changed: number; lines_added: number; lines_removed: number };
 
   connectedCallback() {
     super.connectedCallback();
@@ -290,6 +293,7 @@ export class KanbanWorkspaceHome extends LitElement {
           </aside>
           ${this.renderWorkspacePanes(openWorkspaces, paneLayoutMode)}
           ${this.renderPreviewDrawer()}
+          ${this.renderDiffDetailsPanel()}
           ${this.renderWebPreviewOverlay()}
         </section>
       </main>
@@ -756,6 +760,21 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private handleClosePreviewDrawer = () => {
     this.previewDrawerWorkspaceId = undefined;
+    this.requestUpdate();
+  };
+
+  private handleOpenDiffDetails = (
+    workspace: KanbanWorkspace,
+    stats: { files_changed: number; lines_added: number; lines_removed: number },
+  ) => {
+    this.diffDetailsWorkspaceId = workspace.id;
+    this.diffDetailsStats = stats;
+    this.requestUpdate();
+  };
+
+  private handleCloseDiffDetails = () => {
+    this.diffDetailsWorkspaceId = undefined;
+    this.diffDetailsStats = undefined;
     this.requestUpdate();
   };
 
@@ -1724,6 +1743,13 @@ export class KanbanWorkspaceHome extends LitElement {
         .todoBaseUrl=${this.previewOptions.baseUrl ?? ""}
         .todoApiKey=${this.previewOptions.apiKey}
         .todoPendingCount=${this.todoPendingCountByWorkspace[workspace.id] ?? 0}
+        .diffStats=${workspace.files_changed
+          ? {
+              files_changed: workspace.files_changed,
+              lines_added: workspace.lines_added ?? 0,
+              lines_removed: workspace.lines_removed ?? 0,
+            }
+          : undefined}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
@@ -1733,6 +1759,10 @@ export class KanbanWorkspaceHome extends LitElement {
         @pane-close=${() => this.handleCloseWorkspace(workspace)}
         @todo-selected=${(event: CustomEvent<{ content: string; todoId: string }>) =>
           void this.handleTodoSelected(workspace, event.detail)}
+        @diff-details-request=${(e: CustomEvent) => {
+          e.stopPropagation();
+          this.handleOpenDiffDetails(workspace, e.detail);
+        }}
       ></workspace-conversation-pane>
     `;
   }
@@ -1762,6 +1792,25 @@ export class KanbanWorkspaceHome extends LitElement {
           title=${`${workspace.name} 预览`}
         ></iframe>
       </aside>
+    `;
+  }
+
+  private renderDiffDetailsPanel() {
+    const workspace = this.workspaces.find((item) => item.id === this.diffDetailsWorkspaceId);
+    if (!workspace || !this.diffDetailsStats) {
+      return nothing;
+    }
+
+    return html`
+      <diff-details-panel
+        .open=${true}
+        .workspaceName=${workspace.name}
+        .workspaceId=${workspace.id}
+        .diffStats=${this.diffDetailsStats}
+        .baseUrl=${this.previewOptions.baseUrl ?? ""}
+        .apiKey=${this.previewOptions.apiKey}
+        @diff-details-close=${this.handleCloseDiffDetails}
+      ></diff-details-panel>
     `;
   }
 
@@ -1823,8 +1872,19 @@ export class KanbanWorkspaceHome extends LitElement {
         .workspaceName=${workspace.name}
         .statusAccentClass=${statusAccentClass}
         .previewLines=${previewLines}
+        .diffStats=${workspace.files_changed
+          ? {
+              files_changed: workspace.files_changed,
+              lines_added: workspace.lines_added ?? 0,
+              lines_removed: workspace.lines_removed ?? 0,
+            }
+          : undefined}
         @preview-activate=${() => this.handleOpenWorkspace(workspace)}
         @preview-close=${() => this.handleCloseWorkspace(workspace)}
+        @diff-details-request=${(e: CustomEvent) => {
+          e.stopPropagation();
+          this.handleOpenDiffDetails(workspace, e.detail);
+        }}
       ></workspace-preview-card>
     `;
   }

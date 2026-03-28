@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from "lit";
 import "./components/workspace-conversation-pane";
+import "./components/diff-details-panel";
 import { detectDialogEditLanguage, renderDialogMessage } from "./components/dialog-message-renderer";
 import {
   cancelWorkspaceQueue,
@@ -136,6 +137,8 @@ export class KanbanWatcherCard extends LitElement {
     todosByWorkspace: { state: true },
     webPreviewWorkspaceId: { state: true },
     webPreviewFallbackUrlByWorkspace: { state: true },
+    diffDetailsWorkspaceId: { state: true },
+    diffDetailsStats: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -186,6 +189,8 @@ export class KanbanWatcherCard extends LitElement {
   private previewProxyPort?: number;
   private realtimeBaseUrl?: string;
   private webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
+  private diffDetailsWorkspaceId?: string;
+  private diffDetailsStats?: { files_changed: number; lines_added: number; lines_removed: number };
 
   connectedCallback() {
     super.connectedCallback();
@@ -222,6 +227,7 @@ export class KanbanWatcherCard extends LitElement {
         </div>
         ${this.renderDialog()}
         ${this.renderWebPreviewOverlay()}
+        ${this.renderDiffDetailsPanel()}
       </ha-card>
     `;
   }
@@ -400,6 +406,13 @@ export class KanbanWatcherCard extends LitElement {
             .todoBaseUrl=${this.config?.base_url ?? ""}
             .todoApiKey=${this.config?.api_key}
             .todoPendingCount=${this.todoPendingCount}
+            .diffStats=${workspace.files_changed
+              ? {
+                  files_changed: workspace.files_changed ?? 0,
+                  lines_added: workspace.lines_added ?? 0,
+                  lines_removed: workspace.lines_removed ?? 0,
+                }
+              : undefined}
             .renderMessage=${(message: DialogMessage) => this.renderDialogEntry(message)}
             .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
             @pane-close=${this.closeWorkspaceDialog}
@@ -414,6 +427,9 @@ export class KanbanWatcherCard extends LitElement {
               void this.handleQuickButtonClick(event.detail)}
             @todo-selected=${(event: CustomEvent<{ content: string; todoId: string }>) =>
               void this.handleTodoSelected(event.detail)}
+            @diff-details-request=${(e: CustomEvent) => {
+              this.handleOpenDiffDetails(workspace, e.detail);
+            }}
           ></workspace-conversation-pane>
         </section>
       </div>
@@ -894,6 +910,38 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     return this.allWorkspaces.find((workspace) => workspace.id === this.selectedWorkspaceId);
+  }
+
+  private handleOpenDiffDetails = (
+    workspace: KanbanWorkspace,
+    stats: { files_changed: number; lines_added: number; lines_removed: number },
+  ) => {
+    this.diffDetailsWorkspaceId = workspace.id;
+    this.diffDetailsStats = stats;
+  };
+
+  private handleCloseDiffDetails = () => {
+    this.diffDetailsWorkspaceId = undefined;
+    this.diffDetailsStats = undefined;
+  };
+
+  private renderDiffDetailsPanel() {
+    const workspace = this.allWorkspaces.find((item) => item.id === this.diffDetailsWorkspaceId);
+    if (!workspace || !this.diffDetailsStats) {
+      return nothing;
+    }
+
+    return html`
+      <diff-details-panel
+        .open=${true}
+        .workspaceName=${workspace.name}
+        .workspaceId=${workspace.id}
+        .diffStats=${this.diffDetailsStats}
+        .baseUrl=${this.config?.base_url ?? ""}
+        .apiKey=${this.config?.api_key}
+        @diff-details-close=${this.handleCloseDiffDetails}
+      ></diff-details-panel>
+    `;
   }
 
   private get visibleSections() {
