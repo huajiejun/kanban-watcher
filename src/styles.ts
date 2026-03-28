@@ -547,7 +547,7 @@ export const workspaceHomeStyles = css`
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 10px 16px;
+      padding: 5px 10px;
       background: rgba(15, 23, 42, 0.95);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid rgba(148, 163, 184, 0.12);
@@ -556,19 +556,19 @@ export const workspaceHomeStyles = css`
     .mobile-header-nav {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
     }
 
     .mobile-header-item {
       display: flex;
       align-items: center;
-      gap: 3px;
-      padding: 4px 12px;
+      gap: 2px;
+      padding: 3px 8px;
       border: none;
-      border-radius: 6px;
+      border-radius: 4px;
       background: transparent;
       color: rgba(148, 163, 184, 0.7);
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       cursor: pointer;
       transition: color 0.15s, background 0.15s;
       -webkit-tap-highlight-color: transparent;
@@ -585,7 +585,7 @@ export const workspaceHomeStyles = css`
     }
 
     .mobile-header-icon {
-      font-size: 0.82rem;
+      font-size: 0.76rem;
       line-height: 1;
     }
 
