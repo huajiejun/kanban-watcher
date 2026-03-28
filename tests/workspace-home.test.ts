@@ -2305,6 +2305,75 @@ describe("workspace home helpers", () => {
     expect(secondPaneReveal?.textContent).toContain("任务二消息已刷新");
   });
 
+  it("still polls the active running pane to backfill missed realtime tail messages", async () => {
+    setWindowWidth(1920);
+
+    let wsRunningMessageRevision = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-running",
+              name: "运行中的任务",
+              status: "running",
+              latest_session_id: "session-running",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-running/latest-messages")) {
+        wsRunningMessageRevision += 1;
+        return createJsonResponse({
+          messages: [
+            {
+              role: "assistant",
+              process_id: "proc-running",
+              entry_index: wsRunningMessageRevision,
+              content: wsRunningMessageRevision > 1 ? "运行中消息已补齐尾部" : "运行中消息",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    const cards = element.shadowRoot?.querySelectorAll(".task-card-main") ?? [];
+    (cards[0] as HTMLButtonElement).click();
+    await flushElement(element);
+
+    FakeWebSocket.instances.at(-1)?.emitOpen();
+    await flushElement(element);
+
+    const beforeTick = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/ws-running/latest-messages"),
+    );
+
+    await vi.advanceTimersByTimeAsync(3_000);
+    await flushElement(element);
+
+    const afterTick = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/workspaces/ws-running/latest-messages"),
+    );
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement & { shadowRoot: ShadowRoot };
+    const bubbles = [...(pane.shadowRoot?.querySelectorAll(".message-bubble") ?? [])];
+    const latestBubble = bubbles.at(-1) as HTMLElement | undefined;
+
+    expect(afterTick.length).toBeGreaterThan(beforeTick.length);
+    expect(latestBubble?.textContent).toContain("运行中消息已补齐尾部");
+  });
+
   it("hydrates running panes with stop and queue controls", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);

@@ -1654,7 +1654,9 @@ export class KanbanWorkspaceHome extends LitElement {
       return openWorkspaces;
     }
 
-    return openWorkspaces.filter((workspace) => workspace.id !== this.activeWorkspace?.id);
+    return openWorkspaces.filter((workspace) =>
+      workspace.id !== this.activeWorkspace?.id || workspace.status === "running",
+    );
   }
 
   private get activeWorkspace() {
