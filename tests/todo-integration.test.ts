@@ -44,6 +44,12 @@ class MockWebSocket {
     this.onclose?.(new CloseEvent("close"));
   }
 
+  emitMessage(payload: unknown) {
+    this.onmessage?.(new MessageEvent("message", {
+      data: JSON.stringify(payload),
+    }) as MessageEvent<string>);
+  }
+
   static reset() {
     MockWebSocket.instances = [];
   }
@@ -378,6 +384,102 @@ describe("Todo Integration", () => {
     expect(String(latestMessagesRequest?.[0])).toContain(
       "/api/workspaces/ws-mobile-filter/latest-messages?limit=50&types=assistant_message%2Cuser_message%2Cerror_message%2Ctool_use",
     );
+  });
+
+  it("switches the mobile card session websocket when workspace snapshot updates latest_session_id", async () => {
+    await import("../src/index");
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url.includes("/api/info")) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+            realtime: {
+              base_url: "http://127.0.0.1:7778",
+            },
+          },
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return new Response(JSON.stringify({
+          workspaces: [
+            {
+              id: "ws-mobile-session-shift",
+              name: "手机模式会话切换任务",
+              status: "running",
+              latest_session_id: "session-1",
+              updated_at: "2026-03-28T09:00:00Z",
+            },
+          ],
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-mobile-session-shift/latest-messages")) {
+        return new Response(JSON.stringify({
+          messages: [],
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-mobile-session-shift/queue")) {
+        return new Response(JSON.stringify({
+          success: true,
+          workspace_id: "ws-mobile-session-shift",
+          session_id: "session-1",
+          status: "empty",
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const card = await renderApiCard({ baseUrl: "http://127.0.0.1:18842" });
+    await settleApiCard(card);
+
+    const workspaceCard = card.shadowRoot?.querySelector(".task-card");
+    expect(workspaceCard).toBeTruthy();
+
+    (workspaceCard as HTMLElement).click();
+    await settleApiCard(card);
+
+    expect(MockWebSocket.instances).toHaveLength(2);
+    expect(MockWebSocket.instances[1]?.url).toContain("session_id=session-1");
+
+    MockWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-mobile-session-shift",
+          name: "手机模式会话切换任务",
+          status: "running",
+          latest_session_id: "session-2",
+          updated_at: "2026-03-28T09:01:00Z",
+        },
+      ],
+    });
+    await settleApiCard(card);
+
+    expect(MockWebSocket.instances).toHaveLength(3);
+    expect(MockWebSocket.instances[2]?.url).toContain("session_id=session-2");
   });
 
   describe("TodoProgressPopup component", () => {

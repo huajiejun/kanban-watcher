@@ -229,9 +229,23 @@ export class KanbanWatcherCard extends LitElement {
       this.scrollMessagesToBottom();
       this.setupMessageListScrollListener();
     }
-    if (changedProperties.has("selectedWorkspaceId") && this.isApiMode) {
-      this.restartRealtimeConnection();
-      this.updateDialogPolling();
+    if (this.isApiMode && (changedProperties.has("selectedWorkspaceId") || changedProperties.has("apiWorkspaces"))) {
+      const previousSelectedWorkspaceId = changedProperties.has("selectedWorkspaceId")
+        ? (changedProperties.get("selectedWorkspaceId") as string | undefined)
+        : this.selectedWorkspaceId;
+      const previousWorkspaces = changedProperties.has("apiWorkspaces")
+        ? ((changedProperties.get("apiWorkspaces") as KanbanWorkspace[] | undefined) ?? [])
+        : this.apiWorkspaces;
+      const previousSessionId = this.getWorkspaceSessionId(previousSelectedWorkspaceId, previousWorkspaces);
+      const currentSessionId = this.getWorkspaceSessionId(this.selectedWorkspaceId, this.apiWorkspaces);
+
+      if (previousSessionId !== currentSessionId) {
+        this.restartRealtimeConnection();
+        this.updateDialogPolling();
+        if (this.selectedWorkspaceId) {
+          void this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+        }
+      }
     }
   }
 
@@ -873,6 +887,18 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     return this.allWorkspaces.find((workspace) => workspace.id === this.selectedWorkspaceId);
+  }
+
+  private getWorkspaceSessionId(
+    workspaceId: string | undefined,
+    workspaces: KanbanWorkspace[],
+  ) {
+    if (!workspaceId) {
+      return undefined;
+    }
+
+    const workspace = workspaces.find((item) => item.id === workspaceId);
+    return workspace?.latest_session_id ?? workspace?.last_session_id;
   }
 
   private get visibleSections() {
