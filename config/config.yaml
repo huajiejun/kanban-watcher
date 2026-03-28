@@ -20,6 +20,11 @@ database:
   database: "kanban_watcher"
   sync_interval_seconds: 30
   batch_size: 100
+  dial_timeout_seconds: 3
+  read_timeout_seconds: 15
+  write_timeout_seconds: 15
+  conn_max_lifetime_secs: 180
+  conn_max_idle_time_secs: 30
   message_types:
     - user_message
     - assistant_message

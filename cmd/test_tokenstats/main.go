@@ -29,7 +29,12 @@ func main() {
 	}
 
 	// 连接数据库
-	db, err := store.NewStore(cfg.Database.DSN())
+	db, err := store.NewStoreWithOptions(cfg.Database.DSN(), store.Options{
+		MaxOpenConns:    4,
+		MaxIdleConns:    4,
+		ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeSecs) * time.Second,
+		ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeSecs) * time.Second,
+	})
 	if err != nil {
 		log.Fatalf("数据库连接失败: %v", err)
 	}

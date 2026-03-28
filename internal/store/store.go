@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -16,16 +17,48 @@ type Store struct {
 	db *sql.DB
 }
 
+type Options struct {
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration
+}
+
+func DefaultOptions() Options {
+	return Options{
+		MaxOpenConns:    4,
+		MaxIdleConns:    4,
+		ConnMaxLifetime: 5 * time.Minute,
+		ConnMaxIdleTime: 1 * time.Minute,
+	}
+}
+
 // NewStore 创建数据库存储实例
 func NewStore(dsn string) (*Store, error) {
+	return NewStoreWithOptions(dsn, DefaultOptions())
+}
+
+func NewStoreWithOptions(dsn string, opts Options) (*Store, error) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("连接数据库: %w", err)
 	}
-	db.SetMaxOpenConns(4)
-	db.SetMaxIdleConns(4)
-	db.SetConnMaxLifetime(5 * time.Minute)
-	db.SetConnMaxIdleTime(1 * time.Minute)
+	if opts.MaxOpenConns <= 0 {
+		opts.MaxOpenConns = 4
+	}
+	if opts.MaxIdleConns <= 0 {
+		opts.MaxIdleConns = opts.MaxOpenConns
+	}
+	if opts.ConnMaxLifetime <= 0 {
+		opts.ConnMaxLifetime = 5 * time.Minute
+	}
+	if opts.ConnMaxIdleTime <= 0 {
+		opts.ConnMaxIdleTime = 1 * time.Minute
+	}
+	db.SetMaxOpenConns(opts.MaxOpenConns)
+	db.SetMaxIdleConns(opts.MaxIdleConns)
+	db.SetConnMaxLifetime(opts.ConnMaxLifetime)
+	db.SetConnMaxIdleTime(opts.ConnMaxIdleTime)
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("数据库连接测试失败: %w", err)
 	}
@@ -1320,6 +1353,7 @@ func (s *Store) execWithRetry(ctx context.Context, query string, args ...interfa
 	if !shouldRetryExec(err) {
 		return result, err
 	}
+	fmt.Fprintf(os.Stderr, "数据库连接异常，准备重试: err=%v stats=%s\n", err, formatDBStats(s.db.Stats()))
 	time.Sleep(100 * time.Millisecond)
 	return s.db.ExecContext(ctx, query, args...)
 }
@@ -1335,6 +1369,19 @@ func shouldRetryExec(err error) bool {
 	return strings.Contains(msg, "invalid connection") ||
 		strings.Contains(msg, "broken pipe") ||
 		strings.Contains(msg, "unexpected EOF")
+}
+
+func formatDBStats(stats sql.DBStats) string {
+	return fmt.Sprintf(
+		"open=%d in_use=%d idle=%d wait_count=%d max_idle_closed=%d max_idle_time_closed=%d max_lifetime_closed=%d",
+		stats.OpenConnections,
+		stats.InUse,
+		stats.Idle,
+		stats.WaitCount,
+		stats.MaxIdleClosed,
+		stats.MaxIdleTimeClosed,
+		stats.MaxLifetimeClosed,
+	)
 }
 
 func BuildProcessLogSubscriptionKey(processID string) string {
