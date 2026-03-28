@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from "lit";
 import "./components/workspace-conversation-pane";
+import "./components/create-pr-dialog";
 import { detectDialogEditLanguage, renderDialogMessage } from "./components/dialog-message-renderer";
 import {
   cancelWorkspaceQueue,
@@ -137,6 +138,8 @@ export class KanbanWatcherCard extends LitElement {
     webPreviewWorkspaceId: { state: true },
     webPreviewFallbackUrlByWorkspace: { state: true },
     activeMenuWorkspaceId: { state: true },
+    showCreatePRDialog: { state: true },
+    selectedWorkspaceForPR: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -188,6 +191,8 @@ export class KanbanWatcherCard extends LitElement {
   private realtimeBaseUrl?: string;
   private webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
   private activeMenuWorkspaceId?: string;
+  private showCreatePRDialog = false;
+  private selectedWorkspaceForPR?: KanbanWorkspace;
 
   connectedCallback() {
     super.connectedCallback();
@@ -224,6 +229,7 @@ export class KanbanWatcherCard extends LitElement {
         </div>
         ${this.renderDialog()}
         ${this.renderWebPreviewOverlay()}
+        ${this.renderCreatePRDialog()}
       </ha-card>
     `;
   }
@@ -514,8 +520,8 @@ export class KanbanWatcherCard extends LitElement {
     this.activeMenuWorkspaceId = undefined;
     switch (action) {
       case "create-pr":
-        // TODO: 打开 PR 创建对话框
-        console.log("创建 PR:", workspace.id);
+        this.showCreatePRDialog = true;
+        this.selectedWorkspaceForPR = workspace;
         break;
       case "open-branch":
         // TODO: 打开分支
@@ -546,6 +552,29 @@ export class KanbanWatcherCard extends LitElement {
     this.expandedToolMessageKeys = new Set();
     this.smoothRevealMessageKey = "";
   };
+
+  private handleCloseCreatePRDialog = () => {
+    this.showCreatePRDialog = false;
+    this.selectedWorkspaceForPR = undefined;
+  };
+
+  private renderCreatePRDialog() {
+    if (!this.showCreatePRDialog || !this.selectedWorkspaceForPR) {
+      return nothing;
+    }
+    const workspace = this.selectedWorkspaceForPR;
+    return html`
+      <create-pr-dialog
+        .open=${this.showCreatePRDialog}
+        .workspaceId=${workspace.id}
+        .repoId=${""}
+        .targetBranch=${workspace.branch ?? ""}
+        .baseUrl=${this.config?.base_url ?? ""}
+        .apiKey=${this.config?.api_key ?? ""}
+        @close=${this.handleCloseCreatePRDialog}
+      ></create-pr-dialog>
+    `;
+  }
 
   private renderDialogEntry(message: DialogMessage) {
     return renderDialogMessage(message, {
