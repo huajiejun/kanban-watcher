@@ -813,6 +813,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private async handleTodoSelected(workspace: KanbanWorkspace, detail: { content: string; todoId: string }) {
     if (!this.isApiMode) return;
+    if (workspace.status === "running") return;
     this.messageDraftByWorkspace = {
       ...this.messageDraftByWorkspace,
       [workspace.id]: detail.content,
