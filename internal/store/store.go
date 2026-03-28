@@ -1213,7 +1213,7 @@ func (s *Store) UpsertSubscription(ctx context.Context, sub *SyncSubscription) e
 		ON DUPLICATE KEY UPDATE
 			session_id = VALUES(session_id),
 			workspace_id = VALUES(workspace_id),
-			last_entry_index = VALUES(last_entry_index),
+			last_entry_index = COALESCE(VALUES(last_entry_index), last_entry_index),
 			status = VALUES(status),
 			last_error = VALUES(last_error),
 			last_seen_at = VALUES(last_seen_at)

@@ -6,7 +6,6 @@ import {
   fetchActiveWorkspaces,
   fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
-  fetchVibeInfo,
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
   markWorkspaceSeen,
@@ -18,6 +17,7 @@ import {
 import { handleTodoSelectedAndSend, loadTodoPendingCount } from "./lib/todo-helpers";
 import { connectRealtime } from "./lib/realtime-api";
 import {
+  compareDialogMessageOrder,
   compactDialogMessageText,
   getDialogMessageIdentity,
   groupConsecutiveToolMessages,
@@ -44,6 +44,14 @@ import {
 import { cardStyles } from "./styles";
 import { getStatusMeta } from "./lib/status-meta";
 import { getWorkspacePath } from "./lib/workspace-path";
+import {
+  ACTIVE_PANE_MESSAGE_TYPES,
+  didSelectedWorkspaceMessageVersionChange,
+  didSelectedWorkspaceSessionChange,
+  getSelectedWorkspaceSessionId,
+  getWorkspaceMessageVersion,
+  loadRealtimeRuntimeInfo,
+} from "./lib/realtime-sync";
 import {
   buildWorkspacePreviewUrlFromFrontendPort,
   getWorkspaceEmbeddedPreviewUrl,
@@ -176,6 +184,7 @@ export class KanbanWatcherCard extends LitElement {
   private todosByWorkspace: Record<string, TodoItem[]> = {};
   private webPreviewWorkspaceId?: string;
   private previewProxyPort?: number;
+  private realtimeBaseUrl?: string;
   private webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
 
   connectedCallback() {
@@ -222,9 +231,28 @@ export class KanbanWatcherCard extends LitElement {
       this.scrollMessagesToBottom();
       this.setupMessageListScrollListener();
     }
-    if (changedProperties.has("selectedWorkspaceId") && this.isApiMode) {
-      this.restartRealtimeConnection();
-      this.updateDialogPolling();
+    if (this.isApiMode && (changedProperties.has("selectedWorkspaceId") || changedProperties.has("apiWorkspaces"))) {
+      const previousSelectedWorkspaceId = changedProperties.has("selectedWorkspaceId")
+        ? (changedProperties.get("selectedWorkspaceId") as string | undefined)
+        : this.selectedWorkspaceId;
+      const previousWorkspaces = changedProperties.has("apiWorkspaces")
+        ? ((changedProperties.get("apiWorkspaces") as KanbanWorkspace[] | undefined) ?? [])
+        : this.apiWorkspaces;
+
+      if (
+        didSelectedWorkspaceSessionChange({
+          previousSelectedWorkspaceId,
+          previousWorkspaces,
+          currentSelectedWorkspaceId: this.selectedWorkspaceId,
+          currentWorkspaces: this.apiWorkspaces,
+        })
+      ) {
+        this.restartRealtimeConnection();
+        this.updateDialogPolling();
+        if (this.selectedWorkspaceId) {
+          void this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+        }
+      }
     }
   }
 
@@ -1087,15 +1115,12 @@ export class KanbanWatcherCard extends LitElement {
       return;
     }
 
-    try {
-      const response = await fetchVibeInfo({
-        baseUrl: this.config.base_url,
-        apiKey: this.config.api_key,
-      });
-      this.previewProxyPort = response.data?.config?.preview_proxy_port;
-    } catch {
-      this.previewProxyPort = undefined;
-    }
+    const runtimeInfo = await loadRealtimeRuntimeInfo({
+      baseUrl: this.config.base_url,
+      apiKey: this.config.api_key,
+    });
+    this.previewProxyPort = runtimeInfo.previewProxyPort;
+    this.realtimeBaseUrl = runtimeInfo.realtimeBaseUrl;
   }
 
   private stopApiSync() {
@@ -1172,8 +1197,9 @@ export class KanbanWatcherCard extends LitElement {
     if (this.config?.base_url === undefined || this.apiAccessBlocked || typeof WebSocket === "undefined") {
       return;
     }
+    const realtimeBaseUrl = this.realtimeBaseUrl || this.config.base_url;
     const socket = connectRealtime({
-      baseUrl: this.config.base_url,
+      baseUrl: realtimeBaseUrl,
       apiKey: this.config.api_key,
       onOpen: () => {
         if (this.boardRealtimeSocket !== socket || !this.isConnected) {
@@ -1216,13 +1242,14 @@ export class KanbanWatcherCard extends LitElement {
       return;
     }
 
-    const sessionId = this.selectedWorkspace?.latest_session_id ?? this.selectedWorkspace?.last_session_id;
+    const sessionId = getSelectedWorkspaceSessionId(this.selectedWorkspaceId, this.apiWorkspaces);
     if (!sessionId) {
       this.realtimeConnected = false;
       return;
     }
+    const realtimeBaseUrl = this.realtimeBaseUrl || this.config.base_url;
     const socket = connectRealtime({
-      baseUrl: this.config.base_url,
+      baseUrl: realtimeBaseUrl,
       apiKey: this.config.api_key,
       sessionId,
       onOpen: () => {
@@ -1301,9 +1328,22 @@ export class KanbanWatcherCard extends LitElement {
 
   private handleRealtimeEvent(event: RealtimeEvent) {
     if (event.type === "workspace_snapshot") {
-      this.apiWorkspaces = this.normalizeApiWorkspaces({
+      const previousWorkspaces = this.apiWorkspaces;
+      const nextWorkspaces = this.normalizeApiWorkspaces({
         workspaces: event.workspaces,
       });
+      const shouldRefreshSelectedWorkspaceMessages =
+        Boolean(this.selectedWorkspaceId) &&
+        didSelectedWorkspaceMessageVersionChange({
+          previousSelectedWorkspaceId: this.selectedWorkspaceId,
+          previousWorkspaces,
+          currentSelectedWorkspaceId: this.selectedWorkspaceId,
+          currentWorkspaces: nextWorkspaces,
+        });
+      this.apiWorkspaces = nextWorkspaces;
+      if (shouldRefreshSelectedWorkspaceMessages && this.selectedWorkspaceId) {
+        void this.loadWorkspaceMessages(this.selectedWorkspaceId, true);
+      }
       this.requestUpdate();
       return;
     }
@@ -1590,7 +1630,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private getWorkspaceMessageVersion(workspace: KanbanWorkspace) {
-    return workspace.last_message_at || workspace.updated_at || workspace.latest_session_id || "";
+    return getWorkspaceMessageVersion(workspace);
   }
 
   private applyWorkspaceSessionId(workspaceId: string, sessionId?: string) {
@@ -1671,6 +1711,7 @@ export class KanbanWatcherCard extends LitElement {
         apiKey: this.config.api_key,
         workspaceId,
         limit: this.config.messages_limit ?? DEFAULT_MESSAGES_LIMIT,
+        types: workspaceId === this.selectedWorkspaceId ? ACTIVE_PANE_MESSAGE_TYPES : undefined,
       });
       const previousMessages = this.flattenDialogMessages(this.dialogMessagesByWorkspace[workspaceId] ?? []);
       const normalizedMessages = this.normalizeApiMessages(response.messages);
@@ -1905,24 +1946,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private sortDialogMessagesByTimestamp(messages: Array<DialogTextMessage | DialogToolMessage>) {
-    return [...messages].sort((left, right) => {
-      const leftTimestampValue = this.getComparableTimestampValue(left.timestamp);
-      const rightTimestampValue = this.getComparableTimestampValue(right.timestamp);
-      if (
-        leftTimestampValue !== undefined &&
-        rightTimestampValue !== undefined &&
-        leftTimestampValue !== rightTimestampValue
-      ) {
-        return leftTimestampValue - rightTimestampValue;
-      }
-
-      const leftTimestamp = left.timestamp ?? "";
-      const rightTimestamp = right.timestamp ?? "";
-      if (leftTimestamp && rightTimestamp && leftTimestamp !== rightTimestamp) {
-        return leftTimestamp.localeCompare(rightTimestamp);
-      }
-      return this.getDialogMessageIdentity(left).localeCompare(this.getDialogMessageIdentity(right), "zh-CN");
-    });
+    return [...messages].sort(compareDialogMessageOrder);
   }
 
   private getLatestDialogTimestamp(messages: Array<{ timestamp?: string }>) {

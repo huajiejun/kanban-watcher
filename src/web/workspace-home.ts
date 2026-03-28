@@ -10,6 +10,7 @@ import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
 import { getStatusMeta } from "../lib/status-meta";
 import {
+  compareDialogMessageOrder,
   getDialogMessageIdentity,
   normalizeApiMessages,
   normalizeApiMessagesFlat,
@@ -29,7 +30,6 @@ import {
   fetchActiveWorkspaces,
   fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
-  fetchVibeInfo,
   fetchWorkspaceView,
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
@@ -76,17 +76,17 @@ import {
   buildWorkspacePreviewUrlFromFrontendPort,
   getWorkspaceEmbeddedPreviewUrl,
 } from "../lib/workspace-web-preview";
+import {
+  ACTIVE_PANE_MESSAGE_TYPES,
+  didSelectedWorkspaceMessageVersionChange,
+  getSelectedWorkspaceSessionId,
+  loadRealtimeRuntimeInfo,
+} from "../lib/realtime-sync";
 
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
 const MOBILE_BREAKPOINT = 768;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
-const ACTIVE_PANE_MESSAGE_TYPES = [
-  "assistant_message",
-  "user_message",
-  "error_message",
-  "tool_use",
-];
 const PREVIEW_DEBUG_STORAGE_KEY = "kanban_watcher_preview_debug";
 
 let kanbanWatcherCardDefinitionPromise: Promise<void> | undefined;
@@ -372,17 +372,12 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private async loadVibeInfo() {
-    try {
-      const response = await fetchVibeInfo({
-        baseUrl: this.previewOptions.baseUrl!,
-        apiKey: this.previewOptions.apiKey,
-      });
-      this.previewProxyPort = response.data?.config?.preview_proxy_port;
-      this.realtimeBaseUrl = response.data?.realtime?.base_url || this.previewOptions.baseUrl!;
-    } catch {
-      this.previewProxyPort = undefined;
-      this.realtimeBaseUrl = this.previewOptions.baseUrl!;
-    }
+    const runtimeInfo = await loadRealtimeRuntimeInfo({
+      baseUrl: this.previewOptions.baseUrl!,
+      apiKey: this.previewOptions.apiKey,
+    });
+    this.previewProxyPort = runtimeInfo.previewProxyPort;
+    this.realtimeBaseUrl = runtimeInfo.realtimeBaseUrl;
   }
 
   private async hydrateRemoteWorkspaceView() {
@@ -1434,13 +1429,23 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     if (event.type === "workspace_snapshot") {
       const previousOpenWorkspaceIds = [...this.pageState.openWorkspaceIds];
+      const previousWorkspaces = this.workspaces;
       const nextWorkspaces = this.preserveWorkspaceOrder(
         (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace)),
       );
+      const shouldRefreshActiveWorkspaceMessages = didSelectedWorkspaceMessageVersionChange({
+        previousSelectedWorkspaceId: this.pageState.activeWorkspaceId,
+        previousWorkspaces,
+        currentSelectedWorkspaceId: this.pageState.activeWorkspaceId,
+        currentWorkspaces: nextWorkspaces,
+      });
       void this.hydrateRunningDevServerProcesses(nextWorkspaces);
       this.workspaces = nextWorkspaces;
       this.pruneDevServerProcessState(nextWorkspaces);
       this.pageState = reconcileWorkspacePageState(this.pageState, this.workspaces);
+      if (shouldRefreshActiveWorkspaceMessages && this.pageState.activeWorkspaceId) {
+        void this.loadWorkspaceMessages(this.pageState.activeWorkspaceId, true);
+      }
       const newlyOpenedWorkspaceIds = this.pageState.openWorkspaceIds.filter(
         (workspaceId) => !previousOpenWorkspaceIds.includes(workspaceId),
       );
@@ -1485,7 +1490,7 @@ export class KanbanWorkspaceHome extends LitElement {
       }
     }
 
-    merged.sort((left, right) => this.compareDialogMessageOrder(left, right));
+    merged.sort(compareDialogMessageOrder);
     this.messagesByWorkspace = {
       ...this.messagesByWorkspace,
       [workspace.id]: this.groupDialogMessages(merged),
@@ -1546,47 +1551,6 @@ export class KanbanWorkspaceHome extends LitElement {
     }
 
     return grouped;
-  }
-
-  private compareDialogTimestamps(left?: string, right?: string) {
-    if (!left) {
-      return right ? -1 : 0;
-    }
-    if (!right) {
-      return 1;
-    }
-    const leftValue = Date.parse(left);
-    const rightValue = Date.parse(right);
-    if (!Number.isNaN(leftValue) && !Number.isNaN(rightValue) && leftValue !== rightValue) {
-      return leftValue - rightValue;
-    }
-    return left.localeCompare(right);
-  }
-
-  private compareDialogMessageOrder(left: DialogMessage, right: DialogMessage) {
-    if (
-      "processId" in left &&
-      "processId" in right &&
-      left.processId &&
-      left.processId === right.processId &&
-      typeof left.entryIndex === "number" &&
-      typeof right.entryIndex === "number" &&
-      left.entryIndex !== right.entryIndex
-    ) {
-      return left.entryIndex - right.entryIndex;
-    }
-
-    if (
-      "messageId" in left &&
-      "messageId" in right &&
-      typeof left.messageId === "number" &&
-      typeof right.messageId === "number" &&
-      left.messageId !== right.messageId
-    ) {
-      return left.messageId - right.messageId;
-    }
-
-    return this.compareDialogTimestamps(left.timestamp, right.timestamp);
   }
 
   private resolveSmoothRevealMessageKey(
@@ -1693,10 +1657,7 @@ export class KanbanWorkspaceHome extends LitElement {
     pageState: WorkspacePageState,
     workspaces: KanbanWorkspace[],
   ) {
-    const activeWorkspace = pageState.activeWorkspaceId
-      ? workspaces.find((workspace) => workspace.id === pageState.activeWorkspaceId)
-      : undefined;
-    return activeWorkspace?.latest_session_id ?? activeWorkspace?.last_session_id ?? "";
+    return getSelectedWorkspaceSessionId(pageState.activeWorkspaceId, workspaces) ?? "";
   }
 
   private renderWorkspacePanes(

@@ -253,7 +253,6 @@ func defaultConfig() *Config {
 			APIKey: "change-me",
 		},
 		Runtime: RuntimeConfig{
-			Role:            RuntimeRoleMain,
 			RealtimeBaseURL: "http://127.0.0.1:7778",
 		},
 		Auth: AuthConfig{
@@ -391,6 +390,7 @@ func writeExampleConfig(path string) error {
 	example.WeChat.Secret = "YOUR_SECRET"
 	example.WeChat.ToUser = "@all"
 	example.HTTPAPI.APIKey = "YOUR_API_KEY"
+	example.Runtime.Role = RuntimeRoleMain
 	data, err := yaml.Marshal(example)
 	if err != nil {
 		return err

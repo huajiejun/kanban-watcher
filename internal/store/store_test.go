@@ -232,6 +232,58 @@ func TestUpsertProcessEntriesUsesSingleBatchStatement(t *testing.T) {
 	}
 }
 
+func TestUpsertSubscriptionPreservesLastEntryIndexWhenIncomingValueIsNil(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	now := time.Now()
+	sub := &SyncSubscription{
+		SubscriptionKey:  "process_log:proc-1",
+		SubscriptionType: "process_log_stream",
+		TargetID:         "proc-1",
+		SessionID:        stringPtr("session-1"),
+		WorkspaceID:      stringPtr("ws-1"),
+		LastEntryIndex:   nil,
+		Status:           "error",
+		LastError:        stringPtr("unexpected EOF"),
+		LastSeenAt:       now,
+	}
+
+	mock.ExpectExec(regexp.QuoteMeta(`
+		INSERT INTO kw_sync_subscriptions (
+			subscription_key, subscription_type, target_id, session_id, workspace_id,
+			last_entry_index, status, last_error, last_seen_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			session_id = VALUES(session_id),
+			workspace_id = VALUES(workspace_id),
+			last_entry_index = COALESCE(VALUES(last_entry_index), last_entry_index),
+			status = VALUES(status),
+			last_error = VALUES(last_error),
+			last_seen_at = VALUES(last_seen_at)
+	`)).
+		WithArgs(
+			sub.SubscriptionKey,
+			sub.SubscriptionType,
+			sub.TargetID,
+			sub.SessionID,
+			sub.WorkspaceID,
+			sub.LastEntryIndex,
+			sub.Status,
+			sub.LastError,
+			sub.LastSeenAt,
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	if err := store.UpsertSubscription(context.Background(), sub); err != nil {
+		t.Fatalf("UpsertSubscription 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestGetWorkspaceBySessionIDReturnsNilOnNotFound(t *testing.T) {
 	store, mock, cleanup := newMockStore(t)
 	defer cleanup()
