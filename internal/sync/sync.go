@@ -937,45 +937,10 @@ func shouldBroadcastRealtimeEntry(existing, next *store.ProcessEntry) bool {
 	if next.TimestampSource == store.ProcessEntryTimestampSourceProcessCreatedAt {
 		return false
 	}
-	if next.EntryType == "tool_use" {
-		nextStatus, nextHasStatus := toolUseRealtimeStatus(next.StatusJSON)
-		if nextHasStatus && nextStatus == "running" {
-			return false
-		}
-		if existing != nil {
-			existingStatus, existingHasStatus := toolUseRealtimeStatus(existing.StatusJSON)
-			if nextStatus == existingStatus && nextHasStatus == existingHasStatus {
-				return false
-			}
-		}
-	}
 	if existing == nil {
 		return true
 	}
 	return realtimeEntrySignature(existing) != realtimeEntrySignature(next)
-}
-
-func toolUseRealtimeStatus(raw *string) (string, bool) {
-	if raw == nil || strings.TrimSpace(*raw) == "" {
-		return "", false
-	}
-
-	var status struct {
-		Status string `json:"status"`
-		State  string `json:"state"`
-	}
-	if err := json.Unmarshal([]byte(*raw), &status); err != nil {
-		return "", false
-	}
-
-	value := strings.TrimSpace(status.Status)
-	if value == "" {
-		value = strings.TrimSpace(status.State)
-	}
-	if value == "" {
-		return "", false
-	}
-	return strings.ToLower(value), true
 }
 
 func realtimeEntrySignature(entry *store.ProcessEntry) string {

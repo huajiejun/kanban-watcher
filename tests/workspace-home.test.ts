@@ -1763,6 +1763,77 @@ describe("workspace home helpers", () => {
     expect(paneShadowRoot?.textContent).toContain("尾部仍未终态时这条增量应被接收");
   });
 
+  it("still appends realtime messages for an idle pane when the last message is plain text", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-idle-text-tail",
+              name: "文本尾消息工作区",
+              status: "completed",
+              latest_session_id: "session-text-tail",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-idle-text-tail/latest-messages")) {
+        return createJsonResponse({
+          messages: [
+            {
+              process_id: "proc-text-tail",
+              entry_index: 1,
+              entry_type: "assistant_message",
+              role: "assistant",
+              content: "这里是一条普通文本消息",
+              timestamp: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+
+    FakeWebSocket.instances[1]?.emitOpen();
+    FakeWebSocket.instances[1]?.emitMessage({
+      type: "session_messages_appended",
+      session_id: "session-text-tail",
+      messages: [
+        {
+          process_id: "proc-text-tail",
+          entry_index: 2,
+          role: "assistant",
+          content: "文本尾消息不应阻止后续增量",
+          timestamp: "2026-03-24T12:01:00Z",
+        },
+      ],
+    });
+    await flushElement(element);
+
+    const pane = element.shadowRoot?.querySelector(
+      "workspace-conversation-pane",
+    ) as HTMLElement;
+    const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
+
+    expect(paneShadowRoot?.textContent).toContain("文本尾消息不应阻止后续增量");
+  });
+
   it("does not reconnect the active session websocket when workspace snapshot leaves the active session unchanged", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);

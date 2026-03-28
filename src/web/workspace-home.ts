@@ -1569,7 +1569,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private isRealtimeTerminalMessage(message: DialogMessage) {
     if (message.kind === "message") {
-      return true;
+      return false;
     }
 
     return message.status !== "running" && message.status !== "pending";
