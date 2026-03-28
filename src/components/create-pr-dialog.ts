@@ -263,7 +263,6 @@ export class CreatePRDialog extends LitElement {
   creating = false;
   error = "";
 
-  private initialized = false;
   private _effectiveRepoId = "";
 
   updated(changedProperties: Map<string, unknown>) {
