@@ -2043,6 +2043,15 @@ export const cardStyles = css`
       font-size: 16px; /* iOS Safari 不会自动放大 */
     }
 
+    .diff-stats-banner {
+      padding: 4px 8px;
+    }
+
+    .diff-stats-text {
+      font-size: 0.75em;
+      gap: 6px;
+    }
+
     /* 代码编辑/文件修改样式 */
     .file-change {
       padding: 6px 8px;

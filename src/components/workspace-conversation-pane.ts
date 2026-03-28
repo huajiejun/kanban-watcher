@@ -196,6 +196,10 @@ export class WorkspaceConversationPane extends LitElement {
       </section>
 
       <div class="dialog-composer">
+        ${isQueued
+          ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
+          : nothing}
+        ${this.renderQuickButtonsArea()}
         ${this.diffStats && this.diffStats.files_changed > 0
           ? html`
               <div class="diff-stats-banner" @click=${this.handleDiffStatsClick}>
@@ -207,10 +211,6 @@ export class WorkspaceConversationPane extends LitElement {
               </div>
             `
           : nothing}
-        ${isQueued
-          ? html`<div class="queue-banner">消息已排队 - 将在当前运行完成时执行</div>`
-          : nothing}
-        ${this.renderQuickButtonsArea()}
         <textarea
           class="message-input"
           rows="2"
