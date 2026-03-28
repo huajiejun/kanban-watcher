@@ -583,6 +583,9 @@ export class MobileIssueDetailPanel extends LitElement {
 
   close() {
     this.visible = false;
+    this.dispatchEvent(
+      new CustomEvent("panel-closed", { bubbles: true, composed: true })
+    );
   }
 
   private formatTime(dateStr: string) {

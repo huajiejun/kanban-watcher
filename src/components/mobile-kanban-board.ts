@@ -221,6 +221,11 @@ export class MobileKanbanBoard extends LitElement {
     void this.loadBoard();
   }
 
+  private handlePanelClosed() {
+    this.panelVisible = false;
+    this.selectedIssue = null;
+  }
+
   private scrollToColumn(index: number) {
     const container = this.renderRoot.querySelector(".kanban-columns");
     if (!container) return;
@@ -342,6 +347,7 @@ export class MobileKanbanBoard extends LitElement {
           .visible=${this.panelVisible}
           @issue-updated=${this.handleIssueDetailUpdated}
           @issue-deleted=${this.handleIssueDeleted}
+          @panel-closed=${this.handlePanelClosed}
         ></mobile-issue-detail-panel>
       </div>
     `;
