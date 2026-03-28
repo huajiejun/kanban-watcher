@@ -29,7 +29,6 @@ import {
   fetchActiveWorkspaces,
   fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
-  fetchVibeInfo,
   fetchWorkspaceView,
   fetchWorkspaceLatestMessages,
   fetchWorkspaceQueueStatus,
@@ -76,17 +75,16 @@ import {
   buildWorkspacePreviewUrlFromFrontendPort,
   getWorkspaceEmbeddedPreviewUrl,
 } from "../lib/workspace-web-preview";
+import {
+  ACTIVE_PANE_MESSAGE_TYPES,
+  getSelectedWorkspaceSessionId,
+  loadRealtimeRuntimeInfo,
+} from "../lib/realtime-sync";
 
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
 const MOBILE_BREAKPOINT = 768;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
-const ACTIVE_PANE_MESSAGE_TYPES = [
-  "assistant_message",
-  "user_message",
-  "error_message",
-  "tool_use",
-];
 const PREVIEW_DEBUG_STORAGE_KEY = "kanban_watcher_preview_debug";
 
 let kanbanWatcherCardDefinitionPromise: Promise<void> | undefined;
@@ -372,17 +370,12 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private async loadVibeInfo() {
-    try {
-      const response = await fetchVibeInfo({
-        baseUrl: this.previewOptions.baseUrl!,
-        apiKey: this.previewOptions.apiKey,
-      });
-      this.previewProxyPort = response.data?.config?.preview_proxy_port;
-      this.realtimeBaseUrl = response.data?.realtime?.base_url || this.previewOptions.baseUrl!;
-    } catch {
-      this.previewProxyPort = undefined;
-      this.realtimeBaseUrl = this.previewOptions.baseUrl!;
-    }
+    const runtimeInfo = await loadRealtimeRuntimeInfo({
+      baseUrl: this.previewOptions.baseUrl!,
+      apiKey: this.previewOptions.apiKey,
+    });
+    this.previewProxyPort = runtimeInfo.previewProxyPort;
+    this.realtimeBaseUrl = runtimeInfo.realtimeBaseUrl;
   }
 
   private async hydrateRemoteWorkspaceView() {
@@ -1693,10 +1686,7 @@ export class KanbanWorkspaceHome extends LitElement {
     pageState: WorkspacePageState,
     workspaces: KanbanWorkspace[],
   ) {
-    const activeWorkspace = pageState.activeWorkspaceId
-      ? workspaces.find((workspace) => workspace.id === pageState.activeWorkspaceId)
-      : undefined;
-    return activeWorkspace?.latest_session_id ?? activeWorkspace?.last_session_id ?? "";
+    return getSelectedWorkspaceSessionId(pageState.activeWorkspaceId, workspaces) ?? "";
   }
 
   private renderWorkspacePanes(
