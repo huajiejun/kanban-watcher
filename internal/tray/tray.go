@@ -43,7 +43,8 @@ func New() *App {
 // OnReady 在 systray 图标准备好时被调用（在主 goroutine）
 // 初始化菜单结构：状态标题 + 分隔线 + 动态工作区 + 退出
 func (a *App) OnReady() {
-	systray.SetIcon(statusIconBytes(0))
+	// 初始使用蓝点图标显示实例数量（0个点）
+	systray.SetIcon(getInstanceIcon(0))
 	systray.SetTooltip("Kanban Watcher — 正在监控工作区")
 
 	a.mu.Lock()
@@ -167,12 +168,10 @@ func (a *App) UpdateWorkspaces(workspaces []api.EnrichedWorkspace) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// 根据状态切换图标和提示文字
+	// 更新提示文字和状态标题（图标由 StartInstanceMonitor 单独管理，不覆盖）
 	if attentionCount > 0 {
-		systray.SetIcon(statusIconBytes(attentionCount))
 		systray.SetTooltip(fmt.Sprintf("Kanban Watcher — %d 个任务需要关注", attentionCount))
 	} else {
-		systray.SetIcon(statusIconBytes(attentionCount))
 		systray.SetTooltip("Kanban Watcher — 所有任务正常")
 	}
 
