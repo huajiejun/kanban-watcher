@@ -586,6 +586,144 @@ describe("Todo Integration", () => {
     expect(refreshedMessageRequestCount).toBe(initialMessageRequestCount + 1);
   });
 
+  it("keeps the newer mobile dialog messages when an older refresh response resolves later", async () => {
+    await import("../src/index");
+
+    let resolveFirstMessages: ((response: Response) => void) | undefined;
+    let resolveSecondMessages: ((response: Response) => void) | undefined;
+    let latestMessagesRequestCount = 0;
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url.includes("/api/info")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+            realtime: {
+              base_url: "http://127.0.0.1:7778",
+            },
+          },
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }));
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          workspaces: [
+            {
+              id: "ws-mobile-race",
+              name: "手机模式竞态任务",
+              status: "running",
+              latest_session_id: "session-mobile-race",
+              last_message_at: "2026-03-28T09:00:00Z",
+              updated_at: "2026-03-28T09:00:00Z",
+            },
+          ],
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }));
+      }
+
+      if (url.includes("/api/workspaces/ws-mobile-race/latest-messages")) {
+        latestMessagesRequestCount += 1;
+        return new Promise<Response>((resolve) => {
+          if (latestMessagesRequestCount === 1) {
+            resolveFirstMessages = resolve;
+            return;
+          }
+          resolveSecondMessages = resolve;
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-mobile-race/queue")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          success: true,
+          workspace_id: "ws-mobile-race",
+          session_id: "session-mobile-race",
+          status: "empty",
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch URL: ${url}`));
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const card = await renderApiCard({ baseUrl: "http://127.0.0.1:18842" });
+    await settleApiCard(card);
+
+    const workspaceCard = card.shadowRoot?.querySelector(".task-card");
+    expect(workspaceCard).toBeTruthy();
+
+    (workspaceCard as HTMLElement).click();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    MockWebSocket.instances[0]?.emitMessage({
+      type: "workspace_snapshot",
+      workspaces: [
+        {
+          id: "ws-mobile-race",
+          name: "手机模式竞态任务",
+          status: "running",
+          latest_session_id: "session-mobile-race",
+          last_message_at: "2026-03-28T09:01:00Z",
+          updated_at: "2026-03-28T09:01:00Z",
+        },
+      ],
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(latestMessagesRequestCount).toBe(2);
+
+    resolveSecondMessages?.(new Response(JSON.stringify({
+      messages: [
+        {
+          process_id: "proc-new",
+          entry_index: 2,
+          role: "assistant",
+          content: "新的消息",
+          timestamp: "2026-03-28T09:01:00Z",
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+    await settleApiCard(card);
+
+    resolveFirstMessages?.(new Response(JSON.stringify({
+      messages: [
+        {
+          process_id: "proc-old",
+          entry_index: 1,
+          role: "assistant",
+          content: "旧的消息",
+          timestamp: "2026-03-28T09:00:00Z",
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+    await settleApiCard(card);
+
+    const cardText = card.shadowRoot?.textContent ?? "";
+    expect(cardText).toContain("新的消息");
+    expect(cardText).not.toContain("旧的消息");
+  });
+
   describe("TodoProgressPopup component", () => {
     it("should render TodoProgressPopup in dialog header", async () => {
       // Import the card component
