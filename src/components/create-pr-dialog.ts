@@ -266,6 +266,7 @@ export class CreatePRDialog extends LitElement {
   private _effectiveRepoId = "";
 
   updated(changedProperties: Map<string, unknown>) {
+    console.log("[CreatePRDialog] updated called, open=", this.open, "changedProperties=", Array.from(changedProperties.keys()));
     if (changedProperties.has("open")) {
       if (this.open) {
         // 重置状态并加载数据
@@ -276,26 +277,31 @@ export class CreatePRDialog extends LitElement {
         this.prBaseBranch = "";
         this.branches = [];
         this._effectiveRepoId = "";
+        console.log("[CreatePRDialog] Starting loadInitialData");
         void this.loadInitialData();
       }
     }
   }
 
   private async loadInitialData() {
+    console.log("[CreatePRDialog] loadInitialData started, workspaceId=", this.workspaceId, "baseUrl=", this.baseUrl);
     this.loading = true;
     this.error = "";
 
     try {
       // 确定要使用的 repoId
       this._effectiveRepoId = this.repoId;
+      console.log("[CreatePRDialog] Initial repoId:", this._effectiveRepoId);
 
       // 如果没有传入 repoId，尝试从 workspace 获取
       if (!this._effectiveRepoId && this.workspaceId) {
+        console.log("[CreatePRDialog] Fetching workspace repos...");
         const repos = await fetchWorkspaceRepos({
           baseUrl: this.baseUrl,
           apiKey: this.apiKey,
           workspaceId: this.workspaceId,
         });
+        console.log("[CreatePRDialog] Workspace repos:", repos);
         if (repos.length > 0) {
           this._effectiveRepoId = repos[0].id;
           // 如果没有传入 targetBranch，使用 workspace repo 的 target_branch
@@ -307,26 +313,33 @@ export class CreatePRDialog extends LitElement {
 
       // 加载分支列表
       if (this._effectiveRepoId) {
+        console.log("[CreatePRDialog] Fetching branches for repo:", this._effectiveRepoId);
         const branchList = await fetchRepoBranches({
           baseUrl: this.baseUrl,
           apiKey: this.apiKey,
           repoId: this._effectiveRepoId,
         });
+        console.log("[CreatePRDialog] Branches:", branchList);
         this.branches = branchList;
+      } else {
+        console.log("[CreatePRDialog] No repoId, skipping branch fetch");
       }
 
       // 尝试获取第一条用户消息作为 PR 标题
       if (this.workspaceId) {
+        console.log("[CreatePRDialog] Fetching first user message...");
         const firstMessage = await getFirstUserMessage({
           baseUrl: this.baseUrl,
           apiKey: this.apiKey,
           workspaceId: this.workspaceId,
         });
+        console.log("[CreatePRDialog] First message:", firstMessage);
         if (firstMessage?.trim()) {
           // 简单处理：取前80个字符作为标题
           const titleText = firstMessage.trim().slice(0, 80);
           this.prTitle = titleText + (firstMessage.length > 80 ? "..." : "");
           this.prBody = firstMessage.trim();
+          console.log("[CreatePRDialog] Set prTitle:", this.prTitle);
         }
       }
 
@@ -338,7 +351,15 @@ export class CreatePRDialog extends LitElement {
         const mainBranch = this.branches.find((b) => b.name === "main" || b.name === "master");
         this.prBaseBranch = mainBranch?.name ?? this.branches[0]?.name ?? "";
       }
+      console.log("[CreatePRDialog] loadInitialData complete:", {
+        prTitle: this.prTitle,
+        prBody: this.prBody,
+        prBaseBranch: this.prBaseBranch,
+        branches: this.branches,
+        error: this.error
+      });
     } catch (err) {
+      console.error("[CreatePRDialog] loadInitialData error:", err);
       this.error = err instanceof Error ? err.message : "加载数据失败";
     } finally {
       this.loading = false;
