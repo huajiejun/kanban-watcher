@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/config"
 	"github.com/huajiejun/kanban-watcher/internal/service"
@@ -35,7 +36,12 @@ type portAllocator interface {
 var (
 	loadPortCommandConfig = config.LoadConfig
 	openPortStore         = func(cfg *config.Config) (workspacePortStore, error) {
-		return store.NewStore(cfg.Database.DSN())
+		return store.NewStoreWithOptions(cfg.Database.DSN(), store.Options{
+			MaxOpenConns:    4,
+			MaxIdleConns:    4,
+			ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeSecs) * time.Second,
+			ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeSecs) * time.Second,
+		})
 	}
 	newPortAllocator = func(dbStore workspacePortStore) portAllocator {
 		return service.NewFrontendPortAllocator(dbStore, isFrontendPortAvailable)

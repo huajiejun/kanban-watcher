@@ -241,7 +241,12 @@ func runDaemon() error {
 	var realtimePublisher *api.RealtimePublisher
 	if cfg.Database.IsEnabled() {
 		var err error
-		dbStore, err = store.NewStore(cfg.Database.DSN())
+		dbStore, err = store.NewStoreWithOptions(cfg.Database.DSN(), store.Options{
+			MaxOpenConns:    4,
+			MaxIdleConns:    4,
+			ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeSecs) * time.Second,
+			ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeSecs) * time.Second,
+		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "数据库连接失败: %v\n", err)
 		} else {
@@ -378,7 +383,12 @@ func runHeadless() error {
 	var dbStore *store.Store
 	var realtimePublisher *api.RealtimePublisher
 	if cfg.Database.IsEnabled() {
-		dbStore, err = store.NewStore(cfg.Database.DSN())
+		dbStore, err = store.NewStoreWithOptions(cfg.Database.DSN(), store.Options{
+			MaxOpenConns:    4,
+			MaxIdleConns:    4,
+			ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeSecs) * time.Second,
+			ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeSecs) * time.Second,
+		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "数据库连接失败: %v\n", err)
 		} else {

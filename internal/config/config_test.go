@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestApplyDefaultsSetsConversationSyncDefaults(t *testing.T) {
 	cfg := &Config{}
@@ -116,5 +119,30 @@ func TestApplyDefaultsPreservesExplicitRuntimeRole(t *testing.T) {
 	}
 	if cfg.Runtime.RealtimeBaseURL != "https://main.example.com" {
 		t.Fatalf("realtime base url = %q, want https://main.example.com", cfg.Runtime.RealtimeBaseURL)
+	}
+}
+
+func TestDatabaseConfigDSNIncludesTimeouts(t *testing.T) {
+	cfg := DatabaseConfig{
+		Host:                "127.0.0.1",
+		Port:                3306,
+		User:                "root",
+		Password:            "pw",
+		Database:            "kanban",
+		DialTimeoutSeconds:  3,
+		ReadTimeoutSeconds:  15,
+		WriteTimeoutSeconds: 15,
+	}
+
+	got := cfg.DSN()
+
+	for _, want := range []string{
+		"timeout=3s",
+		"readTimeout=15s",
+		"writeTimeout=15s",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("dsn = %q, want substring %q", got, want)
+		}
 	}
 }

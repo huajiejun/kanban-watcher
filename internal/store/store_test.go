@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -622,6 +623,34 @@ func TestShouldRetryExec(t *testing.T) {
 				t.Fatalf("shouldRetryExec(%v) = %v, want %v", tt.err, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestFormatDBStatsIncludesConnectionCounters(t *testing.T) {
+	stats := sql.DBStats{
+		OpenConnections:   4,
+		InUse:             2,
+		Idle:              2,
+		WaitCount:         3,
+		MaxIdleClosed:     1,
+		MaxIdleTimeClosed: 5,
+		MaxLifetimeClosed: 7,
+	}
+
+	got := formatDBStats(stats)
+
+	for _, want := range []string{
+		"open=4",
+		"in_use=2",
+		"idle=2",
+		"wait_count=3",
+		"max_idle_closed=1",
+		"max_idle_time_closed=5",
+		"max_lifetime_closed=7",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("stats string = %q, want substring %q", got, want)
+		}
 	}
 }
 
