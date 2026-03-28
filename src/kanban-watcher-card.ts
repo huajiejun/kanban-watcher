@@ -101,6 +101,12 @@ const DEFAULT_MESSAGES_LIMIT = 50;
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 5_000;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
+const ACTIVE_PANE_MESSAGE_TYPES = [
+  "assistant_message",
+  "user_message",
+  "error_message",
+  "tool_use",
+];
 
 export class KanbanWatcherCard extends LitElement {
   static styles = cardStyles;
@@ -1676,6 +1682,7 @@ export class KanbanWatcherCard extends LitElement {
         apiKey: this.config.api_key,
         workspaceId,
         limit: this.config.messages_limit ?? DEFAULT_MESSAGES_LIMIT,
+        types: workspaceId === this.selectedWorkspaceId ? ACTIVE_PANE_MESSAGE_TYPES : undefined,
       });
       const previousMessages = this.flattenDialogMessages(this.dialogMessagesByWorkspace[workspaceId] ?? []);
       const normalizedMessages = this.normalizeApiMessages(response.messages);

@@ -294,6 +294,92 @@ describe("Todo Integration", () => {
     expect(MockWebSocket.instances[1]?.url).toBe("ws://127.0.0.1:7778/api/realtime/ws?api_key=test-api-key&session_id=session-mobile-dialog");
   });
 
+  it("requests filtered latest messages for the mobile card dialog", async () => {
+    await import("../src/index");
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url.includes("/api/info")) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+            realtime: {
+              base_url: "http://127.0.0.1:7778",
+            },
+          },
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return new Response(JSON.stringify({
+          workspaces: [
+            {
+              id: "ws-mobile-filter",
+              name: "手机模式过滤任务",
+              status: "running",
+              latest_session_id: "session-mobile-filter",
+              updated_at: "2026-03-28T09:00:00Z",
+            },
+          ],
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-mobile-filter/latest-messages")) {
+        return new Response(JSON.stringify({
+          messages: [],
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-mobile-filter/queue")) {
+        return new Response(JSON.stringify({
+          success: true,
+          workspace_id: "ws-mobile-filter",
+          session_id: "session-mobile-filter",
+          status: "empty",
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const card = await renderApiCard({ baseUrl: "http://127.0.0.1:18842" });
+    await settleApiCard(card);
+
+    const workspaceCard = card.shadowRoot?.querySelector(".task-card");
+    expect(workspaceCard).toBeTruthy();
+
+    (workspaceCard as HTMLElement).click();
+    await settleApiCard(card);
+
+    const latestMessagesRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      return url.includes("/api/workspaces/ws-mobile-filter/latest-messages");
+    });
+
+    expect(latestMessagesRequest).toBeDefined();
+    expect(String(latestMessagesRequest?.[0])).toContain(
+      "/api/workspaces/ws-mobile-filter/latest-messages?limit=50&types=assistant_message%2Cuser_message%2Cerror_message%2Ctool_use",
+    );
+  });
+
   describe("TodoProgressPopup component", () => {
     it("should render TodoProgressPopup in dialog header", async () => {
       // Import the card component

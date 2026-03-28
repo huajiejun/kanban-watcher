@@ -56,3 +56,30 @@ npm test -- --run tests/todo-integration.test.ts
 - 手机模式内嵌卡片已补齐 `realtime.base_url` 读取逻辑。
 - 板级和会话级 websocket 已与桌面模式一致，统一连接主后端 realtime 地址。
 - 本次修复未破坏 `workspace-home` 对内嵌卡片 realtime 启动的委托逻辑。
+
+## 补充验证：手机模式旧历史消息
+
+背景：
+
+- 用户反馈手机模式点击进入后会落到很久之前的历史消息。
+- 对比桌面与手机实现后，发现桌面 active pane 请求 `/latest-messages` 会附带 `types=assistant_message,user_message,error_message,tool_use`，而手机卡片此前没有这层过滤。
+
+执行命令：
+
+```bash
+npm test -- --run tests/todo-integration.test.ts -t "requests filtered latest messages for the mobile card dialog"
+```
+
+第一次结果：
+
+- FAIL
+- 实际请求为 `.../latest-messages?limit=50`
+
+修复后再次执行结果：
+
+- PASS
+- 请求已变为 `.../latest-messages?limit=50&types=assistant_message%2Cuser_message%2Cerror_message%2Ctool_use`
+
+补充结论：
+
+- 手机模式打开弹窗时的历史消息拉取已与桌面 active pane 对齐，能够避开未过滤场景下更容易落到旧历史消息的问题。
