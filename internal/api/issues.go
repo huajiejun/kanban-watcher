@@ -376,7 +376,7 @@ type listProjectsAPIResponse struct {
 
 // ListOrganizations 查询当前用户的组织列表
 func (c *ProxyClient) ListOrganizations(ctx context.Context) ([]RemoteOrganization, error) {
-	url := fmt.Sprintf("%s/api/remote/organizations", c.baseURL)
+	url := fmt.Sprintf("%s/api/organizations", c.baseURL)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
