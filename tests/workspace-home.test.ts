@@ -1634,7 +1634,7 @@ describe("workspace home helpers", () => {
     expect(paneShadowRoot?.textContent).toContain("实时追加消息");
   });
 
-  it("ignores realtime appended messages for an idle pane when the last message is already terminal", async () => {
+  it("still appends realtime messages for an idle pane even when the last message is already terminal", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -1697,7 +1697,7 @@ describe("workspace home helpers", () => {
           process_id: "proc-idle",
           entry_index: 2,
           role: "assistant",
-          content: "这条消息不该再进入空闲卡片",
+          content: "这条消息现在也应该进入空闲卡片",
           timestamp: "2026-03-24T12:01:00Z",
         },
       ],
@@ -1709,7 +1709,7 @@ describe("workspace home helpers", () => {
     ) as HTMLElement;
     const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
 
-    expect(paneShadowRoot?.textContent).not.toContain("这条消息不该再进入空闲卡片");
+    expect(paneShadowRoot?.textContent).toContain("这条消息现在也应该进入空闲卡片");
   });
 
   it("still appends realtime messages for an idle pane when the last message is non-terminal", async () => {

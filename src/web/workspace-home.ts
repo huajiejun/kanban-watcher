@@ -1555,27 +1555,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private shouldAcceptRealtimeMessages(workspaceId: string) {
     const workspace = this.workspaces.find((item) => item.id === workspaceId);
-    if (!workspace) {
-      return false;
-    }
-    if (workspace.status === "running") {
-      return true;
-    }
-
-    const lastMessage = (this.messagesByWorkspace[workspaceId] ?? []).at(-1);
-    if (!lastMessage) {
-      return true;
-    }
-
-    return !this.isRealtimeTerminalMessage(lastMessage);
-  }
-
-  private isRealtimeTerminalMessage(message: DialogMessage) {
-    if (message.kind === "message") {
-      return true;
-    }
-
-    return message.status !== "running" && message.status !== "pending";
+    return Boolean(workspace);
   }
 
   private flattenDialogMessages(messages: DialogMessage[]) {
