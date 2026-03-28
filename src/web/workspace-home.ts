@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from "lit";
 
 import "../components/workspace-conversation-pane";
 import "../components/workspace-preview-card";
+import "../components/mobile-kanban-board";
 import type {
   ConversationPaneAction,
 } from "../components/workspace-conversation-pane";
@@ -259,9 +260,20 @@ export class KanbanWorkspaceHome extends LitElement {
               </button>
             </nav>
           </header>
-          <section class="workspace-home-placeholder">
-            <kanban-watcher-card></kanban-watcher-card>
-          </section>
+          ${this.mobileActiveTab === "workspaces"
+            ? html`
+              <section class="workspace-home-placeholder">
+                <kanban-watcher-card></kanban-watcher-card>
+              </section>
+            `
+            : html`
+              <section class="mobile-kanban-section">
+                <mobile-kanban-board
+                  baseUrl=${this.previewOptions.baseUrl ?? ""}
+                  apiKey=${this.previewOptions.apiKey}
+                ></mobile-kanban-board>
+              </section>
+            `}
         </main>
       `;
     }

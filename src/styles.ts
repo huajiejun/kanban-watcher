@@ -592,6 +592,20 @@ export const workspaceHomeStyles = css`
     .mobile-header-label {
       font-weight: 500;
     }
+
+    /* 手机端看板区域 */
+    .workspace-home-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      min-height: 0;
+    }
+
+    .mobile-kanban-section {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
   }
 
 `;
