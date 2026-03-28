@@ -58,11 +58,34 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 		{
 			name: "broadcasts when entry is new",
 			next: &store.ProcessEntry{
-				ProcessID:   "proc-1",
-				EntryIndex:  3,
-				ContentHash: "hash-a",
+				ProcessID:       "proc-1",
+				EntryIndex:      3,
+				ContentHash:     "hash-a",
+				TimestampSource: store.ProcessEntryTimestampSourceEntry,
 			},
 			want: true,
+		},
+		{
+			name: "skips broadcast for new running tool_use entry",
+			next: &store.ProcessEntry{
+				ProcessID:       "proc-1",
+				EntryIndex:      4,
+				EntryType:       "tool_use",
+				ContentHash:     "hash-tool-running",
+				StatusJSON:      stringPtr(`{"status":"running"}`),
+				TimestampSource: store.ProcessEntryTimestampSourceEntry,
+			},
+			want: false,
+		},
+		{
+			name: "skips broadcast when new entry falls back to process created_at",
+			next: &store.ProcessEntry{
+				ProcessID:       "proc-1",
+				EntryIndex:      3,
+				ContentHash:     "hash-a",
+				TimestampSource: store.ProcessEntryTimestampSourceProcessCreatedAt,
+			},
+			want: false,
 		},
 		{
 			name: "skips when hash is unchanged for same process entry",
@@ -93,7 +116,7 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "broadcasts when tool status changes with same content hash",
+			name: "broadcasts when tool status changes to terminal state with same content hash",
 			existing: &store.ProcessEntry{
 				ProcessID:   "proc-1",
 				EntryIndex:  3,
@@ -109,6 +132,24 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 				StatusJSON:  stringPtr(`{"state":"success"}`),
 			},
 			want: true,
+		},
+		{
+			name: "skips when tool status remains running with same content hash",
+			existing: &store.ProcessEntry{
+				ProcessID:   "proc-1",
+				EntryIndex:  3,
+				EntryType:   "tool_use",
+				ContentHash: "hash-a",
+				StatusJSON:  stringPtr(`{"state":"running"}`),
+			},
+			next: &store.ProcessEntry{
+				ProcessID:   "proc-1",
+				EntryIndex:  3,
+				EntryType:   "tool_use",
+				ContentHash: "hash-a",
+				StatusJSON:  stringPtr(`{"state":"running","step":"streaming"}`),
+			},
+			want: false,
 		},
 	}
 
@@ -154,16 +195,58 @@ func TestShouldPersistProcessEntryUpdate(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "keeps same timestamp updates",
+			name: "skips same timestamp replay when content is unchanged",
 			existing: &store.ProcessEntry{
 				ProcessID:      "proc-1",
 				EntryIndex:     2,
 				EntryTimestamp: baseTime,
+				ContentHash:    "same-hash",
 			},
 			next: &store.ProcessEntry{
 				ProcessID:      "proc-1",
 				EntryIndex:     2,
 				EntryTimestamp: baseTime,
+				ContentHash:    "same-hash",
+			},
+			want: false,
+		},
+		{
+			name: "skips replay when only timestamp changes",
+			existing: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime,
+				EntryType:      "assistant_message",
+				Role:           "assistant",
+				ContentHash:    "same-hash",
+			},
+			next: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime.Add(5 * time.Second),
+				EntryType:      "assistant_message",
+				Role:           "assistant",
+				ContentHash:    "same-hash",
+			},
+			want: false,
+		},
+		{
+			name: "keeps updates when content changes",
+			existing: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime,
+				EntryType:      "assistant_message",
+				Role:           "assistant",
+				ContentHash:    "hash-a",
+			},
+			next: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     2,
+				EntryTimestamp: baseTime.Add(5 * time.Second),
+				EntryType:      "assistant_message",
+				Role:           "assistant",
+				ContentHash:    "hash-b",
 			},
 			want: true,
 		},
@@ -178,6 +261,93 @@ func TestShouldPersistProcessEntryUpdate(t *testing.T) {
 	}
 }
 
+func TestBuildProcessEntryPreservesExistingTimestampWhenPatchTimestampMissing(t *testing.T) {
+	service := &SyncService{}
+	existingTime := time.Date(2026, 3, 27, 21, 22, 10, 398000000, time.FixedZone("CST", 8*3600))
+
+	entry, err := service.buildProcessEntry(
+		"ws-1",
+		"session-1",
+		"proc-1",
+		entryPatch{
+			EntryIndex: 85,
+			Entry: store.NormalizedEntry{
+				EntryType: store.NormalizedEntryType{Type: "assistant_message"},
+				Content:   "历史消息",
+			},
+		},
+		&store.ProcessEntry{
+			ProcessID:      "proc-1",
+			EntryIndex:     85,
+			EntryTimestamp: existingTime,
+			EntryType:      "assistant_message",
+			Role:           "assistant",
+			ContentHash:    "hash-old",
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("buildProcessEntry 返回错误: %v", err)
+	}
+	if !entry.EntryTimestamp.Equal(existingTime) {
+		t.Fatalf("entry_timestamp = %s, want %s", entry.EntryTimestamp.Format(time.RFC3339Nano), existingTime.Format(time.RFC3339Nano))
+	}
+	if entry.TimestampSource != store.ProcessEntryTimestampSourceExisting {
+		t.Fatalf("timestamp_source = %s, want %s", entry.TimestampSource, store.ProcessEntryTimestampSourceExisting)
+	}
+}
+
+func TestBuildProcessEntryUsesProcessCreatedAtWhenPatchTimestampMissingForNewEntry(t *testing.T) {
+	service := &SyncService{}
+	processCreatedAt := time.Date(2026, 3, 27, 21, 22, 10, 398000000, time.FixedZone("CST", 8*3600))
+
+	entry, err := service.buildProcessEntry(
+		"ws-1",
+		"session-1",
+		"proc-1",
+		entryPatch{
+			EntryIndex: 86,
+			Entry: store.NormalizedEntry{
+				EntryType: store.NormalizedEntryType{Type: "assistant_message"},
+				Content:   "新消息但没有 entry timestamp",
+			},
+		},
+		nil,
+		&processCreatedAt,
+	)
+	if err != nil {
+		t.Fatalf("buildProcessEntry 返回错误: %v", err)
+	}
+	if !entry.EntryTimestamp.Equal(processCreatedAt) {
+		t.Fatalf("entry_timestamp = %s, want %s", entry.EntryTimestamp.Format(time.RFC3339Nano), processCreatedAt.Format(time.RFC3339Nano))
+	}
+	if entry.TimestampSource != store.ProcessEntryTimestampSourceProcessCreatedAt {
+		t.Fatalf("timestamp_source = %s, want %s", entry.TimestampSource, store.ProcessEntryTimestampSourceProcessCreatedAt)
+	}
+}
+
+func TestBuildProcessEntryReturnsErrorWhenTimestampMissingAndNoFallbackAvailable(t *testing.T) {
+	service := &SyncService{}
+
+	_, err := service.buildProcessEntry(
+		"ws-1",
+		"session-1",
+		"proc-1",
+		entryPatch{
+			EntryIndex: 87,
+			Entry: store.NormalizedEntry{
+				EntryType: store.NormalizedEntryType{Type: "assistant_message"},
+				Content:   "没有任何时间来源",
+			},
+		},
+		nil,
+		nil,
+	)
+	if err == nil {
+		t.Fatal("buildProcessEntry 返回 nil 错误, want error")
+	}
+}
+
 func TestMessageContextFromProcessBuildsContextFromExecutorConfig(t *testing.T) {
 	now := time.Date(2026, 3, 24, 10, 0, 0, 0, time.UTC)
 	process := remoteExecutionProcess{
@@ -188,10 +358,10 @@ func TestMessageContextFromProcessBuildsContextFromExecutorConfig(t *testing.T) 
 	}
 	process.ExecutorAction.Typ.Type = "CodingAgentInitialRequest"
 	process.ExecutorAction.Typ.ExecutorConfig = map[string]interface{}{
-		"executor":  "CLAUDE_CODE",
-		"variant":   "ZHIPU",
-		"model_id":  "glm-4.5",
-		"agent_id":  "coder",
+		"executor": "CLAUDE_CODE",
+		"variant":  "ZHIPU",
+		"model_id": "glm-4.5",
+		"agent_id": "coder",
 	}
 
 	msgCtx, err := messageContextFromProcess("ws-1", process, now)

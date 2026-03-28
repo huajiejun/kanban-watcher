@@ -831,7 +831,6 @@ export const cardStyles = css`
   }
 
   .dialog-dev-server-toggle,
-  .dialog-dev-server-preview,
   .dialog-web-preview {
     width: 32px;
     height: 32px;
@@ -853,7 +852,6 @@ export const cardStyles = css`
   }
 
   .dialog-dev-server-toggle:disabled,
-  .dialog-dev-server-preview:disabled,
   .dialog-web-preview:disabled {
     cursor: default;
     opacity: 0.72;
@@ -904,6 +902,7 @@ export const cardStyles = css`
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
     transition: background-color 160ms ease;
   }
 
@@ -995,6 +994,25 @@ export const cardStyles = css`
     height: 100%;
     border: none;
     background: var(--primary-background-color, #0f172a);
+  }
+
+  /* Todo Badge */
+  .todo-badge {
+    position: absolute;
+    top: -2px;
+    right: -4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #3b82f6;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+    pointer-events: none;
+    box-sizing: border-box;
   }
 
   .dialog-messages {
@@ -1874,10 +1892,18 @@ export const cardStyles = css`
       height: 26px;
     }
 
-    .dialog-dev-server-toggle,
-    .dialog-dev-server-preview {
+    .dialog-dev-server-toggle {
       width: 26px;
       height: 26px;
+    }
+
+    .todo-badge {
+      min-width: 14px;
+      height: 14px;
+      font-size: 9px;
+      line-height: 14px;
+      top: -1px;
+      right: -3px;
     }
 
     .dialog-panel-title {
@@ -1928,13 +1954,12 @@ export const cardStyles = css`
     }
 
     .dialog-actions {
-      flex-direction: column;
+      flex-direction: row;
       gap: 6px;
     }
 
     .dialog-action {
-      flex: none;
-      width: 100%;
+      flex: 1;
       min-height: 32px;
       font-size: 0.85rem;
     }

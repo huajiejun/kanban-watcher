@@ -28,6 +28,7 @@ import {
   cancelWorkspaceQueue,
   fetchExecutionProcess,
   fetchActiveWorkspaces,
+  fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
   fetchVibeInfo,
   fetchWorkspaceView,
@@ -40,6 +41,7 @@ import {
   stopWorkspaceExecution,
   updateWorkspaceView,
 } from "../lib/http-api";
+import { handleTodoSelectedAndSend, loadTodoPendingCount } from "../lib/todo-helpers";
 import type {
   KanbanSessionAttributes,
   KanbanWorkspace,
@@ -79,9 +81,14 @@ import {
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
 const MOBILE_BREAKPOINT = 768;
-const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
-const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 3_000;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
+const ACTIVE_PANE_MESSAGE_TYPES = [
+  "assistant_message",
+  "user_message",
+  "error_message",
+  "tool_use",
+];
+const PREVIEW_DEBUG_STORAGE_KEY = "kanban_watcher_preview_debug";
 
 let kanbanWatcherCardDefinitionPromise: Promise<void> | undefined;
 
@@ -93,6 +100,21 @@ async function ensureKanbanWatcherCardDefined() {
     kanbanWatcherCardDefinitionPromise = import("../index").then(() => undefined);
   }
   await kanbanWatcherCardDefinitionPromise;
+}
+
+function isPreviewDebugEnabled() {
+  try {
+    return window.localStorage.getItem(PREVIEW_DEBUG_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function debugPreview(event: string, details: Record<string, unknown>) {
+  if (!isPreviewDebugEnabled()) {
+    return;
+  }
+  console.debug(`[WorkspacePreview] ${event}`, details);
 }
 
 export function resolveWorkspaceHomeMode(width: number): WorkspaceHomeMode {
@@ -126,6 +148,7 @@ export class KanbanWorkspaceHome extends LitElement {
     extractedButtonsByWorkspace: { attribute: false },
     suggestedButtonsByWorkspace: { attribute: false },
     webPreviewFallbackUrlByWorkspace: { attribute: false },
+    todoPendingCountByWorkspace: { attribute: false },
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
@@ -145,19 +168,16 @@ export class KanbanWorkspaceHome extends LitElement {
   messageDraftByWorkspace: Record<string, string> = {};
   actionFeedbackByWorkspace: Record<string, string> = {};
   queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
+  todoPendingCountByWorkspace: Record<string, number> = {};
   smoothRevealMessageKeyByWorkspace: Record<string, string> = {};
   extractedButtonsByWorkspace: Record<string, string[]> = {};
   suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
-  private refreshTimer?: number;
-  private dialogRefreshTimer?: number;
   private boardRealtimeRetryTimer?: number;
   private realtimeRetryTimer?: number;
   private boardRealtimeSocket?: WebSocket;
   private realtimeSocket?: WebSocket;
-  private boardRealtimeConnected = false;
-  private realtimeConnected = false;
   private lastSidebarSyncPaneCount = this.pageState.openWorkspaceIds.length;
   private hasHydratedRemoteWorkspaceView = false;
   private isApplyingRemoteWorkspaceView = false;
@@ -165,6 +185,7 @@ export class KanbanWorkspaceHome extends LitElement {
   private apiAccessBlocked = false;
   private mobileCardConfigSignature = "";
   private previewProxyPort?: number;
+  private realtimeBaseUrl?: string;
   private previewDrawerWorkspaceId?: string;
   private webPreviewWorkspaceId?: string;
   private diffDetailsWorkspaceId?: string;
@@ -198,7 +219,6 @@ export class KanbanWorkspaceHome extends LitElement {
       writePersistedWorkspacePageState(this.pageState);
       if (this.isApiMode) {
         void this.pushWorkspaceView();
-        this.updateDialogPolling();
       }
     }
     if (this.isApiMode && (changedProperties.has("pageState") || changedProperties.has("workspaces"))) {
@@ -310,18 +330,22 @@ export class KanbanWorkspaceHome extends LitElement {
       const workspaces = this.isApiMode
         ? await this.fetchApiWorkspaces()
         : this.readMockWorkspaces();
+      const orderedWorkspaces = this.preserveWorkspaceOrder(workspaces);
 
-      await this.hydrateRunningDevServerProcesses(workspaces);
-      this.workspaces = workspaces;
-      this.pruneDevServerProcessState(workspaces);
-      this.pageState = reconcileWorkspacePageState(this.pageState, workspaces);
+      await this.hydrateRunningDevServerProcesses(orderedWorkspaces);
+      this.workspaces = orderedWorkspaces;
+      this.pruneDevServerProcessState(orderedWorkspaces);
+      this.pageState = reconcileWorkspacePageState(this.pageState, orderedWorkspaces);
       const openWorkspaces = this.pageState.openWorkspaceIds
-        .map((workspaceId) => workspaces.find((workspace) => workspace.id === workspaceId))
+        .map((workspaceId) => orderedWorkspaces.find((workspace) => workspace.id === workspaceId))
         .filter((workspace): workspace is KanbanWorkspace => Boolean(workspace));
 
       await Promise.all(
         openWorkspaces.flatMap((workspace) => {
-          const jobs: Promise<void>[] = [this.loadWorkspaceMessages(workspace.id, true)];
+          const jobs: Promise<void>[] = [
+            this.loadWorkspaceMessages(workspace.id, true),
+            this.loadTodoPendingCount(workspace.id),
+          ];
           if (workspace.status === "running") {
             jobs.push(this.loadWorkspaceQueueStatus(workspace.id));
           }
@@ -348,7 +372,6 @@ export class KanbanWorkspaceHome extends LitElement {
     await this.loadWorkspaces();
     if (!this.apiAccessBlocked) {
       this.connectBoardRealtimeIfNeeded();
-      this.startBoardPolling();
     }
   }
 
@@ -359,8 +382,10 @@ export class KanbanWorkspaceHome extends LitElement {
         apiKey: this.previewOptions.apiKey,
       });
       this.previewProxyPort = response.data?.config?.preview_proxy_port;
+      this.realtimeBaseUrl = response.data?.realtime?.base_url || this.previewOptions.baseUrl!;
     } catch {
       this.previewProxyPort = undefined;
+      this.realtimeBaseUrl = this.previewOptions.baseUrl!;
     }
   }
 
@@ -487,6 +512,33 @@ export class KanbanWorkspaceHome extends LitElement {
     };
   }
 
+  private preserveWorkspaceOrder(nextWorkspaces: KanbanWorkspace[]) {
+    if (this.workspaces.length === 0) {
+      return nextWorkspaces;
+    }
+
+    const nextById = new Map(nextWorkspaces.map((workspace) => [workspace.id, workspace]));
+    const ordered: KanbanWorkspace[] = [];
+
+    this.workspaces.forEach((workspace) => {
+      const nextWorkspace = nextById.get(workspace.id);
+      if (!nextWorkspace) {
+        return;
+      }
+      ordered.push(nextWorkspace);
+      nextById.delete(workspace.id);
+    });
+
+    nextWorkspaces.forEach((workspace) => {
+      if (nextById.has(workspace.id)) {
+        ordered.push(workspace);
+        nextById.delete(workspace.id);
+      }
+    });
+
+    return ordered;
+  }
+
   private readMockWorkspaces() {
     const attributes = createPreviewHass().states[previewEntityId]?.attributes;
     return Array.isArray(attributes?.workspaces) ? attributes.workspaces : [];
@@ -529,9 +581,21 @@ export class KanbanWorkspaceHome extends LitElement {
         apiKey: this.previewOptions.apiKey,
         workspaceId,
         limit: this.previewOptions.messagesLimit ?? 50,
+        types: workspaceId === this.activeWorkspace?.id ? ACTIVE_PANE_MESSAGE_TYPES : undefined,
       });
       const previousMessages = this.messagesByWorkspace[workspaceId] ?? [];
       const nextMessages = normalizeApiMessages(response.messages);
+      const previousPreviewLines = summarizeWorkspacePreview(previousMessages);
+      const nextPreviewLines = summarizeWorkspacePreview(nextMessages);
+
+      debugPreview("messages-loaded", {
+        workspaceId,
+        forceRefresh,
+        responseMessages: response.messages,
+        previousPreviewLines,
+        nextPreviewLines,
+        previewLinesChanged: JSON.stringify(previousPreviewLines) !== JSON.stringify(nextPreviewLines),
+      });
 
       this.messagesByWorkspace = {
         ...this.messagesByWorkspace,
@@ -766,6 +830,36 @@ export class KanbanWorkspaceHome extends LitElement {
     );
   }
 
+  private async handleTodoSelected(workspace: KanbanWorkspace, detail: { content: string; todoId: string }) {
+    if (!this.isApiMode) return;
+    this.messageDraftByWorkspace = {
+      ...this.messageDraftByWorkspace,
+      [workspace.id]: detail.content,
+    };
+    await handleTodoSelectedAndSend({
+      baseUrl: this.previewOptions.baseUrl ?? "",
+      apiKey: this.previewOptions.apiKey,
+      workspaceId: workspace.id,
+      todoId: detail.todoId,
+      content: detail.content,
+      sendAction: () => this.handlePaneAction(workspace, "send"),
+      refreshCount: (id) => { void this.loadTodoPendingCount(id); },
+    });
+  }
+
+  private async loadTodoPendingCount(workspaceId: string) {
+    if (!this.isApiMode) return;
+    const count = await loadTodoPendingCount({
+      baseUrl: this.previewOptions.baseUrl ?? "",
+      apiKey: this.previewOptions.apiKey,
+      workspaceId,
+    });
+    this.todoPendingCountByWorkspace = {
+      ...this.todoPendingCountByWorkspace,
+      [workspaceId]: count,
+    };
+  }
+
   private async handlePaneAction(workspace: KanbanWorkspace, action: ConversationPaneAction) {
     if (action === "stop") {
       if (this.queueStatusByWorkspace[workspace.id]?.status === "queued") {
@@ -976,7 +1070,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private renderWorkspaceCard(workspace: KanbanWorkspace) {
     const statusMeta = getStatusMeta(workspace);
-    const relativeTime = workspace.relative_time ?? formatRelativeTime(workspace.updated_at);
+    const relativeTime = this.getWorkspaceCardRelativeTime(workspace);
     const filesChanged = workspace.files_changed ?? 0;
     const linesAdded = workspace.lines_added ?? 0;
     const linesRemoved = workspace.lines_removed ?? 0;
@@ -1016,6 +1110,15 @@ export class KanbanWorkspaceHome extends LitElement {
           : nothing}
       </div>
     `;
+  }
+
+  private getWorkspaceCardRelativeTime(workspace: KanbanWorkspace) {
+    const timestamp = this.getWorkspaceCardTimestamp(workspace);
+    return timestamp ? formatRelativeTime(timestamp) : "recently";
+  }
+
+  private getWorkspaceCardTimestamp(workspace: KanbanWorkspace) {
+    return workspace.latest_process_completed_at || workspace.last_message_at;
   }
 
   private get previewOptions() {
@@ -1202,8 +1305,6 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private stopRealtimeSync() {
-    this.stopBoardPolling();
-    this.stopDialogPolling();
     if (this.boardRealtimeRetryTimer) {
       window.clearTimeout(this.boardRealtimeRetryTimer);
       this.boardRealtimeRetryTimer = undefined;
@@ -1222,55 +1323,6 @@ export class KanbanWorkspaceHome extends LitElement {
       this.realtimeSocket = undefined;
       socket.close();
     }
-    this.boardRealtimeConnected = false;
-    this.realtimeConnected = false;
-  }
-
-  private startBoardPolling() {
-    if (this.refreshTimer) {
-      return;
-    }
-    this.refreshTimer = window.setInterval(() => {
-      void this.loadWorkspaces();
-    }, DEFAULT_REFRESH_INTERVAL_MS);
-  }
-
-  private stopBoardPolling() {
-    if (!this.refreshTimer) {
-      return;
-    }
-    window.clearInterval(this.refreshTimer);
-    this.refreshTimer = undefined;
-  }
-
-  private startDialogPolling() {
-    if (this.dialogRefreshTimer) {
-      return;
-    }
-    this.dialogRefreshTimer = window.setInterval(() => {
-      for (const workspace of this.getDialogPollingWorkspaces()) {
-        void this.loadWorkspaceMessages(workspace.id, true);
-        if (workspace.status === "running") {
-          void this.loadWorkspaceQueueStatus(workspace.id);
-        }
-      }
-    }, DEFAULT_DIALOG_FALLBACK_INTERVAL_MS);
-  }
-
-  private stopDialogPolling() {
-    if (!this.dialogRefreshTimer) {
-      return;
-    }
-    window.clearInterval(this.dialogRefreshTimer);
-    this.dialogRefreshTimer = undefined;
-  }
-
-  private updateDialogPolling() {
-    if (!this.isApiMode || this.getDialogPollingWorkspaces().length === 0) {
-      this.stopDialogPolling();
-      return;
-    }
-    this.startDialogPolling();
   }
 
   private connectBoardRealtimeIfNeeded() {
@@ -1278,14 +1330,12 @@ export class KanbanWorkspaceHome extends LitElement {
       return;
     }
     const socket = connectRealtime({
-      baseUrl: this.previewOptions.baseUrl!,
+      baseUrl: this.realtimeBaseUrl || this.previewOptions.baseUrl!,
       apiKey: this.previewOptions.apiKey,
       onOpen: () => {
         if (this.boardRealtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.boardRealtimeConnected = true;
-        this.stopBoardPolling();
         if (this.boardRealtimeRetryTimer) {
           window.clearTimeout(this.boardRealtimeRetryTimer);
           this.boardRealtimeRetryTimer = undefined;
@@ -1295,9 +1345,7 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.boardRealtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.boardRealtimeConnected = false;
         void this.loadWorkspaces();
-        this.startBoardPolling();
         this.scheduleBoardRealtimeReconnect();
       },
       onMessage: (event) => {
@@ -1318,19 +1366,16 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     const sessionId = this.activeWorkspace?.latest_session_id ?? this.activeWorkspace?.last_session_id;
     if (!sessionId) {
-      this.realtimeConnected = false;
       return;
     }
     const socket = connectRealtime({
-      baseUrl: this.previewOptions.baseUrl!,
+      baseUrl: this.realtimeBaseUrl || this.previewOptions.baseUrl!,
       apiKey: this.previewOptions.apiKey,
       sessionId,
       onOpen: () => {
         if (this.realtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.realtimeConnected = true;
-        this.updateDialogPolling();
         if (this.realtimeRetryTimer) {
           window.clearTimeout(this.realtimeRetryTimer);
           this.realtimeRetryTimer = undefined;
@@ -1340,12 +1385,10 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.realtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.realtimeConnected = false;
         const workspace = this.activeWorkspace;
         if (workspace) {
           void this.loadWorkspaceMessages(workspace.id, true);
         }
-        this.updateDialogPolling();
         this.scheduleRealtimeReconnect();
       },
       onMessage: (event) => {
@@ -1409,7 +1452,9 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     if (event.type === "workspace_snapshot") {
       const previousOpenWorkspaceIds = [...this.pageState.openWorkspaceIds];
-      const nextWorkspaces = (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace));
+      const nextWorkspaces = this.preserveWorkspaceOrder(
+        (event.workspaces ?? []).map((workspace) => this.toKanbanWorkspace(workspace)),
+      );
       void this.hydrateRunningDevServerProcesses(nextWorkspaces);
       this.workspaces = nextWorkspaces;
       this.pruneDevServerProcessState(nextWorkspaces);
@@ -1439,6 +1484,9 @@ export class KanbanWorkspaceHome extends LitElement {
     if (!workspace) {
       return;
     }
+    if (!this.shouldAcceptRealtimeMessages(workspace.id)) {
+      return;
+    }
 
     const existing = this.flattenDialogMessages(this.messagesByWorkspace[workspace.id] ?? []);
     const merged = [...existing];
@@ -1455,12 +1503,17 @@ export class KanbanWorkspaceHome extends LitElement {
       }
     }
 
-    merged.sort((left, right) => this.compareDialogTimestamps(left.timestamp, right.timestamp));
+    merged.sort((left, right) => this.compareDialogMessageOrder(left, right));
     this.messagesByWorkspace = {
       ...this.messagesByWorkspace,
       [workspace.id]: this.groupDialogMessages(merged),
     };
     this.requestUpdate();
+  }
+
+  private shouldAcceptRealtimeMessages(workspaceId: string) {
+    const workspace = this.workspaces.find((item) => item.id === workspaceId);
+    return Boolean(workspace);
   }
 
   private flattenDialogMessages(messages: DialogMessage[]) {
@@ -1528,6 +1581,32 @@ export class KanbanWorkspaceHome extends LitElement {
     return left.localeCompare(right);
   }
 
+  private compareDialogMessageOrder(left: DialogMessage, right: DialogMessage) {
+    if (
+      "processId" in left &&
+      "processId" in right &&
+      left.processId &&
+      left.processId === right.processId &&
+      typeof left.entryIndex === "number" &&
+      typeof right.entryIndex === "number" &&
+      left.entryIndex !== right.entryIndex
+    ) {
+      return left.entryIndex - right.entryIndex;
+    }
+
+    if (
+      "messageId" in left &&
+      "messageId" in right &&
+      typeof left.messageId === "number" &&
+      typeof right.messageId === "number" &&
+      left.messageId !== right.messageId
+    ) {
+      return left.messageId - right.messageId;
+    }
+
+    return this.compareDialogTimestamps(left.timestamp, right.timestamp);
+  }
+
   private resolveSmoothRevealMessageKey(
     workspaceId: string,
     previousMessages: DialogMessage[],
@@ -1550,18 +1629,6 @@ export class KanbanWorkspaceHome extends LitElement {
     return nextIdentity !== previousIdentity ? nextIdentity : "";
   }
 
-  private getDialogPollingWorkspaces() {
-    const openWorkspaces = this.pageState.openWorkspaceIds
-      .map((workspaceId) => this.workspaces.find((workspace) => workspace.id === workspaceId))
-      .filter((workspace): workspace is KanbanWorkspace => Boolean(workspace));
-
-    if (!this.realtimeConnected || !this.activeWorkspace) {
-      return openWorkspaces;
-    }
-
-    return openWorkspaces.filter((workspace) => workspace.id !== this.activeWorkspace?.id);
-  }
-
   private get activeWorkspace() {
     return this.pageState.activeWorkspaceId
       ? this.workspaces.find((workspace) => workspace.id === this.pageState.activeWorkspaceId)
@@ -1578,6 +1645,19 @@ export class KanbanWorkspaceHome extends LitElement {
       this.webPreviewFallbackUrlByWorkspace[workspace.id] ||
       ""
     );
+  }
+
+  private async resolveWorkspaceFileBrowserPath(workspaceId: string, fallbackPath: string) {
+    if (!this.isApiMode) {
+      return fallbackPath;
+    }
+
+    const response = await fetchWorkspaceFileBrowserPath({
+      baseUrl: this.previewOptions.baseUrl!,
+      apiKey: this.previewOptions.apiKey,
+      workspaceId,
+    });
+    return response.data?.path?.trim() || fallbackPath;
   }
 
   private shouldShowWorkspaceWebPreview(workspace: KanbanWorkspace) {
@@ -1684,7 +1764,9 @@ export class KanbanWorkspaceHome extends LitElement {
     return html`
       <workspace-conversation-pane
         .workspaceName=${workspace.name}
+        .workspaceId=${workspace.id}
         .workspacePath=${workspacePath}
+        .resolveWorkspacePath=${() => this.resolveWorkspaceFileBrowserPath(workspace.id, workspacePath)}
         .messages=${this.messagesByWorkspace[workspace.id] ?? []}
         .messageDraft=${this.messageDraftByWorkspace[workspace.id] ?? ""}
         .currentFeedback=${this.getWorkspaceFeedback(workspace.id)}
@@ -1696,15 +1778,18 @@ export class KanbanWorkspaceHome extends LitElement {
         .canQueue=${Boolean(isRunning || queueStatus?.status === "queued")}
         .devServerState=${this.getWorkspaceDevServerState(workspace)}
         .showWorkspaceWebPreview=${this.shouldShowWorkspaceWebPreview(workspace)}
-        .showDevServerPreview=${this.getWorkspaceDevServerState(workspace) === "running"}
+        .todoBaseUrl=${this.previewOptions.baseUrl ?? ""}
+        .todoApiKey=${this.previewOptions.apiKey}
+        .todoPendingCount=${this.todoPendingCountByWorkspace[workspace.id] ?? 0}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
           void this.handlePaneAction(workspace, event.detail)}
         @dev-server-toggle=${() => void this.handleWorkspaceDevServerToggle(workspace)}
         @workspace-web-preview-toggle=${() => void this.handleOpenWebPreview(workspace)}
-        @dev-server-preview-toggle=${() => void this.handleOpenPreviewDrawer(workspace)}
         @pane-close=${() => this.handleCloseWorkspace(workspace)}
+        @todo-selected=${(event: CustomEvent<{ content: string; todoId: string }>) =>
+          void this.handleTodoSelected(workspace, event.detail)}
       ></workspace-conversation-pane>
     `;
   }

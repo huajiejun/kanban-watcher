@@ -54,6 +54,25 @@ BACKEND_STDERR_PIPE=""
 BACKEND_PORT=""
 FRONTEND_PORT=""
 
+describe_runtime_role() {
+    local port="$1"
+    if [ "$port" = "7778" ]; then
+        echo "main"
+    else
+        echo "worker"
+    fi
+}
+
+describe_websocket_main_backend() {
+    local role
+    role="$(describe_runtime_role "$1")"
+    if [ "$role" = "main" ]; then
+        echo "http://127.0.0.1:$1"
+    else
+        echo "http://127.0.0.1:7778"
+    fi
+}
+
 init_runtime_paths() {
     BACKEND_PID_FILE="$PID_DIR/backend-$BACKEND_PORT.pid"
     FRONTEND_PID_FILE="$PID_DIR/frontend-$FRONTEND_PORT.pid"
@@ -238,11 +257,11 @@ start_backend_stderr_mirror() {
 # 显示状态
 show_status() {
     resolve_runtime_ports
-    echo "============================================"
-    echo "Worktree ID: $WORKTREE_ID"
-    echo "后端端口: $BACKEND_PORT"
-    echo "前端端口: $FRONTEND_PORT"
-    echo "============================================"
+    local runtime_role
+    local websocket_main_backend
+    runtime_role="$(describe_runtime_role "$BACKEND_PORT")"
+    websocket_main_backend="$(describe_websocket_main_backend "$BACKEND_PORT")"
+
 
     # 检查后端状态
     BACKEND_PID=$(get_port_pid $BACKEND_PORT)
@@ -264,8 +283,17 @@ show_status() {
     echo "访问地址:"
     echo "  本地前端: http://localhost:$FRONTEND_PORT"
     echo "  本地后端: http://localhost:$BACKEND_PORT"
-    echo "  外网访问: http://47.96.112.110:2453/$FRONTEND_PORT/"
+    echo "  外网前端入口: http://47.96.112.110:2453/$FRONTEND_PORT/"
+    echo "  外网 API 入口: http://47.96.112.110:2453/$FRONTEND_PORT/api/"
     echo "============================================"
+
+     echo "============================================"
+      echo "Worktree ID: $WORKTREE_ID"
+      echo "后端端口: $BACKEND_PORT"
+      echo "前端端口: $FRONTEND_PORT"
+      echo "运行角色: $runtime_role"
+      echo "WebSocket 主后端: $websocket_main_backend"
+      echo "============================================"
 }
 
 show_logs() {
@@ -389,11 +417,11 @@ start_frontend() {
 # 启动服务
 start_services() {
     allocate_runtime_ports
-    echo "============================================"
-    echo "Worktree ID: $WORKTREE_ID"
-    echo "后端端口: $BACKEND_PORT"
-    echo "前端端口: $FRONTEND_PORT"
-    echo "============================================"
+    local runtime_role
+    local websocket_main_backend
+    runtime_role="$(describe_runtime_role "$BACKEND_PORT")"
+    websocket_main_backend="$(describe_websocket_main_backend "$BACKEND_PORT")"
+
 
     start_backend || exit 1
     start_frontend || exit 1
@@ -407,7 +435,10 @@ start_services() {
     echo "  后端: http://localhost:$BACKEND_PORT"
     echo ""
     echo "外网访问 (通过 Nginx 代理):"
-    echo "  http://47.96.112.110:2453/$FRONTEND_PORT/"
+    echo "  前端入口: http://47.96.112.110:2453/$FRONTEND_PORT/"
+    echo "  API 入口: http://47.96.112.110:2453/$FRONTEND_PORT/api/"
+    echo "  说明: 浏览器应始终访问前端入口，由 Nginx 转发 /api 和 WebSocket 到后端 $BACKEND_PORT"
+    echo "  实时连接: 页面会统一连接 $websocket_main_backend"
     echo ""
     echo "日志文件:"
     echo "  后端: $BACKEND_LOG_FILE"
@@ -417,6 +448,14 @@ start_services() {
     echo "  停止: ./scripts/start-dev.sh stop $WORKTREE_ID"
     echo "  状态: ./scripts/start-dev.sh status $WORKTREE_ID"
     echo "  重启: ./scripts/start-dev.sh restart $WORKTREE_ID"
+    echo "============================================"
+
+    echo "============================================"
+    echo "Worktree ID: $WORKTREE_ID"
+    echo "后端端口: $BACKEND_PORT"
+    echo "前端端口: $FRONTEND_PORT"
+    echo "运行角色: $runtime_role"
+    echo "WebSocket 主后端: $websocket_main_backend"
     echo "============================================"
 }
 

@@ -67,42 +67,49 @@ type MessageContext struct {
 
 // ProcessEntry 对话消息
 type ProcessEntry struct {
-	ID             int64     `db:"id"`
-	ProcessID      string    `db:"process_id"`
-	SessionID      string    `db:"session_id"`
-	WorkspaceID    string    `db:"workspace_id"`
-	EntryIndex     int       `db:"entry_index"`
-	EntryType      string    `db:"entry_type"`
-	Role           string    `db:"role"`
-	Content        string    `db:"content"`
-	ToolName       *string   `db:"tool_name"`
-	ActionTypeJSON *string   `db:"action_type_json"`
-	StatusJSON     *string   `db:"status_json"`
-	ErrorType      *string   `db:"error_type"`
-	EntryTimestamp time.Time `db:"entry_timestamp"`
-	ContentHash    string    `db:"content_hash"`
-	CreatedAt      time.Time `db:"created_at"`
+	ID              int64     `db:"id"`
+	ProcessID       string    `db:"process_id"`
+	SessionID       string    `db:"session_id"`
+	WorkspaceID     string    `db:"workspace_id"`
+	EntryIndex      int       `db:"entry_index"`
+	EntryType       string    `db:"entry_type"`
+	Role            string    `db:"role"`
+	Content         string    `db:"content"`
+	ToolName        *string   `db:"tool_name"`
+	ActionTypeJSON  *string   `db:"action_type_json"`
+	StatusJSON      *string   `db:"status_json"`
+	ErrorType       *string   `db:"error_type"`
+	EntryTimestamp  time.Time `db:"entry_timestamp"`
+	ContentHash     string    `db:"content_hash"`
+	CreatedAt       time.Time `db:"created_at"`
+	TimestampSource string
 }
+
+const (
+	ProcessEntryTimestampSourceEntry            = "entry"
+	ProcessEntryTimestampSourceExisting         = "existing"
+	ProcessEntryTimestampSourceProcessCreatedAt = "process_created_at"
+)
 
 // ActiveWorkspaceSummary 活跃工作区摘要
 type ActiveWorkspaceSummary struct {
-	ID                       string     `db:"id"`
-	Name                     string     `db:"name"`
-	Branch                   string     `db:"branch"`
-	LatestSessionID          *string    `db:"latest_session_id"`
-	Status                   string     `db:"status"`
-	HasPendingApproval       bool       `db:"has_pending_approval"`
-	HasUnseenTurns           bool       `db:"has_unseen_turns"`
-	HasRunningDevServer      bool       `db:"has_running_dev_server"`
-	RunningDevServerProcessID *string   `db:"running_dev_server_process_id"`
-	FilesChanged             int        `db:"files_changed"`
-	LinesAdded               int        `db:"lines_added"`
-	LinesRemoved             int        `db:"lines_removed"`
-	UpdatedAt                *time.Time `db:"updated_at"`
-	MessageCount             int        `db:"message_count"`
-	LastMessageAt            *time.Time `db:"last_message_at"`
-	LatestProcessCompletedAt *time.Time `db:"latest_process_completed_at"`
-	LastMessage              *string    `db:"last_message"`
+	ID                        string     `db:"id"`
+	Name                      string     `db:"name"`
+	Branch                    string     `db:"branch"`
+	LatestSessionID           *string    `db:"latest_session_id"`
+	Status                    string     `db:"status"`
+	HasPendingApproval        bool       `db:"has_pending_approval"`
+	HasUnseenTurns            bool       `db:"has_unseen_turns"`
+	HasRunningDevServer       bool       `db:"has_running_dev_server"`
+	RunningDevServerProcessID *string    `db:"running_dev_server_process_id"`
+	FilesChanged              int        `db:"files_changed"`
+	LinesAdded                int        `db:"lines_added"`
+	LinesRemoved              int        `db:"lines_removed"`
+	UpdatedAt                 *time.Time `db:"updated_at"`
+	MessageCount              int        `db:"message_count"`
+	LastMessageAt             *time.Time `db:"last_message_at"`
+	LatestProcessCompletedAt  *time.Time `db:"latest_process_completed_at"`
+	LastMessage               *string    `db:"last_message"`
 }
 
 // WorkspaceView 服务级共享工作区布局
@@ -196,4 +203,14 @@ type TokenUsageDaily struct {
 	SessionCount int       `json:"session_count"` // 该天会话数
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// WorkspaceTodo 工作区待办事项
+type WorkspaceTodo struct {
+	ID          string    `json:"id" db:"id"`
+	WorkspaceID string    `json:"workspace_id" db:"workspace_id"`
+	Content     string    `json:"content" db:"content"`
+	IsCompleted bool      `json:"is_completed" db:"is_completed"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }

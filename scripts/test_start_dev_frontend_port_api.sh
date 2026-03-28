@@ -47,10 +47,11 @@ export TEST_CURL_ARGS_FILE="$TMP_DIR/curl_args.txt"
 export TEST_GO_ENV_FILE="$TMP_DIR/go_env.txt"
 export TEST_NPX_ENV_FILE="$TMP_DIR/npx_env.txt"
 export KANBAN_API_KEY="test-key"
+STDOUT_FILE="$TMP_DIR/start_stdout.txt"
 
 cd "$ROOT_DIR"
 
-bash ./scripts/start-dev.sh start bf66 >/dev/null 2>&1 &
+bash ./scripts/start-dev.sh start bf66 >"$STDOUT_FILE" 2>&1 &
 script_pid=$!
 sleep 3
 wait $script_pid || true
@@ -72,6 +73,16 @@ fi
 
 if ! grep -q -- "--port 6023" "$TEST_NPX_ENV_FILE"; then
   echo "FAIL: 前端未使用接口返回的前端端口"
+  exit 1
+fi
+
+if ! grep -q "运行角色: worker" "$STDOUT_FILE"; then
+  echo "FAIL: 启动输出未显示 worker 角色"
+  exit 1
+fi
+
+if ! grep -q "WebSocket 主后端: http://127.0.0.1:7778" "$STDOUT_FILE"; then
+  echo "FAIL: 启动输出未显示 websocket 主后端地址"
   exit 1
 fi
 

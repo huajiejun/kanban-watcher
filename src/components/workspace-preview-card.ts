@@ -5,6 +5,23 @@ import { renderMessageMarkdown } from "../lib/render-message-markdown";
 import "./diff-stats-tag";
 
 const AUTO_SCROLL_TOLERANCE_PX = 8;
+const PREVIEW_DEBUG_STORAGE_KEY = "kanban_watcher_preview_debug";
+let previewCardInstanceSeed = 0;
+
+function isPreviewDebugEnabled() {
+  try {
+    return window.localStorage.getItem(PREVIEW_DEBUG_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function debugPreviewCard(event: string, details: Record<string, unknown>) {
+  if (!isPreviewDebugEnabled()) {
+    return;
+  }
+  console.debug(`[PreviewCard] ${event}`, details);
+}
 
 export class WorkspacePreviewCard extends LitElement {
   static styles = css`
@@ -240,6 +257,23 @@ export class WorkspacePreviewCard extends LitElement {
   previewLines: string[] = [];
   diffStats: { files_changed: number; lines_added: number; lines_removed: number } | undefined;
   private shouldAutoScroll = true;
+  private readonly debugInstanceId = ++previewCardInstanceSeed;
+
+  connectedCallback() {
+    super.connectedCallback();
+    debugPreviewCard("connected", {
+      instanceId: this.debugInstanceId,
+      workspaceName: this.workspaceName,
+    });
+  }
+
+  disconnectedCallback() {
+    debugPreviewCard("disconnected", {
+      instanceId: this.debugInstanceId,
+      workspaceName: this.workspaceName,
+    });
+    super.disconnectedCallback();
+  }
 
   protected render() {
     return html`
@@ -286,7 +320,18 @@ export class WorkspacePreviewCard extends LitElement {
   }
 
   protected updated(changedProperties: Map<PropertyKey, unknown>) {
-    if (changedProperties.has("previewLines") && this.shouldAutoScroll) {
+    const previousPreviewLines = changedProperties.get("previewLines") as string[] | undefined;
+    if (
+      changedProperties.has("previewLines") &&
+      this.shouldAutoScroll &&
+      !this.arePreviewLinesEqual(previousPreviewLines, this.previewLines)
+    ) {
+      debugPreviewCard("auto-scroll", {
+        instanceId: this.debugInstanceId,
+        workspaceName: this.workspaceName,
+        previousPreviewLines,
+        nextPreviewLines: this.previewLines,
+      });
       this.scrollPreviewLinesToBottom();
     }
   }
@@ -313,6 +358,15 @@ export class WorkspacePreviewCard extends LitElement {
     }
     const distanceToBottom = container.scrollHeight - container.clientHeight - container.scrollTop;
     this.shouldAutoScroll = distanceToBottom <= AUTO_SCROLL_TOLERANCE_PX;
+    debugPreviewCard("scroll-state", {
+      instanceId: this.debugInstanceId,
+      workspaceName: this.workspaceName,
+      scrollTop: container.scrollTop,
+      scrollHeight: container.scrollHeight,
+      clientHeight: container.clientHeight,
+      distanceToBottom,
+      shouldAutoScroll: this.shouldAutoScroll,
+    });
   };
 
   private scrollPreviewLinesToBottom() {
@@ -321,6 +375,17 @@ export class WorkspacePreviewCard extends LitElement {
       return;
     }
     container.scrollTop = container.scrollHeight;
+  }
+
+  private arePreviewLinesEqual(previousLines: string[] | undefined, nextLines: string[]) {
+    if (previousLines === nextLines) {
+      return true;
+    }
+    if (!previousLines || previousLines.length !== nextLines.length) {
+      return false;
+    }
+
+    return previousLines.every((line, index) => line === nextLines[index]);
   }
 }
 

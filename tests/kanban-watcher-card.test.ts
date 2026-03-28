@@ -263,7 +263,7 @@ describe("kanban-watcher-card mobile web preview", () => {
     button?.click();
     await flushCard(element);
 
-    expect(openSpy).toHaveBeenCalledWith("https://6020.huajiejun.cn", "_blank", "noopener");
+    expect(openSpy).toHaveBeenCalledWith("https://6020.huajiejun.cn:999", "_blank", "noopener");
     expect(element.shadowRoot?.querySelector(".workspace-home-web-preview-overlay")).toBeNull();
   });
 
@@ -316,5 +316,78 @@ describe("kanban-watcher-card mobile web preview", () => {
     const button = pane?.shadowRoot?.querySelector(".dialog-web-preview") as HTMLButtonElement | null;
 
     expect(button).toBeNull();
+  });
+
+  it("resolves the file browser path from the api before opening the mobile folder preview", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = readRequestUrl(input);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "手机文件工作区",
+              branch: "vibe/stale-mobile-branch",
+              status: "completed",
+              updated_at: "2026-03-27T10:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [{ role: "assistant", content: "消息一" }],
+        });
+      }
+
+      if (url.includes("/api/workspace/ws-1/file-browser-path")) {
+        expect(init?.method).toBe("GET");
+        return createJsonResponse({
+          success: true,
+          data: {
+            workspace_id: "ws-1",
+            path: "/Users/huajiejun/github/vibe-kanban/.vibe-kanban-workspaces/resolved-mobile-branch/kanban-watcher",
+          },
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForBoard(element);
+
+    (element.shadowRoot?.querySelector(".task-card") as HTMLButtonElement).click();
+    await flushCard(element);
+
+    const pane = element.shadowRoot?.querySelector("workspace-conversation-pane") as HTMLElement | null;
+    const folderButton = pane?.shadowRoot?.querySelector(".dialog-action-icon") as HTMLButtonElement | null;
+
+    folderButton?.click();
+    await flushCard(element);
+
+    const iframe = pane?.shadowRoot?.querySelector(".file-browser-iframe") as HTMLIFrameElement | null;
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/workspace/ws-1/file-browser-path"),
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(decodeURIComponent(iframe?.getAttribute("src") ?? "")).toContain("/resolved-mobile-branch/kanban-watcher");
+    expect(decodeURIComponent(iframe?.getAttribute("src") ?? "")).not.toContain("/stale-mobile-branch/kanban-watcher");
   });
 });

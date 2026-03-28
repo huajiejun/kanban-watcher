@@ -201,6 +201,9 @@ func toRealtimeWorkspace(summary store.ActiveWorkspaceSummary) realtime.Workspac
 	if summary.LastMessageAt != nil {
 		payload.LastMessageAt = summary.LastMessageAt.Format(time.RFC3339)
 	}
+	if summary.LatestProcessCompletedAt != nil {
+		payload.LatestProcessCompletedAt = summary.LatestProcessCompletedAt.Format(time.RFC3339)
+	}
 	return payload
 }
 

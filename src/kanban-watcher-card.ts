@@ -4,6 +4,7 @@ import { detectDialogEditLanguage, renderDialogMessage } from "./components/dial
 import {
   cancelWorkspaceQueue,
   fetchActiveWorkspaces,
+  fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
   fetchVibeInfo,
   fetchWorkspaceLatestMessages,
@@ -14,6 +15,7 @@ import {
   stopWorkspaceExecution,
   stopWorkspaceDevServer,
 } from "./lib/http-api";
+import { handleTodoSelectedAndSend, loadTodoPendingCount } from "./lib/todo-helpers";
 import { connectRealtime } from "./lib/realtime-api";
 import {
   compactDialogMessageText,
@@ -40,6 +42,7 @@ import {
   type WorkspaceSectionKey,
 } from "./components/workspace-section-list";
 import { cardStyles } from "./styles";
+import { getStatusMeta } from "./lib/status-meta";
 import { getWorkspacePath } from "./lib/workspace-path";
 import {
   buildWorkspacePreviewUrlFromFrontendPort,
@@ -144,6 +147,7 @@ export class KanbanWatcherCard extends LitElement {
   private selectedWorkspaceId?: string;
   private messageDraft = "";
   private actionFeedback = "";
+  private todoPendingCount = 0;
   private apiWorkspaces: KanbanWorkspace[] = [];
   private boardLoading = false;
   private boardError = "";
@@ -329,6 +333,7 @@ export class KanbanWatcherCard extends LitElement {
 
     const messages = this.getDialogMessages(workspace);
     const isRunning = workspace.status === "running";
+    const statusAccentClass = getStatusMeta(workspace).accentClass;
     const canQueue = isRunning || this.optimisticQueueWorkspaceIds.has(workspace.id);
     const queueStatus = this.queueStatusByWorkspace[workspace.id];
     const isQueued = canQueue && queueStatus?.status === "queued";
@@ -350,17 +355,23 @@ export class KanbanWatcherCard extends LitElement {
         >
           <workspace-conversation-pane
             .workspaceName=${workspace.name}
+            .workspaceId=${workspace.id}
             .workspacePath=${getWorkspacePath(workspace)}
+            .resolveWorkspacePath=${() =>
+              this.resolveWorkspaceFileBrowserPath(workspace.id, getWorkspacePath(workspace))}
             .messages=${messages}
             .smoothRevealMessageKey=${this.smoothRevealMessageKey}
             .messageDraft=${this.messageDraft}
             .currentFeedback=${this.currentFeedback}
             .queueStatus=${queueStatus}
             .isRunning=${isRunning}
+            .statusAccentClass=${statusAccentClass}
             .canQueue=${canQueue}
             .devServerState=${this.getWorkspaceDevServerState(workspace)}
             .showWorkspaceWebPreview=${this.shouldShowWorkspaceWebPreview(workspace)}
-            .showDevServerPreview=${this.getWorkspaceDevServerState(workspace) === "running"}
+            .todoBaseUrl=${this.config?.base_url ?? ""}
+            .todoApiKey=${this.config?.api_key}
+            .todoPendingCount=${this.todoPendingCount}
             .renderMessage=${(message: DialogMessage) => this.renderDialogEntry(message)}
             .quickButtonsTemplate=${this.renderQuickButtons(workspace)}
             @pane-close=${this.closeWorkspaceDialog}
@@ -373,6 +384,8 @@ export class KanbanWatcherCard extends LitElement {
             @dev-server-toggle=${() => void this.handleWorkspaceDevServerToggle(workspace)}
             @quick-button-click=${(event: CustomEvent<string>) =>
               void this.handleQuickButtonClick(event.detail)}
+            @todo-selected=${(event: CustomEvent<{ content: string; todoId: string }>) =>
+              void this.handleTodoSelected(event.detail)}
           ></workspace-conversation-pane>
         </section>
       </div>
@@ -399,6 +412,19 @@ export class KanbanWatcherCard extends LitElement {
     return this.isApiMode ? "消息已切换为本地持久化接口。" : "消息操作暂未接入真实接口。";
   }
 
+  private async resolveWorkspaceFileBrowserPath(workspaceId: string, fallbackPath: string) {
+    if (!this.isApiMode) {
+      return fallbackPath;
+    }
+
+    const response = await fetchWorkspaceFileBrowserPath({
+      baseUrl: this.config!.base_url!,
+      apiKey: this.config?.api_key,
+      workspaceId,
+    });
+    return response.data?.path?.trim() || fallbackPath;
+  }
+
   private toggleSection(key: SectionKey) {
     const next = new Set(this.collapsedSections);
     if (next.has(key)) {
@@ -415,6 +441,8 @@ export class KanbanWatcherCard extends LitElement {
     this.actionFeedback = "";
     this.dialogError = "";
     this.smoothRevealMessageKey = "";
+    this.todoPendingCount = 0;
+    void this.loadTodoPendingCount(workspace.id);
     const nextDialogMessagesByWorkspace = { ...this.dialogMessagesByWorkspace };
     delete nextDialogMessagesByWorkspace[workspace.id];
     this.dialogMessagesByWorkspace = nextDialogMessagesByWorkspace;
@@ -488,6 +516,29 @@ export class KanbanWatcherCard extends LitElement {
   private handleMessageInput = (event: Event) => {
     this.messageDraft = (event.target as HTMLTextAreaElement).value;
   };
+
+  private async handleTodoSelected(detail: { content: string; todoId: string }) {
+    if (!this.selectedWorkspaceId || !this.isApiMode) return;
+    this.messageDraft = detail.content;
+    await handleTodoSelectedAndSend({
+      baseUrl: this.config?.base_url ?? "",
+      apiKey: this.config?.api_key,
+      workspaceId: this.selectedWorkspaceId,
+      todoId: detail.todoId,
+      content: detail.content,
+      sendAction: () => this.handleActionClick("send"),
+      refreshCount: (id) => { void this.loadTodoPendingCount(id); },
+    });
+  }
+
+  private async loadTodoPendingCount(workspaceId: string) {
+    if (!this.isApiMode) return;
+    this.todoPendingCount = await loadTodoPendingCount({
+      baseUrl: this.config?.base_url ?? "",
+      apiKey: this.config?.api_key,
+      workspaceId,
+    });
+  }
 
   private async handleActionClick(action: DialogAction) {
     const queueStatus = this.selectedWorkspaceId
@@ -791,18 +842,10 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private getWorkspaceDisplayMeta(workspace: KanbanWorkspace) {
-    // 与 vibe-kanban 主项目保持一致：优先使用 AI 执行完成时间，同时兼容旧 completed_at 字段。
-    const completionTimeSource =
-      workspace.latest_process_completed_at ||
-      (workspace.status === "completed" ? workspace.completed_at : undefined);
-    const timeSource =
-      completionTimeSource ||
-      workspace.last_message_at ||
-      workspace.updated_at ||
-      this.entityAttributes?.updated_at;
+    const timeSource = this.getWorkspaceDisplayTimeSource(workspace);
 
     return {
-      relativeTime: workspace.relative_time || formatRelativeTime(timeSource),
+      relativeTime: timeSource ? formatRelativeTime(timeSource) : "recently",
       filesChanged: workspace.files_changed ?? 0,
       linesAdded: workspace.lines_added ?? 0,
       linesRemoved: workspace.lines_removed ?? 0,
@@ -1382,11 +1425,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private mapApiWorkspace(workspace: LocalWorkspaceSummary): KanbanWorkspace {
-    // 与 vibe-kanban 主项目保持一致：优先使用 AI 执行完成时间
-    const displayTimeSource =
-      workspace.latest_process_completed_at ||
-      workspace.last_message_at ||
-      workspace.updated_at;
+    const displayTimeSource = workspace.latest_process_completed_at || workspace.last_message_at;
 
     return {
       id: workspace.id,
@@ -1402,11 +1441,18 @@ export class KanbanWatcherCard extends LitElement {
       latest_process_completed_at: workspace.latest_process_completed_at,
       updated_at: workspace.updated_at,
       last_message_at: workspace.last_message_at,
-      relative_time: formatRelativeTime(displayTimeSource),
+      relative_time: displayTimeSource ? formatRelativeTime(displayTimeSource) : "recently",
       files_changed: workspace.files_changed ?? 0,
       lines_added: workspace.lines_added ?? 0,
       lines_removed: workspace.lines_removed ?? 0,
     };
+  }
+
+  private getWorkspaceDisplayTimeSource(workspace: KanbanWorkspace) {
+    const completionTimeSource =
+      workspace.latest_process_completed_at ||
+      (workspace.status === "completed" ? workspace.completed_at : undefined);
+    return completionTimeSource || workspace.last_message_at;
   }
 
   private getWorkspacePreviewUrl(workspace: KanbanWorkspace) {

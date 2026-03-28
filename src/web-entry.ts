@@ -2,8 +2,13 @@ import { mountWorkspaceHome } from "./web/workspace-home";
 
 export type PageMode = "workspace" | "preview";
 
+function normalizePagePath(pathname: string) {
+  return pathname.replace(/^\/\d{4,5}(?=\/|$)/, "") || "/";
+}
+
 export function getPageMode(url = new URL(window.location.href)): PageMode {
-  return url.pathname === "/preview" || url.pathname === "/preview/"
+  const normalizedPath = normalizePagePath(url.pathname);
+  return normalizedPath === "/preview" || normalizedPath === "/preview/"
     ? "preview"
     : "workspace";
 }

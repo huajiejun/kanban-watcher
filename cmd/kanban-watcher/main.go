@@ -168,8 +168,8 @@ func handlePollResult(
 		trayApp.UpdateWorkspaces(workspaces)
 	}
 
-	// 端口检查：只有主端口 7778 才能发送通知
-	if cfg.HTTPAPI.Port != 7778 {
+	// 只有主后端实例才发送通知
+	if !cfg.Runtime.IsMain() {
 		return
 	}
 

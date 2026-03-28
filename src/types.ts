@@ -142,6 +142,13 @@ export interface VibeInfoResponse {
     config?: {
       preview_proxy_port?: number;
     };
+    runtime?: {
+      role?: string;
+    };
+    realtime?: {
+      enabled?: boolean;
+      base_url?: string;
+    };
   };
 }
 
@@ -203,6 +210,15 @@ export interface WorkspaceFrontendPortResponse {
     workspace_id?: string;
     frontend_port?: number;
     backend_port?: number;
+  };
+  message?: string;
+}
+
+export interface WorkspaceFileBrowserPathResponse {
+  success?: boolean;
+  data?: {
+    workspace_id?: string;
+    path?: string;
   };
   message?: string;
 }
@@ -301,4 +317,20 @@ export interface TodoList {
   completedCount: number;
   totalCount: number;
   percentage: number;
+}
+
+/** 工作区待办事项（数据库持久化） */
+export interface WorkspaceTodo {
+  id: string;
+  workspace_id: string;
+  content: string;
+  is_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 待办列表响应 */
+export interface WorkspaceTodosResponse {
+  todos: WorkspaceTodo[];
+  pending_count: number;
 }
