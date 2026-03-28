@@ -562,13 +562,13 @@ export const workspaceHomeStyles = css`
     .mobile-header-item {
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 6px 14px;
+      gap: 3px;
+      padding: 4px 12px;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       background: transparent;
       color: rgba(148, 163, 184, 0.7);
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       cursor: pointer;
       transition: color 0.15s, background 0.15s;
       -webkit-tap-highlight-color: transparent;
@@ -585,7 +585,7 @@ export const workspaceHomeStyles = css`
     }
 
     .mobile-header-icon {
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       line-height: 1;
     }
 
