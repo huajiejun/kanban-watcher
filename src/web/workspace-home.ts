@@ -83,6 +83,12 @@ const MOBILE_BREAKPOINT = 768;
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 3_000;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
+const ACTIVE_PANE_MESSAGE_TYPES = [
+  "assistant_message",
+  "user_message",
+  "error_message",
+  "tool_use",
+];
 const PREVIEW_DEBUG_STORAGE_KEY = "kanban_watcher_preview_debug";
 
 let kanbanWatcherCardDefinitionPromise: Promise<void> | undefined;
@@ -579,6 +585,7 @@ export class KanbanWorkspaceHome extends LitElement {
         apiKey: this.previewOptions.apiKey,
         workspaceId,
         limit: this.previewOptions.messagesLimit ?? 50,
+        types: workspaceId === this.activeWorkspace?.id ? ACTIVE_PANE_MESSAGE_TYPES : undefined,
       });
       const previousMessages = this.messagesByWorkspace[workspaceId] ?? [];
       const nextMessages = normalizeApiMessages(response.messages);

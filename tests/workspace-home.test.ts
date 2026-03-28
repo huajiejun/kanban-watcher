@@ -1348,6 +1348,74 @@ describe("workspace home helpers", () => {
     expect(latestMessageRequests).toHaveLength(2);
   });
 
+  it("requests tool_use entries when loading the active workspace pane", async () => {
+    const requestUrls: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = readRequestUrl(input);
+      requestUrls.push(url);
+
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 4567,
+            },
+            realtime: {
+              enabled: true,
+              base_url: "http://127.0.0.1:7778",
+            },
+          },
+        });
+      }
+
+      if (url.includes("/api/workspace-view")) {
+        return createJsonResponse({
+          open_workspace_ids: [],
+          dismissed_attention_ids: [],
+        });
+      }
+
+      if (url.includes("/api/workspaces/active")) {
+        return createJsonResponse({
+          workspaces: [
+            {
+              id: "ws-1",
+              name: "主任务",
+              status: "completed",
+              latest_session_id: "session-1",
+              updated_at: "2026-03-24T12:00:00Z",
+            },
+          ],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/latest-messages")) {
+        return createJsonResponse({
+          messages: [],
+        });
+      }
+
+      if (url.includes("/api/workspaces/ws-1/seen")) {
+        return createJsonResponse({ success: true });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const element = createElement();
+    await waitForWorkspaceList(element);
+
+    (element.shadowRoot?.querySelector(".task-card-main") as HTMLButtonElement).click();
+    await flushElement(element);
+
+    expect(requestUrls).toContain(
+      "/api/workspaces/ws-1/latest-messages?limit=50&types=assistant_message%2Cuser_message%2Cerror_message%2Ctool_use",
+    );
+  });
+
   it("clears stale cached messages and fetches fresh content when opening a pane", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);

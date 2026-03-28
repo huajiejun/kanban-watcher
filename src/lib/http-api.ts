@@ -124,11 +124,16 @@ export async function fetchWorkspaceLatestMessages({
   apiKey,
   workspaceId,
   limit,
+  types,
 }: RequestOptions & {
   workspaceId: string;
   limit: number;
+  types?: string[];
 }): Promise<SessionMessagesResponse> {
   const query = new URLSearchParams({ limit: String(limit) });
+  if (Array.isArray(types) && types.length > 0) {
+    query.set("types", types.join(","));
+  }
   return fetchJSON<SessionMessagesResponse>(
     `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/latest-messages?${query.toString()}`,
     {
