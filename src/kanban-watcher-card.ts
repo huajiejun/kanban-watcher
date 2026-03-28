@@ -937,7 +937,7 @@ export class KanbanWatcherCard extends LitElement {
         .workspaceName=${workspace.name}
         .workspaceId=${workspace.id}
         .diffStats=${this.diffDetailsStats}
-        .baseUrl=${this.realtimeBaseUrl ?? this.config?.base_url ?? ""}
+        .baseUrl=${this.config?.base_url ?? ""}
         .apiKey=${this.config?.api_key}
         @diff-details-close=${this.handleCloseDiffDetails}
       ></diff-details-panel>

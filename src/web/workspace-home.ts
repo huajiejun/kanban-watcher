@@ -1807,7 +1807,7 @@ export class KanbanWorkspaceHome extends LitElement {
         .workspaceName=${workspace.name}
         .workspaceId=${workspace.id}
         .diffStats=${this.diffDetailsStats}
-        .baseUrl=${this.realtimeBaseUrl ?? this.previewOptions.baseUrl ?? ""}
+        .baseUrl=${this.previewOptions.baseUrl ?? ""}
         .apiKey=${this.previewOptions.apiKey}
         @diff-details-close=${this.handleCloseDiffDetails}
       ></diff-details-panel>
