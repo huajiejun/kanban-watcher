@@ -1,6 +1,8 @@
 import type {
   RemoteIssue,
   RemoteProjectStatus,
+  RemoteOrganization,
+  RemoteProject,
   CreateIssuePayload,
   UpdateIssuePayload,
 } from "../types/issue";
@@ -36,31 +38,71 @@ async function fetchJSON<T>(url: string, init: RequestInit): Promise<T> {
   return (text ? JSON.parse(text) : {}) as T;
 }
 
-/** GET /api/issues/ - 查询任务列表 */
-export async function fetchIssues(
+/** GET /api/organizations - 查询组织列表 */
+export async function fetchOrganizations(
   options: RequestOptions
-): Promise<RemoteIssue[]> {
+): Promise<RemoteOrganization[]> {
   const response = await fetchJSON<{
     success: boolean;
-    data: RemoteIssue[];
-  }>(`${normalizeBaseUrl(options.baseUrl)}/api/issues/`, {
+    data: RemoteOrganization[];
+  }>(`${normalizeBaseUrl(options.baseUrl)}/api/organizations`, {
     method: "GET",
     headers: buildHeaders(options.apiKey),
   });
   return response.data ?? [];
 }
 
-/** GET /api/project-statuses - 查询项目状态列表 */
+/** GET /api/projects?organization_id=xxx - 查询项目列表 */
+export async function fetchProjects(
+  options: RequestOptions,
+  organizationId: string
+): Promise<RemoteProject[]> {
+  const response = await fetchJSON<{
+    success: boolean;
+    data: RemoteProject[];
+  }>(
+    `${normalizeBaseUrl(options.baseUrl)}/api/projects?organization_id=${organizationId}`,
+    {
+      method: "GET",
+      headers: buildHeaders(options.apiKey),
+    }
+  );
+  return response.data ?? [];
+}
+
+/** GET /api/issues/?project_id=xxx - 查询任务列表 */
+export async function fetchIssues(
+  options: RequestOptions,
+  projectId: string
+): Promise<RemoteIssue[]> {
+  const response = await fetchJSON<{
+    success: boolean;
+    data: RemoteIssue[];
+  }>(
+    `${normalizeBaseUrl(options.baseUrl)}/api/issues/?project_id=${projectId}`,
+    {
+      method: "GET",
+      headers: buildHeaders(options.apiKey),
+    }
+  );
+  return response.data ?? [];
+}
+
+/** GET /api/project-statuses?project_id=xxx - 查询项目状态列表 */
 export async function fetchProjectStatuses(
-  options: RequestOptions
+  options: RequestOptions,
+  projectId: string
 ): Promise<RemoteProjectStatus[]> {
   const response = await fetchJSON<{
     success: boolean;
     data: RemoteProjectStatus[];
-  }>(`${normalizeBaseUrl(options.baseUrl)}/api/project-statuses`, {
-    method: "GET",
-    headers: buildHeaders(options.apiKey),
-  });
+  }>(
+    `${normalizeBaseUrl(options.baseUrl)}/api/project-statuses?project_id=${projectId}`,
+    {
+      method: "GET",
+      headers: buildHeaders(options.apiKey),
+    }
+  );
   return response.data ?? [];
 }
 

@@ -54,3 +54,25 @@ export interface KanbanColumn {
   status: RemoteProjectStatus;
   issues: RemoteIssue[];
 }
+
+/** 组织 */
+export interface RemoteOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  is_personal: boolean;
+  issue_prefix: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 项目 */
+export interface RemoteProject {
+  id: string;
+  organization_id: string;
+  name: string;
+  color: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}

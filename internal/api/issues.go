@@ -335,3 +335,119 @@ func (c *ProxyClient) doMutationIssue(ctx context.Context, url, method string, p
 
 	return &apiResp.Data.Data, nil
 }
+
+// --- 组织和项目类型 ---
+
+type RemoteOrganization struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Slug          string `json:"slug"`
+	IsPersonal    bool   `json:"is_personal"`
+	IssuePrefix   string `json:"issue_prefix"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+type RemoteProject struct {
+	ID             string `json:"id"`
+	OrganizationID string `json:"organization_id"`
+	Name           string `json:"name"`
+	Color          string `json:"color"`
+	SortOrder      int    `json:"sort_order"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
+type listOrganizationsAPIResponse struct {
+	Success bool     `json:"success"`
+	Data    *struct {
+		Organizations []RemoteOrganization `json:"organizations"`
+	} `json:"data"`
+	Message *string `json:"message"`
+}
+
+type listProjectsAPIResponse struct {
+	Success bool     `json:"success"`
+	Data    *struct {
+		Projects []RemoteProject `json:"projects"`
+	} `json:"data"`
+	Message *string `json:"message"`
+}
+
+// ListOrganizations 查询当前用户的组织列表
+func (c *ProxyClient) ListOrganizations(ctx context.Context) ([]RemoteOrganization, error) {
+	url := fmt.Sprintf("%s/api/remote/organizations", c.baseURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应: %w", err)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("查询组织列表失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var apiResp listOrganizationsAPIResponse
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+	if !apiResp.Success || apiResp.Data == nil {
+		msg := ""
+		if apiResp.Message != nil {
+			msg = *apiResp.Message
+		}
+		return nil, fmt.Errorf("查询组织列表失败: %s", msg)
+	}
+
+	return apiResp.Data.Organizations, nil
+}
+
+// ListProjects 查询指定组织下的项目列表
+func (c *ProxyClient) ListProjects(ctx context.Context, organizationID string) ([]RemoteProject, error) {
+	url := fmt.Sprintf("%s/api/remote/projects?organization_id=%s", c.baseURL, organizationID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应: %w", err)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("查询项目列表失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var apiResp listProjectsAPIResponse
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+	if !apiResp.Success || apiResp.Data == nil {
+		msg := ""
+		if apiResp.Message != nil {
+			msg = *apiResp.Message
+		}
+		return nil, fmt.Errorf("查询项目列表失败: %s", msg)
+	}
+
+	return apiResp.Data.Projects, nil
+}

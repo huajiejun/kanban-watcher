@@ -147,6 +147,10 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/issues/", s.handleIssues)
 	mux.HandleFunc("/api/project-statuses", s.handleProjectStatuses)
 
+	// 组织和项目代理接口
+	mux.HandleFunc("/api/organizations", s.handleOrganizations)
+	mux.HandleFunc("/api/projects", s.handleProjects)
+
 	// 注册额外的路由
 	for _, route := range s.extraRoutes {
 		mux.HandleFunc(route.pattern, route.handler)
@@ -974,10 +978,6 @@ func (s *Server) handleIssues(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
 		return
 	}
-	if s.projectID == "" {
-		http.Error(w, "未配置 project_id", http.StatusInternalServerError)
-		return
-	}
 
 	path := strings.TrimPrefix(r.URL.Path, "/api/issues/")
 	path = strings.TrimSuffix(path, "/")
@@ -1010,10 +1010,19 @@ func (s *Server) handleIssues(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListIssues(w http.ResponseWriter, r *http.Request) {
+	projectID := r.URL.Query().Get("project_id")
+	if projectID == "" {
+		projectID = s.projectID
+	}
+	if projectID == "" {
+		http.Error(w, "缺少 project_id 参数", http.StatusBadRequest)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	issues, err := s.proxy.ListIssues(ctx, s.projectID)
+	issues, err := s.proxy.ListIssues(ctx, projectID)
 	if err != nil {
 		log.Printf("[HTTP Server] 查询任务列表失败: %v", err)
 		statusCode := http.StatusInternalServerError
@@ -1145,15 +1154,20 @@ func (s *Server) handleProjectStatuses(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
 		return
 	}
-	if s.projectID == "" {
-		http.Error(w, "未配置 project_id", http.StatusInternalServerError)
+
+	projectID := r.URL.Query().Get("project_id")
+	if projectID == "" {
+		projectID = s.projectID
+	}
+	if projectID == "" {
+		http.Error(w, "缺少 project_id 参数", http.StatusBadRequest)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	statuses, err := s.proxy.ListProjectStatuses(ctx, s.projectID)
+	statuses, err := s.proxy.ListProjectStatuses(ctx, projectID)
 	if err != nil {
 		log.Printf("[HTTP Server] 查询项目状态失败: %v", err)
 		statusCode := http.StatusInternalServerError
@@ -1168,5 +1182,75 @@ func (s *Server) handleProjectStatuses(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"data":    statuses,
+	})
+}
+
+// handleOrganizations 处理 GET /api/organizations
+func (s *Server) handleOrganizations(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	orgs, err := s.proxy.ListOrganizations(ctx)
+	if err != nil {
+		log.Printf("[HTTP Server] 查询组织列表失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    orgs,
+	})
+}
+
+// handleProjects 处理 GET /api/projects
+func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	orgID := r.URL.Query().Get("organization_id")
+	if orgID == "" {
+		http.Error(w, "缺少 organization_id 参数", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	projects, err := s.proxy.ListProjects(ctx, orgID)
+	if err != nil {
+		log.Printf("[HTTP Server] 查询项目列表失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    projects,
 	})
 }

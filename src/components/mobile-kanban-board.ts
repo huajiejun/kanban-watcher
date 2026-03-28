@@ -1,11 +1,21 @@
 import { LitElement, html, css, nothing } from "lit";
-import { fetchIssues, fetchProjectStatuses } from "../lib/issue-api";
+import {
+  fetchOrganizations,
+  fetchProjects,
+  fetchIssues,
+  fetchProjectStatuses,
+} from "../lib/issue-api";
 import type {
   RemoteIssue,
   RemoteProjectStatus,
+  RemoteOrganization,
+  RemoteProject,
   KanbanColumn,
 } from "../types/issue";
 import "./mobile-kanban-column";
+
+const STORAGE_KEY_ORG = "kanban_selected_org_id";
+const STORAGE_KEY_PROJECT = "kanban_selected_project_id";
 
 export class MobileKanbanBoard extends LitElement {
   static styles = css`
@@ -20,6 +30,33 @@ export class MobileKanbanBoard extends LitElement {
       height: 100%;
       display: flex;
       flex-direction: column;
+    }
+
+    .project-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+      flex-shrink: 0;
+    }
+
+    .selector-select {
+      flex: 1;
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.6);
+      color: #cbd5e1;
+      font-size: 0.76rem;
+      font-family: inherit;
+      outline: none;
+      -webkit-appearance: none;
+      max-width: 50%;
+    }
+
+    .selector-select:focus {
+      border-color: rgba(56, 189, 248, 0.5);
     }
 
     .kanban-columns {
@@ -104,6 +141,16 @@ export class MobileKanbanBoard extends LitElement {
 
   baseUrl = "";
   apiKey = "";
+
+  // 项目选择器状态
+  organizations: RemoteOrganization[] = [];
+  projects: RemoteProject[] = [];
+  selectedOrgId = "";
+  selectedProjectId = "";
+  selectorLoading = false;
+  selectorError = "";
+
+  // 看板状态
   columns: KanbanColumn[] = [];
   statuses: RemoteProjectStatus[] = [];
   loading = false;
@@ -113,22 +160,93 @@ export class MobileKanbanBoard extends LitElement {
   static properties = {
     baseUrl: { type: String, attribute: "base-url" },
     apiKey: { type: String, attribute: "api-key" },
+    organizations: { attribute: false },
+    projects: { attribute: false },
+    selectedOrgId: { attribute: false },
+    selectedProjectId: { attribute: false },
+    selectorLoading: { type: Boolean, attribute: false },
+    selectorError: { attribute: false },
     columns: { attribute: false },
     statuses: { attribute: false },
     loading: { type: Boolean, attribute: false },
-    error: { type: String, attribute: false },
+    error: { attribute: false },
     activeColumnIndex: { type: Number, attribute: false },
   };
 
   connectedCallback() {
     super.connectedCallback();
-    void this.loadBoard();
+    void this.initSelector();
   }
 
   updated(changed: Map<string, unknown>) {
     if (changed.has("columns") && this.columns.length > 0) {
       this.setupScrollDetection();
     }
+  }
+
+  private async initSelector() {
+    this.selectorLoading = true;
+    this.selectorError = "";
+    try {
+      const orgs = await fetchOrganizations({
+        baseUrl: this.baseUrl,
+        apiKey: this.apiKey,
+      });
+      this.organizations = orgs;
+
+      // 恢复上次选择
+      const savedOrgId = localStorage.getItem(STORAGE_KEY_ORG);
+      const orgId = orgs.find((o) => o.id === savedOrgId)
+        ? savedOrgId
+        : orgs.length > 0
+          ? orgs[0].id
+          : "";
+
+      if (orgId) {
+        await this.handleOrgChange(orgId);
+      }
+    } catch (err) {
+      this.selectorError =
+        err instanceof Error ? err.message : "加载组织失败";
+    } finally {
+      this.selectorLoading = false;
+    }
+  }
+
+  private async handleOrgChange(orgId: string) {
+    this.selectedOrgId = orgId;
+    localStorage.setItem(STORAGE_KEY_ORG, orgId);
+    this.projects = [];
+    this.selectedProjectId = "";
+    this.columns = [];
+
+    try {
+      const projects = await fetchProjects(
+        { baseUrl: this.baseUrl, apiKey: this.apiKey },
+        orgId
+      );
+      this.projects = projects;
+
+      // 恢复上次选择
+      const savedProjectId = localStorage.getItem(STORAGE_KEY_PROJECT);
+      const projectId = projects.find((p) => p.id === savedProjectId)
+        ? savedProjectId
+        : projects.length > 0
+          ? projects[0].id
+          : "";
+
+      if (projectId) {
+        await this.handleProjectChange(projectId);
+      }
+    } catch (err) {
+      console.error("加载项目列表失败:", err);
+    }
+  }
+
+  private async handleProjectChange(projectId: string) {
+    this.selectedProjectId = projectId;
+    localStorage.setItem(STORAGE_KEY_PROJECT, projectId);
+    void this.loadBoard();
   }
 
   private setupScrollDetection() {
@@ -146,15 +264,20 @@ export class MobileKanbanBoard extends LitElement {
   }
 
   private async loadBoard() {
+    if (!this.selectedProjectId) return;
+
     this.loading = true;
     this.error = "";
     try {
       const [statuses, issues] = await Promise.all([
-        fetchProjectStatuses({
-          baseUrl: this.baseUrl,
-          apiKey: this.apiKey,
-        }),
-        fetchIssues({ baseUrl: this.baseUrl, apiKey: this.apiKey }),
+        fetchProjectStatuses(
+          { baseUrl: this.baseUrl, apiKey: this.apiKey },
+          this.selectedProjectId
+        ),
+        fetchIssues(
+          { baseUrl: this.baseUrl, apiKey: this.apiKey },
+          this.selectedProjectId
+        ),
       ]);
 
       const visibleStatuses = statuses
@@ -208,30 +331,109 @@ export class MobileKanbanBoard extends LitElement {
   }
 
   protected render() {
+    // 项目选择器
+    const selector = html`
+      <div class="project-selector">
+        <select
+          class="selector-select"
+          .value=${this.selectedOrgId}
+          @change=${(e: Event) => {
+            const val = (e.target as HTMLSelectElement).value;
+            if (val) void this.handleOrgChange(val);
+          }}
+        >
+          <option value="" ?selected=${!this.selectedOrgId}>选择组织</option>
+          ${this.organizations.map(
+            (org) =>
+              html`<option value=${org.id} ?selected=${org.id === this.selectedOrgId}>
+                ${org.name}
+              </option>`
+          )}
+        </select>
+        <select
+          class="selector-select"
+          .value=${this.selectedProjectId}
+          @change=${(e: Event) => {
+            const val = (e.target as HTMLSelectElement).value;
+            if (val) void this.handleProjectChange(val);
+          }}
+        >
+          <option value="" ?selected=${!this.selectedProjectId}>
+            选择项目
+          </option>
+          ${this.projects.map(
+            (p) =>
+              html`<option value=${p.id} ?selected=${p.id === this.selectedProjectId}>
+                ${p.name}
+              </option>`
+          )}
+        </select>
+      </div>
+    `;
+
+    // 无项目时显示提示
+    if (!this.selectedProjectId) {
+      return html`
+        <div class="kanban-board">
+          ${selector}
+          <div class="board-empty">
+            <span style="font-size:1.5rem">📋</span>
+            <span>
+              ${this.selectorError
+                ? this.selectorError
+                : this.organizations.length === 0
+                  ? "加载组织中..."
+                  : "请选择项目查看看板"}
+            </span>
+          </div>
+        </div>
+      `;
+    }
+
+    // 加载中
     if (this.loading) {
-      return html`<div class="board-loading">
-        <span style="font-size:1.5rem">⏳</span>
-        <span>加载中...</span>
-      </div>`;
+      return html`
+        <div class="kanban-board">
+          ${selector}
+          <div class="board-loading">
+            <span style="font-size:1.5rem">⏳</span>
+            <span>加载中...</span>
+          </div>
+        </div>
+      `;
     }
 
+    // 错误
     if (this.error) {
-      return html`<div class="board-error">
-        <span style="font-size:1.5rem">⚠️</span>
-        <p>${this.error}</p>
-        <button type="button" @click=${this.handleRefresh}>重试</button>
-      </div>`;
+      return html`
+        <div class="kanban-board">
+          ${selector}
+          <div class="board-error">
+            <span style="font-size:1.5rem">⚠️</span>
+            <p>${this.error}</p>
+            <button type="button" @click=${this.handleRefresh}>重试</button>
+          </div>
+        </div>
+      `;
     }
 
+    // 空看板
     if (this.columns.length === 0) {
-      return html`<div class="board-empty">
-        <span style="font-size:1.5rem">📭</span>
-        <span>暂无任务状态配置</span>
-      </div>`;
+      return html`
+        <div class="kanban-board">
+          ${selector}
+          <div class="board-empty">
+            <span style="font-size:1.5rem">📭</span>
+            <span>暂无任务状态配置</span>
+          </div>
+        </div>
+      `;
     }
 
+    // 正常看板
     return html`
       <div class="kanban-board">
+        ${selector}
         <div class="kanban-columns">
           ${this.columns.map(
             (col) =>
