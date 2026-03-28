@@ -301,6 +301,11 @@ func runDaemon() error {
 		RealtimeBaseURL: features.realtimeBaseURL,
 	})
 
+	// 设置关联的 vibe-kanban 项目 ID（用于 Issue API）
+	if cfg.ProjectID != "" {
+		httpServer.SetProjectID(cfg.ProjectID)
+	}
+
 	// 设置认证处理器
 	authHandler := &server.AuthHandler{
 		JWTService: jwtService,
@@ -439,6 +444,11 @@ func runHeadless() error {
 		RealtimeEnabled: features.enableRealtime,
 		RealtimeBaseURL: features.realtimeBaseURL,
 	})
+
+	// 设置关联的 vibe-kanban 项目 ID（用于 Issue API）
+	if cfg.ProjectID != "" {
+		httpServer.SetProjectID(cfg.ProjectID)
+	}
 
 	// 设置认证处理器
 	authHandler := &server.AuthHandler{

@@ -13,6 +13,7 @@ import (
 // Config kanban-watcher 的根配置结构
 type Config struct {
 	KanbanAPIURL     string                 `yaml:"kanban_api_url"`        // vibe-kanban API 地址
+	ProjectID        string                 `yaml:"project_id"`            // 关联的 vibe-kanban 项目 ID
 	ConversationSync ConversationSyncConfig `yaml:"conversation_sync"`     // 会话日志同步配置
 	WeChat           WeChatConfig           `yaml:"wechat"`                // 企业微信通知配置
 	Notify           NotifyConfig           `yaml:"notify"`                // 弹框通知配置
@@ -326,6 +327,10 @@ func applyDefaults(cfg *Config) {
 		if port, err := strconv.Atoi(portStr); err == nil && port > 0 {
 			cfg.HTTPAPI.Port = port
 		}
+	}
+	// 支持环境变量覆盖项目 ID
+	if projectID := os.Getenv("KANBAN_PROJECT_ID"); projectID != "" {
+		cfg.ProjectID = projectID
 	}
 	if cfg.Notify.ApprovalThreshold <= 0 {
 		cfg.Notify.ApprovalThreshold = 15

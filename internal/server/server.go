@@ -37,6 +37,7 @@ type Server struct {
 	store         *store.Store
 	portAllocator frontendPortAllocator
 	runtimeInfo   RuntimeInfo
+	projectID     string
 }
 
 type RuntimeInfo struct {
@@ -95,6 +96,11 @@ func (s *Server) SetRuntimeInfo(info RuntimeInfo) {
 	s.runtimeInfo = info
 }
 
+// SetProjectID 设置关联的 vibe-kanban 项目 ID（用于 Issue API）
+func (s *Server) SetProjectID(id string) {
+	s.projectID = id
+}
+
 // SetAuthHandler 设置认证处理器
 func (s *Server) SetAuthHandler(handler *AuthHandler) {
 	s.authHandler = handler
@@ -136,6 +142,10 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/execution-processes/", s.handleExecutionProcess)
 	// 工作区已读状态代理接口
 	mux.HandleFunc("/api/workspaces/", s.handleWorkspaces)
+
+	// Issue 任务管理代理接口
+	mux.HandleFunc("/api/issues/", s.handleIssues)
+	mux.HandleFunc("/api/project-statuses", s.handleProjectStatuses)
 
 	// 注册额外的路由
 	for _, route := range s.extraRoutes {
@@ -950,5 +960,213 @@ func (s *Server) handleWorkspaceSeen(w http.ResponseWriter, r *http.Request, wor
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":      true,
 		"workspace_id": workspaceID,
+	})
+}
+
+// handleIssues 处理 /api/issues/ 相关请求
+//   GET  /api/issues/              - 查询任务列表
+//   POST /api/issues/              - 创建任务
+//   GET  /api/issues/{id}          - 获取单个任务
+//   PATCH /api/issues/{id}         - 更新任务
+//   DELETE /api/issues/{id}        - 删除任务
+func (s *Server) handleIssues(w http.ResponseWriter, r *http.Request) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+	if s.projectID == "" {
+		http.Error(w, "未配置 project_id", http.StatusInternalServerError)
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/api/issues/")
+	path = strings.TrimSuffix(path, "/")
+
+	// 空路径 → 列表或创建
+	if path == "" {
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListIssues(w, r)
+		case http.MethodPost:
+			s.handleCreateIssue(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// 非空路径 → 单个任务 CRUD
+	issueID := path
+	switch r.Method {
+	case http.MethodGet:
+		s.handleGetIssue(w, r, issueID)
+	case http.MethodPatch:
+		s.handleUpdateIssue(w, r, issueID)
+	case http.MethodDelete:
+		s.handleDeleteIssue(w, r, issueID)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleListIssues(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	issues, err := s.proxy.ListIssues(ctx, s.projectID)
+	if err != nil {
+		log.Printf("[HTTP Server] 查询任务列表失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    issues,
+	})
+}
+
+func (s *Server) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
+	var payload api.CreateIssuePayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// 如果请求体未指定 project_id，使用配置的默认值
+	if payload.ProjectID == "" {
+		payload.ProjectID = s.projectID
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	issue, err := s.proxy.CreateIssue(ctx, payload)
+	if err != nil {
+		log.Printf("[HTTP Server] 创建任务失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    issue,
+	})
+}
+
+func (s *Server) handleGetIssue(w http.ResponseWriter, r *http.Request, issueID string) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	issue, err := s.proxy.GetIssue(ctx, issueID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取任务 %s 失败: %v", issueID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    issue,
+	})
+}
+
+func (s *Server) handleUpdateIssue(w http.ResponseWriter, r *http.Request, issueID string) {
+	var payload api.UpdateIssuePayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	issue, err := s.proxy.UpdateIssue(ctx, issueID, payload)
+	if err != nil {
+		log.Printf("[HTTP Server] 更新任务 %s 失败: %v", issueID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    issue,
+	})
+}
+
+func (s *Server) handleDeleteIssue(w http.ResponseWriter, r *http.Request, issueID string) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	err := s.proxy.DeleteIssue(ctx, issueID)
+	if err != nil {
+		log.Printf("[HTTP Server] 删除任务 %s 失败: %v", issueID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+	})
+}
+
+// handleProjectStatuses 处理 GET /api/project-statuses
+func (s *Server) handleProjectStatuses(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+	if s.projectID == "" {
+		http.Error(w, "未配置 project_id", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	statuses, err := s.proxy.ListProjectStatuses(ctx, s.projectID)
+	if err != nil {
+		log.Printf("[HTTP Server] 查询项目状态失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    statuses,
 	})
 }
