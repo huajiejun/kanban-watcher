@@ -80,9 +80,13 @@ import {
 export type WorkspaceHomeMode = "desktop" | "mobile-card";
 
 const MOBILE_BREAKPOINT = 768;
-const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
-const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 3_000;
 const DEFAULT_REALTIME_RETRY_DELAY_MS = 3_000;
+const ACTIVE_PANE_MESSAGE_TYPES = [
+  "assistant_message",
+  "user_message",
+  "error_message",
+  "tool_use",
+];
 const PREVIEW_DEBUG_STORAGE_KEY = "kanban_watcher_preview_debug";
 
 let kanbanWatcherCardDefinitionPromise: Promise<void> | undefined;
@@ -169,14 +173,10 @@ export class KanbanWorkspaceHome extends LitElement {
   suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
-  private refreshTimer?: number;
-  private dialogRefreshTimer?: number;
   private boardRealtimeRetryTimer?: number;
   private realtimeRetryTimer?: number;
   private boardRealtimeSocket?: WebSocket;
   private realtimeSocket?: WebSocket;
-  private boardRealtimeConnected = false;
-  private realtimeConnected = false;
   private lastSidebarSyncPaneCount = this.pageState.openWorkspaceIds.length;
   private hasHydratedRemoteWorkspaceView = false;
   private isApplyingRemoteWorkspaceView = false;
@@ -216,7 +216,6 @@ export class KanbanWorkspaceHome extends LitElement {
       writePersistedWorkspacePageState(this.pageState);
       if (this.isApiMode) {
         void this.pushWorkspaceView();
-        this.updateDialogPolling();
       }
     }
     if (this.isApiMode && (changedProperties.has("pageState") || changedProperties.has("workspaces"))) {
@@ -369,7 +368,6 @@ export class KanbanWorkspaceHome extends LitElement {
     await this.loadWorkspaces();
     if (!this.apiAccessBlocked) {
       this.connectBoardRealtimeIfNeeded();
-      this.startBoardPolling();
     }
   }
 
@@ -579,6 +577,7 @@ export class KanbanWorkspaceHome extends LitElement {
         apiKey: this.previewOptions.apiKey,
         workspaceId,
         limit: this.previewOptions.messagesLimit ?? 50,
+        types: workspaceId === this.activeWorkspace?.id ? ACTIVE_PANE_MESSAGE_TYPES : undefined,
       });
       const previousMessages = this.messagesByWorkspace[workspaceId] ?? [];
       const nextMessages = normalizeApiMessages(response.messages);
@@ -1287,8 +1286,6 @@ export class KanbanWorkspaceHome extends LitElement {
   }
 
   private stopRealtimeSync() {
-    this.stopBoardPolling();
-    this.stopDialogPolling();
     if (this.boardRealtimeRetryTimer) {
       window.clearTimeout(this.boardRealtimeRetryTimer);
       this.boardRealtimeRetryTimer = undefined;
@@ -1307,55 +1304,6 @@ export class KanbanWorkspaceHome extends LitElement {
       this.realtimeSocket = undefined;
       socket.close();
     }
-    this.boardRealtimeConnected = false;
-    this.realtimeConnected = false;
-  }
-
-  private startBoardPolling() {
-    if (this.refreshTimer) {
-      return;
-    }
-    this.refreshTimer = window.setInterval(() => {
-      void this.loadWorkspaces();
-    }, DEFAULT_REFRESH_INTERVAL_MS);
-  }
-
-  private stopBoardPolling() {
-    if (!this.refreshTimer) {
-      return;
-    }
-    window.clearInterval(this.refreshTimer);
-    this.refreshTimer = undefined;
-  }
-
-  private startDialogPolling() {
-    if (this.dialogRefreshTimer) {
-      return;
-    }
-    this.dialogRefreshTimer = window.setInterval(() => {
-      for (const workspace of this.getDialogPollingWorkspaces()) {
-        void this.loadWorkspaceMessages(workspace.id, true);
-        if (workspace.status === "running") {
-          void this.loadWorkspaceQueueStatus(workspace.id);
-        }
-      }
-    }, DEFAULT_DIALOG_FALLBACK_INTERVAL_MS);
-  }
-
-  private stopDialogPolling() {
-    if (!this.dialogRefreshTimer) {
-      return;
-    }
-    window.clearInterval(this.dialogRefreshTimer);
-    this.dialogRefreshTimer = undefined;
-  }
-
-  private updateDialogPolling() {
-    if (!this.isApiMode || this.getDialogPollingWorkspaces().length === 0) {
-      this.stopDialogPolling();
-      return;
-    }
-    this.startDialogPolling();
   }
 
   private connectBoardRealtimeIfNeeded() {
@@ -1369,8 +1317,6 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.boardRealtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.boardRealtimeConnected = true;
-        this.stopBoardPolling();
         if (this.boardRealtimeRetryTimer) {
           window.clearTimeout(this.boardRealtimeRetryTimer);
           this.boardRealtimeRetryTimer = undefined;
@@ -1380,9 +1326,7 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.boardRealtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.boardRealtimeConnected = false;
         void this.loadWorkspaces();
-        this.startBoardPolling();
         this.scheduleBoardRealtimeReconnect();
       },
       onMessage: (event) => {
@@ -1403,7 +1347,6 @@ export class KanbanWorkspaceHome extends LitElement {
     }
     const sessionId = this.activeWorkspace?.latest_session_id ?? this.activeWorkspace?.last_session_id;
     if (!sessionId) {
-      this.realtimeConnected = false;
       return;
     }
     const socket = connectRealtime({
@@ -1414,8 +1357,6 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.realtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.realtimeConnected = true;
-        this.updateDialogPolling();
         if (this.realtimeRetryTimer) {
           window.clearTimeout(this.realtimeRetryTimer);
           this.realtimeRetryTimer = undefined;
@@ -1425,12 +1366,10 @@ export class KanbanWorkspaceHome extends LitElement {
         if (this.realtimeSocket !== socket || !this.isConnected) {
           return;
         }
-        this.realtimeConnected = false;
         const workspace = this.activeWorkspace;
         if (workspace) {
           void this.loadWorkspaceMessages(workspace.id, true);
         }
-        this.updateDialogPolling();
         this.scheduleRealtimeReconnect();
       },
       onMessage: (event) => {
@@ -1545,7 +1484,7 @@ export class KanbanWorkspaceHome extends LitElement {
       }
     }
 
-    merged.sort((left, right) => this.compareDialogTimestamps(left.timestamp, right.timestamp));
+    merged.sort((left, right) => this.compareDialogMessageOrder(left, right));
     this.messagesByWorkspace = {
       ...this.messagesByWorkspace,
       [workspace.id]: this.groupDialogMessages(merged),
@@ -1623,6 +1562,32 @@ export class KanbanWorkspaceHome extends LitElement {
     return left.localeCompare(right);
   }
 
+  private compareDialogMessageOrder(left: DialogMessage, right: DialogMessage) {
+    if (
+      "processId" in left &&
+      "processId" in right &&
+      left.processId &&
+      left.processId === right.processId &&
+      typeof left.entryIndex === "number" &&
+      typeof right.entryIndex === "number" &&
+      left.entryIndex !== right.entryIndex
+    ) {
+      return left.entryIndex - right.entryIndex;
+    }
+
+    if (
+      "messageId" in left &&
+      "messageId" in right &&
+      typeof left.messageId === "number" &&
+      typeof right.messageId === "number" &&
+      left.messageId !== right.messageId
+    ) {
+      return left.messageId - right.messageId;
+    }
+
+    return this.compareDialogTimestamps(left.timestamp, right.timestamp);
+  }
+
   private resolveSmoothRevealMessageKey(
     workspaceId: string,
     previousMessages: DialogMessage[],
@@ -1643,18 +1608,6 @@ export class KanbanWorkspaceHome extends LitElement {
     const previousIdentity = previousLastMessage ? getDialogMessageIdentity(previousLastMessage) : "";
 
     return nextIdentity !== previousIdentity ? nextIdentity : "";
-  }
-
-  private getDialogPollingWorkspaces() {
-    const openWorkspaces = this.pageState.openWorkspaceIds
-      .map((workspaceId) => this.workspaces.find((workspace) => workspace.id === workspaceId))
-      .filter((workspace): workspace is KanbanWorkspace => Boolean(workspace));
-
-    if (!this.realtimeConnected || !this.activeWorkspace) {
-      return openWorkspaces;
-    }
-
-    return openWorkspaces.filter((workspace) => workspace.id !== this.activeWorkspace?.id);
   }
 
   private get activeWorkspace() {

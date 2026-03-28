@@ -684,6 +684,44 @@ func (s *Store) UpsertProcessEntry(ctx context.Context, entry *ProcessEntry) err
 	return nil
 }
 
+// UpsertProcessEntries 批量插入或更新消息。
+func (s *Store) UpsertProcessEntries(ctx context.Context, entries []*ProcessEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	valueHolders := make([]string, 0, len(entries))
+	args := make([]interface{}, 0, len(entries)*13)
+	for _, entry := range entries {
+		valueHolders = append(valueHolders, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		args = append(args,
+			entry.ProcessID, entry.SessionID, entry.WorkspaceID, entry.EntryIndex, entry.EntryType,
+			entry.Role, entry.Content, entry.ToolName, entry.ActionTypeJSON, entry.StatusJSON,
+			entry.ErrorType, entry.EntryTimestamp, entry.ContentHash,
+		)
+	}
+
+	query := `
+		INSERT INTO kw_process_entries (
+			process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+			tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash
+		) VALUES ` + strings.Join(valueHolders, ", ") + `
+		ON DUPLICATE KEY UPDATE
+			entry_type = VALUES(entry_type),
+			role = VALUES(role),
+			content = VALUES(content),
+			tool_name = VALUES(tool_name),
+			action_type_json = VALUES(action_type_json),
+			status_json = VALUES(status_json),
+			error_type = VALUES(error_type),
+			content_hash = VALUES(content_hash)
+	`
+	if _, err := s.execWithRetry(ctx, query, args...); err != nil {
+		return fmt.Errorf("upsert process entries: %w", err)
+	}
+	return nil
+}
+
 // GetProcessEntry 获取指定 process 和 entry_index 的消息
 func (s *Store) GetProcessEntry(ctx context.Context, processID string, entryIndex int) (*ProcessEntry, error) {
 	query := `
@@ -703,6 +741,49 @@ func (s *Store) GetProcessEntry(ctx context.Context, processID string, entryInde
 		return nil, fmt.Errorf("get process entry: %w", err)
 	}
 	return &entry, nil
+}
+
+// ListProcessEntriesByIndexes 批量获取同一 process 下指定序号的消息。
+func (s *Store) ListProcessEntriesByIndexes(ctx context.Context, processID string, entryIndexes []int) (map[int]*ProcessEntry, error) {
+	result := make(map[int]*ProcessEntry, len(entryIndexes))
+	if len(entryIndexes) == 0 {
+		return result, nil
+	}
+
+	placeholders := strings.TrimSuffix(strings.Repeat("?, ", len(entryIndexes)), ", ")
+	query := `
+		SELECT id, process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
+		FROM kw_process_entries
+		WHERE process_id = ?
+		  AND entry_index IN (` + placeholders + `)
+	`
+
+	args := make([]interface{}, 0, len(entryIndexes)+1)
+	args = append(args, processID)
+	for _, entryIndex := range entryIndexes {
+		args = append(args, entryIndex)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list process entries by indexes: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		entry, scanErr := scanProcessEntry(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		entryCopy := entry
+		result[entry.EntryIndex] = &entryCopy
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate process entries by indexes: %w", err)
+	}
+
+	return result, nil
 }
 
 // GetNextLocalEntryIndex 为本地占位消息分配负数序号，避免与远端同步的非负序号冲突。

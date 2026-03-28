@@ -118,6 +118,119 @@ func TestUpsertProcessEntryUsesProcessIndexUniqueKey(t *testing.T) {
 	}
 }
 
+func TestListProcessEntriesByIndexesReturnsMatchedEntries(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	now := time.Now()
+	rows := sqlmock.NewRows([]string{
+		"id", "process_id", "session_id", "workspace_id", "entry_index", "entry_type",
+		"role", "content", "tool_name", "action_type_json", "status_json", "error_type",
+		"entry_timestamp", "content_hash", "created_at",
+	}).AddRow(
+		1, "proc-1", "session-1", "ws-1", 1, "assistant_message", "assistant", "hello",
+		nil, nil, nil, nil, now, "hash-1", now,
+	).AddRow(
+		2, "proc-1", "session-1", "ws-1", 3, "assistant_message", "assistant", "world",
+		nil, nil, nil, nil, now.Add(time.Second), "hash-3", now.Add(time.Second),
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
+		FROM kw_process_entries
+		WHERE process_id = ?
+		  AND entry_index IN (?, ?, ?)
+	`)).
+		WithArgs("proc-1", 1, 2, 3).
+		WillReturnRows(rows)
+
+	got, err := store.ListProcessEntriesByIndexes(context.Background(), "proc-1", []int{1, 2, 3})
+	if err != nil {
+		t.Fatalf("ListProcessEntriesByIndexes 返回错误: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("entries len = %d, want 2", len(got))
+	}
+	if got[1] == nil || got[1].EntryIndex != 1 {
+		t.Fatalf("entry[1] = %#v, want entry_index=1", got[1])
+	}
+	if got[3] == nil || got[3].EntryIndex != 3 {
+		t.Fatalf("entry[3] = %#v, want entry_index=3", got[3])
+	}
+	if got[2] != nil {
+		t.Fatalf("entry[2] = %#v, want nil", got[2])
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestUpsertProcessEntriesUsesSingleBatchStatement(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	now := time.Now()
+	entries := []*ProcessEntry{
+		{
+			ProcessID:      "proc-1",
+			SessionID:      "session-1",
+			WorkspaceID:    "ws-1",
+			EntryIndex:     1,
+			EntryType:      "assistant_message",
+			Role:           "assistant",
+			Content:        "hello",
+			EntryTimestamp: now,
+			ContentHash:    "hash-1",
+		},
+		{
+			ProcessID:      "proc-1",
+			SessionID:      "session-1",
+			WorkspaceID:    "ws-1",
+			EntryIndex:     2,
+			EntryType:      "assistant_message",
+			Role:           "assistant",
+			Content:        "world",
+			EntryTimestamp: now.Add(time.Second),
+			ContentHash:    "hash-2",
+		},
+	}
+
+	mock.ExpectExec(regexp.QuoteMeta(`
+		INSERT INTO kw_process_entries (
+			process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+			tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			entry_type = VALUES(entry_type),
+			role = VALUES(role),
+			content = VALUES(content),
+			tool_name = VALUES(tool_name),
+			action_type_json = VALUES(action_type_json),
+			status_json = VALUES(status_json),
+			error_type = VALUES(error_type),
+			content_hash = VALUES(content_hash)
+	`)).
+		WithArgs(
+			entries[0].ProcessID, entries[0].SessionID, entries[0].WorkspaceID, entries[0].EntryIndex,
+			entries[0].EntryType, entries[0].Role, entries[0].Content, entries[0].ToolName, entries[0].ActionTypeJSON,
+			entries[0].StatusJSON, entries[0].ErrorType, entries[0].EntryTimestamp, entries[0].ContentHash,
+			entries[1].ProcessID, entries[1].SessionID, entries[1].WorkspaceID, entries[1].EntryIndex,
+			entries[1].EntryType, entries[1].Role, entries[1].Content, entries[1].ToolName, entries[1].ActionTypeJSON,
+			entries[1].StatusJSON, entries[1].ErrorType, entries[1].EntryTimestamp, entries[1].ContentHash,
+		).
+		WillReturnResult(sqlmock.NewResult(2, 2))
+
+	if err := store.UpsertProcessEntries(context.Background(), entries); err != nil {
+		t.Fatalf("UpsertProcessEntries 返回错误: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
 func TestGetWorkspaceBySessionIDReturnsNilOnNotFound(t *testing.T) {
 	store, mock, cleanup := newMockStore(t)
 	defer cleanup()

@@ -33,6 +33,9 @@ type SyncService struct {
 	dialer    *websocket.Dialer
 	realtime  realtimePublisher
 
+	processEntryBuffer *processEntryBuffer
+	workspaceStateThrottle *workspaceStateThrottle
+
 	wsMutex           sync.Mutex
 	workspaceStream   *websocket.Conn
 	sessionStreams    map[string]*websocket.Conn
@@ -44,12 +47,13 @@ type SyncService struct {
 }
 
 const workspaceSummaryRefreshInterval = 15 * time.Second
+const processEntryBufferFlushInterval = 200 * time.Millisecond
 
 // NewSyncService 创建同步服务实例
-func NewSyncService(cfg *config.Config, store *store.Store) *SyncService {
-	return &SyncService{
+func NewSyncService(cfg *config.Config, dbStore *store.Store) *SyncService {
+	service := &SyncService{
 		cfg:       cfg,
-		store:     store,
+		store:     dbStore,
 		apiClient: api.NewClient(cfg.KanbanAPIURL),
 		dialer: &websocket.Dialer{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -59,6 +63,27 @@ func NewSyncService(cfg *config.Config, store *store.Store) *SyncService {
 		historicalLogSem:  make(chan struct{}, 2),
 		stopCh:            make(chan struct{}),
 	}
+	service.processEntryBuffer = newProcessEntryBuffer(
+		processEntryBufferFlushInterval,
+		dbStore,
+		func(ctx context.Context, entry *store.ProcessEntry, lastEntryIndex *int) error {
+			if entry == nil {
+				return nil
+			}
+			return dbStore.UpsertSubscription(ctx, &store.SyncSubscription{
+				SubscriptionKey:  store.BuildProcessLogSubscriptionKey(entry.ProcessID),
+				SubscriptionType: "process_log_stream",
+				TargetID:         entry.ProcessID,
+				SessionID:        stringPtr(entry.SessionID),
+				WorkspaceID:      stringPtr(entry.WorkspaceID),
+				LastEntryIndex:   lastEntryIndex,
+				Status:           "active",
+				LastSeenAt:       time.Now(),
+			})
+		},
+	)
+	service.workspaceStateThrottle = newWorkspaceStateThrottle(workspaceStateRefreshThrottle)
+	return service
 }
 
 func (s *SyncService) SetRealtimePublisher(publisher realtimePublisher) {
@@ -105,6 +130,11 @@ func (s *SyncService) Stop() {
 	s.wsMutex.Unlock()
 
 	s.wg.Wait()
+	if s.processEntryBuffer != nil {
+		if err := s.processEntryBuffer.FlushAll(context.Background()); err != nil {
+			fmt.Fprintf(os.Stderr, "停止前刷出 process entry 缓冲失败: %v\n", err)
+		}
+	}
 }
 
 func (s *SyncService) pollActiveWorkspaces(ctx context.Context) {
@@ -405,13 +435,7 @@ func (s *SyncService) consumeSessionProcesses(ctx context.Context, workspaceID, 
 						fmt.Fprintf(os.Stderr, "保存消息上下文失败 [%s]: %v\n", ep.ID, err)
 					}
 				}
-				if err := s.store.RefreshWorkspaceRuntimeState(ctx, workspaceID); err != nil {
-					fmt.Fprintf(os.Stderr, "刷新 workspace 运行态失败 [%s]: %v\n", workspaceID, err)
-				} else if s.realtime != nil {
-					if err := s.realtime.PublishWorkspaceSnapshot(ctx); err != nil {
-						fmt.Fprintf(os.Stderr, "推送工作区快照失败 [%s]: %v\n", workspaceID, err)
-					}
-				}
+				s.refreshWorkspaceRuntimeStateIfDue(ctx, workspaceID, ep.Status)
 				if shouldSubscribeProcessLogs(ep.RunReason, ep.Dropped, ep.Status) {
 					s.subscribeProcessLogs(ctx, workspaceID, ep.SessionID, ep.ID, ep.Status, ep.CreatedAt)
 				}
@@ -505,7 +529,13 @@ func (s *SyncService) consumeProcessLogs(
 	var lastErr error
 	receivedEntries := false
 	entryStateByIndex := map[int]store.NormalizedEntry{}
+	processEntriesByIndex := map[int]*store.ProcessEntry{}
 	defer func() {
+		if s.processEntryBuffer != nil {
+			if err := s.processEntryBuffer.FlushProcess(ctx, processID); err != nil {
+				fmt.Fprintf(os.Stderr, "刷出 process entry 缓冲失败 [%s]: %v\n", processID, err)
+			}
+		}
 		if historicalSlotAcquired {
 			s.releaseHistoricalLogSlot()
 		}
@@ -548,8 +578,15 @@ func (s *SyncService) consumeProcessLogs(
 			}
 			for _, patch := range patches {
 				s.tracef("process log patch workspace=%s session=%s process=%s %s", workspaceID, sessionID, processID, tracePatchSummary(patch))
-				if shouldSkipEntryByIndex(lastEntryIndex, patch.EntryIndex) {
-					s.tracef("process log skip by last_entry_index workspace=%s session=%s process=%s idx=%d last_entry_index=%v", workspaceID, sessionID, processID, patch.EntryIndex, lastEntryIndex)
+				effectiveLastEntryIndex := lastEntryIndex
+				if s.processEntryBuffer != nil {
+					if bufferedLastEntryIndex := s.processEntryBuffer.LastEntryIndex(processID); bufferedLastEntryIndex != nil &&
+						(effectiveLastEntryIndex == nil || *bufferedLastEntryIndex > *effectiveLastEntryIndex) {
+						effectiveLastEntryIndex = bufferedLastEntryIndex
+					}
+				}
+				if shouldSkipEntryByIndex(effectiveLastEntryIndex, patch.EntryIndex) {
+					s.tracef("process log skip by last_entry_index workspace=%s session=%s process=%s idx=%d last_entry_index=%v", workspaceID, sessionID, processID, patch.EntryIndex, effectiveLastEntryIndex)
 					continue
 				}
 				mergedEntry, ok := mergeEntryPatch(entryStateByIndex[patch.EntryIndex], patch)
@@ -565,11 +602,7 @@ func (s *SyncService) consumeProcessLogs(
 				patch.Entry = mergedEntry
 				s.tracef("process log merged workspace=%s session=%s process=%s %s", workspaceID, sessionID, processID, tracePatchSummary(patch))
 
-				existingEntry, err := s.store.GetProcessEntry(ctx, processID, patch.EntryIndex)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "读取已有 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
-					continue
-				}
+				existingEntry := processEntriesByIndex[patch.EntryIndex]
 				entry, err := s.buildProcessEntry(workspaceID, sessionID, processID, patch, existingEntry, processCreatedAt)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "构建 process entry 失败 [%s]: %v\n", processID, err)
@@ -592,15 +625,11 @@ func (s *SyncService) consumeProcessLogs(
 				if !shouldPersist {
 					continue
 				}
-				if err := s.store.UpsertProcessEntry(ctx, entry); err != nil {
-					fmt.Fprintf(os.Stderr, "保存 process entry 失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
-					_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &patch.EntryIndex, "error", err.Error())
-					continue
+				processEntriesByIndex[patch.EntryIndex] = entry
+				if s.processEntryBuffer != nil {
+					s.processEntryBuffer.Enqueue(processID, entry, lastEntryIndex)
 				}
-				idx := patch.EntryIndex
-				_ = s.upsertProcessSubscription(ctx, processID, sessionID, workspaceID, processStatus, &idx, "active", "")
-				lastEntryIndex = &idx
-				s.tracef("process log persisted workspace=%s session=%s process=%s idx=%d summary=%s", workspaceID, sessionID, processID, patch.EntryIndex, traceProcessEntrySummary(entry))
+				s.tracef("process log buffered workspace=%s session=%s process=%s idx=%d summary=%s", workspaceID, sessionID, processID, patch.EntryIndex, traceProcessEntrySummary(entry))
 				if shouldBroadcast && s.realtime != nil {
 					if err := s.realtime.PublishSessionMessagesAppended(ctx, sessionID, []store.ProcessEntry{*entry}); err != nil {
 						fmt.Fprintf(os.Stderr, "推送实时消息失败 [%s:%d]: %v\n", processID, patch.EntryIndex, err)
