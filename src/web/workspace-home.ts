@@ -165,6 +165,7 @@ export class KanbanWorkspaceHome extends LitElement {
   devServerProcessStatusByWorkspace: Record<string, string> = {};
   messageErrorByWorkspace: Record<string, string> = {};
   messageDraftByWorkspace: Record<string, string> = {};
+  mobileActiveTab: "workspaces" | "issues" = "workspaces";
   actionFeedbackByWorkspace: Record<string, string> = {};
   queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
   todoPendingCountByWorkspace: Record<string, number> = {};
@@ -234,6 +235,30 @@ export class KanbanWorkspaceHome extends LitElement {
     if (this.mode === "mobile-card") {
       return html`
         <main class="workspace-home-shell">
+          <header class="workspace-home-mobile-header">
+            <nav class="mobile-header-nav">
+              <button
+                class="mobile-header-item"
+                type="button"
+                data-tab="workspaces"
+                ?data-active=${this.mobileActiveTab === "workspaces"}
+                @click=${() => this.handleMobileTabSwitch("workspaces")}
+              >
+                <span class="mobile-header-icon">📋</span>
+                <span class="mobile-header-label">工作区</span>
+              </button>
+              <button
+                class="mobile-header-item"
+                type="button"
+                data-tab="issues"
+                ?data-active=${this.mobileActiveTab === "issues"}
+                @click=${() => this.handleMobileTabSwitch("issues")}
+              >
+                <span class="mobile-header-icon">📌</span>
+                <span class="mobile-header-label">任务</span>
+              </button>
+            </nav>
+          </header>
           <section class="workspace-home-placeholder">
             <kanban-watcher-card></kanban-watcher-card>
           </section>
@@ -299,6 +324,10 @@ export class KanbanWorkspaceHome extends LitElement {
   private handleSidebarToggle = () => {
     this.isSidebarCollapsed = !this.isSidebarCollapsed;
     this.lastSidebarSyncPaneCount = this.pageState.openWorkspaceIds.length;
+  };
+
+  private handleMobileTabSwitch = (tab: "workspaces" | "issues") => {
+    this.mobileActiveTab = tab;
   };
 
   private handleResize = () => {

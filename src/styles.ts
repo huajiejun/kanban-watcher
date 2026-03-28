@@ -524,7 +524,7 @@ export const workspaceHomeStyles = css`
 
   @media (max-width: 768px) {
     :host {
-      padding: 20px 14px 28px;
+      padding: 0;
     }
 
     .workspace-home-layout {
@@ -537,6 +537,60 @@ export const workspaceHomeStyles = css`
       background: transparent;
       box-shadow: none;
       backdrop-filter: none;
+    }
+
+    /* 手机端顶部菜单栏 */
+    .workspace-home-mobile-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .mobile-header-nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .mobile-header-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 14px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: rgba(148, 163, 184, 0.7);
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-header-item:hover {
+      color: #e2e8f0;
+      background: rgba(148, 163, 184, 0.08);
+    }
+
+    .mobile-header-item[data-active="true"] {
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .mobile-header-icon {
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+
+    .mobile-header-label {
+      font-weight: 500;
     }
   }
 
