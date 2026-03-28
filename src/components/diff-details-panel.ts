@@ -169,8 +169,6 @@ export class DiffDetailsPanel extends LitElement {
       font-size: 11.5px;
       line-height: 1.4;
       overflow-x: auto;
-      max-height: 70vh;
-      overflow-y: auto;
     }
 
     .diff-line {
@@ -178,11 +176,6 @@ export class DiffDetailsPanel extends LitElement {
       padding: 0 4px;
       min-height: 0;
       white-space: pre;
-    }
-
-    .diff-line.is-empty {
-      display: block;
-      height: 4px;
     }
 
     .diff-line.is-add { color: #22c55e; background: rgba(34, 197, 94, 0.08); }
@@ -248,7 +241,6 @@ export class DiffDetailsPanel extends LitElement {
       }
 
       .diff-content {
-        max-height: 60vh;
         font-size: 10.5px;
         line-height: 1.3;
         padding: 6px;
@@ -256,10 +248,6 @@ export class DiffDetailsPanel extends LitElement {
 
       .diff-line {
         padding: 0 2px;
-      }
-
-      .diff-line.is-empty {
-        height: 3px;
       }
     }
   `;
@@ -289,6 +277,8 @@ export class DiffDetailsPanel extends LitElement {
   private _error: string | undefined;
   private _expandedPath: string | undefined;
   private _closeStream: (() => void) | undefined;
+  private _diffMap = new Map<string, Diff>();
+  private _flushScheduled = false;
 
   protected updated(changedProperties: Map<PropertyKey, unknown>) {
     if (changedProperties.has("open")) {
@@ -310,7 +300,9 @@ export class DiffDetailsPanel extends LitElement {
     this._loading = true;
     this._error = undefined;
     this._diffs = [];
+    this._diffMap.clear();
     this._expandedPath = undefined;
+    this._flushScheduled = false;
     this.requestUpdate();
 
     if (!this.workspaceId) {
@@ -325,9 +317,9 @@ export class DiffDetailsPanel extends LitElement {
       {
         onDiff: (diff: Diff) => {
           const path = diff.newPath || diff.oldPath || "";
-          this._diffs = [...this._diffs.filter((d) => (d.newPath || d.oldPath) !== path), diff];
+          this._diffMap.set(path, diff);
           this._loading = false;
-          this.requestUpdate();
+          this.flushUpdate();
         },
         onReady: () => {
           this._loading = false;
@@ -344,6 +336,18 @@ export class DiffDetailsPanel extends LitElement {
         },
       },
     );
+  }
+
+  private flushUpdate() {
+    if (this._flushScheduled) {
+      return;
+    }
+    this._flushScheduled = true;
+    Promise.resolve().then(() => {
+      this._flushScheduled = false;
+      this._diffs = [...this._diffMap.values()];
+      this.requestUpdate();
+    });
   }
 
   private disconnectStream() {
