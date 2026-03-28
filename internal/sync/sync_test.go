@@ -55,6 +55,7 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 		next     *store.ProcessEntry
 		want     bool
 	}{
+		// 真实工具流会在 running 状态下持续补齐 action/status，不能再按状态一刀切拦掉。
 		{
 			name: "broadcasts when entry is new",
 			next: &store.ProcessEntry{
@@ -66,7 +67,7 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "skips broadcast for new running tool_use entry",
+			name: "broadcasts for new running tool_use entry with real timestamp",
 			next: &store.ProcessEntry{
 				ProcessID:       "proc-1",
 				EntryIndex:      4,
@@ -75,8 +76,9 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 				StatusJSON:      stringPtr(`{"status":"running"}`),
 				TimestampSource: store.ProcessEntryTimestampSourceEntry,
 			},
-			want: false,
+			want: true,
 		},
+		// 仅靠 process.created_at 兜底的历史帧时间不可靠，继续保持静默以避免重放噪音。
 		{
 			name: "skips broadcast when new entry falls back to process created_at",
 			next: &store.ProcessEntry{
@@ -134,20 +136,42 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "skips when tool status remains running with same content hash",
+			name: "broadcasts when tool stays running but action payload changes",
 			existing: &store.ProcessEntry{
-				ProcessID:   "proc-1",
-				EntryIndex:  3,
-				EntryType:   "tool_use",
-				ContentHash: "hash-a",
-				StatusJSON:  stringPtr(`{"state":"running"}`),
+				ProcessID:      "proc-1",
+				EntryIndex:     3,
+				EntryType:      "tool_use",
+				ContentHash:    "hash-a",
+				ActionTypeJSON: stringPtr(`{"action":"file_edit","changes":[{"new_path":"a.txt","content":""}]}`),
+				StatusJSON:     stringPtr(`{"state":"running"}`),
 			},
 			next: &store.ProcessEntry{
-				ProcessID:   "proc-1",
-				EntryIndex:  3,
-				EntryType:   "tool_use",
-				ContentHash: "hash-a",
-				StatusJSON:  stringPtr(`{"state":"running","step":"streaming"}`),
+				ProcessID:      "proc-1",
+				EntryIndex:     3,
+				EntryType:      "tool_use",
+				ContentHash:    "hash-a",
+				ActionTypeJSON: stringPtr(`{"action":"file_edit","changes":[{"new_path":"a.txt","content":"hello"}]}`),
+				StatusJSON:     stringPtr(`{"state":"running","step":"streaming"}`),
+			},
+			want: true,
+		},
+		{
+			name: "skips when tool stays running and signature is unchanged",
+			existing: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     3,
+				EntryType:      "tool_use",
+				ContentHash:    "hash-a",
+				ActionTypeJSON: stringPtr(`{"action":"file_edit","changes":[{"new_path":"a.txt","content":"hello"}]}`),
+				StatusJSON:     stringPtr(`{"state":"running"}`),
+			},
+			next: &store.ProcessEntry{
+				ProcessID:      "proc-1",
+				EntryIndex:     3,
+				EntryType:      "tool_use",
+				ContentHash:    "hash-a",
+				ActionTypeJSON: stringPtr(`{"action":"file_edit","changes":[{"new_path":"a.txt","content":"hello"}]}`),
+				StatusJSON:     stringPtr(`{"state":"running"}`),
 			},
 			want: false,
 		},
