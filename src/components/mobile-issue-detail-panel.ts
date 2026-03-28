@@ -1,5 +1,7 @@
 import { LitElement, html, css, nothing } from "lit";
+import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { updateIssue, deleteIssue } from "../lib/issue-api";
+import { renderMessageMarkdown } from "../lib/render-message-markdown";
 import type {
   RemoteIssue,
   RemoteProjectStatus,
@@ -213,11 +215,99 @@ export class MobileIssueDetailPanel extends LitElement {
       background: rgba(39, 39, 42, 0.5);
       color: #cbd5e1;
       font-size: 0.82rem;
-      line-height: 1.5;
-      white-space: pre-wrap;
+      line-height: 1.6;
       word-break: break-word;
       cursor: text;
       -webkit-tap-highlight-color: transparent;
+    }
+
+    .desc-preview p {
+      margin: 0 0 8px;
+    }
+
+    .desc-preview p:last-child {
+      margin-bottom: 0;
+    }
+
+    .desc-preview ul,
+    .desc-preview ol {
+      margin: 4px 0 8px;
+      padding-left: 1.4em;
+    }
+
+    .desc-preview li {
+      margin-bottom: 2px;
+    }
+
+    .desc-preview code {
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: rgba(148, 163, 184, 0.12);
+      color: #e2e8f0;
+      font-size: 0.78rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+    }
+
+    .desc-preview pre {
+      margin: 8px 0;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: rgba(24, 24, 27, 0.6);
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
+    .desc-preview pre code {
+      padding: 0;
+      background: transparent;
+      font-size: 0.76rem;
+    }
+
+    .desc-preview blockquote {
+      margin: 8px 0;
+      padding: 4px 10px;
+      border-left: 3px solid rgba(148, 163, 184, 0.25);
+      color: #94a3b8;
+    }
+
+    .desc-preview h1, .desc-preview h2, .desc-preview h3,
+    .desc-preview h4, .desc-preview h5, .desc-preview h6 {
+      margin: 10px 0 6px;
+      color: #e2e8f0;
+    }
+
+    .desc-preview a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+
+    .desc-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
+      font-size: 0.78rem;
+    }
+
+    .desc-preview th, .desc-preview td {
+      padding: 4px 8px;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      text-align: left;
+    }
+
+    .desc-preview th {
+      background: rgba(148, 163, 184, 0.08);
+      color: #e2e8f0;
+    }
+
+    .desc-preview img {
+      max-width: 100%;
+      border-radius: 4px;
+    }
+
+    .desc-preview hr {
+      border: none;
+      border-top: 1px solid rgba(148, 163, 184, 0.15);
+      margin: 8px 0;
     }
 
     .desc-placeholder {
@@ -671,7 +761,7 @@ export class MobileIssueDetailPanel extends LitElement {
                 ></textarea>`
               : html`<div class="desc-preview" @click=${this.startEditDesc}>
                   ${this._editDescription
-                    ? this._editDescription
+                    ? unsafeHTML(renderMessageMarkdown(this._editDescription))
                     : html`<span class="desc-placeholder">点击添加描述...</span>`}
                 </div>`}
           </div>
