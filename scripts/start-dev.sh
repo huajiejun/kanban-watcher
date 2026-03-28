@@ -1,6 +1,6 @@
 #!/bin/bash
 # 多后端开发启动脚本
-# 用法: ./scripts/start-dev.sh [start|stop|status|restart] [worktree_id]
+# 用法: ./scripts/start-dev.sh [start|stop|status|restart|list] [worktree_id]
 #
 # 端口规则:
 # - 前端端口: 通过固定管理 API (默认 127.0.0.1:7778) 动态分配，范围 6020-6030
@@ -14,7 +14,7 @@ COMMAND="${1:-start}"
 WORKTREE_ID="${2:-}"
 
 # 如果第一个参数不是命令，则当作 worktree_id
-if [[ "$COMMAND" != "start" && "$COMMAND" != "stop" && "$COMMAND" != "status" && "$COMMAND" != "restart" && "$COMMAND" != "logs" ]]; then
+if [[ "$COMMAND" != "start" && "$COMMAND" != "stop" && "$COMMAND" != "status" && "$COMMAND" != "restart" && "$COMMAND" != "logs" && "$COMMAND" != "list" ]]; then
     WORKTREE_ID="$COMMAND"
     COMMAND="start"
 fi
@@ -215,6 +215,67 @@ allocate_runtime_ports() {
 
     echo "管理 API 不可用，回退到数据库兜底分配端口..." >&2
     allocate_ports_from_db_fallback
+}
+
+# 列出所有运行中的实例
+list_instances() {
+    echo "============================================"
+    echo "Kanban Watcher 运行实例列表"
+    echo "============================================"
+    echo ""
+
+    local count=0
+
+    # 遍历所有 .env 文件
+    for env_file in "$PID_DIR"/workspace-*.env; do
+        if [ -f "$env_file" ]; then
+            # shellcheck disable=SC1090
+            source "$env_file"
+            if [ -n "$BACKEND_PORT" ]; then
+                local backend_pid=""
+                backend_pid=$(get_port_pid "$BACKEND_PORT")
+
+                if [ -n "$backend_pid" ] && kill -0 "$backend_pid" 2>/dev/null; then
+                    # 获取启动时间 ps aux 格式: "6:55下午" 或 "3/28 18:55"
+                    local start_time project_name
+                    # 从 ps aux 获取时间字段
+                    start_time=$(ps aux | awk -v pid="$backend_pid" '$2 == pid {print $9}')
+                    # 如果是今天，显示时间；否则显示月-日 时间
+                    if echo "$start_time" | grep -q "下午\|上午"; then
+                        # 下午 6:55 -> 18:55
+                        local hour_min=$(echo "$start_time" | sed 's/下午//' | sed 's/上午//')
+                        start_time=$(date "+%m-%d $hour_min" 2>/dev/null || echo "未知")
+                    elif [ -n "$start_time" ]; then
+                        start_time=$(date -j -f "%m/%d %H:%M" "$start_time" "+%m-%d %H:%M" 2>/dev/null || echo "未知")
+                    else
+                        start_time="未知"
+                    fi
+
+                    # 从 env 文件名提取 workspace_id
+                    local workspace_id
+                    workspace_id=$(basename "$env_file" .env | sed 's/^workspace-//')
+
+                    # 尝试从 kw_workspaces 表获取项目名
+                    project_name=$(get_workspace_name_from_db "$workspace_id" 2>/dev/null || echo "未知")
+
+                    printf "%-8s  后端:%-5s  启动:%s\n" "$workspace_id" "$BACKEND_PORT" "$start_time"
+                    count=$((count + 1))
+                fi
+            fi
+        fi
+    done
+
+    echo ""
+    echo "============================================"
+    echo "共 $count 个实例运行中"
+    echo "============================================"
+}
+
+# 从数据库获取工作区名称
+get_workspace_name_from_db() {
+    local workspace_id="$1"
+    # 简单查询，直接用 go run
+    go run ./cmd/kw_frontend_port lookup --workspace "$workspace_id" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("workspace_name", ""))' 2>/dev/null || echo ""
 }
 
 # 检查端口是否被占用
@@ -478,8 +539,11 @@ case "$COMMAND" in
         sleep 1
         start_services
         ;;
+    list)
+        list_instances
+        ;;
     *)
-        echo "用法: $0 [start|stop|status|restart|logs] [worktree_id]"
+        echo "用法: $0 [start|stop|status|restart|logs|list] [worktree_id]"
         echo ""
         echo "命令:"
         echo "  start   - 启动服务 (默认)"
@@ -487,6 +551,7 @@ case "$COMMAND" in
         echo "  status  - 查看状态"
         echo "  restart - 重启服务"
         echo "  logs    - 持续查看前后端日志"
+        echo "  list    - 列出所有运行中的实例"
         exit 1
         ;;
 esac
