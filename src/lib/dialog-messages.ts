@@ -117,6 +117,52 @@ export function getDialogMessageIdentity(message: DialogMessage) {
   return `${message.sender}:${message.text}`;
 }
 
+export function compareDialogTimestamps(left?: string, right?: string) {
+  if (!left) {
+    return right ? -1 : 0;
+  }
+  if (!right) {
+    return 1;
+  }
+  const leftValue = Date.parse(left);
+  const rightValue = Date.parse(right);
+  if (!Number.isNaN(leftValue) && !Number.isNaN(rightValue) && leftValue !== rightValue) {
+    return leftValue - rightValue;
+  }
+  return left.localeCompare(right);
+}
+
+export function compareDialogMessageOrder(left: DialogMessage, right: DialogMessage) {
+  if (
+    "processId" in left &&
+    "processId" in right &&
+    left.processId &&
+    left.processId === right.processId &&
+    typeof left.entryIndex === "number" &&
+    typeof right.entryIndex === "number" &&
+    left.entryIndex !== right.entryIndex
+  ) {
+    return left.entryIndex - right.entryIndex;
+  }
+
+  if (
+    "messageId" in left &&
+    "messageId" in right &&
+    typeof left.messageId === "number" &&
+    typeof right.messageId === "number" &&
+    left.messageId !== right.messageId
+  ) {
+    return left.messageId - right.messageId;
+  }
+
+  const timestampOrder = compareDialogTimestamps(left.timestamp, right.timestamp);
+  if (timestampOrder !== 0) {
+    return timestampOrder;
+  }
+
+  return getDialogMessageIdentity(left).localeCompare(getDialogMessageIdentity(right), "zh-CN");
+}
+
 function normalizeApiToolMessage(message: SessionMessageResponse) {
   const summary = summarizeToolCall(message);
   if (!summary) {

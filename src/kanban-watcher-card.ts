@@ -17,6 +17,7 @@ import {
 import { handleTodoSelectedAndSend, loadTodoPendingCount } from "./lib/todo-helpers";
 import { connectRealtime } from "./lib/realtime-api";
 import {
+  compareDialogMessageOrder,
   compactDialogMessageText,
   getDialogMessageIdentity,
   groupConsecutiveToolMessages,
@@ -1945,24 +1946,7 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private sortDialogMessagesByTimestamp(messages: Array<DialogTextMessage | DialogToolMessage>) {
-    return [...messages].sort((left, right) => {
-      const leftTimestampValue = this.getComparableTimestampValue(left.timestamp);
-      const rightTimestampValue = this.getComparableTimestampValue(right.timestamp);
-      if (
-        leftTimestampValue !== undefined &&
-        rightTimestampValue !== undefined &&
-        leftTimestampValue !== rightTimestampValue
-      ) {
-        return leftTimestampValue - rightTimestampValue;
-      }
-
-      const leftTimestamp = left.timestamp ?? "";
-      const rightTimestamp = right.timestamp ?? "";
-      if (leftTimestamp && rightTimestamp && leftTimestamp !== rightTimestamp) {
-        return leftTimestamp.localeCompare(rightTimestamp);
-      }
-      return this.getDialogMessageIdentity(left).localeCompare(this.getDialogMessageIdentity(right), "zh-CN");
-    });
+    return [...messages].sort(compareDialogMessageOrder);
   }
 
   private getLatestDialogTimestamp(messages: Array<{ timestamp?: string }>) {

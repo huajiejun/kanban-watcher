@@ -10,6 +10,7 @@ import { formatRelativeTime } from "../lib/format-relative-time";
 import { groupWorkspaces } from "../lib/group-workspaces";
 import { getStatusMeta } from "../lib/status-meta";
 import {
+  compareDialogMessageOrder,
   getDialogMessageIdentity,
   normalizeApiMessages,
   normalizeApiMessagesFlat,
@@ -1489,7 +1490,7 @@ export class KanbanWorkspaceHome extends LitElement {
       }
     }
 
-    merged.sort((left, right) => this.compareDialogMessageOrder(left, right));
+    merged.sort(compareDialogMessageOrder);
     this.messagesByWorkspace = {
       ...this.messagesByWorkspace,
       [workspace.id]: this.groupDialogMessages(merged),
@@ -1550,47 +1551,6 @@ export class KanbanWorkspaceHome extends LitElement {
     }
 
     return grouped;
-  }
-
-  private compareDialogTimestamps(left?: string, right?: string) {
-    if (!left) {
-      return right ? -1 : 0;
-    }
-    if (!right) {
-      return 1;
-    }
-    const leftValue = Date.parse(left);
-    const rightValue = Date.parse(right);
-    if (!Number.isNaN(leftValue) && !Number.isNaN(rightValue) && leftValue !== rightValue) {
-      return leftValue - rightValue;
-    }
-    return left.localeCompare(right);
-  }
-
-  private compareDialogMessageOrder(left: DialogMessage, right: DialogMessage) {
-    if (
-      "processId" in left &&
-      "processId" in right &&
-      left.processId &&
-      left.processId === right.processId &&
-      typeof left.entryIndex === "number" &&
-      typeof right.entryIndex === "number" &&
-      left.entryIndex !== right.entryIndex
-    ) {
-      return left.entryIndex - right.entryIndex;
-    }
-
-    if (
-      "messageId" in left &&
-      "messageId" in right &&
-      typeof left.messageId === "number" &&
-      typeof right.messageId === "number" &&
-      left.messageId !== right.messageId
-    ) {
-      return left.messageId - right.messageId;
-    }
-
-    return this.compareDialogTimestamps(left.timestamp, right.timestamp);
   }
 
   private resolveSmoothRevealMessageKey(
