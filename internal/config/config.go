@@ -19,8 +19,19 @@ type Config struct {
 	PollIntervalSecs int                    `yaml:"poll_interval_seconds"` // 轮询间隔（秒）
 	Database         DatabaseConfig         `yaml:"database"`              // 数据库配置
 	HTTPAPI          HTTPAPIConfig          `yaml:"http_api"`              // 本地 HTTP API 配置
+	Runtime          RuntimeConfig          `yaml:"runtime"`               // 运行角色配置
 	TokenStats       TokenStatsConfig       `yaml:"token_stats"`           // Token 用量统计配置
 	Auth             AuthConfig             `yaml:"auth"`                  // JWT 认证配置
+}
+
+const (
+	RuntimeRoleMain   = "main"
+	RuntimeRoleWorker = "worker"
+)
+
+type RuntimeConfig struct {
+	Role            string `yaml:"role"`
+	RealtimeBaseURL string `yaml:"realtime_base_url"`
 }
 
 // AuthConfig JWT 认证配置
@@ -44,14 +55,14 @@ type UserConfig struct {
 
 // DatabaseConfig 数据库连接参数
 type DatabaseConfig struct {
-	Host             string   `yaml:"host"`                // 数据库主机地址
-	Port             int      `yaml:"port"`                // 数据库端口
-	User             string   `yaml:"user"`                // 用户名
-	Password         string   `yaml:"password"`            // 密码
-	Database         string   `yaml:"database"`            // 数据库名
+	Host             string   `yaml:"host"`                  // 数据库主机地址
+	Port             int      `yaml:"port"`                  // 数据库端口
+	User             string   `yaml:"user"`                  // 用户名
+	Password         string   `yaml:"password"`              // 密码
+	Database         string   `yaml:"database"`              // 数据库名
 	SyncIntervalSecs int      `yaml:"sync_interval_seconds"` // 同步间隔（秒）
-	BatchSize        int      `yaml:"batch_size"`           // 批量大小
-	MessageTypes     []string `yaml:"message_types"`       // 同步的消息类型
+	BatchSize        int      `yaml:"batch_size"`            // 批量大小
+	MessageTypes     []string `yaml:"message_types"`         // 同步的消息类型
 }
 
 // HTTPAPIConfig 本地 HTTP API 配置
@@ -85,12 +96,12 @@ func (c TokenStatsConfig) IsEnabled() bool {
 
 // ConversationSyncConfig 对话日志提取与 Home Assistant 同步配置
 type ConversationSyncConfig struct {
-	Enabled             *bool  `yaml:"enabled"`                // 是否启用会话同步
-	BaseDir             string `yaml:"base_dir"`               // Vibe Kanban 日志根目录
-	RecentMessageLimit  int    `yaml:"recent_message_limit"`   // 最近主消息条数
-	RecentToolCallLimit int    `yaml:"recent_tool_call_limit"` // 最近工具调用条数
-	SessionPreservedDays int   `yaml:"session_preserved_days"` // 保留最近 N 天的 session（过期会被清理）
-	SessionCleanupHours int    `yaml:"session_cleanup_hours"`  // 清理间隔（小时），默认 1
+	Enabled              *bool  `yaml:"enabled"`                // 是否启用会话同步
+	BaseDir              string `yaml:"base_dir"`               // Vibe Kanban 日志根目录
+	RecentMessageLimit   int    `yaml:"recent_message_limit"`   // 最近主消息条数
+	RecentToolCallLimit  int    `yaml:"recent_tool_call_limit"` // 最近工具调用条数
+	SessionPreservedDays int    `yaml:"session_preserved_days"` // 保留最近 N 天的 session（过期会被清理）
+	SessionCleanupHours  int    `yaml:"session_cleanup_hours"`  // 清理间隔（小时），默认 1
 }
 
 // WeChatConfig 企业微信配置（支持应用API + Webhook降级）
@@ -112,7 +123,7 @@ type WeChatConfig struct {
 type NotifyConfig struct {
 	// 分级超时阈值（分钟）
 	ApprovalThreshold int `yaml:"approval_threshold"` // 待审批超时：默认 15
-	MessageThreshold int `yaml:"message_threshold"`  // 未读消息超时：默认 10
+	MessageThreshold  int `yaml:"message_threshold"`  // 未读消息超时：默认 10
 
 	// 叠加提醒间隔（分钟）
 	// 弹框确认后，每隔这个时间再次弹框（如果问题还在）
@@ -200,7 +211,7 @@ func defaultConfig() *Config {
 			NotifyThresholdMinutes: 10, // 默认 10 分钟阈值
 		},
 		Notify: NotifyConfig{
-			ApprovalThreshold: 15,  // 待审批 15 分钟
+			ApprovalThreshold: 15, // 待审批 15 分钟
 			MessageThreshold:  15, // 未读消息 15 分钟
 			RepeatInterval:    5,  // 叠加提醒间隔 5 分钟
 			Enabled:           true,
@@ -213,6 +224,10 @@ func defaultConfig() *Config {
 		HTTPAPI: HTTPAPIConfig{
 			Port:   7778,
 			APIKey: "change-me",
+		},
+		Runtime: RuntimeConfig{
+			Role:            RuntimeRoleMain,
+			RealtimeBaseURL: "http://127.0.0.1:7778",
 		},
 		Auth: AuthConfig{
 			TokenExpireDays: 30,
@@ -280,6 +295,16 @@ func applyDefaults(cfg *Config) {
 	if cfg.Notify.RepeatInterval <= 0 {
 		cfg.Notify.RepeatInterval = 5
 	}
+	if cfg.Runtime.Role == "" {
+		if cfg.HTTPAPI.Port == 7778 {
+			cfg.Runtime.Role = RuntimeRoleMain
+		} else {
+			cfg.Runtime.Role = RuntimeRoleWorker
+		}
+	}
+	if cfg.Runtime.RealtimeBaseURL == "" {
+		cfg.Runtime.RealtimeBaseURL = "http://127.0.0.1:7778"
+	}
 	if cfg.TokenStats.SyncIntervalHours <= 0 {
 		cfg.TokenStats.SyncIntervalHours = 1 // 默认每小时同步
 	}
@@ -299,6 +324,14 @@ func applyDefaults(cfg *Config) {
 
 func (c ConversationSyncConfig) IsEnabled() bool {
 	return c.Enabled == nil || *c.Enabled
+}
+
+func (c RuntimeConfig) IsMain() bool {
+	return c.Role == RuntimeRoleMain
+}
+
+func (c RuntimeConfig) IsWorker() bool {
+	return c.Role == RuntimeRoleWorker
 }
 
 func boolPtr(v bool) *bool {

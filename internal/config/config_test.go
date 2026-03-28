@@ -69,3 +69,52 @@ func TestAuthConfigValidation(t *testing.T) {
 		t.Errorf("期望默认创建 admin 用户")
 	}
 }
+
+func TestApplyDefaultsSetsRuntimeRoleByPort(t *testing.T) {
+	cfg := &Config{
+		HTTPAPI: HTTPAPIConfig{Port: 7778},
+	}
+
+	applyDefaults(cfg)
+
+	if cfg.Runtime.Role != RuntimeRoleMain {
+		t.Fatalf("runtime role = %q, want %q", cfg.Runtime.Role, RuntimeRoleMain)
+	}
+	if cfg.Runtime.RealtimeBaseURL != "http://127.0.0.1:7778" {
+		t.Fatalf("realtime base url = %q, want http://127.0.0.1:7778", cfg.Runtime.RealtimeBaseURL)
+	}
+}
+
+func TestApplyDefaultsSetsWorkerRoleForNonMainPort(t *testing.T) {
+	cfg := &Config{
+		HTTPAPI: HTTPAPIConfig{Port: 16020},
+	}
+
+	applyDefaults(cfg)
+
+	if cfg.Runtime.Role != RuntimeRoleWorker {
+		t.Fatalf("runtime role = %q, want %q", cfg.Runtime.Role, RuntimeRoleWorker)
+	}
+	if cfg.Runtime.RealtimeBaseURL != "http://127.0.0.1:7778" {
+		t.Fatalf("realtime base url = %q, want http://127.0.0.1:7778", cfg.Runtime.RealtimeBaseURL)
+	}
+}
+
+func TestApplyDefaultsPreservesExplicitRuntimeRole(t *testing.T) {
+	cfg := &Config{
+		HTTPAPI: HTTPAPIConfig{Port: 7778},
+		Runtime: RuntimeConfig{
+			Role:            RuntimeRoleWorker,
+			RealtimeBaseURL: "https://main.example.com",
+		},
+	}
+
+	applyDefaults(cfg)
+
+	if cfg.Runtime.Role != RuntimeRoleWorker {
+		t.Fatalf("runtime role = %q, want %q", cfg.Runtime.Role, RuntimeRoleWorker)
+	}
+	if cfg.Runtime.RealtimeBaseURL != "https://main.example.com" {
+		t.Fatalf("realtime base url = %q, want https://main.example.com", cfg.Runtime.RealtimeBaseURL)
+	}
+}

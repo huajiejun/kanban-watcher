@@ -36,6 +36,13 @@ type Server struct {
 	staticFS      fs.FS
 	store         *store.Store
 	portAllocator frontendPortAllocator
+	runtimeInfo   RuntimeInfo
+}
+
+type RuntimeInfo struct {
+	Role            string
+	RealtimeEnabled bool
+	RealtimeBaseURL string
 }
 
 type workspaceMessageDispatcher interface {
@@ -82,6 +89,10 @@ func (s *Server) SetStore(dbStore *store.Store) {
 
 func (s *Server) SetFrontendPortAllocator(allocator frontendPortAllocator) {
 	s.portAllocator = allocator
+}
+
+func (s *Server) SetRuntimeInfo(info RuntimeInfo) {
+	s.runtimeInfo = info
 }
 
 // SetAuthHandler 设置认证处理器
@@ -653,8 +664,25 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"data":    info,
+		"data": map[string]interface{}{
+			"config": info.Config,
+			"runtime": map[string]interface{}{
+				"role": s.runtimeInfo.Role,
+			},
+			"realtime": map[string]interface{}{
+				"enabled":  s.runtimeInfo.RealtimeEnabled,
+				"base_url": s.runtimeInfo.RealtimeBaseURL,
+			},
+		},
 	})
+}
+
+func (s *Server) HandleRealtimeUnavailable(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	http.Error(w, "realtime disabled for worker role", http.StatusServiceUnavailable)
 }
 
 func (s *Server) handleExecutionProcess(w http.ResponseWriter, r *http.Request) {

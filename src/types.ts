@@ -86,6 +86,13 @@ export interface VibeInfoResponse {
     config?: {
       preview_proxy_port?: number;
     };
+    runtime?: {
+      role?: string;
+    };
+    realtime?: {
+      enabled?: boolean;
+      base_url?: string;
+    };
   };
 }
 

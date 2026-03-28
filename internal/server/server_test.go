@@ -631,6 +631,25 @@ func TestHandleInfoProxiesVibeInfo(t *testing.T) {
 	if !strings.Contains(rr.Body.String(), `"preview_proxy_port":53480`) {
 		t.Fatalf("body = %s, want preview_proxy_port", rr.Body.String())
 	}
+	if !strings.Contains(rr.Body.String(), `"enabled":false`) {
+		t.Fatalf("body = %s, want realtime enabled flag", rr.Body.String())
+	}
+}
+
+func TestHandleRealtimeUnavailableReturnsServiceUnavailable(t *testing.T) {
+	srv := NewServer(nil, 0, "test-key", true, nil, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/realtime/ws", nil)
+	rr := httptest.NewRecorder()
+
+	srv.HandleRealtimeUnavailable(rr, req)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d, body=%s", rr.Code, http.StatusServiceUnavailable, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "worker role") {
+		t.Fatalf("body = %s, want worker role", rr.Body.String())
+	}
 }
 
 func TestHandleExecutionProcessProxiesDetail(t *testing.T) {

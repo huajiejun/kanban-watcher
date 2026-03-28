@@ -582,6 +582,20 @@ describe("workspace home helpers", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            config: {
+              preview_proxy_port: 53480,
+            },
+            realtime: {
+              base_url: "http://127.0.0.1:7778",
+            },
+          },
+        });
+      }
+
       if (url.includes("/api/workspaces/active")) {
         return createJsonResponse({
           workspaces: [
@@ -610,7 +624,7 @@ describe("workspace home helpers", () => {
 
     expect(element.shadowRoot?.textContent).toContain("初始任务");
     expect(FakeWebSocket.instances).toHaveLength(1);
-    expect(FakeWebSocket.instances[0]?.url).toContain("/api/realtime/ws");
+    expect(FakeWebSocket.instances[0]?.url).toBe("ws://127.0.0.1:7778/api/realtime/ws");
 
     FakeWebSocket.instances[0]?.emitOpen();
     FakeWebSocket.instances[0]?.emitMessage({
@@ -1532,6 +1546,17 @@ describe("workspace home helpers", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
+      if (url.includes("/api/info")) {
+        return createJsonResponse({
+          success: true,
+          data: {
+            realtime: {
+              base_url: "http://127.0.0.1:7778",
+            },
+          },
+        });
+      }
+
       if (url.includes("/api/workspaces/active")) {
         return createJsonResponse({
           workspaces: [
@@ -1581,7 +1606,9 @@ describe("workspace home helpers", () => {
     await flushElement(element);
 
     expect(FakeWebSocket.instances).toHaveLength(2);
+    expect(FakeWebSocket.instances[0]?.url).toBe("ws://127.0.0.1:7778/api/realtime/ws");
     expect(FakeWebSocket.instances[1]?.url).toContain("session_id=session-1");
+    expect(FakeWebSocket.instances[1]?.url).toContain("ws://127.0.0.1:7778/api/realtime/ws");
 
     FakeWebSocket.instances[1]?.emitOpen();
     FakeWebSocket.instances[1]?.emitMessage({
@@ -1607,7 +1634,7 @@ describe("workspace home helpers", () => {
     expect(paneShadowRoot?.textContent).toContain("实时追加消息");
   });
 
-  it("ignores realtime appended messages for an idle pane when the last message is already terminal", async () => {
+  it("still appends realtime messages for an idle pane even when the last message is already terminal", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = readRequestUrl(input);
 
@@ -1670,7 +1697,7 @@ describe("workspace home helpers", () => {
           process_id: "proc-idle",
           entry_index: 2,
           role: "assistant",
-          content: "这条消息不该再进入空闲卡片",
+          content: "这条消息现在也应该进入空闲卡片",
           timestamp: "2026-03-24T12:01:00Z",
         },
       ],
@@ -1682,7 +1709,7 @@ describe("workspace home helpers", () => {
     ) as HTMLElement;
     const paneShadowRoot = (pane as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot;
 
-    expect(paneShadowRoot?.textContent).not.toContain("这条消息不该再进入空闲卡片");
+    expect(paneShadowRoot?.textContent).toContain("这条消息现在也应该进入空闲卡片");
   });
 
   it("still appends realtime messages for an idle pane when the last message is non-terminal", async () => {

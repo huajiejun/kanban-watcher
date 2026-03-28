@@ -184,6 +184,7 @@ export class KanbanWorkspaceHome extends LitElement {
   private apiAccessBlocked = false;
   private mobileCardConfigSignature = "";
   private previewProxyPort?: number;
+  private realtimeBaseUrl?: string;
   private previewDrawerWorkspaceId?: string;
   private webPreviewWorkspaceId?: string;
 
@@ -379,8 +380,10 @@ export class KanbanWorkspaceHome extends LitElement {
         apiKey: this.previewOptions.apiKey,
       });
       this.previewProxyPort = response.data?.config?.preview_proxy_port;
+      this.realtimeBaseUrl = response.data?.realtime?.base_url || this.previewOptions.baseUrl!;
     } catch {
       this.previewProxyPort = undefined;
+      this.realtimeBaseUrl = this.previewOptions.baseUrl!;
     }
   }
 
@@ -1360,7 +1363,7 @@ export class KanbanWorkspaceHome extends LitElement {
       return;
     }
     const socket = connectRealtime({
-      baseUrl: this.previewOptions.baseUrl!,
+      baseUrl: this.realtimeBaseUrl || this.previewOptions.baseUrl!,
       apiKey: this.previewOptions.apiKey,
       onOpen: () => {
         if (this.boardRealtimeSocket !== socket || !this.isConnected) {
@@ -1404,7 +1407,7 @@ export class KanbanWorkspaceHome extends LitElement {
       return;
     }
     const socket = connectRealtime({
-      baseUrl: this.previewOptions.baseUrl!,
+      baseUrl: this.realtimeBaseUrl || this.previewOptions.baseUrl!,
       apiKey: this.previewOptions.apiKey,
       sessionId,
       onOpen: () => {
@@ -1552,27 +1555,7 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private shouldAcceptRealtimeMessages(workspaceId: string) {
     const workspace = this.workspaces.find((item) => item.id === workspaceId);
-    if (!workspace) {
-      return false;
-    }
-    if (workspace.status === "running") {
-      return true;
-    }
-
-    const lastMessage = (this.messagesByWorkspace[workspaceId] ?? []).at(-1);
-    if (!lastMessage) {
-      return true;
-    }
-
-    return !this.isRealtimeTerminalMessage(lastMessage);
-  }
-
-  private isRealtimeTerminalMessage(message: DialogMessage) {
-    if (message.kind === "message") {
-      return true;
-    }
-
-    return message.status !== "running" && message.status !== "pending";
+    return Boolean(workspace);
   }
 
   private flattenDialogMessages(messages: DialogMessage[]) {
