@@ -171,13 +171,13 @@ export class DiffDetailsPanel extends LitElement {
       overflow-x: auto;
       max-height: 70vh;
       overflow-y: auto;
-      white-space: pre;
     }
 
     .diff-line {
       display: block;
       padding: 0 4px;
       min-height: 0;
+      white-space: pre;
     }
 
     .diff-line.is-empty {
