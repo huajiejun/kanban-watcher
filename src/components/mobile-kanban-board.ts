@@ -156,11 +156,13 @@ export class MobileKanbanBoard extends LitElement {
     });
   }
 
-  private async loadBoard() {
+  private async loadBoard(silent = false) {
     if (!this.selectedProjectId) return;
 
-    this.loading = true;
-    this.error = "";
+    if (!silent) {
+      this.loading = true;
+      this.error = "";
+    }
     try {
       const [statuses, issues] = await Promise.all([
         fetchProjectStatuses(
@@ -191,9 +193,13 @@ export class MobileKanbanBoard extends LitElement {
         ),
       }));
     } catch (err) {
-      this.error = err instanceof Error ? err.message : "加载失败";
+      if (!silent) {
+        this.error = err instanceof Error ? err.message : "加载失败";
+      }
     } finally {
-      this.loading = false;
+      if (!silent) {
+        this.loading = false;
+      }
     }
   }
 
@@ -212,7 +218,7 @@ export class MobileKanbanBoard extends LitElement {
   }
 
   private handleIssueDetailUpdated() {
-    void this.loadBoard();
+    void this.loadBoard(true);
   }
 
   private handleIssueDeleted() {
