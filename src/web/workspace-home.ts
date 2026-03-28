@@ -149,6 +149,7 @@ export class KanbanWorkspaceHome extends LitElement {
     suggestedButtonsByWorkspace: { attribute: false },
     webPreviewFallbackUrlByWorkspace: { attribute: false },
     todoPendingCountByWorkspace: { attribute: false },
+    mobileActiveTab: { attribute: false },
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
