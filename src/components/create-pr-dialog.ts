@@ -267,12 +267,18 @@ export class CreatePRDialog extends LitElement {
   private _effectiveRepoId = "";
 
   updated(changedProperties: Map<string, unknown>) {
-    if (changedProperties.has("open") && this.open && !this.initialized) {
-      this.initialized = true;
-      void this.loadInitialData();
-    }
-    if (changedProperties.has("open") && !this.open) {
-      this.initialized = false;
+    if (changedProperties.has("open")) {
+      if (this.open) {
+        // 重置状态并加载数据
+        this.loading = true;
+        this.error = "";
+        this.prTitle = "";
+        this.prBody = "";
+        this.prBaseBranch = "";
+        this.branches = [];
+        this._effectiveRepoId = "";
+        void this.loadInitialData();
+      }
     }
   }
 
