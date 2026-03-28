@@ -22,11 +22,7 @@ export class MobileIssueCreateDialog extends LitElement {
       width: 100%;
       max-width: 500px;
       max-height: 85vh;
-      background: color-mix(
-        in srgb,
-        var(--primary-background-color, #111827) 95%,
-        transparent
-      );
+      background: rgba(39, 39, 42, 0.95);
       border-radius: 16px 16px 0 0;
       display: flex;
       flex-direction: column;
@@ -92,7 +88,7 @@ export class MobileIssueCreateDialog extends LitElement {
       padding: 8px 12px;
       border-radius: 8px;
       border: 1px solid rgba(148, 163, 184, 0.2);
-      background: rgba(15, 23, 42, 0.6);
+      background: rgba(24, 24, 27, 0.8);
       color: #e5e7eb;
       font-size: 0.85rem;
       font-family: inherit;

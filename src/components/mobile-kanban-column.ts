@@ -17,11 +17,7 @@ export class MobileKanbanColumn extends LitElement {
       flex-direction: column;
       height: 100%;
       border-radius: 14px;
-      background: color-mix(
-        in srgb,
-        var(--secondary-background-color, #111827) 72%,
-        transparent
-      );
+      background: rgba(39, 39, 42, 0.8);
       border: 1px solid
         color-mix(in srgb, var(--divider-color, #cbd5e1) 18%, transparent);
       overflow: hidden;

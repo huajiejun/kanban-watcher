@@ -12,13 +12,8 @@ export class MobileKanbanIssueCard extends LitElement {
       display: block;
       padding: 10px 12px;
       border-radius: 10px;
-      background: color-mix(
-        in srgb,
-        var(--ha-card-background, var(--card-background-color, #111827)) 82%,
-        var(--secondary-background-color, #0f172a)
-      );
-      border: 1px solid
-        color-mix(in srgb, var(--divider-color, #cbd5e1) 28%, transparent);
+      background: rgba(39, 39, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.12);
       border-left: 3px solid var(--card-accent, #94a3b8);
       cursor: pointer;
       transition: background 0.15s;
@@ -26,11 +21,7 @@ export class MobileKanbanIssueCard extends LitElement {
     }
 
     .issue-card:active {
-      background: color-mix(
-        in srgb,
-        var(--ha-card-background, var(--card-background-color, #111827)) 65%,
-        var(--secondary-background-color, #0f172a)
-      );
+      background: rgba(39, 39, 42, 0.9);
     }
 
     .issue-top {
