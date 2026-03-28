@@ -55,6 +55,7 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 		next     *store.ProcessEntry
 		want     bool
 	}{
+		// 真实工具流会在 running 状态下持续补齐 action/status，不能再按状态一刀切拦掉。
 		{
 			name: "broadcasts when entry is new",
 			next: &store.ProcessEntry{
@@ -77,6 +78,7 @@ func TestShouldBroadcastRealtimeEntry(t *testing.T) {
 			},
 			want: true,
 		},
+		// 仅靠 process.created_at 兜底的历史帧时间不可靠，继续保持静默以避免重放噪音。
 		{
 			name: "skips broadcast when new entry falls back to process created_at",
 			next: &store.ProcessEntry{
