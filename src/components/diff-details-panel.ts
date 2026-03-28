@@ -290,7 +290,7 @@ export class DiffDetailsPanel extends LitElement {
     this._expandedPath = undefined;
     this.requestUpdate();
 
-    if (!this.baseUrl || !this.workspaceId) {
+    if (!this.workspaceId) {
       this._loading = false;
       return;
     }

@@ -62,6 +62,11 @@ func (e *ProxyBusinessError) Error() string {
 	return e.Message
 }
 
+// BaseURL 返回代理目标的基础 URL
+func (c *ProxyClient) BaseURL() string {
+	return c.baseURL
+}
+
 type QueueRequest struct {
 	Message        string                 `json:"message"`
 	ExecutorConfig map[string]interface{} `json:"executor_config"`
