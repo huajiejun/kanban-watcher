@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from "lit";
 
 import "../components/workspace-conversation-pane";
 import "../components/workspace-preview-card";
+import "../components/create-pr-dialog";
 import type {
   ConversationPaneAction,
 } from "../components/workspace-conversation-pane";
@@ -172,6 +173,9 @@ export class KanbanWorkspaceHome extends LitElement {
   extractedButtonsByWorkspace: Record<string, string[]> = {};
   suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
+  // PR 对话框状态
+  showCreatePRDialog = false;
+  selectedWorkspaceForPR: KanbanWorkspace | null = null;
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
   private boardRealtimeRetryTimer?: number;
   private realtimeRetryTimer?: number;
@@ -291,6 +295,7 @@ export class KanbanWorkspaceHome extends LitElement {
           ${this.renderWorkspacePanes(openWorkspaces, paneLayoutMode)}
           ${this.renderPreviewDrawer()}
           ${this.renderWebPreviewOverlay()}
+          ${this.renderCreatePRDialog()}
         </section>
       </main>
     `;
@@ -809,8 +814,8 @@ export class KanbanWorkspaceHome extends LitElement {
   private handleMenuAction(workspace: KanbanWorkspace, action: string) {
     switch (action) {
       case "create-pr":
-        // TODO: 打开 PR 创建对话框
-        console.log("创建 PR:", workspace.id);
+        this.selectedWorkspaceForPR = workspace;
+        this.showCreatePRDialog = true;
         break;
       case "open-branch":
         // TODO: 打开分支
@@ -824,6 +829,11 @@ export class KanbanWorkspaceHome extends LitElement {
         console.warn("未知菜单操作:", action);
     }
   }
+
+  private handleCloseCreatePRDialog = () => {
+    this.showCreatePRDialog = false;
+    this.selectedWorkspaceForPR = null;
+  };
 
   private async handleTodoSelected(workspace: KanbanWorkspace, detail: { content: string; todoId: string }) {
     if (!this.isApiMode) return;
@@ -1820,6 +1830,25 @@ export class KanbanWorkspaceHome extends LitElement {
           ></iframe>
         </section>
       </div>
+    `;
+  }
+
+  private renderCreatePRDialog() {
+    if (!this.showCreatePRDialog || !this.selectedWorkspaceForPR) {
+      return nothing;
+    }
+
+    const workspace = this.selectedWorkspaceForPR;
+    return html`
+      <create-pr-dialog
+        .open=${this.showCreatePRDialog}
+        .workspaceId=${workspace.id}
+        .repoId=${""}
+        .targetBranch=${workspace.branch ?? ""}
+        .baseUrl=${this.previewOptions.baseUrl ?? ""}
+        .apiKey=${this.previewOptions.apiKey ?? ""}
+        @close=${this.handleCloseCreatePRDialog}
+      ></create-pr-dialog>
     `;
   }
 
