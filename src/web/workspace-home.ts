@@ -370,6 +370,9 @@ export class KanbanWorkspaceHome extends LitElement {
 
   private handleMobileTabSwitch = (tab: "workspaces" | "issues") => {
     this.mobileActiveTab = tab;
+    if (tab === "workspaces") {
+      this.mobileCardConfigSignature = "";
+    }
   };
 
   private handleResize = () => {
