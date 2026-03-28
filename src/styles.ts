@@ -1954,13 +1954,12 @@ export const cardStyles = css`
     }
 
     .dialog-actions {
-      flex-direction: column;
+      flex-direction: row;
       gap: 6px;
     }
 
     .dialog-action {
-      flex: none;
-      width: 100%;
+      flex: 1;
       min-height: 32px;
       font-size: 0.85rem;
     }
