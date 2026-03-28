@@ -124,21 +124,29 @@ export function extractDiffStatsFromBranchStatus(
 // WebSocket Diff Stream
 // ───────────────────────────────────────────
 
-/** WebSocket diff 流中单条 patch 里的 Diff 值 */
-interface WsDiffValue {
-  type: "DIFF";
-  content: Diff;
-}
+/**
+ * 后端 LogMsg 枚举序列化格式：
+ * - JsonPatch: { "JsonPatch": Patch } 其中 Patch 是 RFC 6902 操作数组
+ * - Ready: { "Ready": true }
+ * - Finished: { "finished": true }
+ *
+ * 每个 patch 操作的 value 是 PatchType（SCREAMING_SNAKE_CASE）：
+ * { "type": "DIFF", "content": { change, oldPath, ... } }
+ */
 
-/** WebSocket diff 流消息 */
-interface WsDiffMessage {
-  type: "json_patch";
-  data: Array<{
-    op: string;
-    path: string;
-    value?: WsDiffValue;
-  }>;
-}
+type WsPatchOp = {
+  op: string;
+  path: string;
+  value?: {
+    type: string;
+    content?: Diff;
+  };
+};
+
+type WsMessage =
+  | { JsonPatch: WsPatchOp[] }
+  | { Ready: boolean }
+  | { finished: boolean };
 
 function toDiffWsUrl(baseUrl: string, workspaceId: string, apiKey?: string) {
   const normalized = baseUrl ? baseUrl.replace(/\/+$/, "") : window.location.origin;
@@ -175,9 +183,9 @@ export function connectDiffStream(
 
   socket.onmessage = (event) => {
     try {
-      const msg = JSON.parse(String(event.data)) as WsDiffMessage;
-      if (msg.type === "json_patch" && Array.isArray(msg.data)) {
-        for (const op of msg.data) {
+      const msg = JSON.parse(String(event.data)) as WsMessage;
+      if ("JsonPatch" in msg && Array.isArray(msg.JsonPatch)) {
+        for (const op of msg.JsonPatch) {
           if (op.value?.type === "DIFF" && op.value.content) {
             callbacks.onDiff(op.value.content);
           }

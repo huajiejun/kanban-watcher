@@ -34,8 +34,8 @@ export interface KanbanWorkspace {
   diff_stats?: DiffStats;
 }
 
-// 差异文件变更类型
-export type DiffKind = "Added" | "Deleted" | "Modified" | "Renamed";
+// 差异文件变更类型（匹配后端 camelCase 序列化：Added → "added"）
+export type DiffKind = "added" | "deleted" | "modified" | "renamed" | "copied" | "permissionChange";
 
 // 文件差异（字段名匹配后端 camelCase 序列化）
 export interface Diff {

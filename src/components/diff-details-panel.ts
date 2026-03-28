@@ -405,7 +405,7 @@ export class DiffDetailsPanel extends LitElement {
 
   private renderFileItem(diff: Diff) {
     const path = diff.newPath || diff.oldPath || "";
-    const changeKind = diff.change?.toLowerCase() || "modified";
+    const changeKind = diff.change || "modified";
     const icon = this.getChangeIcon(changeKind);
     const isExpanded = this._expandedPath === path;
 
