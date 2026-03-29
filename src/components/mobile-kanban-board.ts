@@ -339,20 +339,25 @@ export class MobileKanbanBoard extends LitElement {
               )}
             </div>`
           : nothing}
-        <button
-          class="fab-create"
-          type="button"
-          @click=${this.openCreateDialog}
-          title="新建任务"
-        >
-          +
-        </button>
-        <mobile-issue-create-dialog
-          .statuses=${this.columns.map((c) => c.status)}
-          .baseUrl=${this.baseUrl}
-          .apiKey=${this.apiKey}
-          @issue-created=${this.handleIssueCreated}
-        ></mobile-issue-create-dialog>
+        ${this.selectedProjectId && !this.loading
+          ? html`
+            <button
+              class="fab-create"
+              type="button"
+              @click=${this.openCreateDialog}
+              title="新建任务"
+            >
+              +
+            </button>
+            <mobile-issue-create-dialog
+              .statuses=${this.columns.map((c) => c.status)}
+              .baseUrl=${this.baseUrl}
+              .apiKey=${this.apiKey}
+              .projectId=${this.selectedProjectId}
+              @issue-created=${this.handleIssueCreated}
+            ></mobile-issue-create-dialog>
+          `
+          : nothing}
         <mobile-issue-detail-panel
           .issue=${this.selectedIssue}
           .statuses=${this.statuses}
