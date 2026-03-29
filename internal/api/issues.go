@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -125,9 +126,9 @@ type ListProjectStatusesAPIResponse struct {
 
 // ListIssues 查询任务列表
 func (c *ProxyClient) ListIssues(ctx context.Context, projectID string) ([]RemoteIssue, error) {
-	url := fmt.Sprintf("%s/api/remote/issues?project_id=%s", c.baseURL, projectID)
+	u := c.baseURL + "/api/remote/issues?" + url.Values{"project_id": {projectID}}.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("构建请求: %w", err)
 	}
@@ -164,9 +165,9 @@ func (c *ProxyClient) ListIssues(ctx context.Context, projectID string) ([]Remot
 
 // GetIssue 获取单个任务详情
 func (c *ProxyClient) GetIssue(ctx context.Context, issueID string) (*RemoteIssue, error) {
-	url := fmt.Sprintf("%s/api/remote/issues/%s", c.baseURL, issueID)
+	u := c.baseURL + "/api/remote/issues/" + url.PathEscape(issueID)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("构建请求: %w", err)
 	}
@@ -203,23 +204,23 @@ func (c *ProxyClient) GetIssue(ctx context.Context, issueID string) (*RemoteIssu
 
 // CreateIssue 创建任务
 func (c *ProxyClient) CreateIssue(ctx context.Context, payload CreateIssuePayload) (*RemoteIssue, error) {
-	url := fmt.Sprintf("%s/api/remote/issues", c.baseURL)
+	u := c.baseURL + "/api/remote/issues"
 
-	return c.doMutationIssue(ctx, url, http.MethodPost, payload)
+	return c.doMutationIssue(ctx, u, http.MethodPost, payload)
 }
 
 // UpdateIssue 更新任务
 func (c *ProxyClient) UpdateIssue(ctx context.Context, issueID string, payload UpdateIssuePayload) (*RemoteIssue, error) {
-	url := fmt.Sprintf("%s/api/remote/issues/%s", c.baseURL, issueID)
+	u := c.baseURL + "/api/remote/issues/" + url.PathEscape(issueID)
 
-	return c.doMutationIssue(ctx, url, http.MethodPatch, payload)
+	return c.doMutationIssue(ctx, u, http.MethodPatch, payload)
 }
 
 // DeleteIssue 删除任务
 func (c *ProxyClient) DeleteIssue(ctx context.Context, issueID string) error {
-	url := fmt.Sprintf("%s/api/remote/issues/%s", c.baseURL, issueID)
+	u := c.baseURL + "/api/remote/issues/" + url.PathEscape(issueID)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
 	if err != nil {
 		return fmt.Errorf("构建请求: %w", err)
 	}
@@ -256,9 +257,9 @@ func (c *ProxyClient) DeleteIssue(ctx context.Context, issueID string) error {
 
 // ListProjectStatuses 查询项目状态列表
 func (c *ProxyClient) ListProjectStatuses(ctx context.Context, projectID string) ([]RemoteProjectStatus, error) {
-	url := fmt.Sprintf("%s/api/remote/project-statuses?project_id=%s", c.baseURL, projectID)
+	u := c.baseURL + "/api/remote/project-statuses?" + url.Values{"project_id": {projectID}}.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("构建请求: %w", err)
 	}
@@ -362,9 +363,9 @@ type listIssueWorkspacesAPIResponse struct {
 // ListIssueWorkspaces 查询指定 Issue 关联的工作区列表
 // 当上游 vibe-kanban 不支持该端点时（404），返回空列表而非错误
 func (c *ProxyClient) ListIssueWorkspaces(ctx context.Context, issueID string) ([]RemoteWorkspace, error) {
-	url := fmt.Sprintf("%s/api/remote/workspaces/by-issue-id/%s", c.baseURL, issueID)
+	u := c.baseURL + "/api/remote/workspaces/by-issue-id/" + url.PathEscape(issueID)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("构建请求: %w", err)
 	}
@@ -443,9 +444,9 @@ type listProjectsAPIResponse struct {
 
 // ListOrganizations 查询当前用户的组织列表
 func (c *ProxyClient) ListOrganizations(ctx context.Context) ([]RemoteOrganization, error) {
-	url := fmt.Sprintf("%s/api/organizations", c.baseURL)
+	u := c.baseURL + "/api/organizations"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("构建请求: %w", err)
 	}
@@ -482,9 +483,9 @@ func (c *ProxyClient) ListOrganizations(ctx context.Context) ([]RemoteOrganizati
 
 // ListProjects 查询指定组织下的项目列表
 func (c *ProxyClient) ListProjects(ctx context.Context, organizationID string) ([]RemoteProject, error) {
-	url := fmt.Sprintf("%s/api/remote/projects?organization_id=%s", c.baseURL, organizationID)
+	u := c.baseURL + "/api/remote/projects?" + url.Values{"organization_id": {organizationID}}.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("构建请求: %w", err)
 	}

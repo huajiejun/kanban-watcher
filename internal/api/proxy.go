@@ -518,11 +518,17 @@ func (c *ProxyClient) MarkWorkspaceSeen(ctx context.Context, workspaceID string)
 	return nil
 }
 
+// LinkedIssueInfo 关联的任务信息
+type LinkedIssueInfo struct {
+	IssueID  string `json:"issue_id"`
+	ProjectID string `json:"project_id,omitempty"`
+}
+
 // CreateAndStartWorkspaceRequest 创建并启动工作区请求
  type CreateAndStartWorkspaceRequest struct {
 	Name           string                 `json:"name"`
 	Repos          []interface{}          `json:"repos"`
-	LinkedIssue    interface{}            `json:"linked_issue"`
+	LinkedIssue    *LinkedIssueInfo       `json:"linked_issue"`
 	ExecutorConfig map[string]interface{} `json:"executor_config"`
 	Prompt         string                 `json:"prompt"`
 	ImageIDs       []string               `json:"image_ids"`

@@ -34,7 +34,7 @@ import {
   fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
   fetchWorkspaceView,
-  fetchWorkspaceLatestMessages,
+  fetchWorkspaceMessages,
   fetchWorkspaceQueueStatus,
   markWorkspaceSeen,
   sendWorkspaceMessage,
@@ -80,7 +80,6 @@ import {
   getWorkspaceEmbeddedPreviewUrl,
 } from "../lib/workspace-web-preview";
 import {
-  ACTIVE_PANE_MESSAGE_TYPES,
   didSelectedWorkspaceMessageVersionChange,
   getSelectedWorkspaceSessionId,
   loadRealtimeRuntimeInfo,
@@ -134,6 +133,8 @@ export class KanbanWorkspaceHome extends LitElement {
     workspaces: { attribute: false },
     pageState: { attribute: false },
     messagesByWorkspace: { attribute: false },
+    cursorByWorkspace: { attribute: false },
+    hasMoreByWorkspace: { attribute: false },
     loading: { type: Boolean },
     error: { attribute: false },
     collapsedSections: { attribute: false },
@@ -161,6 +162,8 @@ export class KanbanWorkspaceHome extends LitElement {
   pageState: WorkspacePageState = createWorkspacePageState(readPersistedWorkspacePageState());
   isSidebarCollapsed = this.resolveSidebarCollapsed(this.pageState.openWorkspaceIds.length);
   messagesByWorkspace: Record<string, DialogMessage[]> = {};
+  cursorByWorkspace: Record<string, string> = {};
+  hasMoreByWorkspace: Record<string, boolean> = {};
   loading = false;
   error = "";
   collapsedSections = new Set<"attention" | "running" | "idle">();
@@ -651,12 +654,11 @@ export class KanbanWorkspaceHome extends LitElement {
         return;
       }
 
-      const response = await fetchWorkspaceLatestMessages({
+      const response = await fetchWorkspaceMessages({
         baseUrl: this.previewOptions.baseUrl!,
         apiKey: this.previewOptions.apiKey,
         workspaceId,
         limit: this.previewOptions.messagesLimit ?? 50,
-        types: workspaceId === this.activeWorkspace?.id ? ACTIVE_PANE_MESSAGE_TYPES : undefined,
       });
       const previousMessages = this.messagesByWorkspace[workspaceId] ?? [];
       const nextMessages = normalizeApiMessages(response.messages);
@@ -676,6 +678,14 @@ export class KanbanWorkspaceHome extends LitElement {
         ...this.messagesByWorkspace,
         [workspaceId]: nextMessages,
       };
+      this.cursorByWorkspace = {
+        ...this.cursorByWorkspace,
+        [workspaceId]: response.cursor ?? "",
+      };
+      this.hasMoreByWorkspace = {
+        ...this.hasMoreByWorkspace,
+        [workspaceId]: response.has_more ?? false,
+      };
       this.smoothRevealMessageKeyByWorkspace = {
         ...this.smoothRevealMessageKeyByWorkspace,
         [workspaceId]: this.resolveSmoothRevealMessageKey(
@@ -689,6 +699,47 @@ export class KanbanWorkspaceHome extends LitElement {
       this.messageErrorByWorkspace = {
         ...this.messageErrorByWorkspace,
         [workspaceId]: error instanceof Error ? error.message : "加载消息失败",
+      };
+    } finally {
+      this.setWorkspaceLoading(workspaceId, false);
+    }
+  }
+
+  private async loadMoreMessages(workspaceId: string) {
+    const cursor = this.cursorByWorkspace[workspaceId];
+    const hasMore = this.hasMoreByWorkspace[workspaceId];
+    if (!hasMore || !cursor || !this.isApiMode) {
+      return;
+    }
+
+    this.setWorkspaceLoading(workspaceId, true);
+    try {
+      const response = await fetchWorkspaceMessages({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId,
+        limit: this.previewOptions.messagesLimit ?? 50,
+        cursor,
+      });
+      const olderMessages = normalizeApiMessages(response.messages);
+      const existingMessages = this.messagesByWorkspace[workspaceId] ?? [];
+
+      this.messagesByWorkspace = {
+        ...this.messagesByWorkspace,
+        [workspaceId]: [...olderMessages, ...existingMessages],
+      };
+      this.cursorByWorkspace = {
+        ...this.cursorByWorkspace,
+        [workspaceId]: response.cursor ?? "",
+      };
+      this.hasMoreByWorkspace = {
+        ...this.hasMoreByWorkspace,
+        [workspaceId]: response.has_more ?? false,
+      };
+    } catch (error) {
+      this.messageErrorByWorkspace = {
+        ...this.messageErrorByWorkspace,
+        [workspaceId]: error instanceof Error ? error.message : "加载更早消息失败",
       };
     } finally {
       this.setWorkspaceLoading(workspaceId, false);
@@ -1984,6 +2035,8 @@ export class KanbanWorkspaceHome extends LitElement {
               lines_removed: workspace.lines_removed ?? 0,
             }
           : undefined}
+        .hasMore=${this.hasMoreByWorkspace[workspace.id] ?? false}
+        .onLoadMore=${() => void this.loadMoreMessages(workspace.id)}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>

@@ -1806,21 +1806,9 @@ func (s *Server) saveCreatedWorkspaceToLocalDB(req api.CreateAndStartWorkspaceRe
 
 	// 从 linked_issue 中提取 issue_id
 	var issueID *string
-	log.Printf("[HTTP Server] 尝试从 linked_issue 提取 issue_id: linkedIssue=%v, type=%T", req.LinkedIssue, req.LinkedIssue)
-	if req.LinkedIssue != nil {
-		if linkedIssueMap, ok := req.LinkedIssue.(map[string]interface{}); ok {
-			log.Printf("[HTTP Server] linked_issue 是 map[string]interface{}: %v", linkedIssueMap)
-			if issueIDStr, exists := linkedIssueMap["issue_id"].(string); exists && issueIDStr != "" {
-				issueID = &issueIDStr
-				log.Printf("[HTTP Server] 提取到 issue_id: %s", issueIDStr)
-			} else {
-				log.Printf("[HTTP Server] 无法从 map 中提取 issue_id: exists=%v, value=%v", exists, issueIDStr)
-			}
-		} else {
-			log.Printf("[HTTP Server] linked_issue 类型断言失败: %T", req.LinkedIssue)
-		}
-	} else {
-		log.Printf("[HTTP Server] linked_issue 为 nil")
+	if req.LinkedIssue != nil && req.LinkedIssue.IssueID != "" {
+		issueID = &req.LinkedIssue.IssueID
+		log.Printf("[HTTP Server] 提取到 issue_id: %s", req.LinkedIssue.IssueID)
 	}
 
 	workspace := &store.Workspace{

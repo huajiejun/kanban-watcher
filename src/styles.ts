@@ -1163,6 +1163,32 @@ export const cardStyles = css`
     padding: 6px 2px 6px 0;
   }
 
+  .load-more-bar {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0;
+  }
+
+  .load-more-btn {
+    background: none;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 6px;
+    color: var(--secondary-text-color, #64748b);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 12px;
+    transition: background 0.15s;
+  }
+
+  .load-more-btn:hover:not(:disabled) {
+    background: rgba(148, 163, 184, 0.08);
+  }
+
+  .load-more-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .message-row {
     width: 100%;
   }
