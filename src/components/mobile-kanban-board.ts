@@ -247,6 +247,8 @@ export class MobileKanbanBoard extends LitElement {
       (dialog as HTMLElement).dispatchEvent(
         new CustomEvent("open", { bubbles: true, composed: true })
       );
+    } else {
+      console.warn("[openCreateDialog] dialog 元素未找到");
     }
   }
 
