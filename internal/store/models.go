@@ -7,6 +7,7 @@ type Workspace struct {
 	ID                  string     `db:"id"`
 	Name                string     `db:"name"`
 	Branch              string     `db:"branch"`
+	IssueID             *string    `db:"issue_id"`
 	Archived            bool       `db:"archived"`
 	Pinned              bool       `db:"pinned"`
 	LatestSessionID     *string    `db:"latest_session_id"`

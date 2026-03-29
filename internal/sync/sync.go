@@ -235,6 +235,10 @@ func (s *SyncService) syncActiveWorkspaces(ctx context.Context) error {
 	if err := s.store.MarkMissingWorkspacesArchived(ctx, activeWorkspaceIDs, seenAt); err != nil {
 		return fmt.Errorf("归档缺失工作区失败: %w", err)
 	}
+
+	// 补充同步 issue_id（非阻塞，不影响主同步）
+	s.syncWorkspaceIssueIDs(ctx)
+
 	if s.realtime != nil {
 		if err := s.realtime.PublishWorkspaceSnapshot(ctx); err != nil {
 			fmt.Fprintf(os.Stderr, "推送工作区快照失败: %v\n", err)
@@ -1140,5 +1144,38 @@ func (s *SyncService) isStopping() bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// syncWorkspaceIssueIDs 为 issue_id 为空的工作区补充同步 issue_id
+// 通过上游远程代理 GET /api/remote/workspaces/by-local-id/{id} 获取
+// 每轮最多处理 10 个，避免阻塞主同步
+func (s *SyncService) syncWorkspaceIssueIDs(ctx context.Context) {
+	ids, err := s.store.ListWorkspaceIDsWithNullIssueID(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "查询空 issue_id 工作区失败: %v\n", err)
+		return
+	}
+	if len(ids) == 0 {
+		return
+	}
+
+	const maxPerCycle = 10
+	if len(ids) > maxPerCycle {
+		ids = ids[:maxPerCycle]
+	}
+
+	for _, id := range ids {
+		if s.isStopping() {
+			return
+		}
+		issueID, err := s.apiClient.FetchWorkspaceIssueID(ctx, id)
+		if err != nil {
+			s.tracef("sync issue_id 失败 workspace=%s err=%v", id, err)
+			continue
+		}
+		if err := s.store.UpdateWorkspaceIssueID(ctx, id, issueID); err != nil {
+			s.tracef("更新 issue_id 失败 workspace=%s err=%v", id, err)
+		}
 	}
 }

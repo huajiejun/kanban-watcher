@@ -229,6 +229,8 @@ func (s *Store) InitSchema(ctx context.Context) error {
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 		`ALTER TABLE kw_workspace_todos ADD CONSTRAINT fk_kw_todos_workspace
 			FOREIGN KEY (workspace_id) REFERENCES kw_workspaces(id) ON DELETE CASCADE`,
+		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS issue_id VARCHAR(36) NULL`,
+		`ALTER TABLE kw_workspaces ADD INDEX IF NOT EXISTS idx_kw_workspaces_issue_id (issue_id)`,
 	}
 
 	for _, stmt := range statements {
@@ -325,13 +327,14 @@ func (s *Store) GetWorkspaceView(ctx context.Context, scopeKey string) (*Workspa
 func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 	query := `
 		INSERT INTO kw_workspaces (
-			id, name, branch, archived, pinned, latest_session_id, is_running,
+			id, name, branch, issue_id, archived, pinned, latest_session_id, is_running,
 			latest_process_status, has_pending_approval, has_unseen_turns, has_running_dev_server,
 			frontend_port, files_changed, lines_added, lines_removed, last_seen_at, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
 			name = VALUES(name),
 			branch = VALUES(branch),
+			issue_id = COALESCE(kw_workspaces.issue_id, VALUES(issue_id)),
 			archived = VALUES(archived),
 			pinned = VALUES(pinned),
 			latest_session_id = VALUES(latest_session_id),
@@ -350,7 +353,7 @@ func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 			synced_at = CURRENT_TIMESTAMP(3)
 	`
 	_, err := s.execWithRetry(ctx, query,
-		ws.ID, ws.Name, ws.Branch, ws.Archived, ws.Pinned, ws.LatestSessionID,
+		ws.ID, ws.Name, ws.Branch, ws.IssueID, ws.Archived, ws.Pinned, ws.LatestSessionID,
 		ws.IsRunning, ws.LatestProcessStatus, ws.HasPendingApproval, ws.HasUnseenTurns, ws.HasRunningDevServer,
 		ws.FrontendPort,
 		ws.FilesChanged, ws.LinesAdded, ws.LinesRemoved, ws.LastSeenAt, ws.CreatedAt, ws.UpdatedAt,
@@ -1464,4 +1467,63 @@ func (s *Store) DeleteWorkspaceTodo(ctx context.Context, workspaceID string, id 
 		return fmt.Errorf("待办不存在或不属于该工作区")
 	}
 	return nil
+}
+
+// ListWorkspaceIDsWithNullIssueID 查询 issue_id 为空的工作区 ID 列表
+func (s *Store) ListWorkspaceIDsWithNullIssueID(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT id FROM kw_workspaces WHERE issue_id IS NULL AND archived = FALSE LIMIT 50")
+	if err != nil {
+		return nil, fmt.Errorf("查询空 issue_id 工作区: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("扫描工作区 ID: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// UpdateWorkspaceIssueID 单独更新工作区的 issue_id
+func (s *Store) UpdateWorkspaceIssueID(ctx context.Context, workspaceID string, issueID *string) error {
+	_, err := s.db.ExecContext(ctx,
+		"UPDATE kw_workspaces SET issue_id = ? WHERE id = ?", issueID, workspaceID)
+	if err != nil {
+		return fmt.Errorf("更新工作区 issue_id: %w", err)
+	}
+	return nil
+}
+
+// ListWorkspacesByIssueID 按 issue_id 查询关联的工作区列表
+func (s *Store) ListWorkspacesByIssueID(ctx context.Context, issueID string) ([]*Workspace, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, name, branch, issue_id, archived, pinned, latest_session_id, is_running,
+		        latest_process_status, has_pending_approval, has_unseen_turns, has_running_dev_server,
+		        frontend_port, files_changed, lines_added, lines_removed, last_seen_at, created_at, updated_at, synced_at
+		 FROM kw_workspaces WHERE issue_id = ? ORDER BY updated_at DESC`, issueID)
+	if err != nil {
+		return nil, fmt.Errorf("按 issue_id 查询工作区: %w", err)
+	}
+	defer rows.Close()
+
+	var workspaces []*Workspace
+	for rows.Next() {
+		ws := &Workspace{}
+		if err := rows.Scan(
+			&ws.ID, &ws.Name, &ws.Branch, &ws.IssueID, &ws.Archived, &ws.Pinned,
+			&ws.LatestSessionID, &ws.IsRunning, &ws.LatestProcessStatus,
+			&ws.HasPendingApproval, &ws.HasUnseenTurns, &ws.HasRunningDevServer,
+			&ws.FrontendPort, &ws.FilesChanged, &ws.LinesAdded, &ws.LinesRemoved,
+			&ws.LastSeenAt, &ws.CreatedAt, &ws.UpdatedAt, &ws.SyncedAt,
+		); err != nil {
+			return nil, fmt.Errorf("扫描工作区: %w", err)
+		}
+		workspaces = append(workspaces, ws)
+	}
+	return workspaces, rows.Err()
 }

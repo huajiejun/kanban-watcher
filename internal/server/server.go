@@ -1150,11 +1150,6 @@ func (s *Server) handleDeleteIssue(w http.ResponseWriter, r *http.Request, issue
 // handleIssueWorkspaces 处理 /api/issue-workspaces/{id} 请求
 // GET /api/issue-workspaces/{id} - 查询指定 Issue 关联的工作区列表
 func (s *Server) handleIssueWorkspaces(w http.ResponseWriter, r *http.Request) {
-	if s.proxy == nil {
-		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
-		return
-	}
-
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -1168,6 +1163,48 @@ func (s *Server) handleIssueWorkspaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	issueID := path
+
+	// 优先从本地数据库查询
+	if s.store != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		workspaces, err := s.store.ListWorkspacesByIssueID(ctx, issueID)
+		if err != nil {
+			log.Printf("[HTTP Server] 本地查询工作区失败: %v", err)
+		} else {
+			result := make([]api.RemoteWorkspace, 0, len(workspaces))
+			for _, ws := range workspaces {
+				name := ws.Name
+				if name == "" {
+					name = ws.Branch
+				}
+				result = append(result, api.RemoteWorkspace{
+					ID:           ws.ID,
+					Name:         &name,
+					IssueID:      ws.IssueID,
+					Archived:     ws.Archived,
+					FilesChanged: ptrInt(ws.FilesChanged),
+					LinesAdded:   ptrInt(ws.LinesAdded),
+					LinesRemoved: ptrInt(ws.LinesRemoved),
+					CreatedAt:    formatTimePtr(ws.CreatedAt),
+					UpdatedAt:    formatTimePtr(ws.UpdatedAt),
+				})
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"success":    true,
+				"workspaces": result,
+			})
+			return
+		}
+	}
+
+	// 降级：数据库不可用时调用上游 API
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
@@ -1302,4 +1339,15 @@ func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"data":    projects,
 	})
+}
+
+func ptrInt(v int) *int {
+	return &v
+}
+
+func formatTimePtr(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(time.RFC3339)
 }
