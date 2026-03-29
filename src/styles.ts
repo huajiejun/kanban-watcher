@@ -2278,6 +2278,157 @@ export const cardStyles = css`
       color: #e2e8f0;
     }
   }
+
+  /* 创建工作区对话框 */
+  .create-workspace-dialog {
+    max-width: 420px;
+    width: 90%;
+    margin: auto;
+    background: var(--ha-card-background, var(--card-background-color, #1f2937));
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+  }
+
+  .create-workspace-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 15%, transparent);
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 8%, transparent);
+  }
+
+  .create-workspace-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-text-color, #e5e7eb);
+  }
+
+  .create-workspace-header .btn-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(148, 163, 184, 0.15);
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 1.3rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  .create-workspace-header .btn-close:hover {
+    background: rgba(148, 163, 184, 0.25);
+    color: var(--primary-text-color, #e5e7eb);
+  }
+
+  .create-workspace-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+
+  .create-workspace-body .form-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--secondary-text-color, #94a3b8);
+    margin-bottom: 4px;
+  }
+
+  .create-workspace-body .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 25%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 80%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+  }
+
+  .create-workspace-body .form-input:focus {
+    border-color: color-mix(in srgb, var(--primary-color, #f59e0b) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #f59e0b) 15%, transparent);
+  }
+
+  .create-workspace-body .linked-issue-info {
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--success-color, #10b981) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--success-color, #10b981) 25%, transparent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .create-workspace-body .issue-badge {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--success-color, #34d399);
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--success-color, #10b981) 20%, transparent);
+  }
+
+  .create-workspace-body .no-issue {
+    font-size: 0.85rem;
+    color: var(--secondary-text-color, #94a3b8);
+    font-style: italic;
+  }
+
+  .create-workspace-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 15%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 50%, transparent);
+  }
+
+  .create-workspace-footer .btn-secondary {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 30%, transparent);
+    background: transparent;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .create-workspace-footer .btn-secondary:hover {
+    background: color-mix(in srgb, var(--divider-color, #e5e7eb) 15%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+  }
+
+  .create-workspace-footer .btn-primary {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: none;
+    background: var(--primary-color, #f59e0b);
+    color: var(--text-primary-color, #fff);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .create-workspace-footer .btn-primary:hover {
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 85%, #000);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color, #f59e0b) 30%, transparent);
+  }
 `;
 
 /**

@@ -106,6 +106,10 @@ const SECTION_ORDER: Array<{ key: SectionKey; label: string }> = [
   { key: "idle", label: "空闲" },
 ];
 
+interface CreateWorkspaceOptions {
+  suggestedName?: string;
+}
+
 const DEFAULT_MESSAGES_LIMIT = 50;
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 5_000;
@@ -139,6 +143,8 @@ export class KanbanWatcherCard extends LitElement {
     webPreviewFallbackUrlByWorkspace: { state: true },
     diffDetailsWorkspaceId: { state: true },
     diffDetailsStats: { state: true },
+    createWorkspaceOpen: { state: true },
+    createWorkspaceSuggestedName: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -191,6 +197,8 @@ export class KanbanWatcherCard extends LitElement {
   private webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
   private diffDetailsWorkspaceId?: string;
   private diffDetailsStats?: { files_changed: number; lines_added: number; lines_removed: number };
+  private createWorkspaceOpen = false;
+  private createWorkspaceSuggestedName = "";
 
   connectedCallback() {
     super.connectedCallback();
@@ -228,6 +236,7 @@ export class KanbanWatcherCard extends LitElement {
         ${this.renderDialog()}
         ${this.renderWebPreviewOverlay()}
         ${this.renderDiffDetailsPanel()}
+        ${this.renderCreateWorkspaceDialog()}
       </ha-card>
     `;
   }
@@ -516,6 +525,16 @@ export class KanbanWatcherCard extends LitElement {
         console.error("标记工作区已读失败:", error);
       });
     }
+  }
+
+  public openCreateWorkspaceDialog(options?: { suggestedName?: string }) {
+    this.createWorkspaceSuggestedName = options?.suggestedName || "";
+    this.createWorkspaceOpen = true;
+  }
+
+  private closeCreateWorkspaceDialog = () => {
+    this.createWorkspaceOpen = false;
+    this.createWorkspaceSuggestedName = "";
   }
 
   private closeWorkspaceDialog = () => {
@@ -942,6 +961,77 @@ export class KanbanWatcherCard extends LitElement {
         @diff-details-close=${this.handleCloseDiffDetails}
       ></diff-details-panel>
     `;
+  }
+
+  private renderCreateWorkspaceDialog() {
+    if (!this.createWorkspaceOpen) {
+      return nothing;
+    }
+
+    return html`
+      <div class="dialog-shell" role="presentation">
+        <button
+          class="dialog-overlay"
+          type="button"
+          aria-label="关闭创建工作区对话框"
+          @click=${this.closeCreateWorkspaceDialog}
+        ></button>
+        <section
+          class="workspace-dialog create-workspace-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="创建工作区"
+        >
+          <div class="create-workspace-header">
+            <h3>新建工作区</h3>
+            <button class="btn-close" type="button" @click=${this.closeCreateWorkspaceDialog}>×</button>
+          </div>
+          <div class="create-workspace-body">
+            <label class="form-label">工作区名称</label>
+            <input
+              type="text"
+              class="form-input"
+              placeholder="输入工作区名称"
+              .value=${this.createWorkspaceSuggestedName}
+              @input=${this.handleCreateWorkspaceNameInput}
+            />
+            <label class="form-label">关联任务</label>
+            <div class="linked-issue-info">
+              ${this.createWorkspaceSuggestedName
+                ? html`<span class="issue-badge">${this.createWorkspaceSuggestedName}</span>`
+                : html`<span class="no-issue">无关联任务</span>`}
+            </div>
+          </div>
+          <div class="create-workspace-footer">
+            <button class="btn-secondary" type="button" @click=${this.closeCreateWorkspaceDialog}>取消</button>
+            <button class="btn-primary" type="button" @click=${this.handleCreateWorkspace}>创建</button>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  private handleCreateWorkspaceNameInput = (e: Event) => {
+    this.createWorkspaceSuggestedName = (e.target as HTMLInputElement).value;
+  };
+
+  private async handleCreateWorkspace() {
+    const name = this.createWorkspaceSuggestedName.trim();
+    if (!name) {
+      alert("请输入工作区名称");
+      return;
+    }
+
+    // TODO: 调用 API 创建工作区
+    console.log("[kanban-watcher-card] 创建工作区:", name);
+
+    // 关闭对话框
+    this.closeCreateWorkspaceDialog();
+
+    // 刷新工作区列表
+    if (this.isApiMode) {
+      void this.loadWorkspaces();
+    }
   }
 
   private get visibleSections() {
