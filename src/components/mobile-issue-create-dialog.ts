@@ -223,6 +223,29 @@ export class MobileIssueCreateDialog extends LitElement {
     this.selectedStatusId = this.statuses.length > 0 ? this.statuses[0].id : "";
   };
 
+  private handleTitleInput = (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    this.title = target.value;
+    this.requestUpdate();
+  };
+
+  private handleDescriptionInput = (e: Event) => {
+    const target = e.target as HTMLTextAreaElement;
+    this.description = target.value;
+    this.requestUpdate();
+  };
+
+  private handleStatusChange = (e: Event) => {
+    const target = e.target as HTMLSelectElement;
+    this.selectedStatusId = target.value;
+    this.requestUpdate();
+  };
+
+  private handlePriorityClick = (priority: string) => {
+    this.priority = priority;
+    this.requestUpdate();
+  };
+
   private close() {
     this.visible = false;
     this.title = "";
@@ -303,8 +326,7 @@ export class MobileIssueCreateDialog extends LitElement {
               type="text"
               placeholder="输入任务标题"
               .value=${this.title}
-              @input=${(e: Event) =>
-                (this.title = (e.target as HTMLInputElement).value)}
+              @input=${this.handleTitleInput}
             />
 
             <label class="form-label">描述</label>
@@ -313,10 +335,7 @@ export class MobileIssueCreateDialog extends LitElement {
               placeholder="输入任务描述（可选）"
               rows="3"
               .value=${this.description}
-              @input=${(e: Event) =>
-                (this.description = (
-                  e.target as HTMLTextAreaElement
-                ).value)}
+              @input=${this.handleDescriptionInput}
             ></textarea>
 
             ${this.statuses.length > 0
@@ -325,10 +344,7 @@ export class MobileIssueCreateDialog extends LitElement {
                   <select
                     class="form-select"
                     .value=${this.selectedStatusId}
-                    @change=${(e: Event) =>
-                      (this.selectedStatusId = (
-                        e.target as HTMLSelectElement
-                      ).value)}
+                    @change=${this.handleStatusChange}
                   >
                     ${this.statuses.map(
                       (s) =>
@@ -353,7 +369,7 @@ export class MobileIssueCreateDialog extends LitElement {
                       : ""}"
                     type="button"
                     style="--opt-color: ${p.color}"
-                    @click=${() => (this.priority = p.key)}
+                    @click=${() => this.handlePriorityClick(p.key)}
                   >
                     ${p.label}
                   </button>`
