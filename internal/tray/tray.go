@@ -4,7 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/getlantern/systray"
 
@@ -18,10 +23,11 @@ import (
 //   - 但 systray.Run 必须在主 goroutine 调用（macOS Cocoa 要求）
 //   - 本结构体的 mu 用于保护 menuItems 等字段的并发访问
 type App struct {
-	mu         sync.Mutex
-	menuItems  []*workspaceMenuItems // 动态工作区菜单项（可复用）
-	statusItem *systray.MenuItem     // 顶部状态标题项
-	quitItem   *systray.MenuItem     // 退出菜单项
+	mu            sync.Mutex
+	menuItems     []*workspaceMenuItems // 动态工作区菜单项（可复用）
+	statusItem    *systray.MenuItem     // 顶部状态标题项
+	quitItem      *systray.MenuItem     // 退出菜单项
+	instanceCount  int                  // 运行中的实例数量
 }
 
 type workspaceMenuItems struct {
@@ -37,7 +43,8 @@ func New() *App {
 // OnReady 在 systray 图标准备好时被调用（在主 goroutine）
 // 初始化菜单结构：状态标题 + 分隔线 + 动态工作区 + 退出
 func (a *App) OnReady() {
-	systray.SetIcon(statusIconBytes(0))
+	// 初始使用蓝点图标显示实例数量（0个点）
+	systray.SetIcon(getInstanceIcon(0))
 	systray.SetTooltip("Kanban Watcher — 正在监控工作区")
 
 	a.mu.Lock()
@@ -59,6 +66,94 @@ func (a *App) OnExit(cancel context.CancelFunc) func() {
 	}
 }
 
+// UpdateInstanceCount 更新运行中的实例数量并刷新图标
+// 菜单栏图标会显示对应数量的蓝点（类似红绿灯风格）
+func (a *App) UpdateInstanceCount(count int) {
+	a.mu.Lock()
+	a.instanceCount = count
+	systray.SetIcon(getInstanceIcon(count))
+	a.mu.Unlock()
+}
+
+// StartInstanceMonitor 启动实例数量监控
+// 会定期扫描本地文件系统获取运行中的实例数量并更新图标
+func (a *App) StartInstanceMonitor(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				count := fetchRunningInstanceCount()
+				a.UpdateInstanceCount(count)
+			}
+		}
+	}()
+}
+
+// fetchRunningInstanceCount 从本地文件系统扫描运行中的实例数量
+// 通过检查 /tmp/kanban-dev/ 目录下的配置文件和端口占用情况来统计
+func fetchRunningInstanceCount() int {
+	pidDir := "/tmp/kanban-dev"
+
+	// 遍历所有 .env 文件
+	count := 0
+	entries, err := os.ReadDir(pidDir)
+	if err != nil {
+		return 0
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasPrefix(name, "workspace-") || !strings.HasSuffix(name, ".env") {
+			continue
+		}
+
+		// 读取配置文件获取后端端口
+		envFile := pidDir + "/" + name
+		data, err := os.ReadFile(envFile)
+		if err != nil {
+			continue
+		}
+
+		// 解析 BACKEND_PORT
+		var backendPort int
+		for _, line := range strings.Split(string(data), "\n") {
+			if strings.HasPrefix(line, "BACKEND_PORT=") {
+				backendPort, _ = strconv.Atoi(strings.TrimPrefix(line, "BACKEND_PORT="))
+				break
+			}
+		}
+
+		if backendPort == 0 {
+			continue
+		}
+
+		// 检查端口是否被占用
+		if isPortInUse(backendPort) {
+			count++
+		}
+	}
+
+	return count
+}
+
+// isPortInUse 检查端口是否被占用
+func isPortInUse(port int) bool {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 500*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
 // UpdateWorkspaces 刷新菜单栏显示
 // 根据工作区列表更新图标、标题和动态菜单项
 func (a *App) UpdateWorkspaces(workspaces []api.EnrichedWorkspace) {
@@ -73,12 +168,10 @@ func (a *App) UpdateWorkspaces(workspaces []api.EnrichedWorkspace) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// 根据状态切换图标和提示文字
+	// 更新提示文字和状态标题（图标由 StartInstanceMonitor 单独管理，不覆盖）
 	if attentionCount > 0 {
-		systray.SetIcon(statusIconBytes(attentionCount))
 		systray.SetTooltip(fmt.Sprintf("Kanban Watcher — %d 个任务需要关注", attentionCount))
 	} else {
-		systray.SetIcon(statusIconBytes(attentionCount))
 		systray.SetTooltip("Kanban Watcher — 所有任务正常")
 	}
 

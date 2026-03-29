@@ -334,6 +334,9 @@ func runDaemon() error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// 启动实例数量监控，定期更新菜单栏图标上的点数
+	trayApp.StartInstanceMonitor(ctx)
+
 	if features.enableNotify {
 		pollResults := make(chan poller.PollResult, 2)
 		go poller.Run(ctx, cfg, apiClient, pollResults)
