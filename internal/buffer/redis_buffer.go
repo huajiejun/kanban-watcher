@@ -161,8 +161,10 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 	}
 
 	if len(toPersist) == 0 {
-		// 清理 ZSET
-		rb.rdb.Del(ctx, zsetKey)
+		// 清理已读取的 members
+		if len(members) > 0 {
+			rb.rdb.ZRem(ctx, zsetKey, members)
+		}
 		return nil
 	}
 
@@ -177,8 +179,10 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 			if cnt >= rb.opts.RetryMax {
 				fmt.Fprintf(os.Stderr, "Redis buffer flush 重试 %d 次后放弃 [%s]\n", cnt, processID)
 				rb.writeDeadLetter(processID, toPersist)
-				// 清理避免无限重试
-				rb.rdb.Del(ctx, zsetKey)
+				// 只清理已处理的 members，避免误删其他实例新写入的数据
+				if len(members) > 0 {
+					rb.rdb.ZRem(ctx, zsetKey, members)
+				}
 				rb.mu.Lock()
 				delete(rb.retryCnt, processID)
 				rb.mu.Unlock()
@@ -201,8 +205,10 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 		}
 	}
 
-	// 6. 清理 ZSET (已 flush 的 members)
-	rb.rdb.Del(ctx, zsetKey)
+	// 6. 只删除已 flush 的 members（多实例安全）
+	if len(members) > 0 {
+		rb.rdb.ZRem(ctx, zsetKey, members)
+	}
 	// Hash 保留，24h TTL 自然过期
 
 	return nil
