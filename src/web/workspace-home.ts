@@ -817,6 +817,11 @@ export class KanbanWorkspaceHome extends LitElement {
         this.selectedWorkspaceForPR = workspace;
         this.showCreatePRDialog = true;
         break;
+      case "open-pr":
+        if (workspace.pr_url) {
+          window.open(workspace.pr_url, "_blank");
+        }
+        break;
       case "open-branch":
         // TODO: 打开分支
         console.log("打开分支:", workspace.id);
@@ -1871,6 +1876,7 @@ export class KanbanWorkspaceHome extends LitElement {
         .workspaceName=${workspace.name}
         .statusAccentClass=${statusAccentClass}
         .previewLines=${previewLines}
+        .prUrl=${workspace.pr_url ?? ""}
         @preview-activate=${() => this.handleOpenWorkspace(workspace)}
         @preview-close=${() => this.handleCloseWorkspace(workspace)}
         @menu-action=${(e: CustomEvent) => this.handleMenuAction(workspace, e.detail.action)}

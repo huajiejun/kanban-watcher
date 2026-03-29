@@ -345,12 +345,14 @@ export class WorkspacePreviewCard extends LitElement {
     statusAccentClass: { attribute: false },
     previewLines: { attribute: false },
     showMenu: { type: Boolean },
+    prUrl: { attribute: false },
   };
 
   workspaceName = "";
   statusAccentClass = "is-idle";
   previewLines: string[] = [];
   showMenu = false;
+  prUrl = "";
   private shouldAutoScroll = true;
   private readonly debugInstanceId = ++previewCardInstanceSeed;
 
@@ -476,24 +478,32 @@ export class WorkspacePreviewCard extends LitElement {
   };
 
   private renderMenu() {
+    const hasPr = this.prUrl && this.prUrl.trim() !== "";
+    const prNumber = this.prUrl.match(/\/pull\/(\d+)/)?.[1];
     return html`
       <div class="workspace-preview-menu-dropdown" role="menu">
-        <button
-          class="workspace-preview-menu-item"
-          role="menuitem"
-          @click=${(e: Event) => this.handleMenuItemClick(e, "create-pr")}
-        >
-          <span>🔀</span>
-          <span>提交 Pull Request</span>
-        </button>
-        <button
-          class="workspace-preview-menu-item"
-          role="menuitem"
-          @click=${(e: Event) => this.handleMenuItemClick(e, "open-branch")}
-        >
-          <span>🌿</span>
-          <span>打开分支</span>
-        </button>
+        ${hasPr
+          ? html`
+            <button
+              class="workspace-preview-menu-item"
+              role="menuitem"
+              @click=${(e: Event) => this.handleMenuItemClick(e, "open-pr")}
+            >
+              <span>🔗</span>
+              <span>打开 Pull Request #${prNumber ?? ""}</span>
+            </button>
+          `
+          : html`
+            <button
+              class="workspace-preview-menu-item"
+              role="menuitem"
+              @click=${(e: Event) => this.handleMenuItemClick(e, "create-pr")}
+            >
+              <span>🔀</span>
+              <span>提交 Pull Request</span>
+            </button>
+          `
+        }
         <div class="workspace-preview-menu-divider"></div>
         <button
           class="workspace-preview-menu-item is-danger"
@@ -511,6 +521,10 @@ export class WorkspacePreviewCard extends LitElement {
     event.stopPropagation();
     this.showMenu = false;
     document.removeEventListener("click", this.handleDocumentClick);
+    if (action === "open-pr" && this.prUrl) {
+      window.open(this.prUrl, "_blank");
+      return;
+    }
     this.dispatchEvent(new CustomEvent("menu-action", {
       detail: { action },
       bubbles: true,

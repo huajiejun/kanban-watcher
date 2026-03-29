@@ -215,6 +215,10 @@ export class WorkspaceSectionList extends LitElement {
       return;
     }
     this.activeMenuWorkspaceId = undefined;
+    if (action === "open-pr" && workspace.pr_url) {
+      window.open(workspace.pr_url, "_blank");
+      return;
+    }
     this.dispatchEvent(
       new CustomEvent<{ workspace: KanbanWorkspace; action: string }>("workspace-menu-action", {
         detail: { workspace, action },
@@ -228,8 +232,22 @@ export class WorkspaceSectionList extends LitElement {
     if (this.activeMenuWorkspaceId !== workspace.id) {
       return nothing;
     }
+    const hasPr = workspace.pr_url && workspace.pr_url.trim() !== "";
+    const prNumber = workspace.pr_url?.match(/\/pull\/(\d+)/)?.[1];
     return html`
       <div class="task-card-menu-dropdown">
+        ${hasPr
+          ? html`
+        <button
+          class="task-card-menu-item"
+          type="button"
+          @click=${() => this.handleMenuAction(workspace, "open-pr")}
+        >
+          <span>🔗</span>
+          <span>打开 Pull Request #${prNumber ?? ""}</span>
+        </button>
+          `
+          : html`
         <button
           class="task-card-menu-item"
           type="button"
@@ -238,14 +256,7 @@ export class WorkspaceSectionList extends LitElement {
           <span>🔀</span>
           <span>提交 Pull Request</span>
         </button>
-        <button
-          class="task-card-menu-item"
-          type="button"
-          @click=${() => this.handleMenuAction(workspace, "open-branch")}
-        >
-          <span>🌿</span>
-          <span>打开分支</span>
-        </button>
+        `}
         <div class="task-card-menu-divider"></div>
         <button
           class="task-card-menu-item is-danger"
