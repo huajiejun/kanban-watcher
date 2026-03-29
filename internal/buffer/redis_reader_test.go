@@ -23,9 +23,9 @@ func setupTestRedis(t *testing.T) (*miniredis.Miniredis, *redis.Client) {
 }
 
 func TestCursorEncodeDecode(t *testing.T) {
-	original := cursor{TimestampMilli: 1743244800000, ProcessID: "proc-abc-123", EntryIndex: 42}
+	original := Cursor{TimestampMilli: 1743244800000, ProcessID: "proc-abc-123", EntryIndex: 42}
 	encoded := encodeCursor(original)
-	decoded, err := decodeCursor(encoded)
+	decoded, err := DecodeCursor(encoded)
 	if err != nil {
 		t.Fatalf("decode failed: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestCursorEncodeDecode(t *testing.T) {
 }
 
 func TestDecodeEmptyCursor(t *testing.T) {
-	_, err := decodeCursor("")
+	_, err := DecodeCursor("")
 	if err == nil {
 		t.Error("expected error for empty cursor")
 	}

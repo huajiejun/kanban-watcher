@@ -41,6 +41,9 @@ export class WorkspaceConversationPane extends LitElement {
     diffStats: { attribute: false },
     quickButtonsExpanded: { state: true },
     quickButtonsOverflowing: { state: true },
+    hasMore: { type: Boolean },
+    onLoadMore: { attribute: false },
+    loadingMore: { state: true },
   };
 
   workspaceName = "";
@@ -68,10 +71,13 @@ export class WorkspaceConversationPane extends LitElement {
   private showTodoPanel = false;
   private resolvedWorkspacePath = "";
   diffStats: DiffStats | undefined;
+  hasMore = false;
+  onLoadMore?: () => void;
   private quickButtonsExpanded = false;
   private quickButtonsOverflowing = false;
   private readonly collapsedQuickButtonsHeight = 36;
   private shouldAutoScroll = true;
+  private loadingMore = false;
 
   // File Browser 配置
   private readonly FILE_BROWSER_LOCAL_URL = import.meta.env.VITE_FILE_BROWSER_URL || "http://127.0.0.1:9394";
@@ -190,6 +196,18 @@ export class WorkspaceConversationPane extends LitElement {
       <section class="dialog-messages">
         <div class="dialog-panel-title">对话消息</div>
         <div class="message-list" @scroll=${this.handleMessageListScroll}>
+          ${this.hasMore
+            ? html`<div class="load-more-bar">
+                <button
+                  class="load-more-btn"
+                  type="button"
+                  ?disabled=${this.loadingMore}
+                  @click=${this.handleLoadMore}
+                >
+                  ${this.loadingMore ? "加载中..." : "加载更早消息"}
+                </button>
+              </div>`
+            : nothing}
           ${this.messages.map((message) =>
             this.renderMessage ? this.renderMessage(message) : this.renderEntry(message),
           )}
@@ -254,6 +272,9 @@ export class WorkspaceConversationPane extends LitElement {
   protected updated(changedProperties: Map<PropertyKey, unknown>) {
     if (changedProperties.has("messages") && this.shouldAutoScroll) {
       this.scrollMessagesToBottom();
+    }
+    if (changedProperties.has("messages") && this.loadingMore) {
+      this.loadingMore = false;
     }
     if (changedProperties.has("quickButtons") || changedProperties.has("quickButtonsTemplate")) {
       this.quickButtonsExpanded = false;
@@ -608,6 +629,14 @@ export class WorkspaceConversationPane extends LitElement {
     }
     const distanceToBottom = messageList.scrollHeight - messageList.clientHeight - messageList.scrollTop;
     this.shouldAutoScroll = distanceToBottom <= 8;
+  };
+
+  private handleLoadMore = () => {
+    if (this.loadingMore || !this.hasMore || !this.onLoadMore) {
+      return;
+    }
+    this.loadingMore = true;
+    this.onLoadMore();
   };
 
   private toggleToolMessage = (toolKey: string) => {

@@ -12,29 +12,30 @@ import (
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
 
-// cursor 三段式分页游标
-type cursor struct {
+// Cursor 三段式分页游标
+type Cursor struct {
 	TimestampMilli int64  `json:"ts"`
 	ProcessID      string `json:"pid"`
 	EntryIndex     int    `json:"ei"`
 }
 
-func encodeCursor(c cursor) string {
+func encodeCursor(c Cursor) string {
 	data, _ := json.Marshal(c)
 	return base64.RawURLEncoding.EncodeToString(data)
 }
 
-func decodeCursor(s string) (cursor, error) {
+// DecodeCursor 解码分页游标
+func DecodeCursor(s string) (Cursor, error) {
 	if s == "" {
-		return cursor{}, fmt.Errorf("empty cursor")
+		return Cursor{}, fmt.Errorf("empty cursor")
 	}
 	data, err := base64.RawURLEncoding.DecodeString(s)
 	if err != nil {
-		return cursor{}, fmt.Errorf("invalid cursor: %w", err)
+		return Cursor{}, fmt.Errorf("invalid cursor: %w", err)
 	}
-	var c cursor
+	var c Cursor
 	if err := json.Unmarshal(data, &c); err != nil {
-		return cursor{}, fmt.Errorf("invalid cursor json: %w", err)
+		return Cursor{}, fmt.Errorf("invalid cursor json: %w", err)
 	}
 	return c, nil
 }
@@ -64,7 +65,7 @@ func (rr *RedisReader) FetchWorkspaceMessages(ctx context.Context, workspaceID s
 	var cursorPID string
 	var cursorEI int
 	if beforeCursor != "" {
-		c, err := decodeCursor(beforeCursor)
+		c, err := DecodeCursor(beforeCursor)
 		if err == nil {
 			cursorTS = c.TimestampMilli
 			cursorPID = c.ProcessID
@@ -158,7 +159,7 @@ func (rr *RedisReader) FetchWorkspaceMessages(ctx context.Context, workspaceID s
 	var nextCursor string
 	if len(allEntries) > 0 {
 		last := allEntries[len(allEntries)-1]
-		nextCursor = encodeCursor(cursor{
+		nextCursor = encodeCursor(Cursor{
 			TimestampMilli: last.EntryTimestamp.UnixMilli(),
 			ProcessID:      last.ProcessID,
 			EntryIndex:     last.EntryIndex,

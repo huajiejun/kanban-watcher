@@ -243,6 +243,7 @@ func runDaemon() error {
 	// 初始化数据库 Store（如果配置了）
 	var dbStore *store.Store
 	var realtimePublisher *api.RealtimePublisher
+	var redisCli *redisclient.Client
 	if cfg.Database.IsEnabled() {
 		var err error
 		dbStore, err = store.NewStoreWithOptions(cfg.Database.DSN(), store.Options{
@@ -264,7 +265,10 @@ func runDaemon() error {
 
 				if features.enableSync {
 					syncService := sync.NewSyncService(cfg, dbStore)
-					msgBuf, entryReader, bufferCleanup, redisCli := initBuffer(cfg, dbStore)
+					var msgBuf buffer.MessageBuffer
+					var entryReader buffer.ProcessEntryReader
+					var bufferCleanup func()
+					msgBuf, entryReader, bufferCleanup, redisCli = initBuffer(cfg, dbStore)
 					syncService.SetBuffer(msgBuf, entryReader)
 					defer bufferCleanup()
 					if features.enableRealtime {
@@ -328,6 +332,10 @@ func runDaemon() error {
 	if dbStore != nil {
 		httpServer.SetStore(dbStore)
 		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
+	}
+
+	if redisCli != nil {
+		httpServer.SetRedisClient(redisCli.RDB())
 	}
 
 	// 注册消息 API 路由（如果数据库已连接）
@@ -398,6 +406,7 @@ func runHeadless() error {
 
 	var dbStore *store.Store
 	var realtimePublisher *api.RealtimePublisher
+	var redisCli *redisclient.Client
 	if cfg.Database.IsEnabled() {
 		dbStore, err = store.NewStoreWithOptions(cfg.Database.DSN(), store.Options{
 			MaxOpenConns:    4,
@@ -416,7 +425,10 @@ func runHeadless() error {
 				fmt.Fprintf(os.Stdout, "数据库连接成功\n")
 				if features.enableSync {
 					syncService := sync.NewSyncService(cfg, dbStore)
-					msgBuf, entryReader, bufferCleanup, redisCli := initBuffer(cfg, dbStore)
+					var msgBuf buffer.MessageBuffer
+					var entryReader buffer.ProcessEntryReader
+					var bufferCleanup func()
+					msgBuf, entryReader, bufferCleanup, redisCli = initBuffer(cfg, dbStore)
 					syncService.SetBuffer(msgBuf, entryReader)
 					defer bufferCleanup()
 					if features.enableRealtime {
@@ -490,6 +502,11 @@ func runHeadless() error {
 			httpServer.RegisterRoute("/api/realtime/ws", httpServer.HandleRealtimeUnavailable)
 		}
 	}
+
+	if redisCli != nil {
+		httpServer.SetRedisClient(redisCli.RDB())
+	}
+
 	if err := httpServer.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "HTTP 服务器启动失败: %v\n", err)
 	}

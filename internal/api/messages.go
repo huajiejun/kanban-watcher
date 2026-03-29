@@ -2,13 +2,17 @@ package api
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/go-redis/redis/v8"
+	"github.com/huajiejun/kanban-watcher/internal/buffer"
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
 
@@ -31,6 +35,14 @@ type SessionMessagesResponse struct {
 	WorkspaceName string            `json:"workspace_name,omitempty"`
 	Messages      []MessageResponse `json:"messages"`
 	HasMore       bool              `json:"has_more"`
+}
+
+// WorkspaceMessagesResponse 工作区消息分页响应
+type WorkspaceMessagesResponse struct {
+	WorkspaceID string            `json:"workspace_id"`
+	Messages    []MessageResponse `json:"messages"`
+	HasMore     bool              `json:"has_more"`
+	Cursor      string            `json:"cursor,omitempty"`
 }
 
 // ActiveWorkspaceResponse 活跃工作区响应
@@ -433,6 +445,149 @@ func parseTypesFilter(raw string) []string {
 		}
 	}
 	return result
+}
+
+// HandleWorkspaceMessages 处理 GET /api/workspaces/{id}/messages
+// Redis 优先 + MySQL 兜底的分页消息查询
+func HandleWorkspaceMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store, rdb *redis.Client) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if dbStore == nil {
+		http.Error(w, "数据库未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) < 1 || parts[0] == "" {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	workspaceID := parts[0]
+
+	// 解析参数
+	limit := 50
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			if parsed > 200 {
+				parsed = 200
+			}
+			limit = parsed
+		}
+	}
+	beforeCursor := r.URL.Query().Get("before")
+
+	// 获取 workspace 以确认 sessionID
+	workspace, err := dbStore.GetWorkspaceByID(r.Context(), workspaceID)
+	if err != nil {
+		http.Error(w, "获取工作区失败", http.StatusInternalServerError)
+		return
+	}
+	if workspace == nil || workspace.LatestSessionID == nil || *workspace.LatestSessionID == "" {
+		writeJSON(w, WorkspaceMessagesResponse{WorkspaceID: workspaceID, Messages: []MessageResponse{}})
+		return
+	}
+	sessionID := *workspace.LatestSessionID
+
+	// Redis 优先查询
+	var allEntries []store.ProcessEntry
+	var hasMore bool
+	var nextCursor string
+
+	if rdb != nil {
+		reader := buffer.NewRedisReader(rdb)
+		redisEntries, redisHasMore, redisCursor, redisErr := reader.FetchWorkspaceMessages(
+			r.Context(), workspaceID, limit, beforeCursor,
+		)
+		if redisErr != nil {
+			fmt.Fprintf(os.Stderr, "Redis 查询失败，降级到 MySQL: %v\n", redisErr)
+		} else if len(redisEntries) > 0 {
+			allEntries = redisEntries
+			hasMore = redisHasMore
+			nextCursor = redisCursor
+
+			// Redis 数据不够且无更多，从 MySQL 补充
+			if len(redisEntries) < limit && !redisHasMore {
+				remaining := limit - len(redisEntries) + 1
+				oldestTimestamp := redisEntries[len(redisEntries)-1].EntryTimestamp
+				mysqlEntries, mysqlErr := dbStore.GetSessionMessages(
+					r.Context(), sessionID, remaining, oldestTimestamp, nil,
+				)
+				if mysqlErr == nil && len(mysqlEntries) > 0 {
+					mysqlHasMore := len(mysqlEntries) > remaining-1
+					if mysqlHasMore {
+						mysqlEntries = mysqlEntries[:remaining-1]
+					}
+					allEntries = append(allEntries, mysqlEntries...)
+					if mysqlHasMore {
+						hasMore = true
+					}
+				}
+			}
+		}
+	}
+
+	// Redis 无数据或不可用，直接查 MySQL
+	if len(allEntries) == 0 {
+		var before time.Time
+		if beforeCursor != "" {
+			if c, decErr := buffer.DecodeCursor(beforeCursor); decErr == nil {
+				before = time.UnixMilli(c.TimestampMilli)
+			}
+		}
+		entries, dbErr := dbStore.GetSessionMessages(r.Context(), sessionID, limit+1, before, nil)
+		if dbErr != nil {
+			http.Error(w, "获取消息失败", http.StatusInternalServerError)
+			return
+		}
+		hasMore = len(entries) > limit
+		if hasMore {
+			entries = entries[:limit]
+		}
+		allEntries = entries
+	}
+
+	// 生成 cursor（如果还没有）
+	if nextCursor == "" && len(allEntries) > 0 {
+		last := allEntries[len(allEntries)-1]
+		c := buffer.Cursor{
+			TimestampMilli: last.EntryTimestamp.UnixMilli(),
+			ProcessID:      last.ProcessID,
+			EntryIndex:     last.EntryIndex,
+		}
+		data, _ := json.Marshal(c)
+		nextCursor = base64.RawURLEncoding.EncodeToString(data)
+	}
+
+	reverseMessages(allEntries)
+
+	resp := WorkspaceMessagesResponse{
+		WorkspaceID: workspaceID,
+		Messages:    make([]MessageResponse, 0, len(allEntries)),
+		HasMore:     hasMore,
+		Cursor:      nextCursor,
+	}
+
+	for _, entry := range allEntries {
+		item := MessageResponse{
+			ID:         entry.ID,
+			SessionID:  entry.SessionID,
+			ProcessID:  entry.ProcessID,
+			EntryIndex: entry.EntryIndex,
+			EntryType:  entry.EntryType,
+			Role:       entry.Role,
+			Content:    entry.Content,
+			Timestamp:  entry.EntryTimestamp.Format(time.RFC3339Nano),
+		}
+		if info := buildToolInfo(entry); len(info) > 0 {
+			item.ToolInfo = info
+		}
+		resp.Messages = append(resp.Messages, item)
+	}
+
+	writeJSON(w, resp)
 }
 
 func reverseMessages(entries []store.ProcessEntry) {
