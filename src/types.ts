@@ -70,6 +70,7 @@ export interface LocalWorkspaceSummary {
   files_changed?: number;
   lines_added?: number;
   lines_removed?: number;
+  pr_url?: string;
   updated_at?: string;
   message_count?: number;
   last_message_at?: string;

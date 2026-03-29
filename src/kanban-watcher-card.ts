@@ -1543,6 +1543,7 @@ export class KanbanWatcherCard extends LitElement {
       files_changed: workspace.files_changed ?? 0,
       lines_added: workspace.lines_added ?? 0,
       lines_removed: workspace.lines_removed ?? 0,
+      pr_url: workspace.pr_url,
     };
   }
 

@@ -334,12 +334,14 @@ func TestActiveWorkspacesRouteIncludesBrowserURLWhenTemplateConfigured(t *testin
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "branch", "latest_session_id", "status",
 		"has_pending_approval", "has_unseen_turns", "has_running_dev_server", "running_dev_server_process_id",
-		"files_changed", "lines_added", "lines_removed", "updated_at",
+		"files_changed", "lines_added", "lines_removed", "pr_url",
+		"updated_at",
 		"message_count", "last_message_at", "latest_process_completed_at", "last_message",
 	}).AddRow(
 		"ws-1", "工作区一", "feature/browser", "session-1", "completed",
 		false, false, true, "proc-dev-1",
-		1, 2, 3, time.Now(),
+		1, 2, 3, nil,
+		time.Now(),
 		0, nil, nil, nil,
 	)
 

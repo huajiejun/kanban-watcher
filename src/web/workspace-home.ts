@@ -501,6 +501,7 @@ export class KanbanWorkspaceHome extends LitElement {
       files_changed: workspace.files_changed,
       lines_added: workspace.lines_added,
       lines_removed: workspace.lines_removed,
+      pr_url: workspace.pr_url,
       updated_at: workspace.updated_at,
       last_message_at: workspace.last_message_at,
       latest_process_completed_at: workspace.latest_process_completed_at,

@@ -447,12 +447,14 @@ func TestGetActiveWorkspaceSummariesIncludesLastMessage(t *testing.T) {
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "branch", "latest_session_id", "status",
 		"has_pending_approval", "has_unseen_turns", "has_running_dev_server", "running_dev_server_process_id",
-		"files_changed", "lines_added", "lines_removed", "updated_at",
+		"files_changed", "lines_added", "lines_removed", "pr_url",
+		"updated_at",
 		"message_count", "last_message_at", "latest_process_completed_at", "last_message",
 	}).AddRow(
 		"ws-1", "Workspace 1", "main", "session-1", "completed",
 		false, true, true, "proc-dev-1",
-		2, 8, 1, now,
+		2, 8, 1, nil,
+		now,
 		5, now, now, "这里是最近一条消息",
 	)
 
@@ -470,6 +472,7 @@ func TestGetActiveWorkspaceSummariesIncludesLastMessage(t *testing.T) {
 			w.files_changed,
 			w.lines_added,
 			w.lines_removed,
+			w.pr_url,
 			w.updated_at,
 			COALESCE(msg.message_count, 0) AS message_count,
 			msg.last_message_at,
