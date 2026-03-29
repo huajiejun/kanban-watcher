@@ -126,6 +126,7 @@ export interface LocalWorkspaceSummary {
   files_changed?: number;
   lines_added?: number;
   lines_removed?: number;
+  pr_url?: string;
   updated_at?: string;
   message_count?: number;
   last_message_at?: string;
@@ -333,4 +334,29 @@ export interface WorkspaceTodo {
 export interface WorkspaceTodosResponse {
   todos: WorkspaceTodo[];
   pending_count: number;
+}
+
+/** PR 创建请求 */
+export interface CreatePrApiRequest {
+  title: string;
+  body: string | null;
+  target_branch: string | null;
+  draft: boolean | null;
+  repo_id: string;
+  auto_generate_description: boolean;
+}
+
+/** 分支信息 */
+export interface RepoBranch {
+  name: string;
+  is_current?: boolean;
+  is_remote?: boolean;
+}
+
+/** PR 创建响应 */
+export interface CreatePRResponse {
+  success: boolean;
+  data?: string;
+  error?: string;
+  message?: string;
 }

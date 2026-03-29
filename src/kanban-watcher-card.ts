@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from "lit";
 import "./components/workspace-conversation-pane";
+import "./components/create-pr-dialog";
 import "./components/diff-details-panel";
 import { detectDialogEditLanguage, renderDialogMessage } from "./components/dialog-message-renderer";
 import {
@@ -137,6 +138,9 @@ export class KanbanWatcherCard extends LitElement {
     todosByWorkspace: { state: true },
     webPreviewWorkspaceId: { state: true },
     webPreviewFallbackUrlByWorkspace: { state: true },
+    activeMenuWorkspaceId: { state: true },
+    showCreatePRDialog: { state: true },
+    selectedWorkspaceForPR: { state: true },
     diffDetailsWorkspaceId: { state: true },
     diffDetailsStats: { state: true },
   };
@@ -189,6 +193,9 @@ export class KanbanWatcherCard extends LitElement {
   private previewProxyPort?: number;
   private realtimeBaseUrl?: string;
   private webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
+  private activeMenuWorkspaceId?: string;
+  private showCreatePRDialog = false;
+  private selectedWorkspaceForPR?: KanbanWorkspace;
   private diffDetailsWorkspaceId?: string;
   private diffDetailsStats?: { files_changed: number; lines_added: number; lines_removed: number };
 
@@ -227,6 +234,7 @@ export class KanbanWatcherCard extends LitElement {
         </div>
         ${this.renderDialog()}
         ${this.renderWebPreviewOverlay()}
+        ${this.renderCreatePRDialog()}
         ${this.renderDiffDetailsPanel()}
       </ha-card>
     `;
@@ -284,6 +292,8 @@ export class KanbanWatcherCard extends LitElement {
       getWorkspaceDisplayMeta: (workspace) => this.getWorkspaceDisplayMeta(workspace),
       onToggleSection: (key) => this.toggleSection(key),
       onSelectWorkspace: (workspace) => this.openWorkspaceDialog(workspace),
+      onMenuAction: (workspace, action) => this.handleWorkspaceMenuAction(workspace, action),
+      activeMenuWorkspaceId: this.activeMenuWorkspaceId,
     });
   }
 
@@ -518,6 +528,31 @@ export class KanbanWatcherCard extends LitElement {
     }
   }
 
+  private handleWorkspaceMenuAction(workspace: KanbanWorkspace, action: string) {
+    if (action === "toggle-menu") {
+      this.activeMenuWorkspaceId = this.activeMenuWorkspaceId === workspace.id ? undefined : workspace.id;
+      return;
+    }
+    this.activeMenuWorkspaceId = undefined;
+    switch (action) {
+      case "create-pr":
+        this.showCreatePRDialog = true;
+        this.selectedWorkspaceForPR = workspace;
+        break;
+      case "open-pr":
+        if (workspace.pr_url) {
+          window.open(workspace.pr_url, "_blank");
+        }
+        break;
+      case "delete":
+        // TODO: 删除工作区
+        console.log("删除工作区:", workspace.id);
+        break;
+      default:
+        console.warn("未知菜单操作:", action);
+    }
+  }
+
   private closeWorkspaceDialog = () => {
     const workspaceID = this.selectedWorkspaceId;
     this.selectedWorkspaceId = undefined;
@@ -534,6 +569,29 @@ export class KanbanWatcherCard extends LitElement {
     this.expandedToolMessageKeys = new Set();
     this.smoothRevealMessageKey = "";
   };
+
+  private handleCloseCreatePRDialog = () => {
+    this.showCreatePRDialog = false;
+    this.selectedWorkspaceForPR = undefined;
+  };
+
+  private renderCreatePRDialog() {
+    if (!this.showCreatePRDialog || !this.selectedWorkspaceForPR) {
+      return nothing;
+    }
+    const workspace = this.selectedWorkspaceForPR;
+    return html`
+      <create-pr-dialog
+        .open=${this.showCreatePRDialog}
+        .workspaceId=${workspace.id}
+        .repoId=${""}
+        .targetBranch=${workspace.branch ?? ""}
+        .baseUrl=${this.config?.base_url ?? ""}
+        .apiKey=${this.config?.api_key ?? ""}
+        @close=${this.handleCloseCreatePRDialog}
+      ></create-pr-dialog>
+    `;
+  }
 
   private renderDialogEntry(message: DialogMessage) {
     return renderDialogMessage(message, {
@@ -1533,6 +1591,7 @@ export class KanbanWatcherCard extends LitElement {
       files_changed: workspace.files_changed ?? 0,
       lines_added: workspace.lines_added ?? 0,
       lines_removed: workspace.lines_removed ?? 0,
+      pr_url: workspace.pr_url,
     };
   }
 
