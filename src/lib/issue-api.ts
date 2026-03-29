@@ -7,6 +7,8 @@ import type {
   CreateIssuePayload,
   UpdateIssuePayload,
   CreateWorkspaceRequest,
+  BaseCodingAgent,
+  ExecutorConfig,
 } from "../types/issue";
 
 type RequestOptions = {
@@ -209,4 +211,60 @@ export async function linkWorkspaceToIssue(
       }),
     }
   );
+}
+
+/** GET /api/agents/preset-options - 获取Agent预设配置 */
+export async function fetchAgentPresetOptions(
+  options: RequestOptions,
+  executor: BaseCodingAgent,
+  variant?: string
+): Promise<ExecutorConfig | null> {
+  const params = new URLSearchParams();
+  params.set("executor", executor);
+  if (variant) params.set("variant", variant);
+
+  const response = await fetchJSON<{
+    success: boolean;
+    data: ExecutorConfig;
+  }>(
+    `${normalizeBaseUrl(
+      options.baseUrl
+    )}/api/agents/preset-options?${params.toString()}`,
+    {
+      method: "GET",
+      headers: buildHeaders(options.apiKey),
+    }
+  );
+  return response.data ?? null;
+}
+
+/** GET /api/agents/discovery - 获取Agent发现的模型列表 */
+export async function fetchAgentDiscovery(
+  options: RequestOptions,
+  executor: BaseCodingAgent
+): Promise<{
+  models: Array<{ id: string; name: string; provider: string }>;
+  presets: string[];
+} | null> {
+  try {
+    const response = await fetchJSON<{
+      success: boolean;
+      data: {
+        models: Array<{ id: string; name: string; provider: string }>;
+        presets: string[];
+      };
+    }>(
+      `${normalizeBaseUrl(
+        options.baseUrl
+      )}/api/agents/discovery?executor=${encodeURIComponent(executor)}`,
+      {
+        method: "GET",
+        headers: buildHeaders(options.apiKey),
+      }
+    );
+    return response.data ?? null;
+  } catch (error) {
+    console.warn("[fetchAgentDiscovery] 获取失败:", error);
+    return null;
+  }
 }

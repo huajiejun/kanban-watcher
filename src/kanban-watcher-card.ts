@@ -46,6 +46,8 @@ import {
 import {
   createAndStartWorkspace,
   linkWorkspaceToIssue,
+  fetchAgentPresetOptions,
+  fetchAgentDiscovery,
 } from "./lib/issue-api";
 import {
   renderWorkspaceSectionList,
@@ -161,6 +163,9 @@ export class KanbanWatcherCard extends LitElement {
     createWorkspaceModel: { state: true },
     createWorkspacePrompt: { state: true },
     createWorkspacePermission: { state: true },
+    createWorkspaceAvailablePresets: { state: true },
+    createWorkspaceAvailableModels: { state: true },
+    createWorkspaceLoadingPresets: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -222,6 +227,9 @@ export class KanbanWatcherCard extends LitElement {
   private createWorkspaceModel = "";
   private createWorkspacePrompt = "";
   private createWorkspacePermission: PermissionPolicy = PermissionPolicy.AUTO;
+  private createWorkspaceAvailablePresets: string[] = [];
+  private createWorkspaceAvailableModels: Array<{ id: string; name: string; provider: string }> = [];
+  private createWorkspaceLoadingPresets = false;
 
   connectedCallback() {
     super.connectedCallback();
@@ -559,6 +567,9 @@ export class KanbanWatcherCard extends LitElement {
     this.createWorkspaceProjectId = options?.projectId || "";
     this.createWorkspaceIssueId = options?.issueId || "";
     this.createWorkspaceOpen = true;
+
+    // 加载当前选中 agent 的预设和模型
+    void this.loadAgentPresetsAndModels(this.createWorkspaceAgent);
   }
 
   private closeCreateWorkspaceDialog = () => {
@@ -1016,11 +1027,15 @@ export class KanbanWatcherCard extends LitElement {
       { value: BaseCodingAgent.DROID, label: "Droid" },
     ];
 
-    const variants = [
-      { value: "DEFAULT", label: "默认" },
-      { value: "PLAN", label: "计划模式" },
-      { value: "ROUTER", label: "路由模式" },
-    ];
+    // 使用从API加载的预设列表，如果没有则使用默认值
+    const variants = this.createWorkspaceAvailablePresets.length > 0
+      ? this.createWorkspaceAvailablePresets.map(p => ({ value: p, label: p }))
+      : [{ value: "DEFAULT", label: "默认" }];
+
+    // 使用从API加载的模型列表
+    const models = this.createWorkspaceAvailableModels.length > 0
+      ? this.createWorkspaceAvailableModels
+      : [];
 
     const permissions = [
       { value: PermissionPolicy.AUTO, label: "自动执行" },
@@ -1158,12 +1173,80 @@ export class KanbanWatcherCard extends LitElement {
     this.createWorkspaceSuggestedName = (e.target as HTMLInputElement).value;
   };
 
-  private handleAgentChange = (e: Event) => {
-    this.createWorkspaceAgent = (e.target as HTMLSelectElement).value as BaseCodingAgent;
+  private handleAgentChange = async (e: Event) => {
+    const agent = (e.target as HTMLSelectElement).value as BaseCodingAgent;
+    this.createWorkspaceAgent = agent;
+
+    // 加载预设和模型列表
+    await this.loadAgentPresetsAndModels(agent);
   };
 
-  private handleVariantChange = (e: Event) => {
-    this.createWorkspaceVariant = (e.target as HTMLSelectElement).value;
+  private loadAgentPresetsAndModels = async (agent: BaseCodingAgent) => {
+    if (!this.isApiMode || !this.config?.base_url) return;
+
+    this.createWorkspaceLoadingPresets = true;
+
+    try {
+      // 获取预设和模型列表
+      const discovery = await fetchAgentDiscovery(
+        { baseUrl: this.config.base_url, apiKey: this.config.api_key },
+        agent
+      );
+
+      if (discovery) {
+        this.createWorkspaceAvailablePresets = discovery.presets;
+        this.createWorkspaceAvailableModels = discovery.models;
+
+        // 如果有预设，自动选择第一个
+        if (discovery.presets.length > 0) {
+          this.createWorkspaceVariant = discovery.presets[0];
+
+          // 获取第一个预设的详细配置
+          await this.loadPresetOptions(agent, this.createWorkspaceVariant);
+        }
+      }
+    } catch (error) {
+      console.error("[kanban-watcher-card] 加载Agent预设失败:", error);
+      // 使用默认值
+      this.createWorkspaceAvailablePresets = ["DEFAULT", "PLAN", "ROUTER"];
+    } finally {
+      this.createWorkspaceLoadingPresets = false;
+    }
+  };
+
+  private loadPresetOptions = async (agent: BaseCodingAgent, variant: string) => {
+    if (!this.isApiMode || !this.config?.base_url) return;
+
+    try {
+      const options = await fetchAgentPresetOptions(
+        { baseUrl: this.config.base_url, apiKey: this.config.api_key },
+        agent,
+        variant
+      );
+
+      if (options) {
+        // 自动填充模型（如果预设中有）
+        if (options.model_id) {
+          this.createWorkspaceModel = options.model_id;
+        }
+        // 自动填充权限策略
+        if (options.permission_policy) {
+          this.createWorkspacePermission = options.permission_policy;
+        }
+      }
+    } catch (error) {
+      console.error("[kanban-watcher-card] 加载预设选项失败:", error);
+    }
+  };
+
+  private handleVariantChange = async (e: Event) => {
+    const variant = (e.target as HTMLSelectElement).value;
+    this.createWorkspaceVariant = variant;
+
+    // 加载预设选项
+    if (this.createWorkspaceAgent) {
+      await this.loadPresetOptions(this.createWorkspaceAgent, variant);
+    }
   };
 
   private handleModelInput = (e: Event) => {
