@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/huajiejun/kanban-watcher/internal/buffer"
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
 
@@ -56,7 +57,7 @@ func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
 		flushedEntryIndex *int
 	)
 
-	buffer := newProcessEntryBuffer(20*time.Millisecond, fakeStore, func(_ context.Context, entry *store.ProcessEntry, lastEntryIndex *int) error {
+	buf := buffer.NewMemoryBuffer(20*time.Millisecond, fakeStore, func(_ context.Context, entry *store.ProcessEntry, lastEntryIndex *int) error {
 		mu.Lock()
 		defer mu.Unlock()
 		flushedProcessID = entry.ProcessID
@@ -67,7 +68,7 @@ func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
 		return nil
 	})
 
-	buffer.Enqueue("proc-1", &store.ProcessEntry{
+	buf.Enqueue("proc-1", &store.ProcessEntry{
 		ProcessID:      "proc-1",
 		SessionID:      "session-1",
 		WorkspaceID:    "ws-1",
@@ -78,7 +79,7 @@ func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
 		EntryTimestamp: time.Now(),
 		ContentHash:    "hash-old",
 	}, nil)
-	buffer.Enqueue("proc-1", &store.ProcessEntry{
+	buf.Enqueue("proc-1", &store.ProcessEntry{
 		ProcessID:      "proc-1",
 		SessionID:      "session-1",
 		WorkspaceID:    "ws-1",
@@ -89,7 +90,7 @@ func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
 		EntryTimestamp: time.Now().Add(time.Second),
 		ContentHash:    "hash-new",
 	}, nil)
-	buffer.Enqueue("proc-1", &store.ProcessEntry{
+	buf.Enqueue("proc-1", &store.ProcessEntry{
 		ProcessID:      "proc-1",
 		SessionID:      "session-1",
 		WorkspaceID:    "ws-1",
@@ -138,7 +139,7 @@ func TestProcessEntryBufferFlushProcessAdvancesContiguousIndex(t *testing.T) {
 	}
 
 	var flushedEntryIndex *int
-	buffer := newProcessEntryBuffer(200*time.Millisecond, fakeStore, func(_ context.Context, _ *store.ProcessEntry, lastEntryIndex *int) error {
+	buf := buffer.NewMemoryBuffer(200*time.Millisecond, fakeStore, func(_ context.Context, _ *store.ProcessEntry, lastEntryIndex *int) error {
 		if lastEntryIndex != nil {
 			value := *lastEntryIndex
 			flushedEntryIndex = &value
@@ -147,7 +148,7 @@ func TestProcessEntryBufferFlushProcessAdvancesContiguousIndex(t *testing.T) {
 	})
 
 	lastEntryIndex := 1
-	buffer.Enqueue("proc-1", &store.ProcessEntry{
+	buf.Enqueue("proc-1", &store.ProcessEntry{
 		ProcessID:      "proc-1",
 		SessionID:      "session-1",
 		WorkspaceID:    "ws-1",
@@ -158,7 +159,7 @@ func TestProcessEntryBufferFlushProcessAdvancesContiguousIndex(t *testing.T) {
 		EntryTimestamp: time.Now().Add(time.Second),
 		ContentHash:    "hash-2",
 	}, &lastEntryIndex)
-	buffer.Enqueue("proc-1", &store.ProcessEntry{
+	buf.Enqueue("proc-1", &store.ProcessEntry{
 		ProcessID:      "proc-1",
 		SessionID:      "session-1",
 		WorkspaceID:    "ws-1",
@@ -170,7 +171,7 @@ func TestProcessEntryBufferFlushProcessAdvancesContiguousIndex(t *testing.T) {
 		ContentHash:    "hash-4",
 	}, &lastEntryIndex)
 
-	if err := buffer.FlushProcess(context.Background(), "proc-1"); err != nil {
+	if err := buf.FlushProcess(context.Background(), "proc-1"); err != nil {
 		t.Fatalf("FlushProcess 返回错误: %v", err)
 	}
 
@@ -184,14 +185,16 @@ func TestSyncServiceStopFlushesBufferedEntries(t *testing.T) {
 		existing: make(map[int]*store.ProcessEntry),
 	}
 
+	memBuf := buffer.NewMemoryBuffer(time.Hour, fakeStore, func(_ context.Context, _ *store.ProcessEntry, _ *int) error {
+		return nil
+	})
+
 	service := &SyncService{
 		stopCh: make(chan struct{}),
-		processEntryBuffer: newProcessEntryBuffer(time.Hour, fakeStore, func(_ context.Context, _ *store.ProcessEntry, _ *int) error {
-			return nil
-		}),
 	}
+	service.SetBuffer(memBuf, memBuf)
 
-	service.processEntryBuffer.Enqueue("proc-1", &store.ProcessEntry{
+	service.msgBuffer.Enqueue("proc-1", &store.ProcessEntry{
 		ProcessID:      "proc-1",
 		SessionID:      "session-1",
 		WorkspaceID:    "ws-1",

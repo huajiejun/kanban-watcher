@@ -20,10 +20,12 @@ import (
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/auth"
+	"github.com/huajiejun/kanban-watcher/internal/buffer"
 	"github.com/huajiejun/kanban-watcher/internal/config"
 	"github.com/huajiejun/kanban-watcher/internal/notify"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
 	"github.com/huajiejun/kanban-watcher/internal/realtime"
+	"github.com/huajiejun/kanban-watcher/internal/redisclient"
 	"github.com/huajiejun/kanban-watcher/internal/server"
 	"github.com/huajiejun/kanban-watcher/internal/service"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
@@ -260,6 +262,9 @@ func runDaemon() error {
 
 				if features.enableSync {
 					syncService := sync.NewSyncService(cfg, dbStore)
+					msgBuf, entryReader, bufferCleanup := initBuffer(cfg, dbStore)
+					syncService.SetBuffer(msgBuf, entryReader)
+					defer bufferCleanup()
 					if features.enableRealtime {
 						realtimeHub := realtime.NewHub()
 						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
@@ -400,6 +405,9 @@ func runHeadless() error {
 				fmt.Fprintf(os.Stdout, "数据库连接成功\n")
 				if features.enableSync {
 					syncService := sync.NewSyncService(cfg, dbStore)
+					msgBuf, entryReader, bufferCleanup := initBuffer(cfg, dbStore)
+					syncService.SetBuffer(msgBuf, entryReader)
+					defer bufferCleanup()
 					if features.enableRealtime {
 						realtimeHub := realtime.NewHub()
 						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
@@ -536,6 +544,57 @@ func generateRandomSecret() string {
 		log.Fatalf("生成随机密钥失败: %v", err)
 	}
 	return base64.StdEncoding.EncodeToString(b)
+}
+
+// stringPtr 返回字符串指针，空字符串返回 nil
+func stringPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// initBuffer 根据配置创建消息缓冲层，返回 (MessageBuffer, ProcessEntryReader, cleanup)
+func initBuffer(cfg *config.Config, dbStore *store.Store) (buffer.MessageBuffer, buffer.ProcessEntryReader, func()) {
+	onFlush := func(ctx context.Context, entry *store.ProcessEntry, lastEntryIndex *int) error {
+		if entry == nil {
+			return nil
+		}
+		return dbStore.UpsertSubscription(ctx, &store.SyncSubscription{
+			SubscriptionKey:  store.BuildProcessLogSubscriptionKey(entry.ProcessID),
+			SubscriptionType: "process_log_stream",
+			TargetID:         entry.ProcessID,
+			SessionID:        stringPtr(entry.SessionID),
+			WorkspaceID:      stringPtr(entry.WorkspaceID),
+			LastEntryIndex:   lastEntryIndex,
+			Status:           "active",
+			LastSeenAt:       time.Now(),
+		})
+	}
+
+	if cfg.Redis.IsEnabled() {
+		rdb, err := redisclient.NewClient(cfg.Redis)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Redis 连接失败，降级到内存 buffer: %v\n", err)
+			memBuf := buffer.NewMemoryBuffer(200*time.Millisecond, dbStore, onFlush)
+			return memBuf, memBuf, func() {}
+		}
+
+		redisBuf := buffer.NewRedisBuffer(buffer.RedisBufferOptions{
+			FlushThreshold: 50,
+			FlushInterval:  500 * time.Millisecond,
+			TTL:            24 * time.Hour,
+			RetryMax:       3,
+		}, rdb.RDB(), dbStore, onFlush)
+
+		memBuf := buffer.NewMemoryBuffer(200*time.Millisecond, dbStore, onFlush)
+
+		fb := buffer.NewFallbackBuffer(redisBuf, memBuf, 3*time.Second)
+		return fb, fb, func() { rdb.Close() }
+	}
+
+	memBuf := buffer.NewMemoryBuffer(200*time.Millisecond, dbStore, onFlush)
+	return memBuf, memBuf, func() {}
 }
 
 // convertUsers 转换用户配置
