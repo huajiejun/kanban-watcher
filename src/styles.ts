@@ -599,7 +599,7 @@ export const workspaceHomeStyles = css`
 
   @media (max-width: 768px) {
     :host {
-      padding: 20px 14px 28px;
+      padding: 0;
     }
 
     .workspace-home-layout {
@@ -612,6 +612,99 @@ export const workspaceHomeStyles = css`
       background: transparent;
       box-shadow: none;
       backdrop-filter: none;
+    }
+
+    /* 手机端顶部菜单栏 */
+    .workspace-home-mobile-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 10px;
+      background: rgba(20, 20, 24, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      gap: 4px;
+    }
+
+    .mobile-drawer-toggle {
+      position: absolute;
+      left: 10px;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .mobile-drawer-toggle:active {
+      background: rgba(148, 163, 184, 0.2);
+      color: #e5e7eb;
+    }
+
+    .mobile-header-nav {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .mobile-header-item {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 3px 8px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: rgba(148, 163, 184, 0.7);
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-header-item:hover {
+      color: #e2e8f0;
+      background: rgba(148, 163, 184, 0.08);
+    }
+
+    .mobile-header-item[data-active="true"] {
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .mobile-header-icon {
+      font-size: 0.76rem;
+      line-height: 1;
+    }
+
+    .mobile-header-label {
+      font-weight: 500;
+    }
+
+    /* 手机端看板区域 */
+    .workspace-home-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      min-height: 0;
+    }
+
+    .mobile-kanban-section {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
     }
   }
 
@@ -1218,6 +1311,32 @@ export const cardStyles = css`
     gap: 8px;
     overflow-y: auto;
     padding: 6px 2px 6px 0;
+  }
+
+  .load-more-bar {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0;
+  }
+
+  .load-more-btn {
+    background: none;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 6px;
+    color: var(--secondary-text-color, #64748b);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 12px;
+    transition: background 0.15s;
+  }
+
+  .load-more-btn:hover:not(:disabled) {
+    background: rgba(148, 163, 184, 0.08);
+  }
+
+  .load-more-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .message-row {
@@ -2334,6 +2453,239 @@ export const cardStyles = css`
     .code-line .line-content {
       color: #e2e8f0;
     }
+  }
+
+  /* 创建工作区对话框 */
+  .create-workspace-dialog {
+    max-width: 420px;
+    width: 90%;
+    margin: auto;
+    background: var(--ha-card-background, var(--card-background-color, #1f2937));
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+  }
+
+  .create-workspace-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 15%, transparent);
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 8%, transparent);
+  }
+
+  .create-workspace-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-text-color, #e5e7eb);
+  }
+
+  .create-workspace-header .btn-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(148, 163, 184, 0.15);
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 1.3rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  .create-workspace-header .btn-close:hover {
+    background: rgba(148, 163, 184, 0.25);
+    color: var(--primary-text-color, #e5e7eb);
+  }
+
+  .create-workspace-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+
+  .create-workspace-body .form-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--secondary-text-color, #94a3b8);
+    margin-bottom: 4px;
+  }
+
+  .create-workspace-body .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 25%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 80%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+  }
+
+  .create-workspace-body .form-input:focus {
+    border-color: color-mix(in srgb, var(--primary-color, #f59e0b) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #f59e0b) 15%, transparent);
+  }
+
+  .create-workspace-body .linked-issue-info {
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--success-color, #10b981) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--success-color, #10b981) 25%, transparent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .create-workspace-body .issue-badge {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--success-color, #34d399);
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--success-color, #10b981) 20%, transparent);
+  }
+
+  .create-workspace-body .no-issue {
+    font-size: 0.85rem;
+    color: var(--secondary-text-color, #94a3b8);
+    font-style: italic;
+  }
+
+  .create-workspace-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 15%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 50%, transparent);
+  }
+
+  .create-workspace-footer .btn-secondary {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 30%, transparent);
+    background: transparent;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .create-workspace-footer .btn-secondary:hover {
+    background: color-mix(in srgb, var(--divider-color, #e5e7eb) 15%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+  }
+
+  .create-workspace-footer .btn-primary {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: none;
+    background: var(--primary-color, #f59e0b);
+    color: var(--text-primary-color, #fff);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .create-workspace-footer .btn-primary:hover {
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 85%, #000);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color, #f59e0b) 30%, transparent);
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .create-workspace-body .form-select {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 25%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 80%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 40px;
+  }
+
+  .create-workspace-body .form-select:focus {
+    border-color: color-mix(in srgb, var(--primary-color, #f59e0b) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #f59e0b) 15%, transparent);
+  }
+
+  .create-workspace-body .form-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 25%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 80%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+  }
+
+  .create-workspace-body .form-textarea:focus {
+    border-color: color-mix(in srgb, var(--primary-color, #f59e0b) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #f59e0b) 15%, transparent);
+  }
+
+  .form-hint {
+    font-size: 0.8rem;
+    color: var(--secondary-text-color, #64748b);
+    margin-top: 2px;
+  }
+
+  .linked-issue-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 25%, transparent);
+  }
+
+  .linked-issue-badge .issue-id {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary-color, #f59e0b);
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 20%, transparent);
+  }
+
+  .linked-issue-badge .issue-name {
+    font-size: 0.9rem;
+    color: var(--primary-text-color, #e5e7eb);
+    font-weight: 500;
   }
 `;
 

@@ -188,6 +188,13 @@ export interface SessionMessagesResponse {
   has_more?: boolean;
 }
 
+export interface WorkspaceMessagesResponse {
+  workspace_id?: string;
+  messages?: SessionMessageResponse[];
+  has_more?: boolean;
+  cursor?: string;
+}
+
 export interface RealtimeEvent {
   type?: string;
   workspaces?: LocalWorkspaceSummary[];

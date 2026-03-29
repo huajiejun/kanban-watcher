@@ -2,6 +2,8 @@ import { LitElement, html, nothing } from "lit";
 
 import "../components/workspace-conversation-pane";
 import "../components/workspace-preview-card";
+import "../components/mobile-kanban-board";
+import "../components/mobile-project-drawer";
 import "../components/create-pr-dialog";
 import "../components/diff-details-panel";
 import type {
@@ -33,7 +35,7 @@ import {
   fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
   fetchWorkspaceView,
-  fetchWorkspaceLatestMessages,
+  fetchWorkspaceMessages,
   fetchWorkspaceQueueStatus,
   markWorkspaceSeen,
   sendWorkspaceMessage,
@@ -79,7 +81,6 @@ import {
   getWorkspaceEmbeddedPreviewUrl,
 } from "../lib/workspace-web-preview";
 import {
-  ACTIVE_PANE_MESSAGE_TYPES,
   didSelectedWorkspaceMessageVersionChange,
   getSelectedWorkspaceSessionId,
   loadRealtimeRuntimeInfo,
@@ -133,6 +134,8 @@ export class KanbanWorkspaceHome extends LitElement {
     workspaces: { attribute: false },
     pageState: { attribute: false },
     messagesByWorkspace: { attribute: false },
+    cursorByWorkspace: { attribute: false },
+    hasMoreByWorkspace: { attribute: false },
     loading: { type: Boolean },
     error: { attribute: false },
     collapsedSections: { attribute: false },
@@ -150,6 +153,9 @@ export class KanbanWorkspaceHome extends LitElement {
     suggestedButtonsByWorkspace: { attribute: false },
     webPreviewFallbackUrlByWorkspace: { attribute: false },
     todoPendingCountByWorkspace: { attribute: false },
+    mobileActiveTab: { attribute: false },
+    drawerOpen: { type: Boolean, attribute: false },
+    kanbanProjectId: { attribute: false },
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
@@ -157,6 +163,8 @@ export class KanbanWorkspaceHome extends LitElement {
   pageState: WorkspacePageState = createWorkspacePageState(readPersistedWorkspacePageState());
   isSidebarCollapsed = this.resolveSidebarCollapsed(this.pageState.openWorkspaceIds.length);
   messagesByWorkspace: Record<string, DialogMessage[]> = {};
+  cursorByWorkspace: Record<string, string> = {};
+  hasMoreByWorkspace: Record<string, boolean> = {};
   loading = false;
   error = "";
   collapsedSections = new Set<"attention" | "running" | "idle">();
@@ -167,6 +175,9 @@ export class KanbanWorkspaceHome extends LitElement {
   devServerProcessStatusByWorkspace: Record<string, string> = {};
   messageErrorByWorkspace: Record<string, string> = {};
   messageDraftByWorkspace: Record<string, string> = {};
+  mobileActiveTab: "workspaces" | "issues" = "workspaces";
+  drawerOpen = false;
+  kanbanProjectId = "";
   actionFeedbackByWorkspace: Record<string, string> = {};
   queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
   todoPendingCountByWorkspace: Record<string, number> = {};
@@ -241,9 +252,74 @@ export class KanbanWorkspaceHome extends LitElement {
     if (this.mode === "mobile-card") {
       return html`
         <main class="workspace-home-shell">
-          <section class="workspace-home-placeholder">
-            <kanban-watcher-card></kanban-watcher-card>
-          </section>
+          <header class="workspace-home-mobile-header">
+            ${this.mobileActiveTab === "issues"
+              ? html`<button
+                  class="mobile-drawer-toggle"
+                  type="button"
+                  @click=${() => { this.drawerOpen = true; }}
+                >
+                  ☰
+                </button>`
+              : nothing}
+            <nav class="mobile-header-nav">
+              <button
+                class="mobile-header-item"
+                type="button"
+                data-tab="workspaces"
+                ?data-active=${this.mobileActiveTab === "workspaces"}
+                @click=${() => this.handleMobileTabSwitch("workspaces")}
+              >
+                <span class="mobile-header-icon">📋</span>
+                <span class="mobile-header-label">工作区</span>
+              </button>
+              <button
+                class="mobile-header-item"
+                type="button"
+                data-tab="issues"
+                ?data-active=${this.mobileActiveTab === "issues"}
+                @click=${() => this.handleMobileTabSwitch("issues")}
+              >
+                <span class="mobile-header-icon">📌</span>
+                <span class="mobile-header-label">任务</span>
+              </button>
+            </nav>
+          </header>
+          ${this.mobileActiveTab === "workspaces"
+            ? html`
+              <section class="workspace-home-placeholder">
+                <kanban-watcher-card
+                  .baseUrl=${this.previewOptions.baseUrl ?? ""}
+                  .apiKey=${this.previewOptions.apiKey}
+                ></kanban-watcher-card>
+              </section>
+            `
+            : html`
+              <section class="mobile-kanban-section" @workspace-selected=${this.handleMobileWorkspaceSelected}>
+                <mobile-kanban-board
+                  baseUrl=${this.previewOptions.baseUrl ?? ""}
+                  apiKey=${this.previewOptions.apiKey}
+                  .selectedProjectId=${this.kanbanProjectId}
+                  @create-workspace-for-issue=${this.handleCreateWorkspaceForIssue}
+                  @link-workspace-to-issue=${this.handleLinkWorkspaceToIssue}
+                  @show-workspace-picker=${this.handleShowWorkspacePicker}
+                ></mobile-kanban-board>
+              </section>
+            `}
+          ${this.mobileActiveTab === "issues"
+            ? html`<mobile-project-drawer
+                baseUrl=${this.previewOptions.baseUrl ?? ""}
+                apiKey=${this.previewOptions.apiKey}
+                .open=${this.drawerOpen}
+                @project-changed=${(e: CustomEvent) => {
+                  this.kanbanProjectId = e.detail.projectId;
+                  this.drawerOpen = false;
+                }}
+                @drawer-closed=${() => {
+                  this.drawerOpen = false;
+                }}
+              ></mobile-project-drawer>`
+            : nothing}
         </main>
       `;
     }
@@ -308,6 +384,13 @@ export class KanbanWorkspaceHome extends LitElement {
   private handleSidebarToggle = () => {
     this.isSidebarCollapsed = !this.isSidebarCollapsed;
     this.lastSidebarSyncPaneCount = this.pageState.openWorkspaceIds.length;
+  };
+
+  private handleMobileTabSwitch = (tab: "workspaces" | "issues") => {
+    this.mobileActiveTab = tab;
+    if (tab === "workspaces") {
+      this.mobileCardConfigSignature = "";
+    }
   };
 
   private handleResize = () => {
@@ -577,12 +660,11 @@ export class KanbanWorkspaceHome extends LitElement {
         return;
       }
 
-      const response = await fetchWorkspaceLatestMessages({
+      const response = await fetchWorkspaceMessages({
         baseUrl: this.previewOptions.baseUrl!,
         apiKey: this.previewOptions.apiKey,
         workspaceId,
         limit: this.previewOptions.messagesLimit ?? 50,
-        types: workspaceId === this.activeWorkspace?.id ? ACTIVE_PANE_MESSAGE_TYPES : undefined,
       });
       const previousMessages = this.messagesByWorkspace[workspaceId] ?? [];
       const nextMessages = normalizeApiMessages(response.messages);
@@ -602,6 +684,14 @@ export class KanbanWorkspaceHome extends LitElement {
         ...this.messagesByWorkspace,
         [workspaceId]: nextMessages,
       };
+      this.cursorByWorkspace = {
+        ...this.cursorByWorkspace,
+        [workspaceId]: response.cursor ?? "",
+      };
+      this.hasMoreByWorkspace = {
+        ...this.hasMoreByWorkspace,
+        [workspaceId]: response.has_more ?? false,
+      };
       this.smoothRevealMessageKeyByWorkspace = {
         ...this.smoothRevealMessageKeyByWorkspace,
         [workspaceId]: this.resolveSmoothRevealMessageKey(
@@ -618,6 +708,201 @@ export class KanbanWorkspaceHome extends LitElement {
       };
     } finally {
       this.setWorkspaceLoading(workspaceId, false);
+    }
+  }
+
+  private async loadMoreMessages(workspaceId: string) {
+    const cursor = this.cursorByWorkspace[workspaceId];
+    const hasMore = this.hasMoreByWorkspace[workspaceId];
+    if (!hasMore || !cursor || !this.isApiMode) {
+      return;
+    }
+
+    this.setWorkspaceLoading(workspaceId, true);
+    try {
+      const response = await fetchWorkspaceMessages({
+        baseUrl: this.previewOptions.baseUrl!,
+        apiKey: this.previewOptions.apiKey,
+        workspaceId,
+        limit: this.previewOptions.messagesLimit ?? 50,
+        cursor,
+      });
+      const olderMessages = normalizeApiMessages(response.messages);
+      const existingMessages = this.messagesByWorkspace[workspaceId] ?? [];
+
+      this.messagesByWorkspace = {
+        ...this.messagesByWorkspace,
+        [workspaceId]: [...olderMessages, ...existingMessages],
+      };
+      this.cursorByWorkspace = {
+        ...this.cursorByWorkspace,
+        [workspaceId]: response.cursor ?? "",
+      };
+      this.hasMoreByWorkspace = {
+        ...this.hasMoreByWorkspace,
+        [workspaceId]: response.has_more ?? false,
+      };
+    } catch (error) {
+      this.messageErrorByWorkspace = {
+        ...this.messageErrorByWorkspace,
+        [workspaceId]: error instanceof Error ? error.message : "加载更早消息失败",
+      };
+    } finally {
+      this.setWorkspaceLoading(workspaceId, false);
+    }
+  }
+
+  private async handleMobileWorkspaceSelected(e: CustomEvent<{ workspaceId: string }>) {
+    const targetId = e.detail.workspaceId;
+
+    // 清除配置签名，强制 setupMobileCard 重新 setConfig（因为切换 tab 会重建 card 元素）
+    this.mobileCardConfigSignature = "";
+    this.mobileActiveTab = "workspaces";
+
+    if (this.workspaces.length === 0) {
+      await this.initializeWorkspaceHome();
+    }
+
+    await this.updateComplete;
+
+    // 等待 kanban-watcher-card 完成配置初始化
+    const card = this.renderRoot.querySelector("kanban-watcher-card") as
+      | (HTMLElement & { openWorkspaceDialog: (ws: KanbanWorkspace) => void; isApiMode: boolean })
+      | null;
+    if (!card) return;
+
+    for (let i = 0; i < 50; i++) {
+      if (card.isApiMode) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    const workspace = this.workspaces.find((w) => w.id === targetId);
+    if (workspace && typeof card.openWorkspaceDialog === "function") {
+      card.openWorkspaceDialog(workspace);
+    }
+  }
+
+  private async handleCreateWorkspaceForIssue(e: CustomEvent<{ issueId: string; issueSimpleId: string; projectId?: string; title?: string; description?: string | null }>) {
+    const { issueId, issueSimpleId, projectId: issueProjectId, title, description } = e.detail;
+    console.log("[workspace-home] 为任务创建工作区:", { issueSimpleId, issueProjectId });
+
+    // 切换到工作区标签页
+    this.mobileCardConfigSignature = "";
+    this.mobileActiveTab = "workspaces";
+
+    if (this.workspaces.length === 0) {
+      await this.initializeWorkspaceHome();
+    }
+
+    await this.updateComplete;
+
+    // 获取卡片实例并调用创建工作区方法
+    const card = this.renderRoot.querySelector("kanban-watcher-card") as
+      | (HTMLElement & {
+          openCreateWorkspaceDialog?: (options?: {
+            suggestedName?: string;
+            projectId?: string;
+            issueId?: string;
+            prompt?: string;
+          }) => void;
+          isApiMode: boolean
+        })
+      | null;
+    if (!card) return;
+
+    // 等待卡片初始化
+    for (let i = 0; i < 50; i++) {
+      if (card.isApiMode) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    // 构建提示词内容：包含任务标题和描述
+    let promptContent = "";
+    if (title) {
+      promptContent += `任务: ${title}`;
+    }
+    if (description) {
+      promptContent += title ? "\n\n" : "";
+      promptContent += `描述: ${description}`;
+    }
+
+    // 调用创建对话框，预填充任务信息
+    if (typeof card.openCreateWorkspaceDialog === "function") {
+      card.openCreateWorkspaceDialog({
+        suggestedName: `任务 ${issueSimpleId}`,
+        projectId: issueProjectId || this.kanbanProjectId,
+        issueId: issueId,
+        prompt: promptContent || undefined
+      });
+    }
+  }
+
+  private async handleLinkWorkspaceToIssue(e: CustomEvent<{ issueId: string; issueSimpleId: string }>) {
+    const { issueId, issueSimpleId } = e.detail;
+    console.log("[workspace-home] 关联工作区到任务:", issueSimpleId);
+
+    // 显示工作区选择器
+    this.showWorkspacePickerForIssue(issueId, []);
+  }
+
+  private async handleShowWorkspacePicker(e: CustomEvent<{ issueId: string; currentWorkspaces: string[] }>) {
+    const { issueId, currentWorkspaces } = e.detail;
+    console.log("[workspace-home] 显示工作区选择器 for issue:", issueId);
+
+    this.showWorkspacePickerForIssue(issueId, currentWorkspaces);
+  }
+
+  private async showWorkspacePickerForIssue(issueId: string, excludeWorkspaceIds: string[]) {
+    // 获取可用的工作区列表
+    if (this.workspaces.length === 0) {
+      await this.initializeWorkspaceHome();
+    }
+
+    // 过滤掉已关联的工作区
+    const availableWorkspaces = this.workspaces.filter(
+      ws => !excludeWorkspaceIds.includes(ws.id)
+    );
+
+    if (availableWorkspaces.length === 0) {
+      alert("没有可用的工作区可以关联");
+      return;
+    }
+
+    // TODO: 实现工作区选择器 UI
+    // 暂时使用简单的 confirm 对话框演示
+    const workspaceNames = availableWorkspaces.map((ws, idx) =>
+      `${idx + 1}. ${ws.name || "未命名"}`
+    ).join("\n");
+
+    const choice = prompt(
+      `选择要关联的工作区:\n${workspaceNames}\n\n输入编号 (1-${availableWorkspaces.length}):`
+    );
+
+    if (choice) {
+      const idx = parseInt(choice) - 1;
+      if (idx >= 0 && idx < availableWorkspaces.length) {
+        const selectedWorkspace = availableWorkspaces[idx];
+        await this.linkWorkspaceToIssue(selectedWorkspace.id, issueId);
+      }
+    }
+  }
+
+  private async linkWorkspaceToIssue(workspaceId: string, issueId: string) {
+    try {
+      // TODO: 调用 API 关联工作区和任务
+      console.log(`[workspace-home] 关联工作区 ${workspaceId} 到任务 ${issueId}`);
+
+      // 成功后刷新任务详情面板
+      const board = this.renderRoot.querySelector("mobile-kanban-board") as
+        | (HTMLElement & { refreshIssueWorkspaces?: (issueId: string) => void })
+        | null;
+
+      if (board && typeof board.refreshIssueWorkspaces === "function") {
+        board.refreshIssueWorkspaces(issueId);
+      }
+    } catch (err) {
+      console.error("[workspace-home] 关联工作区失败:", err);
+      alert("关联失败，请重试");
     }
   }
 
@@ -1785,6 +2070,8 @@ export class KanbanWorkspaceHome extends LitElement {
               lines_removed: workspace.lines_removed ?? 0,
             }
           : undefined}
+        .hasMore=${this.hasMoreByWorkspace[workspace.id] ?? false}
+        .onLoadMore=${() => void this.loadMoreMessages(workspace.id)}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>

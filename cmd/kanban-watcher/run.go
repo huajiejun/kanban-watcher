@@ -301,6 +301,11 @@ func runDaemon() error {
 		RealtimeBaseURL: features.realtimeBaseURL,
 	})
 
+	// 设置关联的 vibe-kanban 项目 ID（用于 Issue API）
+	if cfg.ProjectID != "" {
+		httpServer.SetProjectID(cfg.ProjectID)
+	}
+
 	// 设置认证处理器
 	authHandler := &server.AuthHandler{
 		JWTService: jwtService,
@@ -311,6 +316,7 @@ func runDaemon() error {
 
 	if dbStore != nil {
 		httpServer.SetStore(dbStore)
+		httpServer.SetAPIClient(apiClient)
 		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
 	}
 
@@ -440,6 +446,11 @@ func runHeadless() error {
 		RealtimeBaseURL: features.realtimeBaseURL,
 	})
 
+	// 设置关联的 vibe-kanban 项目 ID（用于 Issue API）
+	if cfg.ProjectID != "" {
+		httpServer.SetProjectID(cfg.ProjectID)
+	}
+
 	// 设置认证处理器
 	authHandler := &server.AuthHandler{
 		JWTService: jwtService,
@@ -450,6 +461,7 @@ func runHeadless() error {
 
 	if dbStore != nil {
 		httpServer.SetStore(dbStore)
+		httpServer.SetAPIClient(apiClient)
 		routes := api.GetMessageRoutes(dbStore, cfg.HTTPAPI.BrowserURLTemplate, realtimePublisher)
 		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
 		for pattern, handler := range routes {

@@ -40,6 +40,18 @@ import {
 } from "./lib/quick-buttons";
 import type { ButtonWithReason } from "./types";
 import {
+  BaseCodingAgent,
+  PermissionPolicy,
+  type CreateWorkspaceRequest,
+} from "./types/issue";
+import {
+  createAndStartWorkspace,
+  linkWorkspaceToIssue,
+  fetchAgentPresetOptions,
+  fetchAgentDiscovery,
+  fetchRepos,
+} from "./lib/issue-api";
+import {
   renderWorkspaceSectionList,
   type WorkspaceSectionKey,
 } from "./components/workspace-section-list";
@@ -76,7 +88,14 @@ type SectionKey = WorkspaceSectionKey;
 import "./components/todo-progress-popup";
 import "./components/chat-todo-list";
 
-type SectionKey = "attention" | "running" | "idle";
+interface TodoHistoryEntry {
+  workspaceId: string;
+  workspaceName: string;
+  todos: TodoItem[];
+  timestamp: number;
+  completedCount: number;
+  totalCount: number;
+}
 
 type HomeAssistantState = {
   attributes?: KanbanEntityAttributes | KanbanSessionAttributes;
@@ -107,6 +126,10 @@ const SECTION_ORDER: Array<{ key: SectionKey; label: string }> = [
   { key: "idle", label: "空闲" },
 ];
 
+interface CreateWorkspaceOptions {
+  suggestedName?: string;
+}
+
 const DEFAULT_MESSAGES_LIMIT = 50;
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_DIALOG_FALLBACK_INTERVAL_MS = 5_000;
@@ -117,6 +140,8 @@ export class KanbanWatcherCard extends LitElement {
 
   static properties = {
     hass: { attribute: false },
+    baseUrl: { type: String },
+    apiKey: { type: String },
     collapsedSections: { state: true },
     selectedWorkspaceId: { state: true },
     messageDraft: { state: true },
@@ -143,11 +168,30 @@ export class KanbanWatcherCard extends LitElement {
     selectedWorkspaceForPR: { state: true },
     diffDetailsWorkspaceId: { state: true },
     diffDetailsStats: { state: true },
+    createWorkspaceOpen: { state: true },
+    createWorkspaceSuggestedName: { state: true },
+    createWorkspaceProjectId: { state: true },
+    createWorkspaceIssueId: { state: true },
+    createWorkspaceAgent: { state: true },
+    createWorkspaceVariant: { state: true },
+    createWorkspaceModel: { state: true },
+    createWorkspacePrompt: { state: true },
+    createWorkspacePermission: { state: true },
+    createWorkspaceAvailablePresets: { state: true },
+    createWorkspaceAvailableModels: { state: true },
+    createWorkspaceLoadingPresets: { state: true },
+    createWorkspaceAvailableRepos: { state: true },
+    createWorkspaceSelectedRepoId: { state: true },
+    createWorkspaceSelectedBranch: { state: true },
   };
 
   hass?: HomeAssistantLike;
 
   private config?: CardConfig;
+
+  // 支持直接传入的属性（用于移动端）
+  baseUrl?: string;
+  apiKey?: string;
   private refreshTimer?: number;
   private dialogRefreshTimer?: number;
   private boardRealtimeRetryTimer?: number;
@@ -198,11 +242,39 @@ export class KanbanWatcherCard extends LitElement {
   private selectedWorkspaceForPR?: KanbanWorkspace;
   private diffDetailsWorkspaceId?: string;
   private diffDetailsStats?: { files_changed: number; lines_added: number; lines_removed: number };
+  private createWorkspaceOpen = false;
+  private createWorkspaceSuggestedName = "";
+  private createWorkspaceProjectId = "";
+  private createWorkspaceIssueId = "";
+  private createWorkspaceAgent: BaseCodingAgent = BaseCodingAgent.CLAUDE_CODE;
+  private createWorkspaceVariant = "DEFAULT";
+  private createWorkspaceModel = "";
+  private createWorkspacePrompt = "";
+  private createWorkspacePermission: PermissionPolicy = PermissionPolicy.AUTO;
+  private createWorkspaceAvailablePresets: string[] = [];
+  private createWorkspaceAvailableModels: Array<{ id: string; name: string; provider: string }> = [];
+  private createWorkspaceLoadingPresets = false;
+  createWorkspaceAvailableRepos: Array<{ id: string; name: string; display_name: string; path: string; default_target_branch?: string; default_working_dir?: string; dev_server_script?: string }> = [];
+  createWorkspaceSelectedRepoId = "";
+  createWorkspaceSelectedBranch = "";
 
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener("keydown", this.handleKeyDown);
+    this.initializeConfigFromProperties();
     this.startApiSyncIfNeeded();
+  }
+
+  private initializeConfigFromProperties() {
+    // 如果没有 config 但有 baseUrl 属性，创建一个简单的 config
+    if (!this.config && this.baseUrl) {
+      this.config = {
+        entity: 'kanban.mock',
+        base_url: this.baseUrl,
+        api_key: this.apiKey,
+      };
+      console.log('[kanban-watcher-card] 从属性初始化 config:', this.config);
+    }
   }
 
   disconnectedCallback() {
@@ -236,6 +308,7 @@ export class KanbanWatcherCard extends LitElement {
         ${this.renderWebPreviewOverlay()}
         ${this.renderCreatePRDialog()}
         ${this.renderDiffDetailsPanel()}
+        ${this.renderCreateWorkspaceDialog()}
       </ha-card>
     `;
   }
@@ -526,6 +599,41 @@ export class KanbanWatcherCard extends LitElement {
         console.error("标记工作区已读失败:", error);
       });
     }
+  }
+
+  public openCreateWorkspaceDialog(options?: {
+    suggestedName?: string;
+    projectId?: string;
+    issueId?: string;
+    prompt?: string;
+  }) {
+    console.log('[kanban-watcher-card] 打开创建对话框:', options);
+
+    this.createWorkspaceSuggestedName = options?.suggestedName || "";
+    this.createWorkspaceProjectId = options?.projectId || "";
+    this.createWorkspaceIssueId = options?.issueId || "";
+    this.createWorkspacePrompt = options?.prompt || "";
+    this.createWorkspaceOpen = true;
+
+    // 加载当前选中 agent 的预设和模型
+    void this.loadAgentPresetsAndModels(this.createWorkspaceAgent);
+    // 加载仓库列表
+    void this.loadReposAndSelectDefault();
+  }
+
+  private closeCreateWorkspaceDialog = () => {
+    this.createWorkspaceOpen = false;
+    this.createWorkspaceSuggestedName = "";
+    this.createWorkspaceProjectId = "";
+    this.createWorkspaceIssueId = "";
+    this.createWorkspaceAgent = BaseCodingAgent.CLAUDE_CODE;
+    this.createWorkspaceVariant = "DEFAULT";
+    this.createWorkspaceModel = "";
+    this.createWorkspacePrompt = "";
+    this.createWorkspacePermission = PermissionPolicy.AUTO;
+    this.createWorkspaceSelectedRepoId = "";
+    this.createWorkspaceSelectedBranch = "";
+    this.createWorkspaceAvailableRepos = [];
   }
 
   private handleWorkspaceMenuAction(workspace: KanbanWorkspace, action: string) {
@@ -959,7 +1067,7 @@ export class KanbanWatcherCard extends LitElement {
       return undefined;
     }
 
-    return this.hass.states[this.config.entity]?.attributes;
+    return this.hass.states[this.config.entity]?.attributes as KanbanEntityAttributes | undefined;
   }
 
   private get selectedWorkspace(): KanbanWorkspace | undefined {
@@ -1002,6 +1110,484 @@ export class KanbanWatcherCard extends LitElement {
     `;
   }
 
+  private renderCreateWorkspaceDialog() {
+    if (!this.createWorkspaceOpen) {
+      return nothing;
+    }
+
+    const agents = [
+      { value: BaseCodingAgent.CLAUDE_CODE, label: "Claude Code" },
+      { value: BaseCodingAgent.CODEX, label: "Codex" },
+      { value: BaseCodingAgent.GEMINI, label: "Gemini" },
+      { value: BaseCodingAgent.AMP, label: "AMP" },
+      { value: BaseCodingAgent.OPENCODE, label: "OpenCode" },
+      { value: BaseCodingAgent.CURSOR_AGENT, label: "Cursor" },
+      { value: BaseCodingAgent.QWEN_CODE, label: "Qwen" },
+      { value: BaseCodingAgent.COPILOT, label: "Copilot" },
+      { value: BaseCodingAgent.DROID, label: "Droid" },
+    ];
+
+    // 使用从API加载的预设列表，如果没有则使用默认值
+    const variants = this.createWorkspaceAvailablePresets.length > 0
+      ? this.createWorkspaceAvailablePresets.map(p => ({ value: p, label: p }))
+      : [{ value: "DEFAULT", label: "默认" }];
+
+    // 使用从API加载的模型列表
+    const models = this.createWorkspaceAvailableModels.length > 0
+      ? this.createWorkspaceAvailableModels
+      : [];
+
+    console.log('[kanban-watcher-card] Rendering models:', models, 'Available:', this.createWorkspaceAvailableModels);
+
+    const permissions = [
+      { value: PermissionPolicy.AUTO, label: "自动执行" },
+      { value: PermissionPolicy.SUPERVISED, label: "监督模式" },
+      { value: PermissionPolicy.PLAN, label: "计划模式" },
+    ];
+
+    return html`
+      <div class="dialog-shell" role="presentation">
+        <button
+          class="dialog-overlay"
+          type="button"
+          aria-label="关闭创建工作区对话框"
+          @click=${this.closeCreateWorkspaceDialog}
+        ></button>
+        <section
+          class="workspace-dialog create-workspace-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="创建工作区"
+        >
+          <div class="create-workspace-header">
+            <h3>新建工作区</h3>
+            <button class="btn-close" type="button" @click=${this.closeCreateWorkspaceDialog}>×</button>
+          </div>
+          <div class="create-workspace-body">
+            <!-- 工作区名称 -->
+            <div class="form-group">
+              <label class="form-label">工作区名称 *</label>
+              <input
+                type="text"
+                class="form-input"
+                placeholder="输入工作区名称"
+                .value=${this.createWorkspaceSuggestedName}
+                @input=${this.handleCreateWorkspaceNameInput}
+              />
+            </div>
+
+            <!-- 仓库选择 -->
+            ${this.createWorkspaceAvailableRepos.length > 0
+              ? html`
+                  <div class="form-group">
+                    <label class="form-label">代码仓库 *</label>
+                    <select
+                      class="form-select"
+                      .value=${this.createWorkspaceSelectedRepoId}
+                      @change=${this.handleRepoChange}
+                    >
+                      ${this.createWorkspaceAvailableRepos.map(
+                        (repo) => html`
+                          <option value=${repo.id}>
+                            ${repo.display_name || repo.name}
+                            ${repo.default_target_branch ? `(默认分支: ${repo.default_target_branch})` : ''}
+                          </option>
+                        `
+                      )}
+                    </select>
+                  </div>
+
+                  <!-- 分支选择 -->
+                  <div class="form-group">
+                    <label class="form-label">目标分支 *</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      placeholder="输入目标分支，如 main"
+                      .value=${this.createWorkspaceSelectedBranch}
+                      @input=${this.handleBranchChange}
+                    />
+                  </div>
+                `
+              : nothing}
+
+            <!-- Agent选择 -->
+            <div class="form-group">
+              <label class="form-label">AI Agent *</label>
+              <select
+                class="form-select"
+                .value=${this.createWorkspaceAgent}
+                @change=${this.handleAgentChange}
+              >
+                ${agents.map(
+                  (agent) => html`
+                    <option value=${agent.value}>${agent.label}</option>
+                  `
+                )}
+              </select>
+            </div>
+
+            <!-- 预设选择 -->
+            <div class="form-group">
+              <label class="form-label">预设配置</label>
+              <select
+                class="form-select"
+                .value=${this.createWorkspaceVariant}
+                @change=${this.handleVariantChange}
+              >
+                ${variants.map(
+                  (variant) => html`
+                    <option value=${variant.value}>${variant.label}</option>
+                  `
+                )}
+              </select>
+            </div>
+
+            <!-- 模型选择 -->
+            <div class="form-group">
+              <label class="form-label">模型 (可选)</label>
+              <select
+                class="form-select"
+                .value=${this.createWorkspaceModel}
+                @change=${this.handleModelChange}
+              >
+                <option value="">使用默认模型</option>
+                ${models.map(
+                  (model) => html`
+                    <option value=${model.id}>${model.name} (${model.provider})</option>
+                  `
+                )}
+              </select>
+            </div>
+
+            <!-- 权限策略 -->
+            <div class="form-group">
+              <label class="form-label">权限策略</label>
+              <select
+                class="form-select"
+                .value=${this.createWorkspacePermission}
+                @change=${this.handlePermissionChange}
+              >
+                ${permissions.map(
+                  (perm) => html`
+                    <option value=${perm.value}>${perm.label}</option>
+                  `
+                )}
+              </select>
+            </div>
+
+            <!-- 需求提示词 -->
+            <div class="form-group">
+              <label class="form-label">需求描述 (可选)</label>
+              <textarea
+                class="form-textarea"
+                placeholder="输入初始需求或提示词..."
+                .value=${this.createWorkspacePrompt}
+                @input=${this.handlePromptInput}
+                rows="3"
+              ></textarea>
+            </div>
+
+            <!-- 关联任务信息 -->
+            ${this.createWorkspaceIssueId
+              ? html`
+                  <div class="form-group">
+                    <label class="form-label">关联任务</label>
+                    <div class="linked-issue-badge">
+                      <span class="issue-id">${this.createWorkspaceIssueId}</span>
+                      <span class="issue-name">${this.createWorkspaceSuggestedName}</span>
+                    </div>
+                  </div>
+                `
+              : nothing}
+          </div>
+          <div class="create-workspace-footer">
+            <button class="btn-secondary" type="button" @click=${this.closeCreateWorkspaceDialog}>取消</button>
+            <button class="btn-primary" type="button" @click=${this.handleCreateWorkspace}>创建</button>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  private handleCreateWorkspaceNameInput = (e: Event) => {
+    this.createWorkspaceSuggestedName = (e.target as HTMLInputElement).value;
+  };
+
+  private handleAgentChange = async (e: Event) => {
+    const agent = (e.target as HTMLSelectElement).value as BaseCodingAgent;
+    this.createWorkspaceAgent = agent;
+
+    // 加载预设和模型列表
+    await this.loadAgentPresetsAndModels(agent);
+  };
+
+  private loadAgentPresetsAndModels = async (agent: BaseCodingAgent) => {
+    console.log('[kanban-watcher-card] loadAgentPresetsAndModels called:', agent);
+    if (!this.isApiMode || this.config?.base_url === undefined) {
+      console.log('[kanban-watcher-card] Early return - isApiMode:', this.isApiMode, 'base_url:', this.config?.base_url);
+      return;
+    }
+
+    this.createWorkspaceLoadingPresets = true;
+
+    try {
+      // 获取预设和模型列表
+      const discovery = await fetchAgentDiscovery(
+        { baseUrl: this.config.base_url, apiKey: this.config.api_key },
+        agent
+      );
+
+      console.log('[kanban-watcher-card] Discovery result:', discovery);
+
+      if (discovery) {
+        this.createWorkspaceAvailablePresets = discovery.presets;
+        this.createWorkspaceAvailableModels = discovery.models;
+        console.log('[kanban-watcher-card] Updated models:', this.createWorkspaceAvailableModels);
+
+        // 如果有预设，自动选择第一个
+        if (discovery.presets.length > 0) {
+          this.createWorkspaceVariant = discovery.presets[0];
+
+          // 获取第一个预设的详细配置
+          await this.loadPresetOptions(agent, this.createWorkspaceVariant);
+        }
+      }
+    } catch (error) {
+      console.error("[kanban-watcher-card] 加载Agent预设失败:", error);
+      // 使用默认值
+      this.createWorkspaceAvailablePresets = ["DEFAULT", "PLAN", "ROUTER"];
+    } finally {
+      this.createWorkspaceLoadingPresets = false;
+    }
+  };
+
+  private loadReposAndSelectDefault = async () => {
+    if (!this.isApiMode || this.config?.base_url === undefined) {
+      console.log('[kanban-watcher-card] 无法加载仓库列表: isApiMode=', this.isApiMode);
+      return;
+    }
+
+    try {
+      const repos = await fetchRepos({
+        baseUrl: this.config.base_url,
+        apiKey: this.config.api_key,
+      });
+
+      console.log('[kanban-watcher-card] 加载仓库列表:', repos);
+
+      if (repos && repos.length > 0) {
+        this.createWorkspaceAvailableRepos = repos;
+
+        // 查找默认仓库（有 default_target_branch 或 dev_server_script 的）
+        const defaultRepo = repos.find(
+          (r) => r.default_target_branch || r.dev_server_script
+        );
+
+        if (defaultRepo) {
+          this.createWorkspaceSelectedRepoId = defaultRepo.id;
+          this.createWorkspaceSelectedBranch =
+            defaultRepo.default_target_branch || "main";
+          console.log('[kanban-watcher-card] 自动选择默认仓库:', defaultRepo.name);
+        } else {
+          // 如果没有默认仓库，选择第一个
+          this.createWorkspaceSelectedRepoId = repos[0].id;
+          this.createWorkspaceSelectedBranch = "main";
+          console.log('[kanban-watcher-card] 选择第一个仓库:', repos[0].name);
+        }
+      }
+    } catch (error) {
+      console.error("[kanban-watcher-card] 加载仓库列表失败:", error);
+    }
+  };
+
+  private handleRepoChange = (e: Event) => {
+    const repoId = (e.target as HTMLSelectElement).value;
+    this.createWorkspaceSelectedRepoId = repoId;
+
+    // 自动填充默认分支
+    const repo = this.createWorkspaceAvailableRepos.find((r) => r.id === repoId);
+    if (repo?.default_target_branch) {
+      this.createWorkspaceSelectedBranch = repo.default_target_branch;
+    } else {
+      this.createWorkspaceSelectedBranch = "main";
+    }
+
+    console.log('[kanban-watcher-card] 选择仓库:', repo?.name, '分支:', this.createWorkspaceSelectedBranch);
+  };
+
+  private handleBranchChange = (e: Event) => {
+    this.createWorkspaceSelectedBranch = (e.target as HTMLSelectElement).value;
+  };
+
+  private loadPresetOptions = async (agent: BaseCodingAgent, variant: string) => {
+    if (!this.isApiMode || !this.config?.base_url) return;
+
+    try {
+      const options = await fetchAgentPresetOptions(
+        { baseUrl: this.config.base_url, apiKey: this.config.api_key },
+        agent,
+        variant
+      );
+
+      if (options) {
+        // 自动填充模型（如果预设中有）
+        if (options.model_id) {
+          this.createWorkspaceModel = options.model_id;
+        }
+        // 自动填充权限策略
+        if (options.permission_policy) {
+          this.createWorkspacePermission = options.permission_policy;
+        }
+        // 如果预设返回了 variant（如非标准预设映射到 DEFAULT），使用它
+        if (options.variant !== undefined) {
+          this.createWorkspaceVariant = options.variant;
+        }
+      }
+    } catch (error) {
+      console.error("[kanban-watcher-card] 加载预设选项失败:", error);
+    }
+  };
+
+  private handleVariantChange = async (e: Event) => {
+    const variant = (e.target as HTMLSelectElement).value;
+    this.createWorkspaceVariant = variant;
+
+    // 加载预设选项
+    if (this.createWorkspaceAgent) {
+      await this.loadPresetOptions(this.createWorkspaceAgent, variant);
+    }
+  };
+
+  private handleModelChange = (e: Event) => {
+    this.createWorkspaceModel = (e.target as HTMLSelectElement).value;
+  };
+
+  private handlePermissionChange = (e: Event) => {
+    this.createWorkspacePermission = (e.target as HTMLSelectElement).value as PermissionPolicy;
+  };
+
+  private handlePromptInput = (e: Event) => {
+    this.createWorkspacePrompt = (e.target as HTMLTextAreaElement).value;
+  };
+
+  private async handleCreateWorkspace() {
+    const name = this.createWorkspaceSuggestedName.trim();
+    if (!name) {
+      alert("请输入工作区名称");
+      return;
+    }
+
+    // 检查 API 配置
+    if (!this.isApiMode) {
+      alert("请先配置 API 连接");
+      return;
+    }
+
+    try {
+      // 调试日志
+      console.log('[kanban-watcher-card] 创建工作区:', {
+        name,
+        selectedRepoId: this.createWorkspaceSelectedRepoId,
+        selectedBranch: this.createWorkspaceSelectedBranch,
+        availableReposCount: this.createWorkspaceAvailableRepos.length,
+        availableRepos: this.createWorkspaceAvailableRepos.map(r => ({ id: r.id, name: r.name }))
+      });
+
+      // 构建仓库列表
+      const repos = this.createWorkspaceSelectedRepoId
+        ? [{
+            repo_id: this.createWorkspaceSelectedRepoId,
+            target_branch: this.createWorkspaceSelectedBranch || "main",
+          }]
+        : [];
+
+      console.log('[kanban-watcher-card] 构建的仓库列表:', repos);
+
+      // 构建创建请求
+      const request: CreateWorkspaceRequest = {
+        name: name,
+        repos: repos,
+        linked_issue: this.createWorkspaceIssueId && this.createWorkspaceProjectId ? {
+          remote_project_id: this.createWorkspaceProjectId,
+          issue_id: this.createWorkspaceIssueId
+        } : null,
+        executor_config: {
+          executor: this.createWorkspaceAgent,
+          variant: this.createWorkspaceVariant || null,
+          model_id: this.createWorkspaceModel || null,
+          agent_id: null,
+          reasoning_id: null,
+          permission_policy: this.createWorkspacePermission,
+        },
+        prompt: this.createWorkspacePrompt.trim(),
+        image_ids: null,
+      };
+
+      console.log("[kanban-watcher-card] 创建工作区:", {
+        request,
+        issueId: this.createWorkspaceIssueId,
+        projectId: this.createWorkspaceProjectId,
+        linkedIssue: request.linked_issue
+      });
+
+      // 调用 API 创建工作区
+      const workspace = await createAndStartWorkspace(
+        {
+          baseUrl: this.config?.base_url || "",
+          apiKey: this.config?.api_key,
+        },
+        request
+      );
+
+      console.log("[kanban-watcher-card] 工作区创建成功:", workspace);
+
+      // 如果有关联的任务，关联工作区到任务
+      console.log('[kanban-watcher-card] 检查任务关联:', {
+        issueId: this.createWorkspaceIssueId,
+        projectId: this.createWorkspaceProjectId
+      });
+
+      if (this.createWorkspaceIssueId && this.createWorkspaceProjectId) {
+        try {
+          console.log('[kanban-watcher-card] 开始关联工作区到任务:', {
+            workspaceId: workspace.id,
+            projectId: this.createWorkspaceProjectId,
+            issueId: this.createWorkspaceIssueId
+          });
+
+          await linkWorkspaceToIssue(
+            {
+              baseUrl: this.config?.base_url || "",
+              apiKey: this.config?.api_key,
+            },
+            workspace.id,
+            this.createWorkspaceProjectId,
+            this.createWorkspaceIssueId
+          );
+          console.log("[kanban-watcher-card] 工作区已关联到任务");
+        } catch (linkError) {
+          console.error("[kanban-watcher-card] 关联任务失败:", linkError);
+          // 不阻塞，继续执行
+        }
+      }
+
+      // 关闭对话框
+      this.closeCreateWorkspaceDialog();
+
+      // 刷新工作区列表
+      void this.loadActiveWorkspaces();
+
+      // 显示成功提示
+      alert(`工作区 "${name}" 创建成功！`);
+    } catch (error) {
+      console.error("[kanban-watcher-card] 创建工作区失败:", error);
+      alert(
+        `创建工作区失败: ${error instanceof Error ? error.message : "未知错误"}`
+      );
+    }
+  }
+
   private get visibleSections() {
     const grouped = groupWorkspaces(this.allWorkspaces);
 
@@ -1037,7 +1623,7 @@ export class KanbanWatcherCard extends LitElement {
 
   // baseUrl 为 undefined 时表示 mock 模式，空字符串表示使用相对路径（Vite 代理模式）
   private get isApiMode() {
-    return this.config?.base_url !== undefined;
+    return this.config?.base_url !== undefined || this.baseUrl !== undefined;
   }
 
   private isWorkspaceLike(value: unknown): value is KanbanWorkspace {
@@ -1489,6 +2075,7 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     for (const message of this.normalizeApiMessagesFlat(messages)) {
+      if (!message) continue;
       const key = this.getDialogMessageIdentity(message);
       const optimisticIndex = this.findMatchingOptimisticUserMessageIndex(merged, message);
       if (typeof optimisticIndex === "number") {
@@ -1901,6 +2488,7 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     const message = lastAiMessage.text;
+    if (!message) return;
     const messageHash = this.simpleHash(message);
     const cachedHash = this.dynamicButtonsMessageHashByWorkspace[workspace.id];
 
@@ -1924,7 +2512,7 @@ export class KanbanWatcherCard extends LitElement {
     // 使用 LLM 分析
     const result = await getQuickButtonsWithLLM({
       message,
-      workspaceStatus: workspace.status,
+      workspaceStatus: workspace.status as "running" | "attention" | "idle" | "completed",
       llmEnabled: this.config?.llm_enabled ?? false,
       llmConfig: {
         baseUrl: this.config?.llm_base_url,

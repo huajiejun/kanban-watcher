@@ -176,6 +176,49 @@ func (c *Client) FetchExecutionProcess(ctx context.Context, processID string) (*
 	return apiResp.Data, nil
 }
 
+// remoteWorkspaceIssueID 上游远程工作区中与 issue_id 相关的字段
+type remoteWorkspaceIssueID struct {
+	IssueID *string `json:"issue_id"`
+}
+
+type remoteWorkspaceIssueIDResponse struct {
+	Success bool                 `json:"success"`
+	Data    *remoteWorkspaceIssueID `json:"data"`
+	Message *string              `json:"message"`
+}
+
+// FetchWorkspaceIssueID 通过上游远程代理查询工作区的 issue_id
+// 调用 GET /api/remote/workspaces/by-local-id/{workspaceID}
+func (c *Client) FetchWorkspaceIssueID(ctx context.Context, workspaceID string) (*string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		c.baseURL+"/api/remote/workspaces/by-local-id/"+workspaceID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build remote workspace request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch remote workspace http: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("fetch remote workspace: HTTP %d", resp.StatusCode)
+	}
+
+	var apiResp remoteWorkspaceIssueIDResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("decode remote workspace response: %w", err)
+	}
+	if !apiResp.Success || apiResp.Data == nil {
+		return nil, nil
+	}
+	return apiResp.Data.IssueID, nil
+}
+
 // displayName 返回工作区的显示名称
 // 优先级：Name（非空时）> Branch
 func displayName(ws Workspace) string {

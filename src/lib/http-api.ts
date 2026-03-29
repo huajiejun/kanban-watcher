@@ -2,6 +2,7 @@ import type {
   ActiveWorkspacesResponse,
   ExecutionProcessDetail,
   SessionMessagesResponse,
+  WorkspaceMessagesResponse,
   VibeInfoResponse,
   WorkspaceFileBrowserPathResponse,
   WorkspaceFrontendPortResponse,
@@ -136,6 +137,30 @@ export async function fetchWorkspaceLatestMessages({
   }
   return fetchJSON<SessionMessagesResponse>(
     `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/latest-messages?${query.toString()}`,
+    {
+      method: "GET",
+      headers: buildHeaders(apiKey),
+    },
+  );
+}
+
+export async function fetchWorkspaceMessages({
+  baseUrl,
+  apiKey,
+  workspaceId,
+  limit,
+  cursor,
+}: RequestOptions & {
+  workspaceId: string;
+  limit: number;
+  cursor?: string;
+}): Promise<WorkspaceMessagesResponse> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (cursor) {
+    query.set("cursor", cursor);
+  }
+  return fetchJSON<WorkspaceMessagesResponse>(
+    `${normalizeBaseUrl(baseUrl)}/api/workspaces/${workspaceId}/messages?${query.toString()}`,
     {
       method: "GET",
       headers: buildHeaders(apiKey),

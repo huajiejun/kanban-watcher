@@ -39,6 +39,8 @@ export class WorkspaceConversationPane extends LitElement {
     todoPendingCount: { attribute: false },
     showTodoPanel: { type: Boolean, state: true },
     diffStats: { attribute: false },
+    hasMore: { type: Boolean },
+    onLoadMore: { attribute: false },
     quickButtonsExpanded: { state: true },
     quickButtonsOverflowing: { state: true },
   };
@@ -68,8 +70,11 @@ export class WorkspaceConversationPane extends LitElement {
   private showTodoPanel = false;
   private resolvedWorkspacePath = "";
   diffStats: DiffStats | undefined;
+  hasMore = false;
+  onLoadMore?: () => void;
   private quickButtonsExpanded = false;
   private quickButtonsOverflowing = false;
+  private loadingMore = false;
   private readonly collapsedQuickButtonsHeight = 36;
   private shouldAutoScroll = true;
 
@@ -190,6 +195,13 @@ export class WorkspaceConversationPane extends LitElement {
       <section class="dialog-messages">
         <div class="dialog-panel-title">对话消息</div>
         <div class="message-list" @scroll=${this.handleMessageListScroll}>
+          ${this.hasMore
+            ? html`<div class="load-more-bar">
+                <button class="load-more-btn" type="button" ?disabled=${this.loadingMore} @click=${this.handleLoadMore}>
+                  ${this.loadingMore ? "加载中..." : "加载更早消息"}
+                </button>
+              </div>`
+            : nothing}
           ${this.messages.map((message) =>
             this.renderMessage ? this.renderMessage(message) : this.renderEntry(message),
           )}
@@ -252,6 +264,9 @@ export class WorkspaceConversationPane extends LitElement {
   }
 
   protected updated(changedProperties: Map<PropertyKey, unknown>) {
+    if (changedProperties.has("messages") && this.loadingMore) {
+      this.loadingMore = false;
+    }
     if (changedProperties.has("messages") && this.shouldAutoScroll) {
       this.scrollMessagesToBottom();
     }
@@ -419,6 +434,14 @@ export class WorkspaceConversationPane extends LitElement {
       }),
     );
   }
+
+  private handleLoadMore = () => {
+    if (this.loadingMore || !this.hasMore || !this.onLoadMore) {
+      return;
+    }
+    this.loadingMore = true;
+    this.onLoadMore();
+  };
 
   private handleClose = () => {
     this.dispatchEvent(
