@@ -156,6 +156,12 @@ export class MobileKanbanBoard extends LitElement {
     });
   }
 
+  private handleIssueCreated = () => {
+    if (this.selectedProjectId) {
+      this.loadBoard(true);
+    }
+  };
+
   private async loadBoard(silent = false) {
     if (!this.selectedProjectId) return;
 
