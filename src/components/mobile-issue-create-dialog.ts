@@ -179,8 +179,10 @@ export class MobileIssueCreateDialog extends LitElement {
   statuses: RemoteProjectStatus[] = [];
   baseUrl = "";
   apiKey = "";
+  projectId = "";
   visible = false;
   submitting = false;
+  errorMessage = "";
 
   title = "";
   description = "";
@@ -191,8 +193,10 @@ export class MobileIssueCreateDialog extends LitElement {
     statuses: { type: Array },
     baseUrl: { type: String },
     apiKey: { type: String },
+    projectId: { type: String },
     visible: { type: Boolean },
     submitting: { type: Boolean },
+    errorMessage: { type: String },
   };
 
   connectedCallback() {
