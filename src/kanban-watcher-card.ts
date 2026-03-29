@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from "lit";
+import { LitElement, html, nothing, state } from "lit";
 import "./components/workspace-conversation-pane";
 import "./components/diff-details-panel";
 import { detectDialogEditLanguage, renderDialogMessage } from "./components/dialog-message-renderer";
@@ -245,8 +245,11 @@ export class KanbanWatcherCard extends LitElement {
   private createWorkspaceAvailablePresets: string[] = [];
   private createWorkspaceAvailableModels: Array<{ id: string; name: string; provider: string }> = [];
   private createWorkspaceLoadingPresets = false;
+  @state
   private createWorkspaceAvailableRepos: Array<{ id: string; name: string; display_name: string; path: string; default_target_branch?: string; default_working_dir?: string; dev_server_script?: string }> = [];
+  @state
   private createWorkspaceSelectedRepoId = "";
+  @state
   private createWorkspaceSelectedBranch = "";
 
   connectedCallback() {
@@ -1419,6 +1422,15 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     try {
+      // 调试日志
+      console.log('[kanban-watcher-card] 创建工作区:', {
+        name,
+        selectedRepoId: this.createWorkspaceSelectedRepoId,
+        selectedBranch: this.createWorkspaceSelectedBranch,
+        availableReposCount: this.createWorkspaceAvailableRepos.length,
+        availableRepos: this.createWorkspaceAvailableRepos.map(r => ({ id: r.id, name: r.name }))
+      });
+
       // 构建仓库列表
       const repos = this.createWorkspaceSelectedRepoId
         ? [{
@@ -1426,6 +1438,8 @@ export class KanbanWatcherCard extends LitElement {
             target_branch: this.createWorkspaceSelectedBranch || "main",
           }]
         : [];
+
+      console.log('[kanban-watcher-card] 构建的仓库列表:', repos);
 
       // 构建创建请求
       const request: CreateWorkspaceRequest = {
