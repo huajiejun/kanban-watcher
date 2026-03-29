@@ -225,6 +225,8 @@ export class MobileIssueCreateDialog extends LitElement {
   private async handleSubmit() {
     if (!this.title.trim() || this.submitting) return;
     this.submitting = true;
+    this.errorMessage = "";
+
     try {
       await createIssue(
         { baseUrl: this.baseUrl, apiKey: this.apiKey },
@@ -233,6 +235,7 @@ export class MobileIssueCreateDialog extends LitElement {
           description: this.description.trim() || undefined,
           priority: this.priority,
           status_id: this.selectedStatusId || undefined,
+          project_id: this.projectId,
         }
       );
       this.close();
@@ -244,6 +247,16 @@ export class MobileIssueCreateDialog extends LitElement {
       );
     } catch (err) {
       console.error("创建任务失败:", err);
+      const errorText = err instanceof Error ? err.message : String(err);
+      if (errorText.includes("400") || errorText.includes("422")) {
+        this.errorMessage = "创建失败，请检查必填项是否完整";
+      } else if (errorText.includes("401") || errorText.includes("403")) {
+        this.errorMessage = "权限不足，无法创建任务";
+      } else if (errorText.includes("fetch") || errorText.includes("network")) {
+        this.errorMessage = "请求失败，请检查网络连接";
+      } else {
+        this.errorMessage = "服务异常，请稍后重试";
+      }
     } finally {
       this.submitting = false;
     }
