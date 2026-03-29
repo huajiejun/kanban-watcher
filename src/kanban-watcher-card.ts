@@ -523,9 +523,10 @@ export class KanbanWatcherCard extends LitElement {
         this.showCreatePRDialog = true;
         this.selectedWorkspaceForPR = workspace;
         break;
-      case "open-branch":
-        // TODO: 打开分支
-        console.log("打开分支:", workspace.id);
+      case "open-pr":
+        if (workspace.pr_url) {
+          window.open(workspace.pr_url, "_blank");
+        }
         break;
       case "delete":
         // TODO: 删除工作区

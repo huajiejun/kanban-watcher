@@ -227,48 +227,6 @@ export class WorkspaceSectionList extends LitElement {
       }),
     );
   }
-
-  private renderMenuDropdown(workspace: KanbanWorkspace) {
-    if (this.activeMenuWorkspaceId !== workspace.id) {
-      return nothing;
-    }
-    const hasPr = workspace.pr_url && workspace.pr_url.trim() !== "";
-    const prNumber = workspace.pr_url?.match(/\/pull\/(\d+)/)?.[1];
-    return html`
-      <div class="task-card-menu-dropdown">
-        ${hasPr
-          ? html`
-        <button
-          class="task-card-menu-item"
-          type="button"
-          @click=${() => this.handleMenuAction(workspace, "open-pr")}
-        >
-          <span>🔗</span>
-          <span>打开 Pull Request #${prNumber ?? ""}</span>
-        </button>
-          `
-          : html`
-        <button
-          class="task-card-menu-item"
-          type="button"
-          @click=${() => this.handleMenuAction(workspace, "create-pr")}
-        >
-          <span>🔀</span>
-          <span>提交 Pull Request</span>
-        </button>
-        `}
-        <div class="task-card-menu-divider"></div>
-        <button
-          class="task-card-menu-item is-danger"
-          type="button"
-          @click=${() => this.handleMenuAction(workspace, "delete")}
-        >
-          <span>🗑️</span>
-          <span>删除工作区</span>
-        </button>
-      </div>
-    `;
-  }
 }
 
 declare global {
@@ -346,28 +304,33 @@ function renderWorkspaceCard(
       </button>
       ${onMenuAction && showMenu ? html`
         <div class="task-card-menu-dropdown">
-          <button
-            class="task-card-menu-item"
-            type="button"
-            @click=${(e: Event) => {
-              e.stopPropagation();
-              onMenuAction(workspace, "create-pr");
-            }}
-          >
-            <span>🔀</span>
-            <span>提交 Pull Request</span>
-          </button>
-          <button
-            class="task-card-menu-item"
-            type="button"
-            @click=${(e: Event) => {
-              e.stopPropagation();
-              onMenuAction(workspace, "open-branch");
-            }}
-          >
-            <span>🌿</span>
-            <span>打开分支</span>
-          </button>
+          ${(workspace.pr_url && workspace.pr_url.trim() !== "")
+            ? html`
+              <button
+                class="task-card-menu-item"
+                type="button"
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  onMenuAction(workspace, "open-pr");
+                }}
+              >
+                <span>🔗</span>
+                <span>打开 Pull Request #${workspace.pr_url.match(/\/pull\/(\d+)/)?.[1] ?? ""}</span>
+              </button>
+            `
+            : html`
+              <button
+                class="task-card-menu-item"
+                type="button"
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  onMenuAction(workspace, "create-pr");
+                }}
+              >
+                <span>🔀</span>
+                <span>提交 Pull Request</span>
+              </button>
+            `}
           <div class="task-card-menu-divider"></div>
           <button
             class="task-card-menu-item is-danger"
