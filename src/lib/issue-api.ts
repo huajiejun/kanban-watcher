@@ -238,6 +238,43 @@ export async function fetchAgentPresetOptions(
   return response.data ?? null;
 }
 
+/** GET /api/repos - 获取仓库列表 */
+export async function fetchRepos(
+  options: RequestOptions
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    display_name: string;
+    path: string;
+    default_target_branch?: string;
+    default_working_dir?: string;
+    dev_server_script?: string;
+  }>
+> {
+  try {
+    const response = await fetchJSON<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        name: string;
+        display_name: string;
+        path: string;
+        default_target_branch?: string;
+        default_working_dir?: string;
+        dev_server_script?: string;
+      }>;
+    }>(`${normalizeBaseUrl(options.baseUrl)}/api/repos`, {
+      method: "GET",
+      headers: buildHeaders(options.apiKey),
+    });
+    return response.data ?? [];
+  } catch (error) {
+    console.warn("[fetchRepos] 获取仓库列表失败:", error);
+    return [];
+  }
+}
+
 /** GET /api/agents/discovery - 获取Agent发现的模型列表 */
 export async function fetchAgentDiscovery(
   options: RequestOptions,

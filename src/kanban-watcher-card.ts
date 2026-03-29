@@ -48,6 +48,7 @@ import {
   linkWorkspaceToIssue,
   fetchAgentPresetOptions,
   fetchAgentDiscovery,
+  fetchRepos,
 } from "./lib/issue-api";
 import {
   renderWorkspaceSectionList,
@@ -173,6 +174,9 @@ export class KanbanWatcherCard extends LitElement {
     createWorkspaceAvailablePresets: { state: true },
     createWorkspaceAvailableModels: { state: true },
     createWorkspaceLoadingPresets: { state: true },
+    createWorkspaceAvailableRepos: { state: true },
+    createWorkspaceSelectedRepoId: { state: true },
+    createWorkspaceSelectedBranch: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -237,6 +241,9 @@ export class KanbanWatcherCard extends LitElement {
   private createWorkspaceAvailablePresets: string[] = [];
   private createWorkspaceAvailableModels: Array<{ id: string; name: string; provider: string }> = [];
   private createWorkspaceLoadingPresets = false;
+  private createWorkspaceAvailableRepos: Array<{ id: string; name: string; display_name: string; path: string; default_target_branch?: string; default_working_dir?: string; dev_server_script?: string }> = [];
+  private createWorkspaceSelectedRepoId = "";
+  private createWorkspaceSelectedBranch = "";
 
   connectedCallback() {
     super.connectedCallback();
@@ -579,6 +586,8 @@ export class KanbanWatcherCard extends LitElement {
 
     // 加载当前选中 agent 的预设和模型
     void this.loadAgentPresetsAndModels(this.createWorkspaceAgent);
+    // 加载仓库列表
+    void this.loadReposAndSelectDefault();
   }
 
   private closeCreateWorkspaceDialog = () => {
@@ -591,6 +600,9 @@ export class KanbanWatcherCard extends LitElement {
     this.createWorkspaceModel = "";
     this.createWorkspacePrompt = "";
     this.createWorkspacePermission = PermissionPolicy.AUTO;
+    this.createWorkspaceSelectedRepoId = "";
+    this.createWorkspaceSelectedBranch = "";
+    this.createWorkspaceAvailableRepos = [];
   }
 
   private closeWorkspaceDialog = () => {
@@ -1085,6 +1097,41 @@ export class KanbanWatcherCard extends LitElement {
               />
             </div>
 
+            <!-- 仓库选择 -->
+            ${this.createWorkspaceAvailableRepos.length > 0
+              ? html`
+                  <div class="form-group">
+                    <label class="form-label">代码仓库 *</label>
+                    <select
+                      class="form-select"
+                      .value=${this.createWorkspaceSelectedRepoId}
+                      @change=${this.handleRepoChange}
+                    >
+                      ${this.createWorkspaceAvailableRepos.map(
+                        (repo) => html`
+                          <option value=${repo.id}>
+                            ${repo.display_name || repo.name}
+                            ${repo.default_target_branch ? `(默认分支: ${repo.default_target_branch})` : ''}
+                          </option>
+                        `
+                      )}
+                    </select>
+                  </div>
+
+                  <!-- 分支选择 -->
+                  <div class="form-group">
+                    <label class="form-label">目标分支 *</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      placeholder="输入目标分支，如 main"
+                      .value=${this.createWorkspaceSelectedBranch}
+                      @input=${this.handleBranchChange}
+                    />
+                  </div>
+                `
+              : nothing}
+
             <!-- Agent选择 -->
             <div class="form-group">
               <label class="form-label">AI Agent *</label>
@@ -1236,6 +1283,64 @@ export class KanbanWatcherCard extends LitElement {
     }
   };
 
+  private loadReposAndSelectDefault = async () => {
+    if (!this.isApiMode || !this.config?.base_url) {
+      console.log('[kanban-watcher-card] 无法加载仓库列表: isApiMode=', this.isApiMode);
+      return;
+    }
+
+    try {
+      const repos = await fetchRepos({
+        baseUrl: this.config.base_url,
+        apiKey: this.config.api_key,
+      });
+
+      console.log('[kanban-watcher-card] 加载仓库列表:', repos);
+
+      if (repos && repos.length > 0) {
+        this.createWorkspaceAvailableRepos = repos;
+
+        // 查找默认仓库（有 default_target_branch 或 dev_server_script 的）
+        const defaultRepo = repos.find(
+          (r) => r.default_target_branch || r.dev_server_script
+        );
+
+        if (defaultRepo) {
+          this.createWorkspaceSelectedRepoId = defaultRepo.id;
+          this.createWorkspaceSelectedBranch =
+            defaultRepo.default_target_branch || "main";
+          console.log('[kanban-watcher-card] 自动选择默认仓库:', defaultRepo.name);
+        } else {
+          // 如果没有默认仓库，选择第一个
+          this.createWorkspaceSelectedRepoId = repos[0].id;
+          this.createWorkspaceSelectedBranch = "main";
+          console.log('[kanban-watcher-card] 选择第一个仓库:', repos[0].name);
+        }
+      }
+    } catch (error) {
+      console.error("[kanban-watcher-card] 加载仓库列表失败:", error);
+    }
+  };
+
+  private handleRepoChange = (e: Event) => {
+    const repoId = (e.target as HTMLSelectElement).value;
+    this.createWorkspaceSelectedRepoId = repoId;
+
+    // 自动填充默认分支
+    const repo = this.createWorkspaceAvailableRepos.find((r) => r.id === repoId);
+    if (repo?.default_target_branch) {
+      this.createWorkspaceSelectedBranch = repo.default_target_branch;
+    } else {
+      this.createWorkspaceSelectedBranch = "main";
+    }
+
+    console.log('[kanban-watcher-card] 选择仓库:', repo?.name, '分支:', this.createWorkspaceSelectedBranch);
+  };
+
+  private handleBranchChange = (e: Event) => {
+    this.createWorkspaceSelectedBranch = (e.target as HTMLSelectElement).value;
+  };
+
   private loadPresetOptions = async (agent: BaseCodingAgent, variant: string) => {
     if (!this.isApiMode || !this.config?.base_url) return;
 
@@ -1297,10 +1402,18 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     try {
+      // 构建仓库列表
+      const repos = this.createWorkspaceSelectedRepoId
+        ? [{
+            repo_id: this.createWorkspaceSelectedRepoId,
+            target_branch: this.createWorkspaceSelectedBranch || "main",
+          }]
+        : [];
+
       // 构建创建请求
       const request: CreateWorkspaceRequest = {
         name: name,
-        repos: [], // TODO: 后续支持选择仓库
+        repos: repos,
         linked_issue: null,
         executor_config: {
           executor: this.createWorkspaceAgent,
