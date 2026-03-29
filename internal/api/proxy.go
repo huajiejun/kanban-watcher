@@ -628,3 +628,42 @@ func (c *ProxyClient) ListRepos(ctx context.Context) (*ListReposResponse, error)
 
 	return &result, nil
 }
+
+// LinkWorkspaceToIssue 关联工作区到任务，代理到 vibe-kanban 的 POST /api/workspaces/{id}/links API
+func (c *ProxyClient) LinkWorkspaceToIssue(ctx context.Context, workspaceID, projectID, issueID string) error {
+	payload, err := json.Marshal(map[string]interface{}{
+		"remote_project_id": projectID,
+		"issue_id":          issueID,
+	})
+	if err != nil {
+		return fmt.Errorf("序列化请求: %w", err)
+	}
+
+	log.Printf("[Proxy] 关联工作区到任务: workspace=%s, project=%s, issue=%s", workspaceID, projectID, issueID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		fmt.Sprintf("%s/api/workspaces/%s/links", c.baseURL, workspaceID),
+		bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("构建请求: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取响应: %w", err)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("关联工作区失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	return nil
+}

@@ -966,7 +966,54 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// POST /api/workspaces/{id}/links - 关联工作区到任务
+	if len(parts) == 2 && parts[1] == "links" && r.Method == http.MethodPost {
+		s.handleWorkspaceLinks(w, r, parts[0])
+		return
+	}
+
 	http.Error(w, "Invalid path", http.StatusBadRequest)
+}
+
+// handleWorkspaceLinks 处理 POST /api/workspaces/{id}/links - 关联工作区到任务
+func (s *Server) handleWorkspaceLinks(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	// 解析请求体
+	var req struct {
+		RemoteProjectID string `json:"remote_project_id"`
+		IssueID         string `json:"issue_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("解析请求体失败: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("[HTTP Server] 关联工作区到任务: workspace=%s, project=%s, issue=%s", workspaceID, req.RemoteProjectID, req.IssueID)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	if err := s.proxy.LinkWorkspaceToIssue(ctx, workspaceID, req.RemoteProjectID, req.IssueID); err != nil {
+		log.Printf("[HTTP Server] 关联工作区失败: workspace=%s, err=%v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	log.Printf("[HTTP Server] 工作区已关联到任务: workspace=%s", workspaceID)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"workspace_id": workspaceID,
+	})
 }
 
 // handleWorkspaceSeen 标记工作区为已读（代理到 vibe-kanban）
