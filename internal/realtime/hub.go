@@ -31,6 +31,7 @@ type WorkspacePayload struct {
 	FilesChanged        int    `json:"files_changed"`
 	LinesAdded          int    `json:"lines_added"`
 	LinesRemoved        int    `json:"lines_removed"`
+	PrURL               string `json:"pr_url,omitempty"`
 	UpdatedAt           string `json:"updated_at,omitempty"`
 	MessageCount        int    `json:"message_count"`
 	LastMessageAt       string `json:"last_message_at,omitempty"`

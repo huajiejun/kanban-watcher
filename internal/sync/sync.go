@@ -205,6 +205,7 @@ func (s *SyncService) syncActiveWorkspaces(ctx context.Context) error {
 		if ws.Summary.LatestProcessStatus != nil {
 			dbWS.LatestProcessStatus = ws.Summary.LatestProcessStatus
 		}
+		dbWS.PrURL = ws.Summary.PrURL
 		if parsed := parseTimePtr(ws.CreatedAt); parsed != nil {
 			dbWS.CreatedAt = parsed
 		}

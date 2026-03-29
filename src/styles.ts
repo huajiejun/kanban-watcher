@@ -95,6 +95,81 @@ export const workspaceSectionListStyles = css`
     border-left-color: var(--warning-color, #f59e0b);
   }
 
+  .task-card-wrapper {
+    position: relative;
+  }
+
+  .task-card-menu-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+  }
+
+  .task-card-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color, #f1f5f9);
+  }
+
+  .task-card-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    left: auto;
+    min-width: 140px;
+    background: var(--primary-background-color, #1e293b);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  .task-card-menu-item {
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    color: var(--secondary-text-color, #e2e8f0);
+    font: inherit;
+    font-size: 0.82rem;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .task-card-menu-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color, #f1f5f9);
+  }
+
+  .task-card-menu-item.is-danger {
+    color: var(--error-color, #f87171);
+  }
+
+  .task-card-menu-item.is-danger:hover {
+    background: rgba(239, 68, 68, 0.15);
+  }
+
+  .task-card-menu-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 4px 0;
+  }
+
   .workspace-name {
     display: block;
     min-width: 0;
@@ -771,6 +846,81 @@ export const cardStyles = css`
   .task-card.is-idle {
     --task-card-accent: color-mix(in srgb, var(--warning-color, #f59e0b) 58%, transparent);
     border-left-color: var(--warning-color, #f59e0b);
+  }
+
+  .task-card-wrapper {
+    position: relative;
+  }
+
+  .task-card-menu-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--secondary-text-color, #94a3b8);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+  }
+
+  .task-card-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color, #f1f5f9);
+  }
+
+  .task-card-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    left: auto;
+    min-width: 140px;
+    background: var(--primary-background-color, #1e293b);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  .task-card-menu-item {
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    color: var(--secondary-text-color, #e2e8f0);
+    font: inherit;
+    font-size: 0.82rem;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .task-card-menu-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color, #f1f5f9);
+  }
+
+  .task-card-menu-item.is-danger {
+    color: var(--error-color, #f87171);
+  }
+
+  .task-card-menu-item.is-danger:hover {
+    background: rgba(239, 68, 68, 0.15);
+  }
+
+  .task-card-menu-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 4px 0;
   }
 
   .workspace-name {

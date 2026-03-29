@@ -164,6 +164,7 @@ func (s *Server) Start() error {
 
 	// 仓库列表代理接口
 	mux.HandleFunc("/api/repos", s.handleRepos)
+	mux.HandleFunc("/api/repos/", s.handleRepos)
 
 	// Agent 配置代理接口
 	mux.HandleFunc("/api/agents/discovery", s.handleAgentDiscovery)
@@ -960,6 +961,24 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// GET /api/workspaces/{id}/repos
+	if len(parts) == 2 && parts[1] == "repos" && r.Method == http.MethodGet {
+		s.handleWorkspaceRepos(w, r, parts[0])
+		return
+	}
+
+	// GET /api/workspaces/{id}/messages/first
+	if len(parts) == 3 && parts[1] == "messages" && parts[2] == "first" && r.Method == http.MethodGet {
+		s.handleWorkspaceFirstMessage(w, r, parts[0])
+		return
+	}
+
+	// POST /api/workspaces/{id}/pull-requests
+	if len(parts) == 2 && parts[1] == "pull-requests" && r.Method == http.MethodPost {
+		s.handleCreatePullRequest(w, r, parts[0])
+		return
+	}
+
 	// WebSocket 代理: /api/workspaces/{id}/git/diff/ws
 	if len(parts) == 3 && parts[1] == "git" && parts[2] == "diff/ws" {
 		s.handleGitDiffWsProxy(w, r, parts[0])
@@ -1502,23 +1521,64 @@ func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleRepos 处理 GET /api/repos
+// handleRepos 处理 /api/repos/ 相关请求
+// GET /api/repos - 获取仓库列表
+// GET /api/repos/{id}/branches - 获取仓库的分支列表
 func (s *Server) handleRepos(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	path := strings.TrimPrefix(r.URL.Path, "/api/repos/")
+	if path == "" || path == r.URL.Path {
+		// GET /api/repos - 列出所有仓库
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if s.proxy == nil {
+			http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+		defer cancel()
+
+		repos, err := s.proxy.ListRepos(ctx)
+		if err != nil {
+			log.Printf("[HTTP Server] 查询仓库列表失败: %v", err)
+			statusCode := http.StatusInternalServerError
+			if errors.Is(err, context.DeadlineExceeded) {
+				statusCode = http.StatusGatewayTimeout
+			}
+			http.Error(w, err.Error(), statusCode)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(repos)
 		return
 	}
+
+	// /api/repos/{id}/branches
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) == 2 && parts[1] == "branches" && r.Method == http.MethodGet {
+		s.handleRepoBranches(w, r, parts[0])
+		return
+	}
+
+	http.Error(w, "Invalid path", http.StatusBadRequest)
+}
+
+// handleRepoBranches 获取仓库的分支列表（代理到 vibe-kanban）
+func (s *Server) handleRepoBranches(w http.ResponseWriter, r *http.Request, repoID string) {
 	if s.proxy == nil {
 		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	repos, err := s.proxy.ListRepos(ctx)
+	branches, err := s.proxy.GetRepoBranches(ctx, repoID)
 	if err != nil {
-		log.Printf("[HTTP Server] 查询仓库列表失败: %v", err)
+		log.Printf("[HTTP Server] 获取仓库 %s 的分支列表失败: %v", repoID, err)
 		statusCode := http.StatusInternalServerError
 		if errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusGatewayTimeout
@@ -1528,7 +1588,97 @@ func (s *Server) handleRepos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(repos)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    branches,
+	})
+}
+
+// handleWorkspaceRepos 获取工作区的仓库列表（代理到 vibe-kanban）
+func (s *Server) handleWorkspaceRepos(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	repos, err := s.proxy.GetWorkspaceRepos(ctx, workspaceID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取工作区 %s 的仓库列表失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    repos,
+	})
+}
+
+// handleWorkspaceFirstMessage 获取工作区的第一条用户消息（代理到 vibe-kanban）
+func (s *Server) handleWorkspaceFirstMessage(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	message, err := s.proxy.GetFirstUserMessage(ctx, workspaceID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取工作区 %s 的第一条消息失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    message,
+	})
+}
+
+// handleCreatePullRequest 创建 Pull Request（代理到 vibe-kanban）
+func (s *Server) handleCreatePullRequest(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	var body map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "无效的请求体", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	result, err := s.proxy.CreatePullRequest(ctx, workspaceID, body)
+	if err != nil {
+		log.Printf("[HTTP Server] 创建 PR 失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func ptrInt(v int) *int {

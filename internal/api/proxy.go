@@ -520,12 +520,12 @@ func (c *ProxyClient) MarkWorkspaceSeen(ctx context.Context, workspaceID string)
 
 // LinkedIssueInfo 关联的任务信息
 type LinkedIssueInfo struct {
-	IssueID  string `json:"issue_id"`
+	IssueID   string `json:"issue_id"`
 	ProjectID string `json:"project_id,omitempty"`
 }
 
 // CreateAndStartWorkspaceRequest 创建并启动工作区请求
- type CreateAndStartWorkspaceRequest struct {
+type CreateAndStartWorkspaceRequest struct {
 	Name           string                 `json:"name"`
 	Repos          []interface{}          `json:"repos"`
 	LinkedIssue    *LinkedIssueInfo       `json:"linked_issue"`
@@ -536,8 +536,8 @@ type LinkedIssueInfo struct {
 
 // CreateAndStartWorkspaceResponse 创建并启动工作区响应
 type CreateAndStartWorkspaceResponse struct {
-	Success   bool                     `json:"success"`
-	Data      CreateWorkspaceData      `json:"data"`
+	Success bool                `json:"success"`
+	Data    CreateWorkspaceData `json:"data"`
 }
 
 // CreateWorkspaceData 创建工作区响应数据
@@ -547,7 +547,7 @@ type CreateWorkspaceData struct {
 
 // vibeKanbanWorkspace 接收 vibe-kanban 原始响应
 type vibeKanbanWorkspace struct {
-	ID                       string  `json:"id"`  // vibe-kanban 使用 id 字段
+	ID                       string  `json:"id"` // vibe-kanban 使用 id 字段
 	LatestSessionID          *string `json:"latest_session_id"`
 	HasPendingApproval       bool    `json:"has_pending_approval"`
 	FilesChanged             *int    `json:"files_changed"`
@@ -601,26 +601,26 @@ func (c *ProxyClient) CreateAndStartWorkspace(ctx context.Context, req *CreateAn
 
 // Repository 仓库信息
 type Repository struct {
-	ID                   string  `json:"id"`
-	Path                 string  `json:"path"`
-	Name                 string  `json:"name"`
-	DisplayName          string  `json:"display_name"`
-	SetupScript          *string `json:"setup_script"`
-	CleanupScript        *string `json:"cleanup_script"`
-	ArchiveScript        *string `json:"archive_script"`
-	CopyFiles            *string `json:"copy_files"`
-	ParallelSetupScript  bool    `json:"parallel_setup_script"`
-	DevServerScript      *string `json:"dev_server_script"`
-	DefaultTargetBranch  *string `json:"default_target_branch"`
-	DefaultWorkingDir    *string `json:"default_working_dir"`
-	CreatedAt            string  `json:"created_at"`
-	UpdatedAt            string  `json:"updated_at"`
+	ID                  string  `json:"id"`
+	Path                string  `json:"path"`
+	Name                string  `json:"name"`
+	DisplayName         string  `json:"display_name"`
+	SetupScript         *string `json:"setup_script"`
+	CleanupScript       *string `json:"cleanup_script"`
+	ArchiveScript       *string `json:"archive_script"`
+	CopyFiles           *string `json:"copy_files"`
+	ParallelSetupScript bool    `json:"parallel_setup_script"`
+	DevServerScript     *string `json:"dev_server_script"`
+	DefaultTargetBranch *string `json:"default_target_branch"`
+	DefaultWorkingDir   *string `json:"default_working_dir"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
 }
 
 // ListReposResponse 仓库列表响应
 type ListReposResponse struct {
-	Success   bool         `json:"success"`
-	Data      []Repository `json:"data"`
+	Success bool         `json:"success"`
+	Data    []Repository `json:"data"`
 }
 
 // ListRepos 获取仓库列表，代理到 vibe-kanban 的 /api/repos API
@@ -690,4 +690,144 @@ func (c *ProxyClient) LinkWorkspaceToIssue(ctx context.Context, workspaceID, pro
 	}
 
 	return nil
+}
+
+// WorkspaceRepo represents a repository associated with a workspace
+type WorkspaceRepo struct {
+	ID                   string  `json:"id"`
+	Name                 string  `json:"name"`
+	Path                 string  `json:"path"`
+	DisplayName          string  `json:"display_name"`
+	TargetBranch         string  `json:"target_branch"`
+	DefaultTargetBranch  *string `json:"default_target_branch,omitempty"`
+}
+
+// GetWorkspaceRepos 获取工作区的仓库列表
+func (c *ProxyClient) GetWorkspaceRepos(ctx context.Context, workspaceID string) ([]WorkspaceRepo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/workspaces/%s/repos", c.baseURL, workspaceID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("获取工作区仓库失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result struct {
+		Success bool           `json:"success"`
+		Data    []WorkspaceRepo `json:"data,omitempty"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+
+	return result.Data, nil
+}
+
+// GitBranch represents a git branch
+type GitBranch struct {
+	Name      string `json:"name"`
+	IsCurrent bool   `json:"is_current,omitempty"`
+	IsRemote  bool   `json:"is_remote,omitempty"`
+}
+
+// GetRepoBranches 获取仓库的分支列表
+func (c *ProxyClient) GetRepoBranches(ctx context.Context, repoID string) ([]GitBranch, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/repos/%s/branches", c.baseURL, repoID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("获取仓库分支失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result struct {
+		Success bool         `json:"success"`
+		Data    []GitBranch  `json:"data,omitempty"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+
+	return result.Data, nil
+}
+
+// GetFirstUserMessage 获取工作区的第一条用户消息
+func (c *ProxyClient) GetFirstUserMessage(ctx context.Context, workspaceID string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/workspaces/%s/messages/first", c.baseURL, workspaceID), nil)
+	if err != nil {
+		return "", fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("获取第一条用户消息失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result struct {
+		Success bool   `json:"success"`
+		Data    string `json:"data,omitempty"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("解析响应: %w", err)
+	}
+
+	return result.Data, nil
+}
+
+// CreatePullRequestResponse 创建 PR 的响应
+type CreatePullRequestResponse struct {
+	Success bool   `json:"success"`
+	Data    string `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// CreatePullRequest 创建 Pull Request
+func (c *ProxyClient) CreatePullRequest(ctx context.Context, workspaceID string, data map[string]interface{}) (*CreatePullRequestResponse, error) {
+	reqBody, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("编码请求体: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/workspaces/%s/pull-requests", c.baseURL, workspaceID), bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	var result CreatePullRequestResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+
+	return &result, nil
 }

@@ -97,6 +97,7 @@ func (s *Store) InitSchema(ctx context.Context) error {
 			INDEX idx_kw_workspaces_updated_at (updated_at),
 			INDEX idx_kw_workspaces_latest_session (latest_session_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+		`ALTER TABLE kw_workspaces ADD COLUMN IF NOT EXISTS pr_url VARCHAR(500) NULL`,
 		`CREATE TABLE IF NOT EXISTS kw_sessions (
 			id VARCHAR(36) PRIMARY KEY,
 			workspace_id VARCHAR(36) NOT NULL,
@@ -329,7 +330,7 @@ func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 		INSERT INTO kw_workspaces (
 			id, name, branch, issue_id, archived, pinned, latest_session_id, is_running,
 			latest_process_status, has_pending_approval, has_unseen_turns, has_running_dev_server,
-			frontend_port, files_changed, lines_added, lines_removed, last_seen_at, created_at, updated_at
+			frontend_port, files_changed, lines_added, lines_removed, pr_url, last_seen_at, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
 			name = VALUES(name),
@@ -347,6 +348,7 @@ func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 			files_changed = VALUES(files_changed),
 			lines_added = VALUES(lines_added),
 			lines_removed = VALUES(lines_removed),
+			pr_url = COALESCE(VALUES(pr_url), kw_workspaces.pr_url),
 			last_seen_at = VALUES(last_seen_at),
 			created_at = COALESCE(kw_workspaces.created_at, VALUES(created_at)),
 			updated_at = VALUES(updated_at),
@@ -356,7 +358,7 @@ func (s *Store) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 		ws.ID, ws.Name, ws.Branch, ws.IssueID, ws.Archived, ws.Pinned, ws.LatestSessionID,
 		ws.IsRunning, ws.LatestProcessStatus, ws.HasPendingApproval, ws.HasUnseenTurns, ws.HasRunningDevServer,
 		ws.FrontendPort,
-		ws.FilesChanged, ws.LinesAdded, ws.LinesRemoved, ws.LastSeenAt, ws.CreatedAt, ws.UpdatedAt,
+		ws.FilesChanged, ws.LinesAdded, ws.LinesRemoved, ws.PrURL, ws.LastSeenAt, ws.CreatedAt, ws.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("upsert workspace: %w", err)
@@ -1076,6 +1078,7 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 			w.files_changed,
 			w.lines_added,
 			w.lines_removed,
+			w.pr_url,
 			w.updated_at,
 			COALESCE(msg.message_count, 0) AS message_count,
 			msg.last_message_at,
@@ -1127,11 +1130,13 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 		var summary ActiveWorkspaceSummary
 		var latestSessionID, runningDevServerProcessID sql.NullString
 		var lastMessage sql.NullString
+		var prURL sql.NullString
 		var updatedAt, lastMessageAt, latestProcessCompletedAt sql.NullTime
 		if err := rows.Scan(
 			&summary.ID, &summary.Name, &summary.Branch, &latestSessionID, &summary.Status,
 			&summary.HasPendingApproval, &summary.HasUnseenTurns, &summary.HasRunningDevServer, &runningDevServerProcessID,
 			&summary.FilesChanged, &summary.LinesAdded, &summary.LinesRemoved,
+			&prURL,
 			&updatedAt, &summary.MessageCount, &lastMessageAt, &latestProcessCompletedAt, &lastMessage,
 		); err != nil {
 			return nil, fmt.Errorf("scan active workspace summary: %w", err)
@@ -1141,6 +1146,9 @@ func (s *Store) GetActiveWorkspaceSummaries(ctx context.Context) ([]ActiveWorksp
 		}
 		if runningDevServerProcessID.Valid {
 			summary.RunningDevServerProcessID = &runningDevServerProcessID.String
+		}
+		if prURL.Valid {
+			summary.PrURL = &prURL.String
 		}
 		if updatedAt.Valid {
 			summary.UpdatedAt = &updatedAt.Time

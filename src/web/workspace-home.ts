@@ -4,6 +4,7 @@ import "../components/workspace-conversation-pane";
 import "../components/workspace-preview-card";
 import "../components/mobile-kanban-board";
 import "../components/mobile-project-drawer";
+import "../components/create-pr-dialog";
 import "../components/diff-details-panel";
 import type {
   ConversationPaneAction,
@@ -184,6 +185,9 @@ export class KanbanWorkspaceHome extends LitElement {
   extractedButtonsByWorkspace: Record<string, string[]> = {};
   suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
+  // PR 对话框状态
+  showCreatePRDialog = false;
+  selectedWorkspaceForPR: KanbanWorkspace | null = null;
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
   private boardRealtimeRetryTimer?: number;
   private realtimeRetryTimer?: number;
@@ -371,6 +375,7 @@ export class KanbanWorkspaceHome extends LitElement {
           ${this.renderPreviewDrawer()}
           ${this.renderDiffDetailsPanel()}
           ${this.renderWebPreviewOverlay()}
+          ${this.renderCreatePRDialog()}
         </section>
       </main>
     `;
@@ -583,6 +588,7 @@ export class KanbanWorkspaceHome extends LitElement {
       files_changed: workspace.files_changed,
       lines_added: workspace.lines_added,
       lines_removed: workspace.lines_removed,
+      pr_url: workspace.pr_url,
       updated_at: workspace.updated_at,
       last_message_at: workspace.last_message_at,
       latest_process_completed_at: workspace.latest_process_completed_at,
@@ -1109,6 +1115,35 @@ export class KanbanWorkspaceHome extends LitElement {
       Boolean(workspace.needs_attention || workspace.has_pending_approval || workspace.has_unseen_turns),
     );
   }
+
+  private handleMenuAction(workspace: KanbanWorkspace, action: string) {
+    switch (action) {
+      case "create-pr":
+        this.selectedWorkspaceForPR = workspace;
+        this.showCreatePRDialog = true;
+        break;
+      case "open-pr":
+        if (workspace.pr_url) {
+          window.open(workspace.pr_url, "_blank");
+        }
+        break;
+      case "open-branch":
+        // TODO: 打开分支
+        console.log("打开分支:", workspace.id);
+        break;
+      case "delete":
+        // TODO: 删除工作区
+        console.log("删除工作区:", workspace.id);
+        break;
+      default:
+        console.warn("未知菜单操作:", action);
+    }
+  }
+
+  private handleCloseCreatePRDialog = () => {
+    this.showCreatePRDialog = false;
+    this.selectedWorkspaceForPR = null;
+  };
 
   private async handleTodoSelected(workspace: KanbanWorkspace, detail: { content: string; todoId: string }) {
     if (!this.isApiMode) return;
@@ -2140,6 +2175,25 @@ export class KanbanWorkspaceHome extends LitElement {
     `;
   }
 
+  private renderCreatePRDialog() {
+    if (!this.showCreatePRDialog || !this.selectedWorkspaceForPR) {
+      return nothing;
+    }
+
+    const workspace = this.selectedWorkspaceForPR;
+    return html`
+      <create-pr-dialog
+        .open=${this.showCreatePRDialog}
+        .workspaceId=${workspace.id}
+        .repoId=${""}
+        .targetBranch=${workspace.branch ?? ""}
+        .baseUrl=${this.previewOptions.baseUrl ?? ""}
+        .apiKey=${this.previewOptions.apiKey ?? ""}
+        @close=${this.handleCloseCreatePRDialog}
+      ></create-pr-dialog>
+    `;
+  }
+
   private handleWebPreviewOverlayClick = (event: Event) => {
     if ((event.target as HTMLElement | null)?.classList.contains("workspace-home-web-preview-overlay")) {
       this.handleCloseWebPreview();
@@ -2159,6 +2213,7 @@ export class KanbanWorkspaceHome extends LitElement {
         .workspaceName=${workspace.name}
         .statusAccentClass=${statusAccentClass}
         .previewLines=${previewLines}
+        .prUrl=${workspace.pr_url ?? ""}
         .diffStats=${workspace.files_changed
           ? {
               files_changed: workspace.files_changed,
@@ -2168,6 +2223,7 @@ export class KanbanWorkspaceHome extends LitElement {
           : undefined}
         @preview-activate=${() => this.handleOpenWorkspace(workspace)}
         @preview-close=${() => this.handleCloseWorkspace(workspace)}
+        @menu-action=${(e: CustomEvent) => this.handleMenuAction(workspace, e.detail.action)}
         @diff-details-request=${(e: CustomEvent) => {
           e.stopPropagation();
           this.handleOpenDiffDetails(workspace, e.detail);

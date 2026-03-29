@@ -67,6 +67,7 @@ type LocalWorkspaceSummary struct {
 	FilesChanged             int    `json:"files_changed"`
 	LinesAdded               int    `json:"lines_added"`
 	LinesRemoved             int    `json:"lines_removed"`
+	PrURL                    string `json:"pr_url,omitempty"`
 	UpdatedAt                string `json:"updated_at,omitempty"`
 	MessageCount             int    `json:"message_count"`
 	LastMessageAt            string `json:"last_message_at,omitempty"`
@@ -230,6 +231,9 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 		}
 		if summary.LatestProcessCompletedAt != nil {
 			item.LatestProcessCompletedAt = summary.LatestProcessCompletedAt.Format(time.RFC3339)
+		}
+		if summary.PrURL != nil && *summary.PrURL != "" {
+			item.PrURL = *summary.PrURL
 		}
 		resp.Workspaces = append(resp.Workspaces, item)
 	}
