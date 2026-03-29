@@ -1,4 +1,4 @@
-import { LitElement, html, nothing, state } from "lit";
+import { LitElement, html, nothing } from "lit";
 import "./components/workspace-conversation-pane";
 import "./components/diff-details-panel";
 import { detectDialogEditLanguage, renderDialogMessage } from "./components/dialog-message-renderer";
@@ -139,6 +139,8 @@ export class KanbanWatcherCard extends LitElement {
 
   static properties = {
     hass: { attribute: false },
+    baseUrl: { type: String },
+    apiKey: { type: String },
     collapsedSections: { state: true },
     selectedWorkspaceId: { state: true },
     messageDraft: { state: true },
@@ -245,12 +247,9 @@ export class KanbanWatcherCard extends LitElement {
   private createWorkspaceAvailablePresets: string[] = [];
   private createWorkspaceAvailableModels: Array<{ id: string; name: string; provider: string }> = [];
   private createWorkspaceLoadingPresets = false;
-  @state
-  private createWorkspaceAvailableRepos: Array<{ id: string; name: string; display_name: string; path: string; default_target_branch?: string; default_working_dir?: string; dev_server_script?: string }> = [];
-  @state
-  private createWorkspaceSelectedRepoId = "";
-  @state
-  private createWorkspaceSelectedBranch = "";
+  createWorkspaceAvailableRepos: Array<{ id: string; name: string; display_name: string; path: string; default_target_branch?: string; default_working_dir?: string; dev_server_script?: string }> = [];
+  createWorkspaceSelectedRepoId = "";
+  createWorkspaceSelectedBranch = "";
 
   connectedCallback() {
     super.connectedCallback();
@@ -1265,7 +1264,7 @@ export class KanbanWatcherCard extends LitElement {
 
   private loadAgentPresetsAndModels = async (agent: BaseCodingAgent) => {
     console.log('[kanban-watcher-card] loadAgentPresetsAndModels called:', agent);
-    if (!this.isApiMode || !this.config?.base_url) {
+    if (!this.isApiMode || this.config?.base_url === undefined) {
       console.log('[kanban-watcher-card] Early return - isApiMode:', this.isApiMode, 'base_url:', this.config?.base_url);
       return;
     }
@@ -1304,7 +1303,7 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private loadReposAndSelectDefault = async () => {
-    if (!this.isApiMode || !this.config?.base_url) {
+    if (!this.isApiMode || this.config?.base_url === undefined) {
       console.log('[kanban-watcher-card] 无法加载仓库列表: isApiMode=', this.isApiMode);
       return;
     }
