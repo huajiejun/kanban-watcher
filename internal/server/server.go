@@ -1028,6 +1028,11 @@ func (s *Server) handleCreateAndStartWorkspace(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// 立即将工作区保存到本地数据库，以便前端能立即查询到关联
+	if s.store != nil && result.Success && result.Data.Workspace.WorkspaceID != "" {
+		go s.saveCreatedWorkspaceToLocalDB(req, result.Data.Workspace.WorkspaceID)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result)
 }
@@ -1701,3 +1706,64 @@ func (s *Server) handleGitDiffWsProxy(w http.ResponseWriter, r *http.Request, wo
  	w.Header().Set("Content-Type", "application/json")
  	json.NewEncoder(w).Encode(response)
  }
+
+// saveCreatedWorkspaceToLocalDB 将新创建的工作区保存到本地数据库
+// 这样前端可以立即查询到关联的工作区，而不需要等待同步服务
+func (s *Server) saveCreatedWorkspaceToLocalDB(req api.CreateAndStartWorkspaceRequest, workspaceID string) {
+	if s.store == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	now := time.Now()
+	name := req.Name
+	branch := "main" // 默认分支，可以从 repos 中提取更好的值
+	if len(req.Repos) > 0 {
+		if repoMap, ok := req.Repos[0].(map[string]interface{}); ok {
+			if targetBranch, exists := repoMap["target_branch"].(string); exists && targetBranch != "" {
+				branch = targetBranch
+			}
+		}
+	}
+
+	// 从 linked_issue 中提取 issue_id
+	var issueID *string
+	if req.LinkedIssue != nil {
+		if linkedIssueMap, ok := req.LinkedIssue.(map[string]interface{}); ok {
+			if issueIDStr, exists := linkedIssueMap["issue_id"].(string); exists && issueIDStr != "" {
+				issueID = &issueIDStr
+			}
+		}
+	}
+
+	workspace := &store.Workspace{
+		ID:                  workspaceID,
+		Name:                name,
+		Branch:              branch,
+		IssueID:             issueID,
+		Archived:            false,
+		Pinned:              false,
+		LatestSessionID:     nil,
+		IsRunning:           true, // 刚创建的工作区默认正在运行
+		LatestProcessStatus: nil,
+		HasPendingApproval:  false,
+		HasUnseenTurns:      false,
+		HasRunningDevServer: false,
+		FrontendPort:        nil,
+		FilesChanged:        0,
+		LinesAdded:          0,
+		LinesRemoved:        0,
+		LastSeenAt:          now,
+		CreatedAt:           &now,
+		UpdatedAt:           &now,
+		SyncedAt:            now,
+	}
+
+	if err := s.store.UpsertWorkspace(ctx, workspace); err != nil {
+		log.Printf("[HTTP Server] 保存新创建工作区到本地数据库失败: workspace=%s, err=%v", workspaceID, err)
+	} else {
+		log.Printf("[HTTP Server] 新创建工作区已保存到本地数据库: workspace=%s, issue_id=%v", workspaceID, issueID)
+	}
+}
