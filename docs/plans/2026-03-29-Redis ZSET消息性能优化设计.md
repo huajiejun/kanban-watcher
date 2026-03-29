@@ -224,11 +224,17 @@ internal/
 // MessageBuffer 消息缓冲层接口
 type MessageBuffer interface {
     // Enqueue 将消息写入缓冲区
-    // onBroadcast: 写入后立即回调(用于实时推送前端)
-    // 返回是否为新数据(去重后)
-    Enqueue(processID string, entry *store.ProcessEntry, lastEntryIndex *int) (bool, error)
+    // 调用前由 SyncService 负责以下逻辑:
+    //   1. 通过 ProcessEntryReader.GetProcessEntry 获取已有数据
+    //   2. 调用 shouldBroadcastRealtimeEntry 判断是否推送前端
+    //   3. 调用 shouldPersistProcessEntryUpdate 判断是否需要写入
+    // 如果不需要写入(内容相同),SyncService 跳过 Enqueue,不调用
+    // 如果需要写入,调用 Enqueue 将数据写入 Redis
+    // onFlush 回调在 flush 到 MySQL 成功后由 FlushProcess 内部调用
+    Enqueue(processID string, entry *store.ProcessEntry, lastEntryIndex *int)
 
     // FlushProcess 将指定 process 的缓冲数据刷到 MySQL
+    // 内部调用 onFlush 回调更新 SyncSubscription
     FlushProcess(ctx context.Context, processID string) error
 
     // FlushAll 刷出所有 process 的缓冲数据
@@ -240,10 +246,38 @@ type MessageBuffer interface {
 
 // ProcessEntryReader 缓存读取接口 (用于 shouldBroadcast 对比)
 type ProcessEntryReader interface {
-    // GetProcessEntry 从缓存读取单条数据
+    // GetProcessEntry 从缓存读取单条数据 (Redis Hash 或内存 map)
+    // SyncService 在 Enqueue 前调用,获取已有数据用于:
+    //   1. shouldBroadcastRealtimeEntry 判断
+    //   2. shouldPersistProcessEntryUpdate 判断
     GetProcessEntry(ctx context.Context, processID string, entryIndex int) (*store.ProcessEntry, error)
 }
 ```
+
+**调用方职责 (SyncService.consumeProcessLogs):**
+```go
+// 1. 从缓存读取已有数据
+existing, _ := buffer.GetProcessEntry(ctx, processID, patch.EntryIndex)
+
+// 2. 构建新 entry
+entry := buildProcessEntry(patch, existing)
+
+// 3. 判断是否推送前端 (立即)
+if shouldBroadcastRealtimeEntry(existing, entry) {
+    s.realtime.PublishSessionMessagesAppended(ctx, sessionID, []store.ProcessEntry{*entry})
+}
+
+// 4. 判断是否需要写入缓冲区
+if shouldPersistProcessEntryUpdate(existing, entry) {
+    buffer.Enqueue(processID, entry, lastEntryIndex)
+}
+```
+
+**flush_threshold 和 flush_interval 协作机制:**
+- 每条消息 Enqueue 后检查 ZCARD
+- ZCARD >= flush_threshold: 立即触发当前 process 的 flush
+- 如果未触发阈值,全局定时器(每 flush_interval)扫描所有活跃 process 并 flush
+- flush 后 ZSET 清空,下一个周期从零开始计数
 
 ### 改动点
 
