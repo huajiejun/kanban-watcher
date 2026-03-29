@@ -829,7 +829,7 @@ export class MobileIssueDetailPanel extends LitElement {
   // --- Workspaces ---
 
   private async loadWorkspaces() {
-    if (!this.issue || !this.baseUrl) return;
+    if (!this.issue) return;
     this.wsLoading = true;
     try {
       this.workspaces = await fetchIssueWorkspaces(
