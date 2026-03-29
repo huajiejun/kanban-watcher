@@ -282,7 +282,7 @@ export class KanbanWorkspaceHome extends LitElement {
               </section>
             `
             : html`
-              <section class="mobile-kanban-section">
+              <section class="mobile-kanban-section" @workspace-selected=${this.handleMobileWorkspaceSelected}>
                 <mobile-kanban-board
                   baseUrl=${this.previewOptions.baseUrl ?? ""}
                   apiKey=${this.previewOptions.apiKey}
@@ -682,6 +682,20 @@ export class KanbanWorkspaceHome extends LitElement {
       };
     } finally {
       this.setWorkspaceLoading(workspaceId, false);
+    }
+  }
+
+  private async handleMobileWorkspaceSelected(e: CustomEvent<{ workspaceId: string }>) {
+    const targetId = e.detail.workspaceId;
+
+    if (this.workspaces.length === 0) {
+      this.mobileActiveTab = "workspaces";
+      await this.initializeWorkspaceHome();
+    }
+
+    const workspace = this.workspaces.find((w) => w.id === targetId);
+    if (workspace) {
+      this.handleOpenWorkspace(workspace);
     }
   }
 

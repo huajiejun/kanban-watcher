@@ -439,6 +439,12 @@ export class MobileIssueDetailPanel extends LitElement {
       background: rgba(39, 39, 42, 0.5);
       margin-bottom: 8px;
       border: 1px solid rgba(148, 163, 184, 0.08);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .ws-card:active {
+      background: rgba(148, 163, 184, 0.08);
     }
 
     .ws-card-row1 {
@@ -878,6 +884,16 @@ export class MobileIssueDetailPanel extends LitElement {
     `;
   }
 
+  private handleWorkspaceClick(ws: RemoteWorkspace) {
+    this.dispatchEvent(
+      new CustomEvent("workspace-selected", {
+        detail: { workspaceId: ws.id },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
   private renderWorkspaceCard(ws: RemoteWorkspace) {
     const name = ws.name || "未命名";
     const badgeClass = ws.archived ? "archived" : "active";
@@ -887,7 +903,7 @@ export class MobileIssueDetailPanel extends LitElement {
     const linesRemoved = ws.lines_removed ?? 0;
 
     return html`
-      <div class="ws-card">
+      <div class="ws-card" @click=${() => this.handleWorkspaceClick(ws)}>
         <div class="ws-card-row1">
           <span class="ws-status-badge ${badgeClass}">${badgeLabel}</span>
           <span class="ws-name">${name}</span>
