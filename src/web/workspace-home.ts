@@ -290,6 +290,9 @@ export class KanbanWorkspaceHome extends LitElement {
                   baseUrl=${this.previewOptions.baseUrl ?? ""}
                   apiKey=${this.previewOptions.apiKey}
                   .selectedProjectId=${this.kanbanProjectId}
+                  @create-workspace-for-issue=${this.handleCreateWorkspaceForIssue}
+                  @link-workspace-to-issue=${this.handleLinkWorkspaceToIssue}
+                  @show-workspace-picker=${this.handleShowWorkspacePicker}
                 ></mobile-kanban-board>
               </section>
             `}
@@ -716,6 +719,112 @@ export class KanbanWorkspaceHome extends LitElement {
     const workspace = this.workspaces.find((w) => w.id === targetId);
     if (workspace && typeof card.openWorkspaceDialog === "function") {
       card.openWorkspaceDialog(workspace);
+    }
+  }
+
+  private async handleCreateWorkspaceForIssue(e: CustomEvent<{ issueId: string; issueSimpleId: string }>) {
+    const { issueId, issueSimpleId } = e.detail;
+    console.log("[workspace-home] 为任务创建工作区:", issueSimpleId);
+
+    // 切换到工作区标签页
+    this.mobileCardConfigSignature = "";
+    this.mobileActiveTab = "workspaces";
+
+    if (this.workspaces.length === 0) {
+      await this.initializeWorkspaceHome();
+    }
+
+    await this.updateComplete;
+
+    // 获取卡片实例并调用创建工作区方法
+    const card = this.renderRoot.querySelector("kanban-watcher-card") as
+      | (HTMLElement & {
+          openCreateWorkspaceDialog?: (options?: { suggestedName?: string }) => void;
+          isApiMode: boolean
+        })
+      | null;
+    if (!card) return;
+
+    // 等待卡片初始化
+    for (let i = 0; i < 50; i++) {
+      if (card.isApiMode) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    // 调用创建对话框，预填充任务编号作为建议名称
+    if (typeof card.openCreateWorkspaceDialog === "function") {
+      card.openCreateWorkspaceDialog({
+        suggestedName: `任务 ${issueSimpleId}`
+      });
+    }
+  }
+
+  private async handleLinkWorkspaceToIssue(e: CustomEvent<{ issueId: string; issueSimpleId: string }>) {
+    const { issueId, issueSimpleId } = e.detail;
+    console.log("[workspace-home] 关联工作区到任务:", issueSimpleId);
+
+    // 显示工作区选择器
+    this.showWorkspacePickerForIssue(issueId, []);
+  }
+
+  private async handleShowWorkspacePicker(e: CustomEvent<{ issueId: string; currentWorkspaces: string[] }>) {
+    const { issueId, currentWorkspaces } = e.detail;
+    console.log("[workspace-home] 显示工作区选择器 for issue:", issueId);
+
+    this.showWorkspacePickerForIssue(issueId, currentWorkspaces);
+  }
+
+  private async showWorkspacePickerForIssue(issueId: string, excludeWorkspaceIds: string[]) {
+    // 获取可用的工作区列表
+    if (this.workspaces.length === 0) {
+      await this.initializeWorkspaceHome();
+    }
+
+    // 过滤掉已关联的工作区
+    const availableWorkspaces = this.workspaces.filter(
+      ws => !excludeWorkspaceIds.includes(ws.id)
+    );
+
+    if (availableWorkspaces.length === 0) {
+      alert("没有可用的工作区可以关联");
+      return;
+    }
+
+    // TODO: 实现工作区选择器 UI
+    // 暂时使用简单的 confirm 对话框演示
+    const workspaceNames = availableWorkspaces.map((ws, idx) =>
+      `${idx + 1}. ${ws.name || "未命名"}`
+    ).join("\n");
+
+    const choice = prompt(
+      `选择要关联的工作区:\n${workspaceNames}\n\n输入编号 (1-${availableWorkspaces.length}):`
+    );
+
+    if (choice) {
+      const idx = parseInt(choice) - 1;
+      if (idx >= 0 && idx < availableWorkspaces.length) {
+        const selectedWorkspace = availableWorkspaces[idx];
+        await this.linkWorkspaceToIssue(selectedWorkspace.id, issueId);
+      }
+    }
+  }
+
+  private async linkWorkspaceToIssue(workspaceId: string, issueId: string) {
+    try {
+      // TODO: 调用 API 关联工作区和任务
+      console.log(`[workspace-home] 关联工作区 ${workspaceId} 到任务 ${issueId}`);
+
+      // 成功后刷新任务详情面板
+      const board = this.renderRoot.querySelector("mobile-kanban-board") as
+        | (HTMLElement & { refreshIssueWorkspaces?: (issueId: string) => void })
+        | null;
+
+      if (board && typeof board.refreshIssueWorkspaces === "function") {
+        board.refreshIssueWorkspaces(issueId);
+      }
+    } catch (err) {
+      console.error("[workspace-home] 关联工作区失败:", err);
+      alert("关联失败，请重试");
     }
   }
 

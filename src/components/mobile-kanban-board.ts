@@ -249,6 +249,42 @@ export class MobileKanbanBoard extends LitElement {
     this.selectedIssue = null;
   }
 
+  private handleCreateWorkspaceForIssue(e: CustomEvent) {
+    const { issueId, issueSimpleId } = e.detail;
+    // 转发事件到 workspace-home
+    this.dispatchEvent(
+      new CustomEvent("create-workspace-for-issue", {
+        detail: { issueId, issueSimpleId },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private handleLinkWorkspaceToIssue(e: CustomEvent) {
+    const { issueId, issueSimpleId } = e.detail;
+    // 转发事件到 workspace-home
+    this.dispatchEvent(
+      new CustomEvent("link-workspace-to-issue", {
+        detail: { issueId, issueSimpleId },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private handleShowWorkspacePicker(e: CustomEvent) {
+    const { issueId, currentWorkspaces } = e.detail;
+    // 转发事件到 workspace-home
+    this.dispatchEvent(
+      new CustomEvent("show-workspace-picker", {
+        detail: { issueId, currentWorkspaces },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
   private scrollToColumn(index: number) {
     const container = this.renderRoot.querySelector(".kanban-columns");
     if (!container) return;
@@ -381,6 +417,9 @@ export class MobileKanbanBoard extends LitElement {
           @issue-updated=${this.handleIssueDetailUpdated}
           @issue-deleted=${this.handleIssueDeleted}
           @panel-closed=${this.handlePanelClosed}
+          @create-workspace-for-issue=${this.handleCreateWorkspaceForIssue}
+          @link-workspace-to-issue=${this.handleLinkWorkspaceToIssue}
+          @show-workspace-picker=${this.handleShowWorkspacePicker}
         ></mobile-issue-detail-panel>
       </div>
     `;

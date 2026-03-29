@@ -531,6 +531,87 @@ export class MobileIssueDetailPanel extends LitElement {
       font-size: 0.78rem;
     }
 
+    .ws-empty-state {
+      padding: 20px 16px;
+      text-align: center;
+    }
+
+    .ws-empty-text {
+      color: #64748b;
+      font-size: 0.8rem;
+      margin-bottom: 16px;
+    }
+
+    .ws-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ws-action-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .ws-action-btn.primary {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+    }
+
+    .ws-action-btn.primary:active {
+      background: rgba(56, 189, 248, 0.25);
+    }
+
+    .ws-action-btn.secondary {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+    }
+
+    .ws-action-btn.secondary:active {
+      background: rgba(148, 163, 184, 0.2);
+    }
+
+    .ws-action-icon {
+      font-size: 1rem;
+    }
+
+    .ws-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ws-add-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .ws-add-btn:active {
+      background: rgba(56, 189, 248, 0.25);
+    }
+
     /* Picker Overlay */
     .picker-overlay {
       position: fixed;
@@ -850,12 +931,45 @@ export class MobileIssueDetailPanel extends LitElement {
     }
   }
 
+  private handleCreateWorkspace() {
+    // 派发事件给父组件处理新建工作区
+    this.dispatchEvent(
+      new CustomEvent("create-workspace-for-issue", {
+        detail: { issueId: this.issue?.id, issueSimpleId: this.issue?.simple_id },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private handleLinkWorkspace() {
+    // 显示工作区选择器来关联现有工作区
+    this.dispatchEvent(
+      new CustomEvent("link-workspace-to-issue", {
+        detail: { issueId: this.issue?.id, issueSimpleId: this.issue?.simple_id },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private showLinkWorkspacePicker() {
+    // 显示工作区选择器（用于已有工作区时添加更多）
+    this.dispatchEvent(
+      new CustomEvent("show-workspace-picker", {
+        detail: { issueId: this.issue?.id, currentWorkspaces: this.workspaces.map(w => w.id) },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
   private renderWorkspaces() {
     if (this.wsLoading) {
       return html`
         <div class="ws-section">
           <div class="ws-header">
-            <span class="ws-title">Workspaces</span>
+            <span class="ws-title">关联工作区</span>
           </div>
           <div class="ws-loading">加载中...</div>
         </div>
@@ -867,14 +981,38 @@ export class MobileIssueDetailPanel extends LitElement {
     const total = active.length + archived.length;
 
     if (total === 0) {
-      return nothing;
+      return html`
+        <div class="ws-section">
+          <div class="ws-header">
+            <span class="ws-title">关联工作区</span>
+          </div>
+          <div class="ws-empty-state">
+            <div class="ws-empty-text">暂无关联工作区</div>
+            <div class="ws-actions">
+              <button class="ws-action-btn primary" @click=${() => this.handleCreateWorkspace()}>
+                <span class="ws-action-icon">+</span>
+                <span>新建工作区</span>
+              </button>
+              <button class="ws-action-btn secondary" @click=${() => this.handleLinkWorkspace()}>
+                <span class="ws-action-icon">🔗</span>
+                <span>关联现有</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
     }
 
     return html`
       <div class="ws-section">
         <div class="ws-header">
-          <span class="ws-title">Workspaces</span>
-          <span class="ws-count">${total}</span>
+          <span class="ws-title">关联工作区</span>
+          <div class="ws-header-actions">
+            <span class="ws-count">${total}</span>
+            <button class="ws-add-btn" @click=${() => this.showLinkWorkspacePicker()} title="关联工作区">
+              +
+            </button>
+          </div>
         </div>
         ${active.map((ws) => this.renderWorkspaceCard(ws))}
         ${archived.length > 0
