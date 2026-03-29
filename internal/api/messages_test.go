@@ -287,7 +287,7 @@ func TestPutWorkspaceViewPersistsLayoutAndBroadcastsRealtimeEvent(t *testing.T) 
 	setStoreDB(t, dbStore, db)
 
 	hub := realtime.NewHub()
-	publisher := NewRealtimePublisher(dbStore, hub)
+	publisher := NewRealtimePublisher(dbStore, hub, nil)
 
 	mock.ExpectExec("INSERT INTO kw_workspace_views").
 		WithArgs("global", `["ws-1"]`, "ws-1", `["ws-attention"]`, sqlmock.AnyArg()).

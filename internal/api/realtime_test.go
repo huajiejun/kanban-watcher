@@ -38,7 +38,7 @@ func TestPublishSessionMessagesAppendedThrottlesSameEntryUpdates(t *testing.T) {
 		}
 	}()
 
-	publisher := NewRealtimePublisher(nil, hub)
+	publisher := NewRealtimePublisher(nil, hub, nil)
 	publisher.sessionMessageThrottle = 30 * time.Millisecond
 
 	ctx := context.Background()
@@ -118,7 +118,7 @@ func TestPublishWorkspaceViewUpdatedBroadcastsToAllClients(t *testing.T) {
 		return event
 	}
 
-	publisher := NewRealtimePublisher(nil, hub)
+	publisher := NewRealtimePublisher(nil, hub, nil)
 	activeWorkspaceID := "ws-1"
 	if err := publisher.PublishWorkspaceViewUpdated(&store.WorkspaceView{
 		ScopeKey:                  "global",

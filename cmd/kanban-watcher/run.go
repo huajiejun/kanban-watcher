@@ -18,6 +18,8 @@ import (
 
 	"github.com/getlantern/systray"
 
+	"github.com/go-redis/redis/v8"
+
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/auth"
 	"github.com/huajiejun/kanban-watcher/internal/buffer"
@@ -262,12 +264,21 @@ func runDaemon() error {
 
 				if features.enableSync {
 					syncService := sync.NewSyncService(cfg, dbStore)
-					msgBuf, entryReader, bufferCleanup := initBuffer(cfg, dbStore)
+					msgBuf, entryReader, bufferCleanup, redisCli := initBuffer(cfg, dbStore)
 					syncService.SetBuffer(msgBuf, entryReader)
 					defer bufferCleanup()
 					if features.enableRealtime {
 						realtimeHub := realtime.NewHub()
-						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
+						var rawRDB *redis.Client
+						if redisCli != nil {
+							rawRDB = redisCli.RDB()
+						}
+						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub, rawRDB)
+						if rawRDB != nil {
+							subscriber := api.NewRealtimeSubscriber(rawRDB, realtimeHub)
+							go subscriber.Start(context.Background())
+							defer subscriber.Stop()
+						}
 						syncService.SetRealtimePublisher(realtimePublisher)
 					}
 					go syncService.Start(context.Background())
@@ -405,12 +416,21 @@ func runHeadless() error {
 				fmt.Fprintf(os.Stdout, "数据库连接成功\n")
 				if features.enableSync {
 					syncService := sync.NewSyncService(cfg, dbStore)
-					msgBuf, entryReader, bufferCleanup := initBuffer(cfg, dbStore)
+					msgBuf, entryReader, bufferCleanup, redisCli := initBuffer(cfg, dbStore)
 					syncService.SetBuffer(msgBuf, entryReader)
 					defer bufferCleanup()
 					if features.enableRealtime {
 						realtimeHub := realtime.NewHub()
-						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
+						var rawRDB *redis.Client
+						if redisCli != nil {
+							rawRDB = redisCli.RDB()
+						}
+						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub, rawRDB)
+						if rawRDB != nil {
+							subscriber := api.NewRealtimeSubscriber(rawRDB, realtimeHub)
+							go subscriber.Start(context.Background())
+							defer subscriber.Stop()
+						}
 						syncService.SetRealtimePublisher(realtimePublisher)
 					}
 					go syncService.Start(context.Background())
