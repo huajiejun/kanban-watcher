@@ -227,6 +227,7 @@ export class MobileIssueCreateDialog extends LitElement {
     this.title = "";
     this.description = "";
     this.priority = "medium";
+    this.errorMessage = "";
   }
 
   private async handleSubmit() {
