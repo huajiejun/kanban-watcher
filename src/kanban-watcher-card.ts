@@ -597,6 +597,8 @@ export class KanbanWatcherCard extends LitElement {
     issueId?: string;
     prompt?: string;
   }) {
+    console.log('[kanban-watcher-card] 打开创建对话框:', options);
+
     this.createWorkspaceSuggestedName = options?.suggestedName || "";
     this.createWorkspaceProjectId = options?.projectId || "";
     this.createWorkspaceIssueId = options?.issueId || "";
@@ -1461,7 +1463,11 @@ export class KanbanWatcherCard extends LitElement {
         image_ids: null,
       };
 
-      console.log("[kanban-watcher-card] 创建工作区:", request);
+      console.log("[kanban-watcher-card] 创建工作区:", {
+      request,
+      issueId: this.createWorkspaceIssueId,
+      projectId: this.createWorkspaceProjectId
+    });
 
       // 调用 API 创建工作区
       const workspace = await createAndStartWorkspace(
@@ -1475,8 +1481,19 @@ export class KanbanWatcherCard extends LitElement {
       console.log("[kanban-watcher-card] 工作区创建成功:", workspace);
 
       // 如果有关联的任务，关联工作区到任务
+      console.log('[kanban-watcher-card] 检查任务关联:', {
+        issueId: this.createWorkspaceIssueId,
+        projectId: this.createWorkspaceProjectId
+      });
+
       if (this.createWorkspaceIssueId && this.createWorkspaceProjectId) {
         try {
+          console.log('[kanban-watcher-card] 开始关联工作区到任务:', {
+            workspaceId: workspace.id,
+            projectId: this.createWorkspaceProjectId,
+            issueId: this.createWorkspaceIssueId
+          });
+
           await linkWorkspaceToIssue(
             {
               baseUrl: this.config?.base_url || "",

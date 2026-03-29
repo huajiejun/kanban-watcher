@@ -725,9 +725,9 @@ export class KanbanWorkspaceHome extends LitElement {
     }
   }
 
-  private async handleCreateWorkspaceForIssue(e: CustomEvent<{ issueId: string; issueSimpleId: string; title?: string; description?: string | null }>) {
-    const { issueId, issueSimpleId, title, description } = e.detail;
-    console.log("[workspace-home] 为任务创建工作区:", issueSimpleId);
+  private async handleCreateWorkspaceForIssue(e: CustomEvent<{ issueId: string; issueSimpleId: string; projectId?: string; title?: string; description?: string | null }>) {
+    const { issueId, issueSimpleId, projectId: issueProjectId, title, description } = e.detail;
+    console.log("[workspace-home] 为任务创建工作区:", { issueSimpleId, issueProjectId });
 
     // 切换到工作区标签页
     this.mobileCardConfigSignature = "";
@@ -773,7 +773,7 @@ export class KanbanWorkspaceHome extends LitElement {
     if (typeof card.openCreateWorkspaceDialog === "function") {
       card.openCreateWorkspaceDialog({
         suggestedName: `任务 ${issueSimpleId}`,
-        projectId: this.kanbanProjectId,
+        projectId: issueProjectId || this.kanbanProjectId,
         issueId: issueId,
         prompt: promptContent || undefined
       });
