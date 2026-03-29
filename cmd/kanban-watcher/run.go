@@ -554,8 +554,8 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-// initBuffer 根据配置创建消息缓冲层，返回 (MessageBuffer, ProcessEntryReader, cleanup)
-func initBuffer(cfg *config.Config, dbStore *store.Store) (buffer.MessageBuffer, buffer.ProcessEntryReader, func()) {
+// initBuffer 根据配置创建消息缓冲层，返回 (MessageBuffer, ProcessEntryReader, cleanup, *redis.Client)
+func initBuffer(cfg *config.Config, dbStore *store.Store) (buffer.MessageBuffer, buffer.ProcessEntryReader, func(), *redisclient.Client) {
 	onFlush := func(ctx context.Context, entry *store.ProcessEntry, lastEntryIndex *int) error {
 		if entry == nil {
 			return nil
@@ -577,7 +577,7 @@ func initBuffer(cfg *config.Config, dbStore *store.Store) (buffer.MessageBuffer,
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Redis 连接失败，降级到内存 buffer: %v\n", err)
 			memBuf := buffer.NewMemoryBuffer(200*time.Millisecond, dbStore, onFlush)
-			return memBuf, memBuf, func() {}
+			return memBuf, memBuf, func() {}, nil
 		}
 
 		redisBuf := buffer.NewRedisBuffer(buffer.RedisBufferOptions{
@@ -590,11 +590,11 @@ func initBuffer(cfg *config.Config, dbStore *store.Store) (buffer.MessageBuffer,
 		memBuf := buffer.NewMemoryBuffer(200*time.Millisecond, dbStore, onFlush)
 
 		fb := buffer.NewFallbackBuffer(redisBuf, memBuf, 3*time.Second)
-		return fb, fb, func() { rdb.Close() }
+		return fb, fb, func() { rdb.Close() }, rdb
 	}
 
 	memBuf := buffer.NewMemoryBuffer(200*time.Millisecond, dbStore, onFlush)
-	return memBuf, memBuf, func() {}
+	return memBuf, memBuf, func() {}, nil
 }
 
 // convertUsers 转换用户配置
