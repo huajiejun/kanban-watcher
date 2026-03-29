@@ -924,6 +924,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 }
 
 // handleWorkspaces 处理 /api/workspaces/ 相关请求
+// POST /api/workspaces/start - 创建并启动工作区
 // PUT /api/workspaces/{id}/seen - 标记工作区为已读
 // GET /api/workspaces/{id}/latest-messages - 获取工作区最新消息
 // GET/POST /api/workspaces/{id}/todos - 待办事项列表
@@ -931,6 +932,12 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
 	parts := strings.SplitN(path, "/", 3)
+
+	// POST /api/workspaces/start - 创建并启动工作区
+	if path == "start" && r.Method == http.MethodPost {
+		s.handleCreateAndStartWorkspace(w, r)
+		return
+	}
 
 	// PUT /api/workspaces/{id}/seen
 	if len(parts) == 2 && parts[1] == "seen" && r.Method == http.MethodPut {
@@ -986,6 +993,38 @@ func (s *Server) handleWorkspaceSeen(w http.ResponseWriter, r *http.Request, wor
 		"success":      true,
 		"workspace_id": workspaceID,
 	})
+}
+
+// handleCreateAndStartWorkspace 处理 POST /api/workspaces/start - 创建并启动工作区
+func (s *Server) handleCreateAndStartWorkspace(w http.ResponseWriter, r *http.Request) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	// 解析请求体
+	var req api.CreateAndStartWorkspaceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("解析请求体失败: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	result, err := s.proxy.CreateAndStartWorkspace(ctx, &req)
+	if err != nil {
+		log.Printf("[HTTP Server] 创建工作区失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 // handleIssues 处理 /api/issues/ 相关请求

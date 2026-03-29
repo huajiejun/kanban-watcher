@@ -517,3 +517,60 @@ func (c *ProxyClient) MarkWorkspaceSeen(ctx context.Context, workspaceID string)
 
 	return nil
 }
+
+// CreateAndStartWorkspaceRequest 创建并启动工作区请求
+ type CreateAndStartWorkspaceRequest struct {
+	Name           string                 `json:"name"`
+	Repos          []interface{}          `json:"repos"`
+	LinkedIssue    interface{}            `json:"linked_issue"`
+	ExecutorConfig map[string]interface{} `json:"executor_config"`
+	Prompt         string                 `json:"prompt"`
+	ImageIDs       []string               `json:"image_ids"`
+}
+
+// CreateAndStartWorkspaceResponse 创建并启动工作区响应
+type CreateAndStartWorkspaceResponse struct {
+	Success   bool                     `json:"success"`
+	Data      CreateWorkspaceData      `json:"data"`
+}
+
+// CreateWorkspaceData 创建工作区响应数据
+type CreateWorkspaceData struct {
+	Workspace WorkspaceSummary   `json:"workspace"`
+}
+
+// CreateAndStartWorkspace 创建并启动工作区，代理到 vibe-kanban 的 /api/workspaces/start API
+func (c *ProxyClient) CreateAndStartWorkspace(ctx context.Context, req *CreateAndStartWorkspaceRequest) (*CreateAndStartWorkspaceResponse, error) {
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("序列化请求: %w", err)
+	}
+
+	log.Printf("[Proxy] 创建工作区请求: %s", string(payload))
+
+	resp, err := c.httpClient.Post(
+		fmt.Sprintf("%s/api/workspaces/start", c.baseURL),
+		"application/json",
+		bytes.NewReader(payload),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应: %w", err)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("创建工作区失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result CreateAndStartWorkspaceResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+
+	return &result, nil
+}
