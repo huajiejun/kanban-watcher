@@ -562,10 +562,12 @@ export class KanbanWatcherCard extends LitElement {
     suggestedName?: string;
     projectId?: string;
     issueId?: string;
+    prompt?: string;
   }) {
     this.createWorkspaceSuggestedName = options?.suggestedName || "";
     this.createWorkspaceProjectId = options?.projectId || "";
     this.createWorkspaceIssueId = options?.issueId || "";
+    this.createWorkspacePrompt = options?.prompt || "";
     this.createWorkspaceOpen = true;
 
     // 加载当前选中 agent 的预设和模型

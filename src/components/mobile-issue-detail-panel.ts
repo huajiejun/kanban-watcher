@@ -932,10 +932,15 @@ export class MobileIssueDetailPanel extends LitElement {
   }
 
   private handleCreateWorkspace() {
-    // 派发事件给父组件处理新建工作区
+    // 派发事件给父组件处理新建工作区，包含任务详情作为默认提示词
     this.dispatchEvent(
       new CustomEvent("create-workspace-for-issue", {
-        detail: { issueId: this.issue?.id, issueSimpleId: this.issue?.simple_id },
+        detail: {
+          issueId: this.issue?.id,
+          issueSimpleId: this.issue?.simple_id,
+          title: this.issue?.title,
+          description: this.issue?.description
+        },
         bubbles: true,
         composed: true,
       })

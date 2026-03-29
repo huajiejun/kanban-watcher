@@ -722,8 +722,8 @@ export class KanbanWorkspaceHome extends LitElement {
     }
   }
 
-  private async handleCreateWorkspaceForIssue(e: CustomEvent<{ issueId: string; issueSimpleId: string }>) {
-    const { issueId, issueSimpleId } = e.detail;
+  private async handleCreateWorkspaceForIssue(e: CustomEvent<{ issueId: string; issueSimpleId: string; title?: string; description?: string | null }>) {
+    const { issueId, issueSimpleId, title, description } = e.detail;
     console.log("[workspace-home] 为任务创建工作区:", issueSimpleId);
 
     // 切换到工作区标签页
@@ -743,6 +743,7 @@ export class KanbanWorkspaceHome extends LitElement {
             suggestedName?: string;
             projectId?: string;
             issueId?: string;
+            prompt?: string;
           }) => void;
           isApiMode: boolean
         })
@@ -755,12 +756,23 @@ export class KanbanWorkspaceHome extends LitElement {
       await new Promise((r) => setTimeout(r, 100));
     }
 
+    // 构建提示词内容：包含任务标题和描述
+    let promptContent = "";
+    if (title) {
+      promptContent += `任务: ${title}`;
+    }
+    if (description) {
+      promptContent += title ? "\n\n" : "";
+      promptContent += `描述: ${description}`;
+    }
+
     // 调用创建对话框，预填充任务信息
     if (typeof card.openCreateWorkspaceDialog === "function") {
       card.openCreateWorkspaceDialog({
         suggestedName: `任务 ${issueSimpleId}`,
         projectId: this.kanbanProjectId,
-        issueId: issueId
+        issueId: issueId,
+        prompt: promptContent || undefined
       });
     }
   }

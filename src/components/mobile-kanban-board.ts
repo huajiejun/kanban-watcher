@@ -250,11 +250,11 @@ export class MobileKanbanBoard extends LitElement {
   }
 
   private handleCreateWorkspaceForIssue(e: CustomEvent) {
-    const { issueId, issueSimpleId } = e.detail;
+    const { issueId, issueSimpleId, title, description } = e.detail;
     // 转发事件到 workspace-home
     this.dispatchEvent(
       new CustomEvent("create-workspace-for-issue", {
-        detail: { issueId, issueSimpleId },
+        detail: { issueId, issueSimpleId, title, description },
         bubbles: true,
         composed: true,
       })
