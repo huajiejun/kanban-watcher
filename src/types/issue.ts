@@ -39,6 +39,7 @@ export interface CreateIssuePayload {
   description?: string;
   priority?: string;
   status_id?: string;
+  project_id?: string;
 }
 
 /** 更新任务请求体 */
