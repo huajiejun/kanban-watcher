@@ -162,6 +162,10 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/organizations", s.handleOrganizations)
 	mux.HandleFunc("/api/projects", s.handleProjects)
 
+	// Agent 配置代理接口
+	mux.HandleFunc("/api/agents/discovery", s.handleAgentDiscovery)
+	mux.HandleFunc("/api/agents/preset-options", s.handleAgentPresetOptions)
+
 	// 注册额外的路由
 	for _, route := range s.extraRoutes {
 		mux.HandleFunc(route.pattern, route.handler)
@@ -1460,3 +1464,156 @@ func (s *Server) handleGitDiffWsProxy(w http.ResponseWriter, r *http.Request, wo
 	<-errCh
 	log.Printf("[WS Proxy] 连接关闭: workspace=%s", workspaceID)
 }
+
+// AgentDiscoveryResponse Agent 发现响应
+ type AgentDiscoveryResponse struct {
+ 	Success bool              `json:"success"`
+ 	Data    AgentDiscoveryData `json:"data"`
+ }
+
+ type AgentDiscoveryData struct {
+ 	Models  []AgentModel `json:"models"`
+ 	Presets []string      `json:"presets"`
+ }
+
+ type AgentModel struct {
+ 	ID       string `json:"id"`
+ 	Name     string `json:"name"`
+ 	Provider string `json:"provider"`
+ }
+
+ // AgentPresetOptionsResponse 预设选项响应
+ type AgentPresetOptionsResponse struct {
+ 	Success bool                `json:"success"`
+ 	Data    AgentPresetOptions  `json:"data"`
+ }
+
+ type AgentPresetOptions struct {
+ 	ModelID          string `json:"model_id,omitempty"`
+ 	PermissionPolicy string `json:"permission_policy,omitempty"`
+ }
+
+ // handleAgentDiscovery 处理 /api/agents/discovery 请求
+ func (s *Server) handleAgentDiscovery(w http.ResponseWriter, r *http.Request) {
+ 	if r.Method != http.MethodGet {
+ 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+ 		return
+ 	}
+
+ 	executor := r.URL.Query().Get("executor")
+ 	if executor == "" {
+ 		http.Error(w, "Missing executor parameter", http.StatusBadRequest)
+ 		return
+ 	}
+
+ 	log.Printf("[AgentDiscovery] 获取 Agent 配置: executor=%s", executor)
+
+ 	// 根据 Agent 类型返回对应的配置
+ 	// 这里硬编码配置，实际可以从配置文件或数据库中获取
+ 	var data AgentDiscoveryData
+
+ 	switch executor {
+ 	case "CLAUDE_CODE":
+ 		data = AgentDiscoveryData{
+ 			Presets: []string{"DEFAULT", "PLAN", "ROUTER"},
+ 			Models: []AgentModel{
+ 				{ID: "anthropic/claude-sonnet-4", Name: "Claude Sonnet 4", Provider: "anthropic"},
+ 				{ID: "anthropic/claude-opus-4", Name: "Claude Opus 4", Provider: "anthropic"},
+ 				{ID: "zhipu/glm-4-plus", Name: "GLM-4 Plus", Provider: "zhipu"},
+ 				{ID: "zhipu/glm-4-flash", Name: "GLM-4 Flash", Provider: "zhipu"},
+ 				{ID: "minimax/minimax-text-01", Name: "MiniMax Text", Provider: "minimax"},
+ 			},
+ 		}
+ 	case "CODEX":
+ 		data = AgentDiscoveryData{
+ 			Presets: []string{"DEFAULT", "PLAN"},
+ 			Models: []AgentModel{
+ 				{ID: "openai/gpt-4o", Name: "GPT-4o", Provider: "openai"},
+ 				{ID: "openai/gpt-4o-mini", Name: "GPT-4o Mini", Provider: "openai"},
+ 			},
+ 		}
+ 	case "GEMINI":
+ 		data = AgentDiscoveryData{
+ 			Presets: []string{"DEFAULT"},
+ 			Models: []AgentModel{
+ 				{ID: "google/gemini-1.5-pro", Name: "Gemini 1.5 Pro", Provider: "google"},
+ 				{ID: "google/gemini-1.5-flash", Name: "Gemini 1.5 Flash", Provider: "google"},
+ 			},
+ 		}
+ 	case "QWEN_CODE":
+ 		data = AgentDiscoveryData{
+ 			Presets: []string{"DEFAULT"},
+ 			Models: []AgentModel{
+ 				{ID: "aliyun/qwen-2.5-72b", Name: "Qwen 2.5 72B", Provider: "aliyun"},
+ 				{ID: "aliyun/qwen-2.5-32b", Name: "Qwen 2.5 32B", Provider: "aliyun"},
+ 				{ID: "zhipu/glm-4-plus", Name: "GLM-4 Plus", Provider: "zhipu"},
+ 				{ID: "minimax/minimax-text-01", Name: "MiniMax Text", Provider: "minimax"},
+ 			},
+ 		}
+ 	default:
+ 		// 其他 Agent 使用默认配置
+ 		data = AgentDiscoveryData{
+ 			Presets: []string{"DEFAULT"},
+ 			Models: []AgentModel{
+ 				{ID: "anthropic/claude-sonnet-4", Name: "Claude Sonnet 4", Provider: "anthropic"},
+ 				{ID: "zhipu/glm-4-plus", Name: "GLM-4 Plus", Provider: "zhipu"},
+ 				{ID: "minimax/minimax-text-01", Name: "MiniMax Text", Provider: "minimax"},
+ 			},
+ 		}
+ 	}
+
+ 	response := AgentDiscoveryResponse{
+ 		Success: true,
+ 		Data:    data,
+ 	}
+
+ 	w.Header().Set("Content-Type", "application/json")
+ 	json.NewEncoder(w).Encode(response)
+ }
+
+ // handleAgentPresetOptions 处理 /api/agents/preset-options 请求
+ func (s *Server) handleAgentPresetOptions(w http.ResponseWriter, r *http.Request) {
+ 	if r.Method != http.MethodGet {
+ 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+ 		return
+ 	}
+
+ 	executor := r.URL.Query().Get("executor")
+ 	variant := r.URL.Query().Get("variant")
+
+ 	if executor == "" {
+ 		http.Error(w, "Missing executor parameter", http.StatusBadRequest)
+ 		return
+ 	}
+
+ 	log.Printf("[AgentPresetOptions] 获取预设配置: executor=%s, variant=%s", executor, variant)
+
+ 	// 根据预设返回对应的配置
+ 	options := AgentPresetOptions{}
+
+ 	switch variant {
+ 	case "PLAN":
+ 		options.ModelID = "anthropic/claude-opus-4"
+ 		options.PermissionPolicy = "plan"
+ 	case "ROUTER":
+ 		options.ModelID = "anthropic/claude-sonnet-4"
+ 		options.PermissionPolicy = "auto"
+ 	default:
+ 		// DEFAULT
+ 		options.ModelID = "anthropic/claude-sonnet-4"
+ 		options.PermissionPolicy = "auto"
+ 	}
+
+ 	// 特定 Agent 的覆盖
+ 	if executor == "QWEN_CODE" {
+ 		options.ModelID = "aliyun/qwen-2.5-72b"
+ 	}
+
+ 	response := AgentPresetOptionsResponse{
+ 		Success: true,
+ 		Data:    options,
+ 	}
+
+ 	w.Header().Set("Content-Type", "application/json")
+ 	json.NewEncoder(w).Encode(response)
+ }

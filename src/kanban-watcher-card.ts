@@ -1111,14 +1111,18 @@ export class KanbanWatcherCard extends LitElement {
             <!-- 模型选择 -->
             <div class="form-group">
               <label class="form-label">模型 (可选)</label>
-              <input
-                type="text"
-                class="form-input"
-                placeholder="例如: anthropic/claude-sonnet-4-20250514"
+              <select
+                class="form-select"
                 .value=${this.createWorkspaceModel}
-                @input=${this.handleModelInput}
-              />
-              <span class="form-hint">留空使用默认模型</span>
+                @change=${this.handleModelChange}
+              >
+                <option value="">使用默认模型</option>
+                ${models.map(
+                  (model) => html`
+                    <option value=${model.id}>${model.name} (${model.provider})</option>
+                  `
+                )}
+              </select>
             </div>
 
             <!-- 权限策略 -->
@@ -1251,8 +1255,8 @@ export class KanbanWatcherCard extends LitElement {
     }
   };
 
-  private handleModelInput = (e: Event) => {
-    this.createWorkspaceModel = (e.target as HTMLInputElement).value;
+  private handleModelChange = (e: Event) => {
+    this.createWorkspaceModel = (e.target as HTMLSelectElement).value;
   };
 
   private handlePermissionChange = (e: Event) => {
