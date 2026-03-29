@@ -1076,12 +1076,38 @@ func (s *Server) handleCreateAndStartWorkspace(w http.ResponseWriter, r *http.Re
 	}
 
 	// 立即将工作区保存到本地数据库，以便前端能立即查询到关联
+	log.Printf("[HTTP Server] 检查是否保存到本地数据库: store=%v, success=%v, workspaceID=%v",
+		s.store != nil, result.Success, result.Data.Workspace.WorkspaceID)
 	if s.store != nil && result.Success && result.Data.Workspace.WorkspaceID != "" {
+		log.Printf("[HTTP Server] 触发异步保存工作区到本地数据库: workspace=%s", result.Data.Workspace.WorkspaceID)
 		go s.saveCreatedWorkspaceToLocalDB(req, result.Data.Workspace.WorkspaceID)
+	} else {
+		log.Printf("[HTTP Server] 跳过保存到本地数据库: store=%v, success=%v, workspaceID=%v",
+			s.store != nil, result.Success, result.Data.Workspace.WorkspaceID)
+	}
+
+	// 构建前端期望的响应格式（将 workspace_id 映射为 id）
+	response := map[string]interface{}{
+		"success": result.Success,
+		"data": map[string]interface{}{
+			"workspace": map[string]interface{}{
+				"id":                      result.Data.Workspace.WorkspaceID,
+				"project_id":              "",
+				"name":                    req.Name,
+				"issue_id":                nil,
+				"local_workspace_id":      nil,
+				"archived":                false,
+				"files_changed":           0,
+				"lines_added":             0,
+				"lines_removed":           0,
+				"created_at":              time.Now().Format(time.RFC3339),
+				"updated_at":              time.Now().Format(time.RFC3339),
+			},
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(result)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // handleIssues 处理 /api/issues/ 相关请求
@@ -1757,7 +1783,10 @@ func (s *Server) handleGitDiffWsProxy(w http.ResponseWriter, r *http.Request, wo
 // saveCreatedWorkspaceToLocalDB 将新创建的工作区保存到本地数据库
 // 这样前端可以立即查询到关联的工作区，而不需要等待同步服务
 func (s *Server) saveCreatedWorkspaceToLocalDB(req api.CreateAndStartWorkspaceRequest, workspaceID string) {
+	log.Printf("[HTTP Server] saveCreatedWorkspaceToLocalDB 被调用: workspace=%s", workspaceID)
+
 	if s.store == nil {
+		log.Printf("[HTTP Server] 无法保存工作区: store 为 nil")
 		return
 	}
 
@@ -1777,12 +1806,21 @@ func (s *Server) saveCreatedWorkspaceToLocalDB(req api.CreateAndStartWorkspaceRe
 
 	// 从 linked_issue 中提取 issue_id
 	var issueID *string
+	log.Printf("[HTTP Server] 尝试从 linked_issue 提取 issue_id: linkedIssue=%v, type=%T", req.LinkedIssue, req.LinkedIssue)
 	if req.LinkedIssue != nil {
 		if linkedIssueMap, ok := req.LinkedIssue.(map[string]interface{}); ok {
+			log.Printf("[HTTP Server] linked_issue 是 map[string]interface{}: %v", linkedIssueMap)
 			if issueIDStr, exists := linkedIssueMap["issue_id"].(string); exists && issueIDStr != "" {
 				issueID = &issueIDStr
+				log.Printf("[HTTP Server] 提取到 issue_id: %s", issueIDStr)
+			} else {
+				log.Printf("[HTTP Server] 无法从 map 中提取 issue_id: exists=%v, value=%v", exists, issueIDStr)
 			}
+		} else {
+			log.Printf("[HTTP Server] linked_issue 类型断言失败: %T", req.LinkedIssue)
 		}
+	} else {
+		log.Printf("[HTTP Server] linked_issue 为 nil")
 	}
 
 	workspace := &store.Workspace{

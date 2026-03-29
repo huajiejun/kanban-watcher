@@ -536,7 +536,21 @@ type CreateAndStartWorkspaceResponse struct {
 
 // CreateWorkspaceData 创建工作区响应数据
 type CreateWorkspaceData struct {
-	Workspace WorkspaceSummary   `json:"workspace"`
+	Workspace vibeKanbanWorkspace `json:"workspace"`
+}
+
+// vibeKanbanWorkspace 接收 vibe-kanban 原始响应
+type vibeKanbanWorkspace struct {
+	WorkspaceID              string  `json:"workspace_id"`
+	LatestSessionID          *string `json:"latest_session_id"`
+	HasPendingApproval       bool    `json:"has_pending_approval"`
+	FilesChanged             *int    `json:"files_changed"`
+	LinesAdded               *int    `json:"lines_added"`
+	LinesRemoved             *int    `json:"lines_removed"`
+	LatestProcessCompletedAt *string `json:"latest_process_completed_at"`
+	LatestProcessStatus      *string `json:"latest_process_status"`
+	HasRunningDevServer      bool    `json:"has_running_dev_server"`
+	HasUnseenTurns           bool    `json:"has_unseen_turns"`
 }
 
 // CreateAndStartWorkspace 创建并启动工作区，代理到 vibe-kanban 的 /api/workspaces/start API
