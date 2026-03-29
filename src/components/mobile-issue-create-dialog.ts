@@ -90,7 +90,7 @@ export class MobileIssueCreateDialog extends LitElement {
       border: 1px solid rgba(148, 163, 184, 0.2);
       background: rgba(24, 24, 27, 0.8);
       color: #e5e7eb;
-      font-size: 0.85rem;
+      font-size: 16px;
       font-family: inherit;
       outline: none;
       -webkit-appearance: none;
