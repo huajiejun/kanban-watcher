@@ -281,7 +281,10 @@ export class KanbanWorkspaceHome extends LitElement {
           ${this.mobileActiveTab === "workspaces"
             ? html`
               <section class="workspace-home-placeholder">
-                <kanban-watcher-card></kanban-watcher-card>
+                <kanban-watcher-card
+                  .baseUrl=${this.previewOptions.baseUrl ?? ""}
+                  .apiKey=${this.previewOptions.apiKey}
+                ></kanban-watcher-card>
               </section>
             `
             : html`

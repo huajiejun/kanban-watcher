@@ -182,6 +182,10 @@ export class KanbanWatcherCard extends LitElement {
   hass?: HomeAssistantLike;
 
   private config?: CardConfig;
+
+  // 支持直接传入的属性（用于移动端）
+  baseUrl?: string;
+  apiKey?: string;
   private refreshTimer?: number;
   private dialogRefreshTimer?: number;
   private boardRealtimeRetryTimer?: number;
@@ -248,7 +252,20 @@ export class KanbanWatcherCard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener("keydown", this.handleKeyDown);
+    this.initializeConfigFromProperties();
     this.startApiSyncIfNeeded();
+  }
+
+  private initializeConfigFromProperties() {
+    // 如果没有 config 但有 baseUrl 属性，创建一个简单的 config
+    if (!this.config && this.baseUrl) {
+      this.config = {
+        entity: 'kanban.mock',
+        base_url: this.baseUrl,
+        api_key: this.apiKey,
+      };
+      console.log('[kanban-watcher-card] 从属性初始化 config:', this.config);
+    }
   }
 
   disconnectedCallback() {
@@ -1510,7 +1527,7 @@ export class KanbanWatcherCard extends LitElement {
 
   // baseUrl 为 undefined 时表示 mock 模式，空字符串表示使用相对路径（Vite 代理模式）
   private get isApiMode() {
-    return this.config?.base_url !== undefined;
+    return this.config?.base_url !== undefined || this.baseUrl !== undefined;
   }
 
   private isWorkspaceLike(value: unknown): value is KanbanWorkspace {
