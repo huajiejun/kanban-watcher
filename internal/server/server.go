@@ -136,6 +136,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/execution-processes/", s.handleExecutionProcess)
 	// 工作区已读状态代理接口
 	mux.HandleFunc("/api/workspaces/", s.handleWorkspaces)
+	// 仓库相关接口
+	mux.HandleFunc("/api/repos/", s.handleRepos)
 
 	// 注册额外的路由
 	for _, route := range s.extraRoutes {
@@ -899,6 +901,9 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 // GET /api/workspaces/{id}/latest-messages - 获取工作区最新消息
 // GET/POST /api/workspaces/{id}/todos - 待办事项列表
 // PUT/DELETE /api/workspaces/{id}/todos/{todo_id} - 单个待办事项
+// GET /api/workspaces/{id}/repos - 获取工作区的仓库列表
+// GET /api/workspaces/{id}/messages/first - 获取工作区的第一条用户消息
+// POST /api/workspaces/{id}/pull-requests - 创建 Pull Request
 func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
 	parts := strings.SplitN(path, "/", 3)
@@ -921,6 +926,25 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// GET /api/workspaces/{id}/repos
+	if len(parts) == 2 && parts[1] == "repos" && r.Method == http.MethodGet {
+		s.handleWorkspaceRepos(w, r, parts[0])
+		return
+	}
+
+	// GET /api/workspaces/{id}/messages/first
+	if len(parts) == 3 && parts[1] == "messages" && parts[2] == "first" && r.Method == http.MethodGet {
+		s.handleWorkspaceFirstMessage(w, r, parts[0])
+		return
+	}
+
+	// POST /api/workspaces/{id}/pull-requests
+	if len(parts) == 2 && parts[1] == "pull-requests" && r.Method == http.MethodPost {
+		s.handleCreatePullRequest(w, r, parts[0])
+		return
+	}
+
+	log.Printf("[HTTP Server] handleWorkspaces path=%s parts=%v method=%s", path, parts, r.Method)
 	http.Error(w, "Invalid path", http.StatusBadRequest)
 }
 
@@ -950,5 +974,135 @@ func (s *Server) handleWorkspaceSeen(w http.ResponseWriter, r *http.Request, wor
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":      true,
 		"workspace_id": workspaceID,
+	})
+}
+
+// handleWorkspaceRepos 获取工作区的仓库列表（代理到 vibe-kanban）
+func (s *Server) handleWorkspaceRepos(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	repos, err := s.proxy.GetWorkspaceRepos(ctx, workspaceID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取工作区 %s 的仓库列表失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    repos,
+	})
+}
+
+// handleWorkspaceFirstMessage 获取工作区的第一条用户消息（代理到 vibe-kanban）
+func (s *Server) handleWorkspaceFirstMessage(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	message, err := s.proxy.GetFirstUserMessage(ctx, workspaceID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取工作区 %s 的第一条消息失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    message,
+	})
+}
+
+// handleCreatePullRequest 创建 Pull Request（代理到 vibe-kanban）
+func (s *Server) handleCreatePullRequest(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	var body map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "无效的请求体", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	result, err := s.proxy.CreatePullRequest(ctx, workspaceID, body)
+	if err != nil {
+		log.Printf("[HTTP Server] 创建 PR 失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+// handleRepos 处理 /api/repos/ 相关请求
+// GET /api/repos/{id}/branches - 获取仓库的分支列表
+func (s *Server) handleRepos(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/repos/")
+	parts := strings.SplitN(path, "/", 2)
+
+	// GET /api/repos/{id}/branches
+	if len(parts) == 2 && parts[1] == "branches" && r.Method == http.MethodGet {
+		s.handleRepoBranches(w, r, parts[0])
+		return
+	}
+
+	http.Error(w, "Invalid path", http.StatusBadRequest)
+}
+
+// handleRepoBranches 获取仓库的分支列表（代理到 vibe-kanban）
+func (s *Server) handleRepoBranches(w http.ResponseWriter, r *http.Request, repoID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	branches, err := s.proxy.GetRepoBranches(ctx, repoID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取仓库 %s 的分支列表失败: %v", repoID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    branches,
 	})
 }

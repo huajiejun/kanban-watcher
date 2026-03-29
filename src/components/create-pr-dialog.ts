@@ -264,6 +264,7 @@ export class CreatePRDialog extends LitElement {
   error = "";
 
   private _effectiveRepoId = "";
+  private _loadInitialDataPromise: Promise<void> | null = null;
 
   updated(changedProperties: Map<string, unknown>) {
     console.log("[CreatePRDialog] updated called, open=", this.open, "changedProperties=", Array.from(changedProperties.keys()));
@@ -278,16 +279,25 @@ export class CreatePRDialog extends LitElement {
       this.branches = [];
       this._effectiveRepoId = "";
       console.log("[CreatePRDialog] Properties at start - workspaceId:", this.workspaceId, "baseUrl:", this.baseUrl, "repoId:", this.repoId);
-      void this.loadInitialData();
-    }
-    // 如果 open 已经为 true 且 workspaceId 或 baseUrl 变化了，重新加载
-    if (this.open && (changedProperties.has("workspaceId") || changedProperties.has("baseUrl"))) {
-      console.log("[CreatePRDialog] workspaceId or baseUrl changed while open, reload");
+      // 取消任何进行中的加载
+      this._loadInitialDataPromise = null;
       void this.loadInitialData();
     }
   }
 
   private async loadInitialData() {
+    // 防止并发调用
+    if (this._loadInitialDataPromise) {
+      console.log("[CreatePRDialog] loadInitialData already in progress, skipping");
+      return;
+    }
+
+    this._loadInitialDataPromise = this._doLoadInitialData();
+    await this._loadInitialDataPromise;
+    this._loadInitialDataPromise = null;
+  }
+
+  private async _doLoadInitialData() {
     console.log("[CreatePRDialog] loadInitialData started, workspaceId=", this.workspaceId, "repoId=", this.repoId, "baseUrl=", this.baseUrl);
     this.loading = true;
     this.error = "";

@@ -476,13 +476,16 @@ export async function fetchRepoBranches({
 }: RequestOptions & {
   repoId: string;
 }): Promise<{ name: string; is_current?: boolean; is_remote?: boolean }[]> {
-  return fetchJSON<{ name: string; is_current?: boolean; is_remote?: boolean }[]>(
+  return fetchJSON<{
+    success: boolean;
+    data?: { name: string; is_current?: boolean; is_remote?: boolean }[];
+  }>(
     `${normalizeBaseUrl(baseUrl)}/api/repos/${repoId}/branches`,
     {
       method: "GET",
       headers: buildHeaders(apiKey),
     },
-  );
+  ).then((result) => result.data ?? []);
 }
 
 export async function createPR({
