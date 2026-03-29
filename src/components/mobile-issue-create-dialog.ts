@@ -208,18 +208,19 @@ export class MobileIssueCreateDialog extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.addEventListener("open", this.handleOpen);
+    console.log('[connectedCallback] 添加 open 事件监听器');
+    this.addEventListener("open", this.handleOpen as EventListener);
   }
 
   disconnectedCallback() {
-    this.removeEventListener("open", this.handleOpen);
+    this.removeEventListener("open", this.handleOpen as EventListener);
     super.disconnectedCallback();
   }
 
-  private handleOpen = () => {
+  private handleOpen = (e: Event) => {
+    console.log('[handleOpen] 开始处理 open 事件', e);
     this.visible = true;
-    this.selectedStatusId =
-      this.statuses.length > 0 ? this.statuses[0].id : "";
+    this.selectedStatusId = this.statuses.length > 0 ? this.statuses[0].id : "";
   };
 
   private close() {

@@ -9,6 +9,7 @@ import type {
   KanbanColumn,
 } from "../types/issue";
 import "./mobile-kanban-column";
+import "./mobile-issue-create-dialog";
 import "./mobile-issue-detail-panel";
 
 export class MobileKanbanBoard extends LitElement {
@@ -132,6 +133,20 @@ export class MobileKanbanBoard extends LitElement {
     panelVisible: { type: Boolean, attribute: false },
   };
 
+  private scrollHandler: (() => void) | null = null;
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    // 清理滚动事件监听器
+    if (this.scrollHandler) {
+      const container = this.renderRoot.querySelector(".kanban-columns");
+      if (container) {
+        container.removeEventListener("scroll", this.scrollHandler);
+      }
+      this.scrollHandler = null;
+    }
+  }
+
   updated(changed: Map<string, unknown>) {
     if (changed.has("columns") && this.columns.length > 0) {
       this.setupScrollDetection();
@@ -144,16 +159,18 @@ export class MobileKanbanBoard extends LitElement {
 
   private setupScrollDetection() {
     const container = this.renderRoot.querySelector(".kanban-columns");
-    if (!container) return;
+    if (!container || this.scrollHandler) return;
 
-    container.addEventListener("scroll", () => {
+    this.scrollHandler = () => {
       const scrollLeft = container.scrollLeft;
       const colWidth = (container.scrollWidth - 24) / this.columns.length;
       const idx = Math.round(scrollLeft / colWidth);
       if (idx !== this.activeColumnIndex) {
         this.activeColumnIndex = Math.min(idx, this.columns.length - 1);
       }
-    });
+    };
+
+    container.addEventListener("scroll", this.scrollHandler);
   }
 
   private async loadBoard(silent = false) {
@@ -240,15 +257,18 @@ export class MobileKanbanBoard extends LitElement {
   }
 
   private openCreateDialog() {
-    const dialog = this.renderRoot.querySelector(
-      "mobile-issue-create-dialog"
-    );
-    if (dialog) {
-      (dialog as HTMLElement).dispatchEvent(
-        new CustomEvent("open", { bubbles: true, composed: true })
-      );
-    } else {
-      console.warn("[openCreateDialog] dialog 元素未找到");
+    console.log("[openCreateDialog] 开始打开对话框");
+    try {
+      const dialog = this.renderRoot.querySelector("mobile-issue-create-dialog");
+      if (dialog) {
+        console.log("[openCreateDialog] 找到对话框元素，dispatching 事件");
+        dialog.dispatchEvent(new CustomEvent("open", { bubbles: true, composed: true }));
+        console.log("[openCreateDialog] 事件已 dispatch");
+      } else {
+        console.warn("[openCreateDialog] dialog 元素未找到");
+      }
+    } catch (error) {
+      console.error("[openCreateDialog] 发生错误:", error);
     }
   }
 
