@@ -360,6 +360,7 @@ type listIssueWorkspacesAPIResponse struct {
 }
 
 // ListIssueWorkspaces 查询指定 Issue 关联的工作区列表
+// 当上游 vibe-kanban 不支持该端点时（404），返回空列表而非错误
 func (c *ProxyClient) ListIssueWorkspaces(ctx context.Context, issueID string) ([]RemoteWorkspace, error) {
 	url := fmt.Sprintf("%s/api/remote/workspaces/by-issue-id/%s", c.baseURL, issueID)
 
@@ -377,6 +378,10 @@ func (c *ProxyClient) ListIssueWorkspaces(ctx context.Context, issueID string) (
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("读取响应: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {

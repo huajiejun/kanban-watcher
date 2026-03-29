@@ -1182,6 +1182,9 @@ func (s *Server) handleIssueWorkspaces(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), statusCode)
 		return
 	}
+	if workspaces == nil {
+		workspaces = []api.RemoteWorkspace{}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
