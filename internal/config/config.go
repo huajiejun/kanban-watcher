@@ -23,6 +23,7 @@ type Config struct {
 	Runtime          RuntimeConfig          `yaml:"runtime"`               // 运行角色配置
 	TokenStats       TokenStatsConfig       `yaml:"token_stats"`           // Token 用量统计配置
 	Auth             AuthConfig             `yaml:"auth"`                  // JWT 认证配置
+	Redis            RedisConfig            `yaml:"redis"`                 // Redis 配置
 }
 
 const (
@@ -52,6 +53,19 @@ func (c AuthConfig) IsEnabled() bool {
 type UserConfig struct {
 	Username     string `yaml:"username"`      // 用户名
 	PasswordHash string `yaml:"password_hash"` // bcrypt 密码哈希
+}
+
+// RedisConfig Redis 连接配置
+type RedisConfig struct {
+	Addr     string `yaml:"addr"`      // Redis 地址，如 "localhost:6379"
+	Password string `yaml:"password"`  // 密码，空则无密码
+	DB       int    `yaml:"db"`        // 数据库编号
+	PoolSize int    `yaml:"pool_size"` // 连接池大小
+}
+
+// IsEnabled 检查 Redis 配置是否启用
+func (c RedisConfig) IsEnabled() bool {
+	return c.Addr != ""
 }
 
 // DatabaseConfig 数据库连接参数
