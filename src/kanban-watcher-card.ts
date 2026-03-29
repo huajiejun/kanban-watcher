@@ -86,7 +86,14 @@ type SectionKey = WorkspaceSectionKey;
 import "./components/todo-progress-popup";
 import "./components/chat-todo-list";
 
-type SectionKey = "attention" | "running" | "idle";
+interface TodoHistoryEntry {
+  workspaceId: string;
+  workspaceName: string;
+  todos: TodoItem[];
+  timestamp: number;
+  completedCount: number;
+  totalCount: number;
+}
 
 type HomeAssistantState = {
   attributes?: KanbanEntityAttributes | KanbanSessionAttributes;
@@ -969,7 +976,7 @@ export class KanbanWatcherCard extends LitElement {
       return undefined;
     }
 
-    return this.hass.states[this.config.entity]?.attributes;
+    return this.hass.states[this.config.entity]?.attributes as KanbanEntityAttributes | undefined;
   }
 
   private get selectedWorkspace(): KanbanWorkspace | undefined {
@@ -1038,6 +1045,8 @@ export class KanbanWatcherCard extends LitElement {
     const models = this.createWorkspaceAvailableModels.length > 0
       ? this.createWorkspaceAvailableModels
       : [];
+
+    console.log('[kanban-watcher-card] Rendering models:', models, 'Available:', this.createWorkspaceAvailableModels);
 
     const permissions = [
       { value: PermissionPolicy.AUTO, label: "自动执行" },
@@ -1188,7 +1197,11 @@ export class KanbanWatcherCard extends LitElement {
   };
 
   private loadAgentPresetsAndModels = async (agent: BaseCodingAgent) => {
-    if (!this.isApiMode || !this.config?.base_url) return;
+    console.log('[kanban-watcher-card] loadAgentPresetsAndModels called:', agent);
+    if (!this.isApiMode || !this.config?.base_url) {
+      console.log('[kanban-watcher-card] Early return - isApiMode:', this.isApiMode, 'base_url:', this.config?.base_url);
+      return;
+    }
 
     this.createWorkspaceLoadingPresets = true;
 
@@ -1199,9 +1212,12 @@ export class KanbanWatcherCard extends LitElement {
         agent
       );
 
+      console.log('[kanban-watcher-card] Discovery result:', discovery);
+
       if (discovery) {
         this.createWorkspaceAvailablePresets = discovery.presets;
         this.createWorkspaceAvailableModels = discovery.models;
+        console.log('[kanban-watcher-card] Updated models:', this.createWorkspaceAvailableModels);
 
         // 如果有预设，自动选择第一个
         if (discovery.presets.length > 0) {
@@ -1833,6 +1849,7 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     for (const message of this.normalizeApiMessagesFlat(messages)) {
+      if (!message) continue;
       const key = this.getDialogMessageIdentity(message);
       const optimisticIndex = this.findMatchingOptimisticUserMessageIndex(merged, message);
       if (typeof optimisticIndex === "number") {
@@ -2244,6 +2261,7 @@ export class KanbanWatcherCard extends LitElement {
     }
 
     const message = lastAiMessage.text;
+    if (!message) return;
     const messageHash = this.simpleHash(message);
     const cachedHash = this.dynamicButtonsMessageHashByWorkspace[workspace.id];
 
@@ -2267,7 +2285,7 @@ export class KanbanWatcherCard extends LitElement {
     // 使用 LLM 分析
     const result = await getQuickButtonsWithLLM({
       message,
-      workspaceStatus: workspace.status,
+      workspaceStatus: workspace.status as "running" | "attention" | "idle" | "completed",
       llmEnabled: this.config?.llm_enabled ?? false,
       llmConfig: {
         baseUrl: this.config?.llm_base_url,
