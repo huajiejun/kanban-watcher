@@ -688,14 +688,30 @@ export class KanbanWorkspaceHome extends LitElement {
   private async handleMobileWorkspaceSelected(e: CustomEvent<{ workspaceId: string }>) {
     const targetId = e.detail.workspaceId;
 
+    // 清除配置签名，强制 setupMobileCard 重新 setConfig（因为切换 tab 会重建 card 元素）
+    this.mobileCardConfigSignature = "";
+    this.mobileActiveTab = "workspaces";
+
     if (this.workspaces.length === 0) {
-      this.mobileActiveTab = "workspaces";
       await this.initializeWorkspaceHome();
     }
 
+    await this.updateComplete;
+
+    // 等待 kanban-watcher-card 完成配置初始化
+    const card = this.renderRoot.querySelector("kanban-watcher-card") as
+      | (HTMLElement & { openWorkspaceDialog: (ws: KanbanWorkspace) => void; isApiMode: boolean })
+      | null;
+    if (!card) return;
+
+    for (let i = 0; i < 50; i++) {
+      if (card.isApiMode) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
     const workspace = this.workspaces.find((w) => w.id === targetId);
-    if (workspace) {
-      this.handleOpenWorkspace(workspace);
+    if (workspace && typeof card.openWorkspaceDialog === "function") {
+      card.openWorkspaceDialog(workspace);
     }
   }
 
