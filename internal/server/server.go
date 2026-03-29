@@ -1586,7 +1586,7 @@ func (s *Server) handleGitDiffWsProxy(w http.ResponseWriter, r *http.Request, wo
  	switch executor {
  	case "CLAUDE_CODE":
  		data = AgentDiscoveryData{
- 			Presets: []string{"DEFAULT", "PLAN", "ROUTER"},
+ 			Presets: []string{"DEFAULT", "PLAN", "ROUTER", "zhipu", "minimax"},
  			Models: []AgentModel{
  				{ID: "anthropic/claude-sonnet-4", Name: "Claude Sonnet 4", Provider: "anthropic"},
  				{ID: "anthropic/claude-opus-4", Name: "Claude Opus 4", Provider: "anthropic"},
@@ -1668,6 +1668,12 @@ func (s *Server) handleGitDiffWsProxy(w http.ResponseWriter, r *http.Request, wo
  		options.PermissionPolicy = "plan"
  	case "ROUTER":
  		options.ModelID = "anthropic/claude-sonnet-4"
+ 		options.PermissionPolicy = "auto"
+ 	case "zhipu":
+ 		options.ModelID = "zhipu/glm-4-plus"
+ 		options.PermissionPolicy = "auto"
+ 	case "minimax":
+ 		options.ModelID = "minimax/minimax-text-01"
  		options.PermissionPolicy = "auto"
  	default:
  		// DEFAULT
