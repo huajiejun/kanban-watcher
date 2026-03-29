@@ -1560,8 +1560,9 @@ func (s *Server) handleGitDiffWsProxy(w http.ResponseWriter, r *http.Request, wo
  }
 
  type AgentPresetOptions struct {
- 	ModelID          string `json:"model_id,omitempty"`
- 	PermissionPolicy string `json:"permission_policy,omitempty"`
+ 	ModelID          string  `json:"model_id,omitempty"`
+ 	PermissionPolicy string  `json:"permission_policy,omitempty"`
+ 	Variant          *string `json:"variant,omitempty"`
  }
 
  // handleAgentDiscovery 处理 /api/agents/discovery 请求
@@ -1672,9 +1673,13 @@ func (s *Server) handleGitDiffWsProxy(w http.ResponseWriter, r *http.Request, wo
  	case "zhipu":
  		options.ModelID = "zhipu/glm-4-plus"
  		options.PermissionPolicy = "auto"
+ 	defaultVariant := "DEFAULT"
+ 	options.Variant = &defaultVariant
  	case "minimax":
  		options.ModelID = "minimax/minimax-text-01"
  		options.PermissionPolicy = "auto"
+ 	defaultVariant := "DEFAULT"
+ 	options.Variant = &defaultVariant
  	default:
  		// DEFAULT
  		options.ModelID = "anthropic/claude-sonnet-4"

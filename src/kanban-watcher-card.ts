@@ -1379,6 +1379,10 @@ export class KanbanWatcherCard extends LitElement {
         if (options.permission_policy) {
           this.createWorkspacePermission = options.permission_policy;
         }
+        // 如果预设返回了 variant（如非标准预设映射到 DEFAULT），使用它
+        if (options.variant !== undefined) {
+          this.createWorkspaceVariant = options.variant;
+        }
       }
     } catch (error) {
       console.error("[kanban-watcher-card] 加载预设选项失败:", error);
