@@ -1788,6 +1788,36 @@ export const cardStyles = css`
     line-height: 1.4;
   }
 
+  .diff-stats-banner {
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--primary-background-color, #0f172a) 40%, transparent);
+    cursor: pointer;
+    transition: opacity 160ms ease;
+  }
+
+  .diff-stats-banner:hover {
+    opacity: 0.75;
+  }
+
+  .diff-stats-text {
+    font-size: 0.82em;
+    color: var(--text-secondary-color, #94a3b8);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .diff-stats-added {
+    color: #22c55e;
+    font-weight: 500;
+  }
+
+  .diff-stats-removed {
+    color: #ef4444;
+    font-weight: 500;
+  }
+
   .message-input {
     width: 100%;
     min-height: 44px;
@@ -2104,6 +2134,15 @@ export const cardStyles = css`
       min-height: 38px;
       padding: 8px 10px;
       font-size: 16px; /* iOS Safari 不会自动放大 */
+    }
+
+    .diff-stats-banner {
+      padding: 4px 8px;
+    }
+
+    .diff-stats-text {
+      font-size: 0.75em;
+      gap: 6px;
     }
 
     /* 代码编辑/文件修改样式 */
