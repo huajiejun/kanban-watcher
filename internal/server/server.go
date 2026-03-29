@@ -945,8 +945,13 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[HTTP Server] handleWorkspaces path=%s parts=%v method=%s", path, parts, r.Method)
 	// WebSocket 代理: /api/workspaces/{id}/git/diff/ws
+	if len(parts) == 3 && parts[1] == "git" && parts[2] == "diff/ws" {
+		s.handleGitDiffWsProxy(w, r, parts[0])
+		return
+	}
+
+	log.Printf("[HTTP Server] handleWorkspaces path=%s parts=%v method=%s", path, parts, r.Method)
 	if len(parts) == 3 && parts[1] == "git" && parts[2] == "diff/ws" {
 		s.handleGitDiffWsProxy(w, r, parts[0])
 		return

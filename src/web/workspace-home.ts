@@ -1927,9 +1927,6 @@ export class KanbanWorkspaceHome extends LitElement {
         .statusAccentClass=${statusAccentClass}
         .previewLines=${previewLines}
         .prUrl=${workspace.pr_url ?? ""}
-        @preview-activate=${() => this.handleOpenWorkspace(workspace)}
-        @preview-close=${() => this.handleCloseWorkspace(workspace)}
-        @menu-action=${(e: CustomEvent) => this.handleMenuAction(workspace, e.detail.action)}
         .diffStats=${workspace.files_changed
           ? {
               files_changed: workspace.files_changed,
@@ -1939,6 +1936,7 @@ export class KanbanWorkspaceHome extends LitElement {
           : undefined}
         @preview-activate=${() => this.handleOpenWorkspace(workspace)}
         @preview-close=${() => this.handleCloseWorkspace(workspace)}
+        @menu-action=${(e: CustomEvent) => this.handleMenuAction(workspace, e.detail.action)}
         @diff-details-request=${(e: CustomEvent) => {
           e.stopPropagation();
           this.handleOpenDiffDetails(workspace, e.detail);
