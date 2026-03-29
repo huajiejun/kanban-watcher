@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	redisZSETKeyPrefix   = "process_entries:"
-	redisHashKeyPrefix   = "process_entry_data:"
-	redisLastIndexPrefix = "process_last_idx:"
+	redisZSETKeyPrefix            = "process_entries:"
+	redisHashKeyPrefix            = "process_entry_data:"
+	redisLastIndexPrefix          = "process_last_idx:"
+	redisWorkspaceProcessesPrefix = "workspace_processes:"
 )
 
 // luaFetch 只读：ZRANGE + HMGET，不删除任何数据
@@ -116,6 +117,13 @@ func (rb *RedisBuffer) Enqueue(processID string, entry *store.ProcessEntry, last
 	pipe.HSet(ctx, hashKey, idxStr, data)
 	pipe.Expire(ctx, zsetKey, rb.opts.TTL)
 	pipe.Expire(ctx, hashKey, rb.opts.TTL)
+	// 维护 workspace 级 process 索引
+	wsZsetKey := redisWorkspaceProcessesPrefix + entry.WorkspaceID
+	pipe.ZAdd(ctx, wsZsetKey, &redis.Z{
+		Score:  float64(entry.EntryTimestamp.UnixMilli()),
+		Member: processID,
+	})
+	pipe.Expire(ctx, wsZsetKey, 7*24*time.Hour)
 	if _, err := pipe.Exec(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "Redis Enqueue 失败 [%s:%d]: %v\n", processID, entry.EntryIndex, err)
 		return
