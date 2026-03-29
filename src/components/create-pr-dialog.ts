@@ -267,21 +267,23 @@ export class CreatePRDialog extends LitElement {
 
   updated(changedProperties: Map<string, unknown>) {
     console.log("[CreatePRDialog] updated called, open=", this.open, "changedProperties=", Array.from(changedProperties.keys()));
-    if (changedProperties.has("open")) {
-      console.log("[CreatePRDialog] open changed, this.open=", this.open);
-      if (this.open) {
-        // 重置状态
-        this.loading = true;
-        this.error = "";
-        this.prTitle = "";
-        this.prBody = "";
-        this.prBaseBranch = "";
-        this.branches = [];
-        this._effectiveRepoId = "";
-        console.log("[CreatePRDialog] Starting loadInitialData");
-        console.log("[CreatePRDialog] Properties at start - workspaceId:", this.workspaceId, "baseUrl:", this.baseUrl, "repoId:", this.repoId);
-        void this.loadInitialData();
-      }
+    if (changedProperties.has("open") && this.open) {
+      console.log("[CreatePRDialog] open changed to true, this.open=", this.open);
+      // 重置状态
+      this.loading = true;
+      this.error = "";
+      this.prTitle = "";
+      this.prBody = "";
+      this.prBaseBranch = "";
+      this.branches = [];
+      this._effectiveRepoId = "";
+      console.log("[CreatePRDialog] Properties at start - workspaceId:", this.workspaceId, "baseUrl:", this.baseUrl, "repoId:", this.repoId);
+      void this.loadInitialData();
+    }
+    // 如果 open 已经为 true 且 workspaceId 或 baseUrl 变化了，重新加载
+    if (this.open && (changedProperties.has("workspaceId") || changedProperties.has("baseUrl"))) {
+      console.log("[CreatePRDialog] workspaceId or baseUrl changed while open, reload");
+      void this.loadInitialData();
     }
   }
 
@@ -291,8 +293,18 @@ export class CreatePRDialog extends LitElement {
     this.error = "";
 
     try {
-      // 等待属性被设置（使用 microtask 确保属性已更新）
+      // 等待属性被设置 - 需要等待多个 microtask 确保 LitElement 完成属性更新
+      await new Promise(resolve => setTimeout(resolve, 0));
       await 0;
+
+      console.log("[CreatePRDialog] After waiting, workspaceId=", this.workspaceId, "baseUrl=", this.baseUrl);
+
+      // 如果 workspaceId 仍然为空，等待更多时间
+      if (!this.workspaceId || !this.baseUrl) {
+        console.log("[CreatePRDialog] Properties not ready, waiting more...");
+        await new Promise(resolve => setTimeout(resolve, 50));
+        console.log("[CreatePRDialog] After extra wait, workspaceId=", this.workspaceId, "baseUrl=", this.baseUrl);
+      }
 
       // 确定要使用的 repoId
       let effectiveRepoId = this.repoId;
@@ -318,9 +330,6 @@ export class CreatePRDialog extends LitElement {
       } else {
         this._effectiveRepoId = effectiveRepoId;
       }
-
-      // 再次等待确保属性更新
-      await 0;
 
       // 加载分支列表
       if (effectiveRepoId) {
