@@ -12,6 +12,12 @@ conversation_sync:
   session_preserved_days: 3
   session_cleanup_hours: 1
 
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+  pool_size: 10
+
 database:
   host: "home.huajiejun.cn"
   port: 3306
