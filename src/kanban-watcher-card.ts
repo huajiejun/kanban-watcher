@@ -1450,7 +1450,10 @@ export class KanbanWatcherCard extends LitElement {
       const request: CreateWorkspaceRequest = {
         name: name,
         repos: repos,
-        linked_issue: null,
+        linked_issue: this.createWorkspaceIssueId && this.createWorkspaceProjectId ? {
+          remote_project_id: this.createWorkspaceProjectId,
+          issue_id: this.createWorkspaceIssueId
+        } : null,
         executor_config: {
           executor: this.createWorkspaceAgent,
           variant: this.createWorkspaceVariant || null,
@@ -1464,10 +1467,11 @@ export class KanbanWatcherCard extends LitElement {
       };
 
       console.log("[kanban-watcher-card] 创建工作区:", {
-      request,
-      issueId: this.createWorkspaceIssueId,
-      projectId: this.createWorkspaceProjectId
-    });
+        request,
+        issueId: this.createWorkspaceIssueId,
+        projectId: this.createWorkspaceProjectId,
+        linkedIssue: request.linked_issue
+      });
 
       // 调用 API 创建工作区
       const workspace = await createAndStartWorkspace(
