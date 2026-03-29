@@ -162,6 +162,9 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/organizations", s.handleOrganizations)
 	mux.HandleFunc("/api/projects", s.handleProjects)
 
+	// 仓库列表代理接口
+	mux.HandleFunc("/api/repos", s.handleRepos)
+
 	// Agent 配置代理接口
 	mux.HandleFunc("/api/agents/discovery", s.handleAgentDiscovery)
 	mux.HandleFunc("/api/agents/preset-options", s.handleAgentPresetOptions)
@@ -1417,6 +1420,35 @@ func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"data":    projects,
 	})
+}
+
+// handleRepos 处理 GET /api/repos
+func (s *Server) handleRepos(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	repos, err := s.proxy.ListRepos(ctx)
+	if err != nil {
+		log.Printf("[HTTP Server] 查询仓库列表失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(repos)
 }
 
 func ptrInt(v int) *int {

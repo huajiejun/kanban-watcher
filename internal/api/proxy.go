@@ -574,3 +574,57 @@ func (c *ProxyClient) CreateAndStartWorkspace(ctx context.Context, req *CreateAn
 
 	return &result, nil
 }
+
+// Repository 仓库信息
+type Repository struct {
+	ID                   string  `json:"id"`
+	Path                 string  `json:"path"`
+	Name                 string  `json:"name"`
+	DisplayName          string  `json:"display_name"`
+	SetupScript          *string `json:"setup_script"`
+	CleanupScript        *string `json:"cleanup_script"`
+	ArchiveScript        *string `json:"archive_script"`
+	CopyFiles            *string `json:"copy_files"`
+	ParallelSetupScript  bool    `json:"parallel_setup_script"`
+	DevServerScript      *string `json:"dev_server_script"`
+	DefaultTargetBranch  *string `json:"default_target_branch"`
+	DefaultWorkingDir    *string `json:"default_working_dir"`
+	CreatedAt            string  `json:"created_at"`
+	UpdatedAt            string  `json:"updated_at"`
+}
+
+// ListReposResponse 仓库列表响应
+type ListReposResponse struct {
+	Success   bool         `json:"success"`
+	Data      []Repository `json:"data"`
+}
+
+// ListRepos 获取仓库列表，代理到 vibe-kanban 的 /api/repos API
+func (c *ProxyClient) ListRepos(ctx context.Context) (*ListReposResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/repos", c.baseURL), nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应: %w", err)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("获取仓库列表失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result ListReposResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+
+	return &result, nil
+}
