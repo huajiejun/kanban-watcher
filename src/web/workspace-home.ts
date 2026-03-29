@@ -32,7 +32,6 @@ import {
   fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
   fetchWorkspaceView,
-  fetchWorkspaceLatestMessages,
   fetchWorkspaceMessages,
   fetchWorkspaceQueueStatus,
   markWorkspaceSeen,
