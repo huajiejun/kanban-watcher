@@ -1,10 +1,11 @@
 import { LitElement, html, css, nothing } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { updateIssue, deleteIssue } from "../lib/issue-api";
+import { updateIssue, deleteIssue, fetchIssueWorkspaces } from "../lib/issue-api";
 import { renderMessageMarkdown } from "../lib/render-message-markdown";
 import type {
   RemoteIssue,
   RemoteProjectStatus,
+  RemoteWorkspace,
   IssuePriority,
 } from "../types/issue";
 
@@ -407,6 +408,123 @@ export class MobileIssueDetailPanel extends LitElement {
       white-space: nowrap;
     }
 
+    /* Workspaces Section */
+    .ws-section {
+      margin-top: 16px;
+      border-top: 1px solid rgba(148, 163, 184, 0.08);
+      padding-top: 12px;
+    }
+
+    .ws-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .ws-title {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+
+    .ws-count {
+      font-size: 0.72rem;
+      color: #64748b;
+    }
+
+    .ws-card {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(39, 39, 42, 0.5);
+      margin-bottom: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.08);
+    }
+
+    .ws-card-row1 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .ws-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 0.68rem;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .ws-status-badge.active {
+      background: rgba(52, 211, 153, 0.12);
+      color: #34d399;
+    }
+
+    .ws-status-badge.archived {
+      background: rgba(148, 163, 184, 0.1);
+      color: #64748b;
+    }
+
+    .ws-status-badge.running {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+    }
+
+    .ws-name {
+      font-size: 0.82rem;
+      color: #e2e8f0;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ws-card-row2 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.72rem;
+      color: #64748b;
+    }
+
+    .ws-time {
+      flex-shrink: 0;
+    }
+
+    .ws-code-stats {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .ws-code-stats .added {
+      color: #34d399;
+    }
+
+    .ws-code-stats .removed {
+      color: #f87171;
+    }
+
+    .ws-empty {
+      text-align: center;
+      padding: 16px 0;
+      color: #4a5568;
+      font-size: 0.78rem;
+    }
+
+    .ws-loading {
+      text-align: center;
+      padding: 12px 0;
+      color: #64748b;
+      font-size: 0.78rem;
+    }
+
     /* Picker Overlay */
     .picker-overlay {
       position: fixed;
@@ -490,6 +608,8 @@ export class MobileIssueDetailPanel extends LitElement {
   showStatusPicker = false;
   showPriorityPicker = false;
   saveStatus: "idle" | "saved" = "idle";
+  workspaces: RemoteWorkspace[] = [];
+  wsLoading = false;
 
   private _editTitle = "";
   private _editDescription = "";
@@ -510,6 +630,8 @@ export class MobileIssueDetailPanel extends LitElement {
     showStatusPicker: { type: Boolean, attribute: false },
     showPriorityPicker: { type: Boolean, attribute: false },
     saveStatus: { attribute: false },
+    workspaces: { type: Array, attribute: false },
+    wsLoading: { type: Boolean, attribute: false },
   };
 
   updated(changed: Map<string, unknown>) {
@@ -522,6 +644,7 @@ export class MobileIssueDetailPanel extends LitElement {
       this.showPriorityPicker = false;
       this.saveStatus = "idle";
       this.cancelPendingSaves();
+      void this.loadWorkspaces();
     }
     if (changed.has("visible") && !this.visible) {
       this.cancelPendingSaves();
@@ -529,6 +652,7 @@ export class MobileIssueDetailPanel extends LitElement {
       this.showDeleteConfirm = false;
       this.showStatusPicker = false;
       this.showPriorityPicker = false;
+      this.workspaces = [];
     }
   }
 
@@ -688,6 +812,99 @@ export class MobileIssueDetailPanel extends LitElement {
     });
   }
 
+  private formatRelativeTime(dateStr: string) {
+    const now = Date.now();
+    const d = new Date(dateStr).getTime();
+    const diff = now - d;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return "刚刚";
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    return this.formatTime(dateStr);
+  }
+
+  // --- Workspaces ---
+
+  private async loadWorkspaces() {
+    if (!this.issue || !this.baseUrl) return;
+    this.wsLoading = true;
+    try {
+      this.workspaces = await fetchIssueWorkspaces(
+        { baseUrl: this.baseUrl, apiKey: this.apiKey },
+        this.issue.id
+      );
+    } catch (err) {
+      console.error("加载工作区失败:", err);
+      this.workspaces = [];
+    } finally {
+      this.wsLoading = false;
+    }
+  }
+
+  private renderWorkspaces() {
+    if (this.wsLoading) {
+      return html`
+        <div class="ws-section">
+          <div class="ws-header">
+            <span class="ws-title">Workspaces</span>
+          </div>
+          <div class="ws-loading">加载中...</div>
+        </div>
+      `;
+    }
+
+    const active = this.workspaces.filter((w) => !w.archived);
+    const archived = this.workspaces.filter((w) => w.archived);
+    const total = active.length + archived.length;
+
+    if (total === 0) {
+      return nothing;
+    }
+
+    return html`
+      <div class="ws-section">
+        <div class="ws-header">
+          <span class="ws-title">Workspaces</span>
+          <span class="ws-count">${total}</span>
+        </div>
+        ${active.map((ws) => this.renderWorkspaceCard(ws))}
+        ${archived.length > 0
+          ? html`<div style="margin-top:4px">${archived.map((ws) => this.renderWorkspaceCard(ws))}</div>`
+          : nothing}
+      </div>
+    `;
+  }
+
+  private renderWorkspaceCard(ws: RemoteWorkspace) {
+    const name = ws.name || "未命名";
+    const badgeClass = ws.archived ? "archived" : "active";
+    const badgeLabel = ws.archived ? "归档" : "活跃";
+    const filesChanged = ws.files_changed ?? 0;
+    const linesAdded = ws.lines_added ?? 0;
+    const linesRemoved = ws.lines_removed ?? 0;
+
+    return html`
+      <div class="ws-card">
+        <div class="ws-card-row1">
+          <span class="ws-status-badge ${badgeClass}">${badgeLabel}</span>
+          <span class="ws-name">${name}</span>
+        </div>
+        <div class="ws-card-row2">
+          <span class="ws-time">${this.formatRelativeTime(ws.updated_at)}</span>
+          ${filesChanged > 0
+            ? html`<span class="ws-code-stats">
+                ${linesAdded > 0 ? html`<span class="added">+${linesAdded}</span>` : nothing}
+                ${linesRemoved > 0 ? html`<span class="removed">-${linesRemoved}</span>` : nothing}
+              </span>`
+            : nothing}
+        </div>
+      </div>
+    `;
+  }
+
   protected render() {
     if (!this.visible || !this.issue) return nothing;
 
@@ -765,6 +982,9 @@ export class MobileIssueDetailPanel extends LitElement {
                     : html`<span class="desc-placeholder">点击添加描述...</span>`}
                 </div>`}
           </div>
+
+          <!-- Workspaces -->
+          ${this.renderWorkspaces()}
 
           <!-- Meta -->
           <div class="meta-row">

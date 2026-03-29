@@ -76,3 +76,18 @@ export interface RemoteProject {
   created_at: string;
   updated_at: string;
 }
+
+/** 远程工作区（对应 Go RemoteWorkspace） */
+export interface RemoteWorkspace {
+  id: string;
+  project_id: string;
+  name: string | null;
+  issue_id: string | null;
+  local_workspace_id: string | null;
+  archived: boolean;
+  files_changed: number | null;
+  lines_added: number | null;
+  lines_removed: number | null;
+  created_at: string;
+  updated_at: string;
+}

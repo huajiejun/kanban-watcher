@@ -3,6 +3,7 @@ import type {
   RemoteProjectStatus,
   RemoteOrganization,
   RemoteProject,
+  RemoteWorkspace,
   CreateIssuePayload,
   UpdateIssuePayload,
 } from "../types/issue";
@@ -151,4 +152,22 @@ export async function deleteIssue(
       headers: buildHeaders(options.apiKey),
     }
   );
+}
+
+/** GET /api/issue-workspaces/{id} - 查询任务关联的工作区列表 */
+export async function fetchIssueWorkspaces(
+  options: RequestOptions,
+  issueId: string
+): Promise<RemoteWorkspace[]> {
+  const response = await fetchJSON<{
+    success: boolean;
+    workspaces: RemoteWorkspace[];
+  }>(
+    `${normalizeBaseUrl(options.baseUrl)}/api/issue-workspaces/${issueId}`,
+    {
+      method: "GET",
+      headers: buildHeaders(options.apiKey),
+    }
+  );
+  return response.workspaces ?? [];
 }

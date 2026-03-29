@@ -147,6 +147,9 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/issues/", s.handleIssues)
 	mux.HandleFunc("/api/project-statuses", s.handleProjectStatuses)
 
+	// Issue 关联工作区代理接口
+	mux.HandleFunc("/api/issue-workspaces/", s.handleIssueWorkspaces)
+
 	// 组织和项目代理接口
 	mux.HandleFunc("/api/organizations", s.handleOrganizations)
 	mux.HandleFunc("/api/projects", s.handleProjects)
@@ -1141,6 +1144,49 @@ func (s *Server) handleDeleteIssue(w http.ResponseWriter, r *http.Request, issue
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
+	})
+}
+
+// handleIssueWorkspaces 处理 /api/issue-workspaces/{id} 请求
+// GET /api/issue-workspaces/{id} - 查询指定 Issue 关联的工作区列表
+func (s *Server) handleIssueWorkspaces(w http.ResponseWriter, r *http.Request) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 提取 issue ID
+	path := strings.TrimPrefix(r.URL.Path, "/api/issue-workspaces/")
+	path = strings.TrimSuffix(path, "/")
+	if path == "" {
+		http.Error(w, "Missing issue ID", http.StatusBadRequest)
+		return
+	}
+	issueID := path
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	workspaces, err := s.proxy.ListIssueWorkspaces(ctx, issueID)
+	if err != nil {
+		log.Printf("[HTTP Server] 查询工作区列表失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"workspaces": workspaces,
 	})
 }
 

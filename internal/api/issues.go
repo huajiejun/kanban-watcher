@@ -336,6 +336,68 @@ func (c *ProxyClient) doMutationIssue(ctx context.Context, url, method string, p
 	return &apiResp.Data.Data, nil
 }
 
+// --- 工作区类型 ---
+
+// RemoteWorkspace 对应 vibe-kanban 远程工作区结构
+type RemoteWorkspace struct {
+	ID           string  `json:"id"`
+	ProjectID    string  `json:"project_id"`
+	Name         *string `json:"name"`
+	IssueID      *string `json:"issue_id"`
+	LocalID      *string `json:"local_workspace_id"`
+	Archived     bool    `json:"archived"`
+	FilesChanged *int    `json:"files_changed"`
+	LinesAdded   *int    `json:"lines_added"`
+	LinesRemoved *int    `json:"lines_removed"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
+}
+
+type listIssueWorkspacesAPIResponse struct {
+	Success bool              `json:"success"`
+	Data    []RemoteWorkspace `json:"data"`
+	Message *string           `json:"message"`
+}
+
+// ListIssueWorkspaces 查询指定 Issue 关联的工作区列表
+func (c *ProxyClient) ListIssueWorkspaces(ctx context.Context, issueID string) ([]RemoteWorkspace, error) {
+	url := fmt.Sprintf("%s/api/remote/workspaces/by-issue-id/%s", c.baseURL, issueID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送请求: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应: %w", err)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("查询工作区列表失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var apiResp listIssueWorkspacesAPIResponse
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		return nil, fmt.Errorf("解析响应: %w", err)
+	}
+	if !apiResp.Success {
+		msg := ""
+		if apiResp.Message != nil {
+			msg = *apiResp.Message
+		}
+		return nil, fmt.Errorf("查询工作区列表失败: %s", msg)
+	}
+
+	return apiResp.Data, nil
+}
+
 // --- 组织和项目类型 ---
 
 type RemoteOrganization struct {
