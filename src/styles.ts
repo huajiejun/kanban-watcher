@@ -539,6 +539,16 @@ export const workspaceHomeStyles = css`
       backdrop-filter: none;
     }
 
+    /* 隐藏 card board 区域但保留弹窗能力（dialog-shell 使用 position: fixed） */
+    .mobile-card-hidden {
+      position: absolute;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
     /* 手机端顶部菜单栏 */
     .workspace-home-mobile-header {
       position: sticky;

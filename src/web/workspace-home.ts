@@ -275,21 +275,20 @@ export class KanbanWorkspaceHome extends LitElement {
               </button>
             </nav>
           </header>
-          ${this.mobileActiveTab === "workspaces"
-            ? html`
-              <section class="workspace-home-placeholder">
-                <kanban-watcher-card></kanban-watcher-card>
-              </section>
-            `
-            : html`
-              <section class="mobile-kanban-section" @workspace-selected=${this.handleMobileWorkspaceSelected}>
-                <mobile-kanban-board
-                  baseUrl=${this.previewOptions.baseUrl ?? ""}
-                  apiKey=${this.previewOptions.apiKey}
-                  .selectedProjectId=${this.kanbanProjectId}
-                ></mobile-kanban-board>
-              </section>
-            `}
+          <section class="mobile-kanban-section" @workspace-selected=${this.handleMobileWorkspaceSelected}>
+            <mobile-kanban-board
+              baseUrl=${this.previewOptions.baseUrl ?? ""}
+              apiKey=${this.previewOptions.apiKey}
+              .selectedProjectId=${this.kanbanProjectId}
+            ></mobile-kanban-board>
+          </section>
+          <!-- kanban-watcher-card 始终存在于 DOM 中，供弹窗使用 -->
+          <section
+            class="workspace-home-placeholder${this.mobileActiveTab !== "workspaces" ? " mobile-card-hidden" : ""}"
+            aria-hidden=${this.mobileActiveTab !== "workspaces" ? "true" : nothing}
+          >
+            <kanban-watcher-card></kanban-watcher-card>
+          </section>
           ${this.mobileActiveTab === "issues"
             ? html`<mobile-project-drawer
                 baseUrl=${this.previewOptions.baseUrl ?? ""}
@@ -688,22 +687,17 @@ export class KanbanWorkspaceHome extends LitElement {
   private async handleMobileWorkspaceSelected(e: CustomEvent<{ workspaceId: string }>) {
     const targetId = e.detail.workspaceId;
 
-    // 清除配置签名，强制 setupMobileCard 重新 setConfig（因为切换 tab 会重建 card 元素）
-    this.mobileCardConfigSignature = "";
-    this.mobileActiveTab = "workspaces";
-
     if (this.workspaces.length === 0) {
       await this.initializeWorkspaceHome();
     }
 
-    await this.updateComplete;
-
-    // 等待 kanban-watcher-card 完成配置初始化
+    // kanban-watcher-card 始终存在于 DOM 中（workspaces tab 时由上方可见区域渲染，issues tab 时由隐藏占位渲染）
     const card = this.renderRoot.querySelector("kanban-watcher-card") as
       | (HTMLElement & { openWorkspaceDialog: (ws: KanbanWorkspace) => void; isApiMode: boolean })
       | null;
     if (!card) return;
 
+    // 等待 kanban-watcher-card 完成配置初始化
     for (let i = 0; i < 50; i++) {
       if (card.isApiMode) break;
       await new Promise((r) => setTimeout(r, 100));
