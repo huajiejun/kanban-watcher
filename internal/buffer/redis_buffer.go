@@ -19,10 +19,10 @@ const (
 	redisLastIndexPrefix = "process_last_idx:"
 )
 
-// luaFlushAndRemove 原子读取 ZSET + HMGET Hash + ZREM
+// luaFetch 只读：ZRANGE + HMGET，不删除任何数据
 // KEYS[1] = zset key, KEYS[2] = hash key
 // 返回: [members数组, data数组]
-var luaFlushAndRemove = redis.NewScript(`
+var luaFetch = redis.NewScript(`
 local zsetKey = KEYS[1]
 local hashKey = KEYS[2]
 local members = redis.call('ZRANGE', zsetKey, 0, -1)
@@ -30,8 +30,17 @@ if #members == 0 then
     return { {}, {} }
 end
 local data = redis.call('HMGET', hashKey, unpack(members))
-redis.call('ZREM', zsetKey, unpack(members))
 return { members, data }
+`)
+
+// luaRemove 原子清理 ZSET members（MySQL 写入成功后调用）
+// KEYS[1] = zset key, ARGV = members to remove
+var luaRemove = redis.NewScript(`
+local zsetKey = KEYS[1]
+if #ARGV == 0 then
+    return 0
+end
+return redis.call('ZREM', zsetKey, unpack(ARGV))
 `)
 
 // RedisBufferOptions Redis buffer 配置
@@ -135,6 +144,8 @@ func (rb *RedisBuffer) Enqueue(processID string, entry *store.ProcessEntry, last
 }
 
 // FlushProcess 将指定 process 的缓冲数据持久化
+// 流程：Lua 只读 → MySQL 写入 → 成功后 Lua 清理 ZSET
+// 如果 MySQL 失败，ZSET 数据保留，下次 flush 可安全重试
 func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error {
 	if rb == nil || processID == "" {
 		return nil
@@ -147,10 +158,10 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 	zsetKey := redisZSETKeyPrefix + processID
 	hashKey := redisHashKeyPrefix + processID
 
-	// 1. Lua 原子操作：ZRANGE + HMGET + ZREM（读即删除，其他实例不会再读到相同数据）
-	res, err := luaFlushAndRemove.Run(ctx, rb.rdb, []string{zsetKey, hashKey}).Result()
+	// 1. Lua 只读：ZRANGE + HMGET（不删除，数据安全保留）
+	res, err := luaFetch.Run(ctx, rb.rdb, []string{zsetKey, hashKey}).Result()
 	if err != nil {
-		return fmt.Errorf("Lua flush %s: %w", processID, err)
+		return fmt.Errorf("Lua fetch %s: %w", processID, err)
 	}
 
 	// 解析 Lua 返回的嵌套数组: [[members...], [data...]]
@@ -185,7 +196,7 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 		return nil
 	}
 
-	// 3. 批量写 MySQL
+	// 3. 批量写 MySQL（数据仍在 ZSET，失败可重试）
 	if rb.store != nil {
 		if err := rb.store.UpsertProcessEntries(ctx, toPersist); err != nil {
 			rb.mu.Lock()
@@ -196,20 +207,26 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 			if cnt >= rb.opts.RetryMax {
 				fmt.Fprintf(os.Stderr, "Redis buffer flush 重试 %d 次后放弃 [%s]\n", cnt, processID)
 				rb.writeDeadLetter(processID, toPersist)
+				// 重试耗尽后清理 ZSET，避免无限重试
+				rb.removeMembers(ctx, zsetKey, membersIf)
 				rb.mu.Lock()
 				delete(rb.retryCnt, processID)
 				rb.mu.Unlock()
 			}
+			// MySQL 失败 → ZSET 数据保留 → 下次 flush 可重试
 			return fmt.Errorf("UpsertProcessEntries %s: %w", processID, err)
 		}
 	}
+
+	// 4. MySQL 写入成功 → 原子清理 ZSET members
+	rb.removeMembers(ctx, zsetKey, membersIf)
 
 	// 重置重试计数
 	rb.mu.Lock()
 	delete(rb.retryCnt, processID)
 	rb.mu.Unlock()
 
-	// 4. onFlush 回调
+	// 5. onFlush 回调
 	if rb.onFlush != nil {
 		lastIdx := rb.loadLastEntryIndex(ctx, processID)
 		latestEntry := toPersist[len(toPersist)-1]
@@ -218,8 +235,23 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 		}
 	}
 
-	// ZSET 已由 Lua 原子清理，Hash 保留 24h TTL 自然过期
+	// ZSET 已清理，Hash 保留 TTL 自然过期
 	return nil
+}
+
+// removeMembers 调用 Lua 原子清理 ZSET members
+func (rb *RedisBuffer) removeMembers(ctx context.Context, zsetKey string, members []interface{}) {
+	if len(members) == 0 {
+		return
+	}
+	// 将 []interface{} 转为 []string 作为 ARGV
+	argv := make([]string, len(members))
+	for i, m := range members {
+		argv[i], _ = m.(string)
+	}
+	if _, err := luaRemove.Run(ctx, rb.rdb, []string{zsetKey}, toInterfaceSlice(argv)...).Result(); err != nil {
+		fmt.Fprintf(os.Stderr, "Lua remove ZSET members 失败 [%s]: %v\n", zsetKey, err)
+	}
 }
 
 // FlushAll 刷出所有 process 的缓冲数据
@@ -331,4 +363,13 @@ func (rb *RedisBuffer) writeDeadLetter(processID string, entries []*store.Proces
 	}
 
 	fmt.Fprintf(os.Stderr, "[DEADLETTER] 写入 %d 条消息到 %s\n", len(entries), filename)
+}
+
+// toInterfaceSlice 将 []string 转为 []interface{}
+func toInterfaceSlice(ss []string) []interface{} {
+	result := make([]interface{}, len(ss))
+	for i, s := range ss {
+		result[i] = s
+	}
+	return result
 }
