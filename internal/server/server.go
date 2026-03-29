@@ -1012,6 +1012,8 @@ func (s *Server) handleCreateAndStartWorkspace(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	log.Printf("[HTTP Server] 创建工作区请求: name=%s, linked_issue=%v", req.Name, req.LinkedIssue)
+
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 
