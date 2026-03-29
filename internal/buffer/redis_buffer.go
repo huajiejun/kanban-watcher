@@ -14,10 +14,25 @@ import (
 )
 
 const (
-	redisZSETKeyPrefix = "process_entries:"
-	redisHashKeyPrefix = "process_entry_data:"
+	redisZSETKeyPrefix   = "process_entries:"
+	redisHashKeyPrefix   = "process_entry_data:"
 	redisLastIndexPrefix = "process_last_idx:"
 )
+
+// luaFlushAndRemove 原子读取 ZSET + HMGET Hash + ZREM
+// KEYS[1] = zset key, KEYS[2] = hash key
+// 返回: [members数组, data数组]
+var luaFlushAndRemove = redis.NewScript(`
+local zsetKey = KEYS[1]
+local hashKey = KEYS[2]
+local members = redis.call('ZRANGE', zsetKey, 0, -1)
+if #members == 0 then
+    return { {}, {} }
+end
+local data = redis.call('HMGET', hashKey, unpack(members))
+redis.call('ZREM', zsetKey, unpack(members))
+return { members, data }
+`)
 
 // RedisBufferOptions Redis buffer 配置
 type RedisBufferOptions struct {
@@ -132,43 +147,45 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 	zsetKey := redisZSETKeyPrefix + processID
 	hashKey := redisHashKeyPrefix + processID
 
-	// 1. ZRANGE 取出所有 entryIndex
-	members, err := rb.rdb.ZRange(ctx, zsetKey, 0, -1).Result()
+	// 1. Lua 原子操作：ZRANGE + HMGET + ZREM（读即删除，其他实例不会再读到相同数据）
+	res, err := luaFlushAndRemove.Run(ctx, rb.rdb, []string{zsetKey, hashKey}).Result()
 	if err != nil {
-		return fmt.Errorf("ZRANGE %s: %w", zsetKey, err)
+		return fmt.Errorf("Lua flush %s: %w", processID, err)
 	}
-	if len(members) == 0 {
+
+	// 解析 Lua 返回的嵌套数组: [[members...], [data...]]
+	resultSlice, ok := res.([]interface{})
+	if !ok || len(resultSlice) < 2 {
+		return nil
+	}
+	membersIf, _ := resultSlice[0].([]interface{})
+	valuesIf, _ := resultSlice[1].([]interface{})
+	if len(membersIf) == 0 {
 		return nil
 	}
 
-	// 2. HMGET 批量取消息体
-	values, err := rb.rdb.HMGet(ctx, hashKey, members...).Result()
-	if err != nil {
-		return fmt.Errorf("HMGET %s: %w", hashKey, err)
-	}
-
-	// 3. 反序列化 + 去重
-	toPersist := make([]*store.ProcessEntry, 0, len(values))
-	for _, val := range values {
+	// 2. 反序列化
+	toPersist := make([]*store.ProcessEntry, 0, len(valuesIf))
+	for _, val := range valuesIf {
 		if val == nil {
 			continue
 		}
+		s, ok := val.(string)
+		if !ok {
+			continue
+		}
 		var entry store.ProcessEntry
-		if err := json.Unmarshal([]byte(val.(string)), &entry); err != nil {
+		if err := json.Unmarshal([]byte(s), &entry); err != nil {
 			continue
 		}
 		toPersist = append(toPersist, &entry)
 	}
 
 	if len(toPersist) == 0 {
-		// 清理已读取的 members
-		if len(members) > 0 {
-			rb.rdb.ZRem(ctx, zsetKey, members)
-		}
 		return nil
 	}
 
-	// 4. 批量写 MySQL
+	// 3. 批量写 MySQL
 	if rb.store != nil {
 		if err := rb.store.UpsertProcessEntries(ctx, toPersist); err != nil {
 			rb.mu.Lock()
@@ -179,10 +196,6 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 			if cnt >= rb.opts.RetryMax {
 				fmt.Fprintf(os.Stderr, "Redis buffer flush 重试 %d 次后放弃 [%s]\n", cnt, processID)
 				rb.writeDeadLetter(processID, toPersist)
-				// 只清理已处理的 members，避免误删其他实例新写入的数据
-				if len(members) > 0 {
-					rb.rdb.ZRem(ctx, zsetKey, members)
-				}
 				rb.mu.Lock()
 				delete(rb.retryCnt, processID)
 				rb.mu.Unlock()
@@ -196,7 +209,7 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 	delete(rb.retryCnt, processID)
 	rb.mu.Unlock()
 
-	// 5. onFlush 回调
+	// 4. onFlush 回调
 	if rb.onFlush != nil {
 		lastIdx := rb.loadLastEntryIndex(ctx, processID)
 		latestEntry := toPersist[len(toPersist)-1]
@@ -205,12 +218,7 @@ func (rb *RedisBuffer) FlushProcess(ctx context.Context, processID string) error
 		}
 	}
 
-	// 6. 只删除已 flush 的 members（多实例安全）
-	if len(members) > 0 {
-		rb.rdb.ZRem(ctx, zsetKey, members)
-	}
-	// Hash 保留，24h TTL 自然过期
-
+	// ZSET 已由 Lua 原子清理，Hash 保留 24h TTL 自然过期
 	return nil
 }
 
