@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/huajiejun/kanban-watcher/internal/api"
@@ -25,6 +26,7 @@ const defaultWorktreeBasePath = "/Users/huajiejun/github/vibe-kanban/.vibe-kanba
 // Server HTTP 服务器
 type Server struct {
 	proxy         *api.ProxyClient
+	apiClient     *api.Client // 上游 API 客户端，用于按需同步 issue_id
 	dispatcher    workspaceMessageDispatcher
 	port          int
 	apiKey        string
@@ -104,6 +106,11 @@ func (s *Server) SetProjectID(id string) {
 // SetAuthHandler 设置认证处理器
 func (s *Server) SetAuthHandler(handler *AuthHandler) {
 	s.authHandler = handler
+}
+
+// SetAPIClient 设置上游 API 客户端
+func (s *Server) SetAPIClient(client *api.Client) {
+	s.apiClient = client
 }
 
 // RegisterRoute 注册额外的路由
@@ -1172,61 +1179,82 @@ func (s *Server) handleIssueWorkspaces(w http.ResponseWriter, r *http.Request) {
 		workspaces, err := s.store.ListWorkspacesByIssueID(ctx, issueID)
 		if err != nil {
 			log.Printf("[HTTP Server] 本地查询工作区失败: %v", err)
-		} else {
-			result := make([]api.RemoteWorkspace, 0, len(workspaces))
-			for _, ws := range workspaces {
-				name := ws.Name
-				if name == "" {
-					name = ws.Branch
-				}
-				result = append(result, api.RemoteWorkspace{
-					ID:           ws.ID,
-					Name:         &name,
-					IssueID:      ws.IssueID,
-					Archived:     ws.Archived,
-					FilesChanged: ptrInt(ws.FilesChanged),
-					LinesAdded:   ptrInt(ws.LinesAdded),
-					LinesRemoved: ptrInt(ws.LinesRemoved),
-					CreatedAt:    formatTimePtr(ws.CreatedAt),
-					UpdatedAt:    formatTimePtr(ws.UpdatedAt),
-				})
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"success":    true,
-				"workspaces": result,
-			})
+		} else if len(workspaces) > 0 {
+			s.writeIssueWorkspaces(w, workspaces)
 			return
 		}
-	}
 
-	// 降级：数据库不可用时调用上游 API
-	if s.proxy == nil {
-		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
-	defer cancel()
-
-	workspaces, err := s.proxy.ListIssueWorkspaces(ctx, issueID)
-	if err != nil {
-		log.Printf("[HTTP Server] 查询工作区列表失败: %v", err)
-		statusCode := http.StatusInternalServerError
-		if errors.Is(err, context.DeadlineExceeded) {
-			statusCode = http.StatusGatewayTimeout
+		// 本地数据库为空时，按需同步 issue_id（worker 模式下同步服务未启动）
+		if s.apiClient != nil {
+			s.syncIssueIDsIfNeeded(ctx)
+			// 同步后重试查询
+			workspaces, err = s.store.ListWorkspacesByIssueID(ctx, issueID)
+			if err == nil && len(workspaces) > 0 {
+				s.writeIssueWorkspaces(w, workspaces)
+				return
+			}
 		}
-		http.Error(w, err.Error(), statusCode)
-		return
-	}
-	if workspaces == nil {
-		workspaces = []api.RemoteWorkspace{}
 	}
 
+	// 降级：数据库不可用时返回空结果
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":    true,
-		"workspaces": workspaces,
+		"workspaces": []api.RemoteWorkspace{},
+	})
+}
+
+// writeIssueWorkspaces 将本地工作区列表转换为前端格式并写入响应
+func (s *Server) writeIssueWorkspaces(w http.ResponseWriter, workspaces []*store.Workspace) {
+	result := make([]api.RemoteWorkspace, 0, len(workspaces))
+	for _, ws := range workspaces {
+		name := ws.Name
+		if name == "" {
+			name = ws.Branch
+		}
+		result = append(result, api.RemoteWorkspace{
+			ID:           ws.ID,
+			Name:         &name,
+			IssueID:      ws.IssueID,
+			Archived:     ws.Archived,
+			FilesChanged: ptrInt(ws.FilesChanged),
+			LinesAdded:   ptrInt(ws.LinesAdded),
+			LinesRemoved: ptrInt(ws.LinesRemoved),
+			CreatedAt:    formatTimePtr(ws.CreatedAt),
+			UpdatedAt:    formatTimePtr(ws.UpdatedAt),
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"workspaces": result,
+	})
+}
+
+// syncIssueIDsIfNeeded 按需同步 issue_id（仅同步空 issue_id 的工作区）
+// 使用 sync.Once 确保整个进程生命周期内只同步一次
+var syncIssueIDsOnce sync.Once
+
+func (s *Server) syncIssueIDsIfNeeded(ctx context.Context) {
+	syncIssueIDsOnce.Do(func() {
+		ids, err := s.store.ListWorkspaceIDsWithNullIssueID(ctx)
+		if err != nil || len(ids) == 0 {
+			return
+		}
+		const maxSync = 20
+		if len(ids) > maxSync {
+			ids = ids[:maxSync]
+		}
+		for _, id := range ids {
+			issueID, err := s.apiClient.FetchWorkspaceIssueID(ctx, id)
+			if err != nil {
+				log.Printf("[HTTP Server] 同步 issue_id 失败 workspace=%s err=%v", id, err)
+				continue
+			}
+			if err := s.store.UpdateWorkspaceIssueID(ctx, id, issueID); err != nil {
+				log.Printf("[HTTP Server] 更新 issue_id 失败 workspace=%s err=%v", id, err)
+			}
+		}
 	})
 }
 
