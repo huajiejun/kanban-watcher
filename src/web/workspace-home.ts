@@ -739,7 +739,11 @@ export class KanbanWorkspaceHome extends LitElement {
     // 获取卡片实例并调用创建工作区方法
     const card = this.renderRoot.querySelector("kanban-watcher-card") as
       | (HTMLElement & {
-          openCreateWorkspaceDialog?: (options?: { suggestedName?: string }) => void;
+          openCreateWorkspaceDialog?: (options?: {
+            suggestedName?: string;
+            projectId?: string;
+            issueId?: string;
+          }) => void;
           isApiMode: boolean
         })
       | null;
@@ -751,10 +755,12 @@ export class KanbanWorkspaceHome extends LitElement {
       await new Promise((r) => setTimeout(r, 100));
     }
 
-    // 调用创建对话框，预填充任务编号作为建议名称
+    // 调用创建对话框，预填充任务信息
     if (typeof card.openCreateWorkspaceDialog === "function") {
       card.openCreateWorkspaceDialog({
-        suggestedName: `任务 ${issueSimpleId}`
+        suggestedName: `任务 ${issueSimpleId}`,
+        projectId: this.kanbanProjectId,
+        issueId: issueId
       });
     }
   }

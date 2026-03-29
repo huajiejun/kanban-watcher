@@ -6,6 +6,7 @@ import type {
   RemoteWorkspace,
   CreateIssuePayload,
   UpdateIssuePayload,
+  CreateWorkspaceRequest,
 } from "../types/issue";
 
 type RequestOptions = {
@@ -170,4 +171,42 @@ export async function fetchIssueWorkspaces(
     }
   );
   return response.workspaces ?? [];
+}
+
+/** POST /api/workspaces/start - 创建并启动工作区 */
+export async function createAndStartWorkspace(
+  options: RequestOptions,
+  payload: CreateWorkspaceRequest
+): Promise<RemoteWorkspace> {
+  const response = await fetchJSON<{
+    success: boolean;
+    data: {
+      workspace: RemoteWorkspace;
+    };
+  }>(`${normalizeBaseUrl(options.baseUrl)}/api/workspaces/start`, {
+    method: "POST",
+    headers: buildHeaders(options.apiKey, true),
+    body: JSON.stringify(payload),
+  });
+  return response.data?.workspace;
+}
+
+/** POST /api/workspaces/{workspace_id}/links - 关联工作区到任务 */
+export async function linkWorkspaceToIssue(
+  options: RequestOptions,
+  workspaceId: string,
+  projectId: string,
+  issueId: string
+): Promise<void> {
+  await fetch(
+    `${normalizeBaseUrl(options.baseUrl)}/api/workspaces/${workspaceId}/links`,
+    {
+      method: "POST",
+      headers: buildHeaders(options.apiKey, true),
+      body: JSON.stringify({
+        remote_project_id: projectId,
+        issue_id: issueId,
+      }),
+    }
+  );
 }

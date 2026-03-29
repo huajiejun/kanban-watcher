@@ -39,6 +39,15 @@ import {
 } from "./lib/quick-buttons";
 import type { ButtonWithReason } from "./types";
 import {
+  BaseCodingAgent,
+  PermissionPolicy,
+  type CreateWorkspaceRequest,
+} from "./types/issue";
+import {
+  createAndStartWorkspace,
+  linkWorkspaceToIssue,
+} from "./lib/issue-api";
+import {
   renderWorkspaceSectionList,
   type WorkspaceSectionKey,
 } from "./components/workspace-section-list";
@@ -145,6 +154,13 @@ export class KanbanWatcherCard extends LitElement {
     diffDetailsStats: { state: true },
     createWorkspaceOpen: { state: true },
     createWorkspaceSuggestedName: { state: true },
+    createWorkspaceProjectId: { state: true },
+    createWorkspaceIssueId: { state: true },
+    createWorkspaceAgent: { state: true },
+    createWorkspaceVariant: { state: true },
+    createWorkspaceModel: { state: true },
+    createWorkspacePrompt: { state: true },
+    createWorkspacePermission: { state: true },
   };
 
   hass?: HomeAssistantLike;
@@ -199,6 +215,13 @@ export class KanbanWatcherCard extends LitElement {
   private diffDetailsStats?: { files_changed: number; lines_added: number; lines_removed: number };
   private createWorkspaceOpen = false;
   private createWorkspaceSuggestedName = "";
+  private createWorkspaceProjectId = "";
+  private createWorkspaceIssueId = "";
+  private createWorkspaceAgent: BaseCodingAgent = BaseCodingAgent.CLAUDE_CODE;
+  private createWorkspaceVariant = "DEFAULT";
+  private createWorkspaceModel = "";
+  private createWorkspacePrompt = "";
+  private createWorkspacePermission: PermissionPolicy = PermissionPolicy.AUTO;
 
   connectedCallback() {
     super.connectedCallback();
@@ -527,14 +550,27 @@ export class KanbanWatcherCard extends LitElement {
     }
   }
 
-  public openCreateWorkspaceDialog(options?: { suggestedName?: string }) {
+  public openCreateWorkspaceDialog(options?: {
+    suggestedName?: string;
+    projectId?: string;
+    issueId?: string;
+  }) {
     this.createWorkspaceSuggestedName = options?.suggestedName || "";
+    this.createWorkspaceProjectId = options?.projectId || "";
+    this.createWorkspaceIssueId = options?.issueId || "";
     this.createWorkspaceOpen = true;
   }
 
   private closeCreateWorkspaceDialog = () => {
     this.createWorkspaceOpen = false;
     this.createWorkspaceSuggestedName = "";
+    this.createWorkspaceProjectId = "";
+    this.createWorkspaceIssueId = "";
+    this.createWorkspaceAgent = BaseCodingAgent.CLAUDE_CODE;
+    this.createWorkspaceVariant = "DEFAULT";
+    this.createWorkspaceModel = "";
+    this.createWorkspacePrompt = "";
+    this.createWorkspacePermission = PermissionPolicy.AUTO;
   }
 
   private closeWorkspaceDialog = () => {
@@ -968,6 +1004,30 @@ export class KanbanWatcherCard extends LitElement {
       return nothing;
     }
 
+    const agents = [
+      { value: BaseCodingAgent.CLAUDE_CODE, label: "Claude Code" },
+      { value: BaseCodingAgent.CODEX, label: "Codex" },
+      { value: BaseCodingAgent.GEMINI, label: "Gemini" },
+      { value: BaseCodingAgent.AMP, label: "AMP" },
+      { value: BaseCodingAgent.OPENCODE, label: "OpenCode" },
+      { value: BaseCodingAgent.CURSOR_AGENT, label: "Cursor" },
+      { value: BaseCodingAgent.QWEN_CODE, label: "Qwen" },
+      { value: BaseCodingAgent.COPILOT, label: "Copilot" },
+      { value: BaseCodingAgent.DROID, label: "Droid" },
+    ];
+
+    const variants = [
+      { value: "DEFAULT", label: "默认" },
+      { value: "PLAN", label: "计划模式" },
+      { value: "ROUTER", label: "路由模式" },
+    ];
+
+    const permissions = [
+      { value: PermissionPolicy.AUTO, label: "自动执行" },
+      { value: PermissionPolicy.SUPERVISED, label: "监督模式" },
+      { value: PermissionPolicy.PLAN, label: "计划模式" },
+    ];
+
     return html`
       <div class="dialog-shell" role="presentation">
         <button
@@ -987,20 +1047,103 @@ export class KanbanWatcherCard extends LitElement {
             <button class="btn-close" type="button" @click=${this.closeCreateWorkspaceDialog}>×</button>
           </div>
           <div class="create-workspace-body">
-            <label class="form-label">工作区名称</label>
-            <input
-              type="text"
-              class="form-input"
-              placeholder="输入工作区名称"
-              .value=${this.createWorkspaceSuggestedName}
-              @input=${this.handleCreateWorkspaceNameInput}
-            />
-            <label class="form-label">关联任务</label>
-            <div class="linked-issue-info">
-              ${this.createWorkspaceSuggestedName
-                ? html`<span class="issue-badge">${this.createWorkspaceSuggestedName}</span>`
-                : html`<span class="no-issue">无关联任务</span>`}
+            <!-- 工作区名称 -->
+            <div class="form-group">
+              <label class="form-label">工作区名称 *</label>
+              <input
+                type="text"
+                class="form-input"
+                placeholder="输入工作区名称"
+                .value=${this.createWorkspaceSuggestedName}
+                @input=${this.handleCreateWorkspaceNameInput}
+              />
             </div>
+
+            <!-- Agent选择 -->
+            <div class="form-group">
+              <label class="form-label">AI Agent *</label>
+              <select
+                class="form-select"
+                .value=${this.createWorkspaceAgent}
+                @change=${this.handleAgentChange}
+              >
+                ${agents.map(
+                  (agent) => html`
+                    <option value=${agent.value}>${agent.label}</option>
+                  `
+                )}
+              </select>
+            </div>
+
+            <!-- 预设选择 -->
+            <div class="form-group">
+              <label class="form-label">预设配置</label>
+              <select
+                class="form-select"
+                .value=${this.createWorkspaceVariant}
+                @change=${this.handleVariantChange}
+              >
+                ${variants.map(
+                  (variant) => html`
+                    <option value=${variant.value}>${variant.label}</option>
+                  `
+                )}
+              </select>
+            </div>
+
+            <!-- 模型选择 -->
+            <div class="form-group">
+              <label class="form-label">模型 (可选)</label>
+              <input
+                type="text"
+                class="form-input"
+                placeholder="例如: anthropic/claude-sonnet-4-20250514"
+                .value=${this.createWorkspaceModel}
+                @input=${this.handleModelInput}
+              />
+              <span class="form-hint">留空使用默认模型</span>
+            </div>
+
+            <!-- 权限策略 -->
+            <div class="form-group">
+              <label class="form-label">权限策略</label>
+              <select
+                class="form-select"
+                .value=${this.createWorkspacePermission}
+                @change=${this.handlePermissionChange}
+              >
+                ${permissions.map(
+                  (perm) => html`
+                    <option value=${perm.value}>${perm.label}</option>
+                  `
+                )}
+              </select>
+            </div>
+
+            <!-- 需求提示词 -->
+            <div class="form-group">
+              <label class="form-label">需求描述 (可选)</label>
+              <textarea
+                class="form-textarea"
+                placeholder="输入初始需求或提示词..."
+                .value=${this.createWorkspacePrompt}
+                @input=${this.handlePromptInput}
+                rows="3"
+              ></textarea>
+            </div>
+
+            <!-- 关联任务信息 -->
+            ${this.createWorkspaceIssueId
+              ? html`
+                  <div class="form-group">
+                    <label class="form-label">关联任务</label>
+                    <div class="linked-issue-badge">
+                      <span class="issue-id">${this.createWorkspaceIssueId}</span>
+                      <span class="issue-name">${this.createWorkspaceSuggestedName}</span>
+                    </div>
+                  </div>
+                `
+              : nothing}
           </div>
           <div class="create-workspace-footer">
             <button class="btn-secondary" type="button" @click=${this.closeCreateWorkspaceDialog}>取消</button>
@@ -1015,6 +1158,26 @@ export class KanbanWatcherCard extends LitElement {
     this.createWorkspaceSuggestedName = (e.target as HTMLInputElement).value;
   };
 
+  private handleAgentChange = (e: Event) => {
+    this.createWorkspaceAgent = (e.target as HTMLSelectElement).value as BaseCodingAgent;
+  };
+
+  private handleVariantChange = (e: Event) => {
+    this.createWorkspaceVariant = (e.target as HTMLSelectElement).value;
+  };
+
+  private handleModelInput = (e: Event) => {
+    this.createWorkspaceModel = (e.target as HTMLInputElement).value;
+  };
+
+  private handlePermissionChange = (e: Event) => {
+    this.createWorkspacePermission = (e.target as HTMLSelectElement).value as PermissionPolicy;
+  };
+
+  private handlePromptInput = (e: Event) => {
+    this.createWorkspacePrompt = (e.target as HTMLTextAreaElement).value;
+  };
+
   private async handleCreateWorkspace() {
     const name = this.createWorkspaceSuggestedName.trim();
     if (!name) {
@@ -1022,15 +1185,75 @@ export class KanbanWatcherCard extends LitElement {
       return;
     }
 
-    // TODO: 调用 API 创建工作区
-    console.log("[kanban-watcher-card] 创建工作区:", name);
+    // 检查 API 配置
+    if (!this.isApiMode) {
+      alert("请先配置 API 连接");
+      return;
+    }
 
-    // 关闭对话框
-    this.closeCreateWorkspaceDialog();
+    try {
+      // 构建创建请求
+      const request: CreateWorkspaceRequest = {
+        name: name,
+        repos: [], // TODO: 后续支持选择仓库
+        linked_issue: null,
+        executor_config: {
+          executor: this.createWorkspaceAgent,
+          variant: this.createWorkspaceVariant || null,
+          model_id: this.createWorkspaceModel || null,
+          agent_id: null,
+          reasoning_id: null,
+          permission_policy: this.createWorkspacePermission,
+        },
+        prompt: this.createWorkspacePrompt.trim(),
+        image_ids: null,
+      };
 
-    // 刷新工作区列表
-    if (this.isApiMode) {
-      void this.loadWorkspaces();
+      console.log("[kanban-watcher-card] 创建工作区:", request);
+
+      // 调用 API 创建工作区
+      const workspace = await createAndStartWorkspace(
+        {
+          baseUrl: this.config?.base_url || "",
+          apiKey: this.config?.api_key,
+        },
+        request
+      );
+
+      console.log("[kanban-watcher-card] 工作区创建成功:", workspace);
+
+      // 如果有关联的任务，关联工作区到任务
+      if (this.createWorkspaceIssueId && this.createWorkspaceProjectId) {
+        try {
+          await linkWorkspaceToIssue(
+            {
+              baseUrl: this.config?.base_url || "",
+              apiKey: this.config?.api_key,
+            },
+            workspace.id,
+            this.createWorkspaceProjectId,
+            this.createWorkspaceIssueId
+          );
+          console.log("[kanban-watcher-card] 工作区已关联到任务");
+        } catch (linkError) {
+          console.error("[kanban-watcher-card] 关联任务失败:", linkError);
+          // 不阻塞，继续执行
+        }
+      }
+
+      // 关闭对话框
+      this.closeCreateWorkspaceDialog();
+
+      // 刷新工作区列表
+      void this.loadActiveWorkspaces();
+
+      // 显示成功提示
+      alert(`工作区 "${name}" 创建成功！`);
+    } catch (error) {
+      console.error("[kanban-watcher-card] 创建工作区失败:", error);
+      alert(
+        `创建工作区失败: ${error instanceof Error ? error.message : "未知错误"}`
+      );
     }
   }
 

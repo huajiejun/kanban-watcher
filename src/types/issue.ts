@@ -92,3 +92,55 @@ export interface RemoteWorkspace {
   created_at: string;
   updated_at: string;
 }
+
+/** Agent类型 */
+export enum BaseCodingAgent {
+  CLAUDE_CODE = "CLAUDE_CODE",
+  AMP = "AMP",
+  GEMINI = "GEMINI",
+  CODEX = "CODEX",
+  OPENCODE = "OPENCODE",
+  CURSOR_AGENT = "CURSOR_AGENT",
+  QWEN_CODE = "QWEN_CODE",
+  COPILOT = "COPILOT",
+  DROID = "DROID"
+}
+
+/** 权限策略 */
+export enum PermissionPolicy {
+  AUTO = "AUTO",
+  SUPERVISED = "SUPERVISED",
+  PLAN = "PLAN"
+}
+
+/** 执行器配置 */
+export interface ExecutorConfig {
+  executor: BaseCodingAgent;
+  variant?: string | null;
+  model_id?: string | null;
+  agent_id?: string | null;
+  reasoning_id?: string | null;
+  permission_policy?: PermissionPolicy | null;
+}
+
+/** 仓库输入 */
+export interface WorkspaceRepoInput {
+  repo_id: string;
+  target_branch: string;
+}
+
+/** 关联任务信息 */
+export interface LinkedIssueInfo {
+  remote_project_id: string;
+  issue_id: string;
+}
+
+/** 创建并启动工作区请求 */
+export interface CreateWorkspaceRequest {
+  name: string | null;
+  repos: WorkspaceRepoInput[];
+  linked_issue: LinkedIssueInfo | null;
+  executor_config: ExecutorConfig;
+  prompt: string;
+  image_ids: string[] | null;
+}

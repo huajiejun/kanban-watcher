@@ -2429,6 +2429,88 @@ export const cardStyles = css`
     transform: translateY(-1px);
     box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color, #f59e0b) 30%, transparent);
   }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .create-workspace-body .form-select {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 25%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 80%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 40px;
+  }
+
+  .create-workspace-body .form-select:focus {
+    border-color: color-mix(in srgb, var(--primary-color, #f59e0b) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #f59e0b) 15%, transparent);
+  }
+
+  .create-workspace-body .form-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #e5e7eb) 25%, transparent);
+    background: color-mix(in srgb, var(--secondary-background-color, #111827) 80%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+  }
+
+  .create-workspace-body .form-textarea:focus {
+    border-color: color-mix(in srgb, var(--primary-color, #f59e0b) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #f59e0b) 15%, transparent);
+  }
+
+  .form-hint {
+    font-size: 0.8rem;
+    color: var(--secondary-text-color, #64748b);
+    margin-top: 2px;
+  }
+
+  .linked-issue-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color, #f59e0b) 25%, transparent);
+  }
+
+  .linked-issue-badge .issue-id {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary-color, #f59e0b);
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--primary-color, #f59e0b) 20%, transparent);
+  }
+
+  .linked-issue-badge .issue-name {
+    font-size: 0.9rem;
+    color: var(--primary-text-color, #e5e7eb);
+    font-weight: 500;
+  }
 `;
 
 /**
