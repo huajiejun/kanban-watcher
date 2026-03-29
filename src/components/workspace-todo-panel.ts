@@ -113,7 +113,7 @@ export class WorkspaceTodoPanel extends LitElement {
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.05);
       color: #f1f5f9;
-      font-size: 13px;
+      font-size: 16px;
       outline: none;
       transition: border-color 0.15s;
     }
@@ -254,7 +254,7 @@ export class WorkspaceTodoPanel extends LitElement {
       border-radius: 6px;
       background: rgba(255, 255, 255, 0.08);
       color: #f1f5f9;
-      font-size: 13px;
+      font-size: 16px;
       outline: none;
     }
 
