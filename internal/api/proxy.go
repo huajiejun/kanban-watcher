@@ -541,7 +541,7 @@ type CreateWorkspaceData struct {
 
 // vibeKanbanWorkspace 接收 vibe-kanban 原始响应
 type vibeKanbanWorkspace struct {
-	WorkspaceID              string  `json:"workspace_id"`
+	ID                       string  `json:"id"`  // vibe-kanban 使用 id 字段
 	LatestSessionID          *string `json:"latest_session_id"`
 	HasPendingApproval       bool    `json:"has_pending_approval"`
 	FilesChanged             *int    `json:"files_changed"`
@@ -581,10 +581,14 @@ func (c *ProxyClient) CreateAndStartWorkspace(ctx context.Context, req *CreateAn
 		return nil, fmt.Errorf("创建工作区失败: HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
+	log.Printf("[Proxy] 创建工作区原始响应: %s", string(body))
+
 	var result CreateAndStartWorkspaceResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("解析响应: %w", err)
 	}
+
+	log.Printf("[Proxy] 创建工作区解析结果: workspace_id=%s, success=%v", result.Data.Workspace.ID, result.Success)
 
 	return &result, nil
 }

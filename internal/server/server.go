@@ -1077,13 +1077,13 @@ func (s *Server) handleCreateAndStartWorkspace(w http.ResponseWriter, r *http.Re
 
 	// 立即将工作区保存到本地数据库，以便前端能立即查询到关联
 	log.Printf("[HTTP Server] 检查是否保存到本地数据库: store=%v, success=%v, workspaceID=%v",
-		s.store != nil, result.Success, result.Data.Workspace.WorkspaceID)
-	if s.store != nil && result.Success && result.Data.Workspace.WorkspaceID != "" {
-		log.Printf("[HTTP Server] 触发异步保存工作区到本地数据库: workspace=%s", result.Data.Workspace.WorkspaceID)
-		go s.saveCreatedWorkspaceToLocalDB(req, result.Data.Workspace.WorkspaceID)
+		s.store != nil, result.Success, result.Data.Workspace.ID)
+	if s.store != nil && result.Success && result.Data.Workspace.ID != "" {
+		log.Printf("[HTTP Server] 触发异步保存工作区到本地数据库: workspace=%s", result.Data.Workspace.ID)
+		go s.saveCreatedWorkspaceToLocalDB(req, result.Data.Workspace.ID)
 	} else {
 		log.Printf("[HTTP Server] 跳过保存到本地数据库: store=%v, success=%v, workspaceID=%v",
-			s.store != nil, result.Success, result.Data.Workspace.WorkspaceID)
+			s.store != nil, result.Success, result.Data.Workspace.ID)
 	}
 
 	// 构建前端期望的响应格式（将 workspace_id 映射为 id）
@@ -1091,7 +1091,7 @@ func (s *Server) handleCreateAndStartWorkspace(w http.ResponseWriter, r *http.Re
 		"success": result.Success,
 		"data": map[string]interface{}{
 			"workspace": map[string]interface{}{
-				"id":                      result.Data.Workspace.WorkspaceID,
+				"id":                      result.Data.Workspace.ID,
 				"project_id":              "",
 				"name":                    req.Name,
 				"issue_id":                nil,
