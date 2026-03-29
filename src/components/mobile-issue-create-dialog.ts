@@ -174,6 +174,13 @@ export class MobileIssueCreateDialog extends LitElement {
       opacity: 0.4;
       cursor: not-allowed;
     }
+
+    .error-message {
+      padding: 8px 16px;
+      color: #f87171;
+      font-size: 0.8rem;
+      text-align: center;
+    }
   `;
 
   statuses: RemoteProjectStatus[] = [];
@@ -351,6 +358,9 @@ export class MobileIssueCreateDialog extends LitElement {
               )}
             </div>
           </div>
+          ${this.errorMessage
+            ? html`<div class="error-message">${this.errorMessage}</div>`
+            : nothing}
           <div class="dialog-footer">
             <button
               class="btn-cancel"
