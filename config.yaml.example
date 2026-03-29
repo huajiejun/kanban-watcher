@@ -53,6 +53,14 @@ working_hours:
 # 轮询间隔（秒）
 poll_interval_seconds: 15
 
+# Redis 配置（可选，启用后消息缓冲使用 Redis ZSET 提升性能）
+# 留空或不配置则使用内存缓冲
+redis:
+  addr: ""                # Redis 地址，如 "localhost:6379"，为空则不启用
+  password: ""            # 密码
+  db: 0                   # 数据库编号
+  pool_size: 10           # 连接池大小
+
 # 数据持久化配置
 database:
   host: "home.huajiejun.cn"
