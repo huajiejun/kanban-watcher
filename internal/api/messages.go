@@ -459,14 +459,14 @@ type earliestMsgMeta struct {
 	Ei      int    `json:"ei"`
 }
 
-// getWorkspaceEarliest 从 Redis 读取 workspace 最早消息 meta
-func getWorkspaceEarliest(ctx context.Context, rdb *redis.Client, workspaceID string) (*earliestMsgMeta, error) {
+// getWorkspaceEarliest 从 Redis 读取 workspace+session 最早消息 meta
+func getWorkspaceEarliest(ctx context.Context, rdb *redis.Client, workspaceID, sessionID string) (*earliestMsgMeta, error) {
 	if rdb == nil {
 		return nil, nil
 	}
-	data, err := rdb.Get(ctx, redisEarliestPrefix+workspaceID).Result()
+	data, err := rdb.Get(ctx, redisEarliestPrefix+workspaceID+":"+sessionID).Result()
 	if err != nil {
-		return nil, nil // key 不存在或错误，返回 nil
+		return nil, nil
 	}
 	var meta earliestMsgMeta
 	if err := json.Unmarshal([]byte(data), &meta); err != nil {
@@ -475,38 +475,38 @@ func getWorkspaceEarliest(ctx context.Context, rdb *redis.Client, workspaceID st
 	return &meta, nil
 }
 
-// setWorkspaceEarliest 将 workspace 最早消息 meta 写入 Redis
-func setWorkspaceEarliest(ctx context.Context, rdb *redis.Client, workspaceID string, meta *earliestMsgMeta) {
+// setWorkspaceEarliest 将 workspace+session 最早消息 meta 写入 Redis
+func setWorkspaceEarliest(ctx context.Context, rdb *redis.Client, workspaceID, sessionID string, meta *earliestMsgMeta) {
 	if rdb == nil || meta == nil {
 		return
 	}
 	data, _ := json.Marshal(meta)
-	rdb.Set(ctx, redisEarliestPrefix+workspaceID, data, redisEarliestTTL)
+	if err := rdb.Set(ctx, redisEarliestPrefix+workspaceID+":"+sessionID, data, redisEarliestTTL).Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "Redis 写入 earliest meta 失败: %v\n", err)
+	}
 }
 
-// resolveWorkspaceEarliest 获取 workspace 最早消息 meta
+// resolveWorkspaceEarliest 获取 workspace+session 最早消息 meta
 // Redis 无缓存时从 MySQL 查询并写回 Redis（lazy-loading）
 func resolveWorkspaceEarliest(ctx context.Context, rdb *redis.Client, dbStore *store.Store, workspaceID, sessionID string) (*earliestMsgMeta, error) {
-	meta, _ := getWorkspaceEarliest(ctx, rdb, workspaceID)
+	meta, _ := getWorkspaceEarliest(ctx, rdb, workspaceID, sessionID)
 	if meta != nil {
 		return meta, nil
 	}
-	// Redis 无缓存，从 MySQL 查询最早消息
 	earliest, err := dbStore.GetEarliestSessionMessage(ctx, sessionID)
 	if err != nil {
 		return nil, err
 	}
 	if earliest == nil {
-		return nil, nil // session 无消息
+		return nil, nil
 	}
 	meta = &earliestMsgMeta{
 		TsMilli: earliest.EntryTimestamp.UnixMilli(),
 		Pid:     earliest.ProcessID,
 		Ei:      earliest.EntryIndex,
 	}
-	// 异步写回 Redis，不阻塞请求
 	if rdb != nil {
-		go setWorkspaceEarliest(context.Background(), rdb, workspaceID, meta)
+		go setWorkspaceEarliest(context.Background(), rdb, workspaceID, sessionID, meta)
 	}
 	return meta, nil
 }
@@ -596,6 +596,7 @@ func HandleWorkspaceMessages(w http.ResponseWriter, r *http.Request, dbStore *st
 	}
 
 	// MySQL 兜底：Redis 无数据时从 MySQL 查询并异步写回 Redis
+	var mysqlEarliestMeta *earliestMsgMeta
 	if len(allEntries) == 0 && dbStore != nil {
 		var before time.Time
 		if beforeCursor != "" {
@@ -606,41 +607,53 @@ func HandleWorkspaceMessages(w http.ResponseWriter, r *http.Request, dbStore *st
 
 		mysqlEntries, mysqlErr := dbStore.GetSessionMessages(r.Context(), sessionID, limit+1, before, nil)
 		if mysqlErr != nil {
-			fmt.Fprintf(os.Stderr, "MySQL 兜底查询失败: %v\n", mysqlErr)
-		} else {
-			hasMore = len(mysqlEntries) > limit
-			if hasMore {
-				mysqlEntries = mysqlEntries[:limit]
-			}
-			allEntries = mysqlEntries
+			http.Error(w, "获取消息失败", http.StatusInternalServerError)
+			return
+		}
+		hasMore = len(mysqlEntries) > limit
+		if hasMore {
+			mysqlEntries = mysqlEntries[:limit]
+		}
+		allEntries = mysqlEntries
 
-			// 如果 MySQL 返回完整批次（hasMore=false），更新 Redis 最早消息 meta
-			if !hasMore && len(allEntries) > 0 && rdb != nil {
-				oldest := allEntries[len(allEntries)-1]
-				meta := &earliestMsgMeta{
-					TsMilli: oldest.EntryTimestamp.UnixMilli(),
-					Pid:     oldest.ProcessID,
-					Ei:      oldest.EntryIndex,
+		// 如果 MySQL 返回完整批次（hasMore=false），记录最早消息 meta
+		if !hasMore && len(allEntries) > 0 {
+			oldest := allEntries[len(allEntries)-1]
+			mysqlEarliestMeta = &earliestMsgMeta{
+				TsMilli: oldest.EntryTimestamp.UnixMilli(),
+				Pid:     oldest.ProcessID,
+				Ei:      oldest.EntryIndex,
+			}
+			if rdb != nil {
+				go setWorkspaceEarliest(context.Background(), rdb, workspaceID, sessionID, mysqlEarliestMeta)
+			}
+		}
+
+		// 异步写回 Redis，不阻塞 HTTP 响应
+		if rdb != nil && len(allEntries) > 0 {
+			go func() {
+				reader := buffer.NewRedisReader(rdb)
+				if err := reader.WriteBackEntries(context.Background(), allEntries); err != nil {
+					fmt.Fprintf(os.Stderr, "Redis 写回失败: %v\n", err)
 				}
-				go setWorkspaceEarliest(context.Background(), rdb, workspaceID, meta)
-			}
-
-			// 异步写回 Redis，不阻塞 HTTP 响应
-			if rdb != nil && len(allEntries) > 0 {
-				go func() {
-					reader := buffer.NewRedisReader(rdb)
-					if err := reader.WriteBackEntries(context.Background(), allEntries); err != nil {
-						fmt.Fprintf(os.Stderr, "Redis 写回失败: %v\n", err)
-					}
-				}()
-			}
+			}()
 		}
 	}
 
-	// Redis 缓存可能不完整：查询 MySQL 最早消息 meta 判断是否有更早消息
+	// Redis 缓存可能不完整：查询最早消息 meta 判断是否有更早消息
 	if !hasMore && len(allEntries) > 0 && rdb != nil {
-		earliestMeta, metaErr := resolveWorkspaceEarliest(r.Context(), rdb, dbStore, workspaceID, sessionID)
-		if metaErr == nil && earliestMeta != nil {
+		// 优先使用 MySQL 兜底已计算的 meta，避免重复查 MySQL
+		var earliestMeta *earliestMsgMeta
+		if mysqlEarliestMeta != nil {
+			earliestMeta = mysqlEarliestMeta
+		} else {
+			var metaErr error
+			earliestMeta, metaErr = resolveWorkspaceEarliest(r.Context(), rdb, dbStore, workspaceID, sessionID)
+			if metaErr != nil {
+				fmt.Fprintf(os.Stderr, "查询 earliest meta 失败: %v\n", metaErr)
+			}
+		}
+		if earliestMeta != nil {
 			oldest := allEntries[len(allEntries)-1]
 			if isEntryAfterEarliest(oldest, earliestMeta) {
 				hasMore = true

@@ -889,7 +889,7 @@ func (s *Store) GetSessionMessages(ctx context.Context, sessionID string, limit 
 		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
 		FROM kw_process_entries
 		WHERE ` + strings.Join(conditions, " AND ") + `
-		ORDER BY entry_timestamp DESC, id DESC
+		ORDER BY entry_timestamp DESC, process_id DESC, entry_index DESC
 		LIMIT ?
 	`
 	args = append(args, limit)
