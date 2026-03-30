@@ -870,15 +870,26 @@ func (s *Store) MarkMissingWorkspacesArchived(ctx context.Context, activeWorkspa
 	return nil
 }
 
+type MessageCursor struct {
+	Timestamp  time.Time
+	ProcessID  string
+	EntryIndex int
+}
+
 // GetSessionMessages 获取会话消息，默认返回最新消息优先
-func (s *Store) GetSessionMessages(ctx context.Context, sessionID string, limit int, before time.Time, types []string) ([]ProcessEntry, error) {
+func (s *Store) GetSessionMessages(ctx context.Context, sessionID string, limit int, before *MessageCursor, types []string) ([]ProcessEntry, error) {
 	var args []interface{}
 	conditions := []string{"session_id = ?"}
 	args = append(args, sessionID)
 
-	if !before.IsZero() {
-		conditions = append(conditions, "entry_timestamp < ?")
-		args = append(args, before)
+	if before != nil && !before.Timestamp.IsZero() {
+		if before.ProcessID != "" {
+			conditions = append(conditions, "(entry_timestamp < ? OR (entry_timestamp = ? AND (process_id < ? OR (process_id = ? AND entry_index < ?))))")
+			args = append(args, before.Timestamp, before.Timestamp, before.ProcessID, before.ProcessID, before.EntryIndex)
+		} else {
+			conditions = append(conditions, "entry_timestamp < ?")
+			args = append(args, before.Timestamp)
+		}
 	}
 
 	if len(types) > 0 {
