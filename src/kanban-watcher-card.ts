@@ -7,7 +7,7 @@ import {
   fetchActiveWorkspaces,
   fetchWorkspaceFileBrowserPath,
   fetchWorkspaceFrontendPort,
-  fetchWorkspaceLatestMessages,
+  fetchWorkspaceMessages,
   fetchWorkspaceQueueStatus,
   markWorkspaceSeen,
   sendWorkspaceMessage,
@@ -126,6 +126,8 @@ export class KanbanWatcherCard extends LitElement {
     dialogLoading: { state: true },
     dialogError: { state: true },
     dialogMessagesByWorkspace: { state: true },
+    cursorByWorkspace: { state: true },
+    hasMoreByWorkspace: { state: true },
     queueStatusByWorkspace: { state: true },
     optimisticQueueWorkspaceIds: { state: true },
     startingDevServerWorkspaceIds: { state: true },
@@ -165,6 +167,8 @@ export class KanbanWatcherCard extends LitElement {
   private dialogLoading = false;
   private dialogError = "";
   private dialogMessagesByWorkspace: Record<string, DialogMessage[]> = {};
+  private cursorByWorkspace: Record<string, string> = {};
+  private hasMoreByWorkspace: Record<string, boolean> = {};
   private queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
   private optimisticQueueWorkspaceIds = new Set<string>();
   private startingDevServerWorkspaceIds = new Set<string>();
@@ -427,6 +431,8 @@ export class KanbanWatcherCard extends LitElement {
               void this.handleQuickButtonClick(event.detail)}
             @todo-selected=${(event: CustomEvent<{ content: string; todoId: string }>) =>
               void this.handleTodoSelected(event.detail)}
+            .hasMore=${this.hasMoreByWorkspace[workspace.id] ?? false}
+            .onLoadMore=${() => void this.loadMoreMessages(workspace.id)}
             @diff-details-request=${(e: CustomEvent) => {
               this.handleOpenDiffDetails(workspace, e.detail);
             }}
@@ -1754,12 +1760,11 @@ export class KanbanWatcherCard extends LitElement {
     this.dialogError = "";
 
     try {
-      const response = await fetchWorkspaceLatestMessages({
+      const response = await fetchWorkspaceMessages({
         baseUrl: this.config.base_url,
         apiKey: this.config.api_key,
         workspaceId,
         limit: this.config.messages_limit ?? DEFAULT_MESSAGES_LIMIT,
-        types: workspaceId === this.selectedWorkspaceId ? ACTIVE_PANE_MESSAGE_TYPES : undefined,
       });
       const previousMessages = this.flattenDialogMessages(this.dialogMessagesByWorkspace[workspaceId] ?? []);
       const normalizedMessages = this.normalizeApiMessages(response.messages);
@@ -1773,6 +1778,17 @@ export class KanbanWatcherCard extends LitElement {
           this.dialogMessagesByWorkspace[workspaceId] ?? [],
           normalizedMessages,
         ),
+      };
+      // 存储 cursor 和 has_more
+      if (response.cursor) {
+        this.cursorByWorkspace = {
+          ...this.cursorByWorkspace,
+          [workspaceId]: response.cursor,
+        };
+      }
+      this.hasMoreByWorkspace = {
+        ...this.hasMoreByWorkspace,
+        [workspaceId]: response.has_more ?? false,
       };
       const workspace = this.allWorkspaces.find((item) => item.id === workspaceId);
       if (workspace) {
@@ -1794,6 +1810,48 @@ export class KanbanWatcherCard extends LitElement {
       this.emitPreviewStatus(this.dialogError);
     } finally {
       this.dialogLoading = false;
+      this.requestUpdate();
+    }
+  }
+
+  private async loadMoreMessages(workspaceId: string) {
+    if (!this.config?.base_url || !this.hasMoreByWorkspace[workspaceId]) {
+      return;
+    }
+
+    try {
+      const cursor = this.cursorByWorkspace[workspaceId];
+      const response = await fetchWorkspaceMessages({
+        baseUrl: this.config.base_url,
+        apiKey: this.config.api_key,
+        workspaceId,
+        limit: this.config.messages_limit ?? DEFAULT_MESSAGES_LIMIT,
+        cursor,
+      });
+
+      const olderMessages = this.normalizeApiMessages(response.messages);
+      const currentMessages = this.dialogMessagesByWorkspace[workspaceId] ?? [];
+
+      // 旧消息前置
+      this.dialogMessagesByWorkspace = {
+        ...this.dialogMessagesByWorkspace,
+        [workspaceId]: [...olderMessages, ...currentMessages],
+      };
+
+      if (response.cursor) {
+        this.cursorByWorkspace = {
+          ...this.cursorByWorkspace,
+          [workspaceId]: response.cursor,
+        };
+      }
+      this.hasMoreByWorkspace = {
+        ...this.hasMoreByWorkspace,
+        [workspaceId]: response.has_more ?? false,
+      };
+
+      this.requestUpdate();
+    } catch (error) {
+      this.dialogError = this.toErrorMessage(error, "加载更早消息失败");
       this.requestUpdate();
     }
   }
