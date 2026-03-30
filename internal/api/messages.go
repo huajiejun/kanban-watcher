@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -66,24 +67,24 @@ type workspaceViewRequest struct {
 
 // LocalWorkspaceSummary 本地数据库中的工作区摘要
 type LocalWorkspaceSummary struct {
-	ID                       string `json:"id"`
-	Name                     string `json:"name"`
-	Branch                   string `json:"branch"`
-	BrowserURL               string `json:"browser_url,omitempty"`
-	LatestSessionID          string `json:"latest_session_id,omitempty"`
-	Status                   string `json:"status"`
-	HasPendingApproval       bool   `json:"has_pending_approval"`
-	HasUnseenTurns           bool   `json:"has_unseen_turns"`
-	HasRunningDevServer      bool   `json:"has_running_dev_server"`
+	ID                        string `json:"id"`
+	Name                      string `json:"name"`
+	Branch                    string `json:"branch"`
+	BrowserURL                string `json:"browser_url,omitempty"`
+	LatestSessionID           string `json:"latest_session_id,omitempty"`
+	Status                    string `json:"status"`
+	HasPendingApproval        bool   `json:"has_pending_approval"`
+	HasUnseenTurns            bool   `json:"has_unseen_turns"`
+	HasRunningDevServer       bool   `json:"has_running_dev_server"`
 	RunningDevServerProcessID string `json:"running_dev_server_process_id,omitempty"`
-	FilesChanged             int    `json:"files_changed"`
-	LinesAdded               int    `json:"lines_added"`
-	LinesRemoved             int    `json:"lines_removed"`
-	UpdatedAt                string `json:"updated_at,omitempty"`
-	MessageCount             int    `json:"message_count"`
-	LastMessageAt            string `json:"last_message_at,omitempty"`
-	LatestProcessCompletedAt string `json:"latest_process_completed_at,omitempty"`
-	MenuSummary              string `json:"menu_summary,omitempty"`
+	FilesChanged              int    `json:"files_changed"`
+	LinesAdded                int    `json:"lines_added"`
+	LinesRemoved              int    `json:"lines_removed"`
+	UpdatedAt                 string `json:"updated_at,omitempty"`
+	MessageCount              int    `json:"message_count"`
+	LastMessageAt             string `json:"last_message_at,omitempty"`
+	LatestProcessCompletedAt  string `json:"latest_process_completed_at,omitempty"`
+	MenuSummary               string `json:"menu_summary,omitempty"`
 }
 
 // GetMessageRoutes 注册消息 API 路由
@@ -447,6 +448,90 @@ func parseTypesFilter(raw string) []string {
 	return result
 }
 
+// Redis 最早消息 meta：每个 workspace 记录 MySQL 中最早的一条消息
+// 用于 Redis 缓存不完整时，判断前端是否应显示"加载更早消息"
+const redisEarliestPrefix = "workspace_earliest:"
+const redisEarliestTTL = 7 * 24 * time.Hour
+
+type earliestMsgMeta struct {
+	TsMilli int64  `json:"ts"`
+	Pid     string `json:"pid"`
+	Ei      int    `json:"ei"`
+}
+
+// getWorkspaceEarliest 从 Redis 读取 workspace 最早消息 meta
+func getWorkspaceEarliest(ctx context.Context, rdb *redis.Client, workspaceID string) (*earliestMsgMeta, error) {
+	if rdb == nil {
+		return nil, nil
+	}
+	data, err := rdb.Get(ctx, redisEarliestPrefix+workspaceID).Result()
+	if err != nil {
+		return nil, nil // key 不存在或错误，返回 nil
+	}
+	var meta earliestMsgMeta
+	if err := json.Unmarshal([]byte(data), &meta); err != nil {
+		return nil, nil
+	}
+	return &meta, nil
+}
+
+// setWorkspaceEarliest 将 workspace 最早消息 meta 写入 Redis
+func setWorkspaceEarliest(ctx context.Context, rdb *redis.Client, workspaceID string, meta *earliestMsgMeta) {
+	if rdb == nil || meta == nil {
+		return
+	}
+	data, _ := json.Marshal(meta)
+	rdb.Set(ctx, redisEarliestPrefix+workspaceID, data, redisEarliestTTL)
+}
+
+// resolveWorkspaceEarliest 获取 workspace 最早消息 meta
+// Redis 无缓存时从 MySQL 查询并写回 Redis（lazy-loading）
+func resolveWorkspaceEarliest(ctx context.Context, rdb *redis.Client, dbStore *store.Store, workspaceID, sessionID string) (*earliestMsgMeta, error) {
+	meta, _ := getWorkspaceEarliest(ctx, rdb, workspaceID)
+	if meta != nil {
+		return meta, nil
+	}
+	// Redis 无缓存，从 MySQL 查询最早消息
+	earliest, err := dbStore.GetEarliestSessionMessage(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if earliest == nil {
+		return nil, nil // session 无消息
+	}
+	meta = &earliestMsgMeta{
+		TsMilli: earliest.EntryTimestamp.UnixMilli(),
+		Pid:     earliest.ProcessID,
+		Ei:      earliest.EntryIndex,
+	}
+	// 异步写回 Redis，不阻塞请求
+	if rdb != nil {
+		go setWorkspaceEarliest(context.Background(), rdb, workspaceID, meta)
+	}
+	return meta, nil
+}
+
+// isEntryAfterEarliest 判断消息是否在最早消息之后（即不是最早消息）
+func isEntryAfterEarliest(entry store.ProcessEntry, meta *earliestMsgMeta) bool {
+	if meta == nil {
+		return true // 无 meta，无法判断，保守返回 true（不标记 hasMore）
+	}
+	entryTS := entry.EntryTimestamp.UnixMilli()
+	if entryTS > meta.TsMilli {
+		return true
+	}
+	if entryTS == meta.TsMilli {
+		// 同一 timestamp，按 processID + entryIndex 区分
+		if entry.ProcessID > meta.Pid {
+			return true
+		}
+		if entry.ProcessID == meta.Pid && entry.EntryIndex > meta.Ei {
+			return true
+		}
+	}
+	return false
+}
+
 // HandleWorkspaceMessages 处理 GET /api/workspaces/{id}/messages
 // Redis 优先 + MySQL 兜底的分页消息查询
 func HandleWorkspaceMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store, rdb *redis.Client) {
@@ -477,7 +562,7 @@ func HandleWorkspaceMessages(w http.ResponseWriter, r *http.Request, dbStore *st
 			limit = parsed
 		}
 	}
-	beforeCursor := r.URL.Query().Get("before")
+	beforeCursor := r.URL.Query().Get("cursor")
 
 	// 获取 workspace 以确认 sessionID
 	workspace, err := dbStore.GetWorkspaceByID(r.Context(), workspaceID)
@@ -507,46 +592,60 @@ func HandleWorkspaceMessages(w http.ResponseWriter, r *http.Request, dbStore *st
 			allEntries = redisEntries
 			hasMore = redisHasMore
 			nextCursor = redisCursor
+		}
+	}
 
-			// Redis 数据不够且无更多，从 MySQL 补充
-			if len(redisEntries) < limit && !redisHasMore {
-				remaining := limit - len(redisEntries) + 1
-				oldestTimestamp := redisEntries[len(redisEntries)-1].EntryTimestamp
-				mysqlEntries, mysqlErr := dbStore.GetSessionMessages(
-					r.Context(), sessionID, remaining, oldestTimestamp, nil,
-				)
-				if mysqlErr == nil && len(mysqlEntries) > 0 {
-					mysqlHasMore := len(mysqlEntries) > remaining-1
-					if mysqlHasMore {
-						mysqlEntries = mysqlEntries[:remaining-1]
-					}
-					allEntries = append(allEntries, mysqlEntries...)
-					if mysqlHasMore {
-						hasMore = true
-					}
+	// MySQL 兜底：Redis 无数据时从 MySQL 查询并异步写回 Redis
+	if len(allEntries) == 0 && dbStore != nil {
+		var before time.Time
+		if beforeCursor != "" {
+			if c, err := buffer.DecodeCursor(beforeCursor); err == nil {
+				before = time.UnixMilli(c.TimestampMilli)
+			}
+		}
+
+		mysqlEntries, mysqlErr := dbStore.GetSessionMessages(r.Context(), sessionID, limit+1, before, nil)
+		if mysqlErr != nil {
+			fmt.Fprintf(os.Stderr, "MySQL 兜底查询失败: %v\n", mysqlErr)
+		} else {
+			hasMore = len(mysqlEntries) > limit
+			if hasMore {
+				mysqlEntries = mysqlEntries[:limit]
+			}
+			allEntries = mysqlEntries
+
+			// 如果 MySQL 返回完整批次（hasMore=false），更新 Redis 最早消息 meta
+			if !hasMore && len(allEntries) > 0 && rdb != nil {
+				oldest := allEntries[len(allEntries)-1]
+				meta := &earliestMsgMeta{
+					TsMilli: oldest.EntryTimestamp.UnixMilli(),
+					Pid:     oldest.ProcessID,
+					Ei:      oldest.EntryIndex,
 				}
+				go setWorkspaceEarliest(context.Background(), rdb, workspaceID, meta)
+			}
+
+			// 异步写回 Redis，不阻塞 HTTP 响应
+			if rdb != nil && len(allEntries) > 0 {
+				go func() {
+					reader := buffer.NewRedisReader(rdb)
+					if err := reader.WriteBackEntries(context.Background(), allEntries); err != nil {
+						fmt.Fprintf(os.Stderr, "Redis 写回失败: %v\n", err)
+					}
+				}()
 			}
 		}
 	}
 
-	// Redis 无数据或不可用，直接查 MySQL
-	if len(allEntries) == 0 {
-		var before time.Time
-		if beforeCursor != "" {
-			if c, decErr := buffer.DecodeCursor(beforeCursor); decErr == nil {
-				before = time.UnixMilli(c.TimestampMilli)
+	// Redis 缓存可能不完整：查询 MySQL 最早消息 meta 判断是否有更早消息
+	if !hasMore && len(allEntries) > 0 && rdb != nil {
+		earliestMeta, metaErr := resolveWorkspaceEarliest(r.Context(), rdb, dbStore, workspaceID, sessionID)
+		if metaErr == nil && earliestMeta != nil {
+			oldest := allEntries[len(allEntries)-1]
+			if isEntryAfterEarliest(oldest, earliestMeta) {
+				hasMore = true
 			}
 		}
-		entries, dbErr := dbStore.GetSessionMessages(r.Context(), sessionID, limit+1, before, nil)
-		if dbErr != nil {
-			http.Error(w, "获取消息失败", http.StatusInternalServerError)
-			return
-		}
-		hasMore = len(entries) > limit
-		if hasMore {
-			entries = entries[:limit]
-		}
-		allEntries = entries
 	}
 
 	// 生成 cursor（如果还没有）

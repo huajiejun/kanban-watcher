@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/huajiejun/kanban-watcher/internal/store"
@@ -82,38 +84,25 @@ func (rr *RedisReader) FetchWorkspaceMessages(ctx context.Context, workspaceID s
 		return nil, false, "", nil
 	}
 
-	// 2. 逐个 process 读取全部消息
+	// 2. 逐个 process 从 Hash 读取全部消息
+	// 注意：ZSET (process_entries) 是写入缓冲区，flush 到 MySQL 后会被清除
+	// 所以必须从 Hash (process_entry_data) 读取，Hash 保留 TTL 自然过期
 	var allEntries []store.ProcessEntry
 	for _, processID := range processIDs {
-		zsetKey := redisZSETKeyPrefix + processID
 		hashKey := redisHashKeyPrefix + processID
 
-		members, err := rr.rdb.ZRevRange(ctx, zsetKey, 0, -1).Result()
-		if err != nil || len(members) == 0 {
+		entries, err := rr.rdb.HGetAll(ctx, hashKey).Result()
+		if err != nil || len(entries) == 0 {
 			continue
 		}
 
-		vals, err := rr.rdb.HMGet(ctx, hashKey, members...).Result()
-		if err != nil {
-			continue
-		}
-
-		for i, val := range vals {
-			if val == nil {
-				continue
-			}
-			s, ok := val.(string)
-			if !ok {
-				continue
-			}
+		for idxStr, data := range entries {
 			var entry store.ProcessEntry
-			if err := json.Unmarshal([]byte(s), &entry); err != nil {
+			if err := json.Unmarshal([]byte(data), &entry); err != nil {
 				continue
 			}
-			if i < len(members) {
-				if idx, err := strconv.Atoi(members[i]); err == nil {
-					entry.EntryIndex = idx
-				}
+			if idx, err := strconv.Atoi(idxStr); err == nil {
+				entry.EntryIndex = idx
 			}
 			allEntries = append(allEntries, entry)
 		}
@@ -167,4 +156,58 @@ func (rr *RedisReader) FetchWorkspaceMessages(ctx context.Context, workspaceID s
 	}
 
 	return allEntries, hasMore, nextCursor, nil
+}
+
+// WriteBackEntries 将 MySQL 查到的消息写回 Redis（cache-aside 回填）
+// 用于 Redis 无数据时从 MySQL 兜底查询后的缓存回填
+func (rr *RedisReader) WriteBackEntries(ctx context.Context, entries []store.ProcessEntry) error {
+	if rr == nil || rr.rdb == nil || len(entries) == 0 {
+		return nil
+	}
+
+	// 按 processID 分组，减少 pipeline 次数
+	byProcess := make(map[string][]store.ProcessEntry)
+	var workspaceID string
+	processScores := make(map[string]float64) // processID -> 最大 timestamp
+
+	for _, entry := range entries {
+		byProcess[entry.ProcessID] = append(byProcess[entry.ProcessID], entry)
+		if workspaceID == "" && entry.WorkspaceID != "" {
+			workspaceID = entry.WorkspaceID
+		}
+		ts := float64(entry.EntryTimestamp.UnixMilli())
+		if existing, ok := processScores[entry.ProcessID]; !ok || ts > existing {
+			processScores[entry.ProcessID] = ts
+		}
+	}
+
+	// 写入 Hash：process_entry_data:{processID}
+	for processID, processEntries := range byProcess {
+		hashKey := redisHashKeyPrefix + processID
+		pipe := rr.rdb.Pipeline()
+		for _, entry := range processEntries {
+			data, _ := json.Marshal(entry)
+			idxStr := strconv.Itoa(entry.EntryIndex)
+			pipe.HSet(ctx, hashKey, idxStr, data)
+		}
+		pipe.Expire(ctx, hashKey, 24*time.Hour)
+		if _, err := pipe.Exec(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Redis WriteBackEntries Hash 写入失败 [%s]: %v\n", processID, err)
+		}
+	}
+
+	// 更新 workspace_processes ZSET 索引
+	if workspaceID != "" && len(processScores) > 0 {
+		wsZsetKey := redisWorkspaceProcessesPrefix + workspaceID
+		pipe := rr.rdb.Pipeline()
+		for pid, score := range processScores {
+			pipe.ZAdd(ctx, wsZsetKey, &redis.Z{Score: score, Member: pid})
+		}
+		pipe.Expire(ctx, wsZsetKey, 7*24*time.Hour)
+		if _, err := pipe.Exec(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Redis WriteBackEntries ZSET 写入失败 [%s]: %v\n", workspaceID, err)
+		}
+	}
+
+	return nil
 }

@@ -911,6 +911,32 @@ func (s *Store) GetSessionMessages(ctx context.Context, sessionID string, limit 
 	return entries, nil
 }
 
+// GetEarliestSessionMessage 获取 session 中最早的一条消息（用于分页 hasMore 判断）
+func (s *Store) GetEarliestSessionMessage(ctx context.Context, sessionID string) (*ProcessEntry, error) {
+	query := `
+		SELECT id, process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
+		FROM kw_process_entries
+		WHERE session_id = ?
+		ORDER BY entry_timestamp ASC, process_id ASC, entry_index ASC
+		LIMIT 1
+	`
+	rows, err := s.db.QueryContext(ctx, query, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("query earliest session message: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, nil
+	}
+	entry, err := scanProcessEntry(rows)
+	if err != nil {
+		return nil, err
+	}
+	return &entry, nil
+}
+
 // GetWorkspaceByID 根据 ID 获取工作区
 func (s *Store) GetWorkspaceByID(ctx context.Context, workspaceID string) (*Workspace, error) {
 	query := `

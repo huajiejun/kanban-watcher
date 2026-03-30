@@ -1818,7 +1818,7 @@ export class KanbanWorkspaceHome extends LitElement {
           this.handleOpenDiffDetails(workspace, e.detail);
         }}
         .hasMore=${this.hasMoreByWorkspace[workspace.id] ?? false}
-        .onLoadMore=${() => void this.loadMoreMessages(workspace.id)}
+        .onLoadMore=${() => this.loadMoreMessages(workspace.id)}
       ></workspace-conversation-pane>
     `;
   }

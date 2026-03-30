@@ -72,7 +72,7 @@ export class WorkspaceConversationPane extends LitElement {
   private resolvedWorkspacePath = "";
   diffStats: DiffStats | undefined;
   hasMore = false;
-  onLoadMore?: () => void;
+  onLoadMore?: () => void | Promise<void>;
   private quickButtonsExpanded = false;
   private quickButtonsOverflowing = false;
   private readonly collapsedQuickButtonsHeight = 36;
@@ -275,6 +275,10 @@ export class WorkspaceConversationPane extends LitElement {
     }
     if (changedProperties.has("messages") && this.loadingMore) {
       this.loadingMore = false;
+      if (this.loadMoreTimeout) {
+        clearTimeout(this.loadMoreTimeout);
+        this.loadMoreTimeout = undefined;
+      }
     }
     if (changedProperties.has("quickButtons") || changedProperties.has("quickButtonsTemplate")) {
       this.quickButtonsExpanded = false;
@@ -631,11 +635,19 @@ export class WorkspaceConversationPane extends LitElement {
     this.shouldAutoScroll = distanceToBottom <= 8;
   };
 
+  private loadMoreTimeout?: ReturnType<typeof setTimeout>;
+
   private handleLoadMore = () => {
     if (this.loadingMore || !this.hasMore || !this.onLoadMore) {
       return;
     }
     this.loadingMore = true;
+    // 安全兜底：即使 messages 没变化，也会在超时后重置
+    this.loadMoreTimeout = setTimeout(() => {
+      if (this.loadingMore) {
+        this.loadingMore = false;
+      }
+    }, 10000);
     this.onLoadMore();
   };
 

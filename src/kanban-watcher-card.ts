@@ -432,7 +432,7 @@ export class KanbanWatcherCard extends LitElement {
             @todo-selected=${(event: CustomEvent<{ content: string; todoId: string }>) =>
               void this.handleTodoSelected(event.detail)}
             .hasMore=${this.hasMoreByWorkspace[workspace.id] ?? false}
-            .onLoadMore=${() => void this.loadMoreMessages(workspace.id)}
+            .onLoadMore=${() => this.loadMoreMessages(workspace.id)}
             @diff-details-request=${(e: CustomEvent) => {
               this.handleOpenDiffDetails(workspace, e.detail);
             }}
@@ -1815,18 +1815,17 @@ export class KanbanWatcherCard extends LitElement {
   }
 
   private async loadMoreMessages(workspaceId: string) {
-    if (!this.config?.base_url || !this.hasMoreByWorkspace[workspaceId]) {
+    if (!this.isApiMode || !this.hasMoreByWorkspace[workspaceId]) {
       return;
     }
 
     try {
-      const cursor = this.cursorByWorkspace[workspaceId];
       const response = await fetchWorkspaceMessages({
         baseUrl: this.config.base_url,
         apiKey: this.config.api_key,
         workspaceId,
         limit: this.config.messages_limit ?? DEFAULT_MESSAGES_LIMIT,
-        cursor,
+        cursor: this.cursorByWorkspace[workspaceId],
       });
 
       const olderMessages = this.normalizeApiMessages(response.messages);

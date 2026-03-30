@@ -1070,6 +1070,29 @@ export const cardStyles = css`
     padding: 6px 2px 6px 0;
   }
 
+  .load-more-bar {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0 8px;
+  }
+
+  .load-more-btn {
+    touch-action: manipulation;
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: 1px solid color-mix(in srgb, var(--divider-color, #cbd5e1) 36%, transparent);
+    background: color-mix(in srgb, var(--primary-color, #3b82f6) 16%, transparent);
+    color: var(--primary-text-color, #e5e7eb);
+    font-size: 0.8rem;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .load-more-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
   .message-row {
     width: 100%;
   }
