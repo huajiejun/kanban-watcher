@@ -18,12 +18,16 @@ import (
 
 	"github.com/getlantern/systray"
 
+	"github.com/go-redis/redis/v8"
+
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/auth"
+	"github.com/huajiejun/kanban-watcher/internal/buffer"
 	"github.com/huajiejun/kanban-watcher/internal/config"
 	"github.com/huajiejun/kanban-watcher/internal/notify"
 	"github.com/huajiejun/kanban-watcher/internal/poller"
 	"github.com/huajiejun/kanban-watcher/internal/realtime"
+	"github.com/huajiejun/kanban-watcher/internal/redisclient"
 	"github.com/huajiejun/kanban-watcher/internal/server"
 	"github.com/huajiejun/kanban-watcher/internal/service"
 	"github.com/huajiejun/kanban-watcher/internal/sessionlog"
@@ -239,6 +243,7 @@ func runDaemon() error {
 	// 初始化数据库 Store（如果配置了）
 	var dbStore *store.Store
 	var realtimePublisher *api.RealtimePublisher
+	var redisCli *redisclient.Client
 	if cfg.Database.IsEnabled() {
 		var err error
 		dbStore, err = store.NewStoreWithOptions(cfg.Database.DSN(), store.Options{
@@ -260,9 +265,24 @@ func runDaemon() error {
 
 				if features.enableSync {
 					syncService := sync.NewSyncService(cfg, dbStore)
+					var msgBuf buffer.MessageBuffer
+					var entryReader buffer.ProcessEntryReader
+					var bufferCleanup func()
+					msgBuf, entryReader, bufferCleanup, redisCli = initBuffer(cfg, dbStore)
+					syncService.SetBuffer(msgBuf, entryReader)
+					defer bufferCleanup()
 					if features.enableRealtime {
 						realtimeHub := realtime.NewHub()
-						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
+						var rawRDB *redis.Client
+						if redisCli != nil {
+							rawRDB = redisCli.RDB()
+						}
+						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub, rawRDB)
+						if rawRDB != nil {
+							subscriber := api.NewRealtimeSubscriber(rawRDB, realtimeHub)
+							go subscriber.Start(context.Background())
+							defer subscriber.Stop()
+						}
 						syncService.SetRealtimePublisher(realtimePublisher)
 					}
 					go syncService.Start(context.Background())
@@ -318,6 +338,10 @@ func runDaemon() error {
 		httpServer.SetStore(dbStore)
 		httpServer.SetAPIClient(apiClient)
 		httpServer.SetWorkspaceMessageDispatcher(service.NewMessageDispatcher(dbStore, proxyClient, apiClient))
+	}
+
+	if redisCli != nil {
+		httpServer.SetRedisClient(redisCli.RDB())
 	}
 
 	// 注册消息 API 路由（如果数据库已连接）
@@ -388,6 +412,7 @@ func runHeadless() error {
 
 	var dbStore *store.Store
 	var realtimePublisher *api.RealtimePublisher
+	var redisCli *redisclient.Client
 	if cfg.Database.IsEnabled() {
 		dbStore, err = store.NewStoreWithOptions(cfg.Database.DSN(), store.Options{
 			MaxOpenConns:    4,
@@ -406,9 +431,24 @@ func runHeadless() error {
 				fmt.Fprintf(os.Stdout, "数据库连接成功\n")
 				if features.enableSync {
 					syncService := sync.NewSyncService(cfg, dbStore)
+					var msgBuf buffer.MessageBuffer
+					var entryReader buffer.ProcessEntryReader
+					var bufferCleanup func()
+					msgBuf, entryReader, bufferCleanup, redisCli = initBuffer(cfg, dbStore)
+					syncService.SetBuffer(msgBuf, entryReader)
+					defer bufferCleanup()
 					if features.enableRealtime {
 						realtimeHub := realtime.NewHub()
-						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub)
+						var rawRDB *redis.Client
+						if redisCli != nil {
+							rawRDB = redisCli.RDB()
+						}
+						realtimePublisher = api.NewRealtimePublisher(dbStore, realtimeHub, rawRDB)
+						if rawRDB != nil {
+							subscriber := api.NewRealtimeSubscriber(rawRDB, realtimeHub)
+							go subscriber.Start(context.Background())
+							defer subscriber.Stop()
+						}
 						syncService.SetRealtimePublisher(realtimePublisher)
 					}
 					go syncService.Start(context.Background())
@@ -474,6 +514,11 @@ func runHeadless() error {
 			httpServer.RegisterRoute("/api/realtime/ws", httpServer.HandleRealtimeUnavailable)
 		}
 	}
+
+	if redisCli != nil {
+		httpServer.SetRedisClient(redisCli.RDB())
+	}
+
 	if err := httpServer.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "HTTP 服务器启动失败: %v\n", err)
 	}
@@ -548,6 +593,57 @@ func generateRandomSecret() string {
 		log.Fatalf("生成随机密钥失败: %v", err)
 	}
 	return base64.StdEncoding.EncodeToString(b)
+}
+
+// stringPtr 返回字符串指针，空字符串返回 nil
+func stringPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// initBuffer 根据配置创建消息缓冲层，返回 (MessageBuffer, ProcessEntryReader, cleanup, *redis.Client)
+func initBuffer(cfg *config.Config, dbStore *store.Store) (buffer.MessageBuffer, buffer.ProcessEntryReader, func(), *redisclient.Client) {
+	onFlush := func(ctx context.Context, entry *store.ProcessEntry, lastEntryIndex *int) error {
+		if entry == nil {
+			return nil
+		}
+		return dbStore.UpsertSubscription(ctx, &store.SyncSubscription{
+			SubscriptionKey:  store.BuildProcessLogSubscriptionKey(entry.ProcessID),
+			SubscriptionType: "process_log_stream",
+			TargetID:         entry.ProcessID,
+			SessionID:        stringPtr(entry.SessionID),
+			WorkspaceID:      stringPtr(entry.WorkspaceID),
+			LastEntryIndex:   lastEntryIndex,
+			Status:           "active",
+			LastSeenAt:       time.Now(),
+		})
+	}
+
+	if cfg.Redis.IsEnabled() {
+		rdb, err := redisclient.NewClient(cfg.Redis)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Redis 连接失败，降级到内存 buffer: %v\n", err)
+			memBuf := buffer.NewMemoryBuffer(200*time.Millisecond, dbStore, onFlush)
+			return memBuf, memBuf, func() {}, nil
+		}
+
+		redisBuf := buffer.NewRedisBuffer(buffer.RedisBufferOptions{
+			FlushThreshold: 50,
+			FlushInterval:  500 * time.Millisecond,
+			TTL:            24 * time.Hour,
+			RetryMax:       3,
+		}, rdb.RDB(), dbStore, onFlush)
+
+		memBuf := buffer.NewMemoryBuffer(200*time.Millisecond, dbStore, onFlush)
+
+		fb := buffer.NewFallbackBuffer(redisBuf, memBuf, 3*time.Second)
+		return fb, fb, func() { rdb.Close() }, rdb
+	}
+
+	memBuf := buffer.NewMemoryBuffer(200*time.Millisecond, dbStore, onFlush)
+	return memBuf, memBuf, func() {}, nil
 }
 
 // convertUsers 转换用户配置

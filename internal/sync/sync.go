@@ -16,6 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/huajiejun/kanban-watcher/internal/api"
+	"github.com/huajiejun/kanban-watcher/internal/buffer"
 	"github.com/huajiejun/kanban-watcher/internal/config"
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
@@ -33,7 +34,8 @@ type SyncService struct {
 	dialer    *websocket.Dialer
 	realtime  realtimePublisher
 
-	processEntryBuffer *processEntryBuffer
+	msgBuffer    buffer.MessageBuffer
+	entryReader  buffer.ProcessEntryReader
 	workspaceStateThrottle *workspaceStateThrottle
 
 	wsMutex           sync.Mutex
@@ -47,7 +49,6 @@ type SyncService struct {
 }
 
 const workspaceSummaryRefreshInterval = 15 * time.Second
-const processEntryBufferFlushInterval = 200 * time.Millisecond
 
 // NewSyncService 创建同步服务实例
 func NewSyncService(cfg *config.Config, dbStore *store.Store) *SyncService {
@@ -63,31 +64,18 @@ func NewSyncService(cfg *config.Config, dbStore *store.Store) *SyncService {
 		historicalLogSem:  make(chan struct{}, 2),
 		stopCh:            make(chan struct{}),
 	}
-	service.processEntryBuffer = newProcessEntryBuffer(
-		processEntryBufferFlushInterval,
-		dbStore,
-		func(ctx context.Context, entry *store.ProcessEntry, lastEntryIndex *int) error {
-			if entry == nil {
-				return nil
-			}
-			return dbStore.UpsertSubscription(ctx, &store.SyncSubscription{
-				SubscriptionKey:  store.BuildProcessLogSubscriptionKey(entry.ProcessID),
-				SubscriptionType: "process_log_stream",
-				TargetID:         entry.ProcessID,
-				SessionID:        stringPtr(entry.SessionID),
-				WorkspaceID:      stringPtr(entry.WorkspaceID),
-				LastEntryIndex:   lastEntryIndex,
-				Status:           "active",
-				LastSeenAt:       time.Now(),
-			})
-		},
-	)
 	service.workspaceStateThrottle = newWorkspaceStateThrottle(workspaceStateRefreshThrottle)
 	return service
 }
 
 func (s *SyncService) SetRealtimePublisher(publisher realtimePublisher) {
 	s.realtime = publisher
+}
+
+// SetBuffer 注入消息缓冲层
+func (s *SyncService) SetBuffer(msgBuf buffer.MessageBuffer, entryReader buffer.ProcessEntryReader) {
+	s.msgBuffer = msgBuf
+	s.entryReader = entryReader
 }
 
 // Start 启动同步服务
@@ -130,8 +118,8 @@ func (s *SyncService) Stop() {
 	s.wsMutex.Unlock()
 
 	s.wg.Wait()
-	if s.processEntryBuffer != nil {
-		if err := s.processEntryBuffer.FlushAll(context.Background()); err != nil {
+	if s.msgBuffer != nil {
+		if err := s.msgBuffer.Close(); err != nil {
 			fmt.Fprintf(os.Stderr, "停止前刷出 process entry 缓冲失败: %v\n", err)
 		}
 	}
@@ -536,8 +524,8 @@ func (s *SyncService) consumeProcessLogs(
 	entryStateByIndex := map[int]store.NormalizedEntry{}
 	processEntriesByIndex := map[int]*store.ProcessEntry{}
 	defer func() {
-		if s.processEntryBuffer != nil {
-			if err := s.processEntryBuffer.FlushProcess(ctx, processID); err != nil {
+		if s.msgBuffer != nil {
+			if err := s.msgBuffer.FlushProcess(ctx, processID); err != nil {
 				fmt.Fprintf(os.Stderr, "刷出 process entry 缓冲失败 [%s]: %v\n", processID, err)
 			}
 		}
@@ -584,8 +572,8 @@ func (s *SyncService) consumeProcessLogs(
 			for _, patch := range patches {
 				s.tracef("process log patch workspace=%s session=%s process=%s %s", workspaceID, sessionID, processID, tracePatchSummary(patch))
 				effectiveLastEntryIndex := lastEntryIndex
-				if s.processEntryBuffer != nil {
-					if bufferedLastEntryIndex := s.processEntryBuffer.LastEntryIndex(processID); bufferedLastEntryIndex != nil &&
+				if s.msgBuffer != nil {
+					if bufferedLastEntryIndex := s.msgBuffer.LastEntryIndex(processID); bufferedLastEntryIndex != nil &&
 						(effectiveLastEntryIndex == nil || *bufferedLastEntryIndex > *effectiveLastEntryIndex) {
 						effectiveLastEntryIndex = bufferedLastEntryIndex
 					}
@@ -631,8 +619,8 @@ func (s *SyncService) consumeProcessLogs(
 					continue
 				}
 				processEntriesByIndex[patch.EntryIndex] = entry
-				if s.processEntryBuffer != nil {
-					s.processEntryBuffer.Enqueue(processID, entry, lastEntryIndex)
+				if s.msgBuffer != nil {
+					s.msgBuffer.Enqueue(processID, entry, lastEntryIndex)
 				}
 				s.tracef("process log buffered workspace=%s session=%s process=%s idx=%d summary=%s", workspaceID, sessionID, processID, patch.EntryIndex, traceProcessEntrySummary(entry))
 				if shouldBroadcast && s.realtime != nil {

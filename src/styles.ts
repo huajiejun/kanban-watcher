@@ -1316,7 +1316,7 @@ export const cardStyles = css`
   .load-more-bar {
     display: flex;
     justify-content: center;
-    padding: 4px 0;
+    padding: 4px 0 8px;
   }
 
   .load-more-btn {
@@ -1328,6 +1328,7 @@ export const cardStyles = css`
     font-size: 12px;
     padding: 4px 12px;
     transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .load-more-btn:hover:not(:disabled) {

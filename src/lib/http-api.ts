@@ -11,6 +11,7 @@ import type {
   WorkspaceViewResponse,
   WorkspaceMessageResponse,
   WorkspaceQueueStatusResponse,
+  WorkspaceMessagesResponse,
 } from "../types";
 
 type RequestOptions = {

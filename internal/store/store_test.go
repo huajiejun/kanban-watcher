@@ -45,13 +45,13 @@ func TestGetSessionMessagesUsesLatestFirstQuery(t *testing.T) {
 		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
 		FROM kw_process_entries
 		WHERE session_id = ?
-		ORDER BY entry_timestamp DESC, id DESC
+		ORDER BY entry_timestamp DESC, process_id DESC, entry_index DESC
 		LIMIT ?
 	`)).
 		WithArgs("session-1", 2).
 		WillReturnRows(rows)
 
-	got, err := store.GetSessionMessages(context.Background(), "session-1", 2, time.Time{}, nil)
+	got, err := store.GetSessionMessages(context.Background(), "session-1", 2, nil, nil)
 	if err != nil {
 		t.Fatalf("GetSessionMessages 返回错误: %v", err)
 	}
@@ -61,6 +61,52 @@ func TestGetSessionMessagesUsesLatestFirstQuery(t *testing.T) {
 	}
 	if got[0].ID != 2 {
 		t.Fatalf("第一条消息 ID = %d, want 2", got[0].ID)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock 期望未满足: %v", err)
+	}
+}
+
+func TestGetSessionMessagesUsesCompositeCursorFilter(t *testing.T) {
+	store, mock, cleanup := newMockStore(t)
+	defer cleanup()
+
+	before := time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"id", "process_id", "session_id", "workspace_id", "entry_index", "entry_type",
+		"role", "content", "tool_name", "action_type_json", "status_json", "error_type",
+		"entry_timestamp", "content_hash", "created_at",
+	}).AddRow(
+		3, "proc-a", "session-1", "ws-1", 9, "assistant_message", "assistant", "older in same timestamp",
+		nil, nil, nil, nil, before, "hash-3", before,
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
+		FROM kw_process_entries
+		WHERE session_id = ? AND (entry_timestamp < ? OR (entry_timestamp = ? AND (process_id < ? OR (process_id = ? AND entry_index < ?))))
+		ORDER BY entry_timestamp DESC, process_id DESC, entry_index DESC
+		LIMIT ?
+	`)).
+		WithArgs("session-1", before, before, "proc-b", "proc-b", 10, 2).
+		WillReturnRows(rows)
+
+	got, err := store.GetSessionMessages(context.Background(), "session-1", 2, &MessageCursor{
+		Timestamp:  before,
+		ProcessID:  "proc-b",
+		EntryIndex: 10,
+	}, nil)
+	if err != nil {
+		t.Fatalf("GetSessionMessages 返回错误: %v", err)
+	}
+
+	if len(got) != 1 {
+		t.Fatalf("消息数 = %d, want 1", len(got))
+	}
+	if got[0].ProcessID != "proc-a" || got[0].EntryIndex != 9 {
+		t.Fatalf("返回消息 = %#v, want proc-a/9", got[0])
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {

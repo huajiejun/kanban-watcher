@@ -1,4 +1,4 @@
-package sync
+package buffer
 
 import (
 	"context"
@@ -6,17 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/huajiejun/kanban-watcher/internal/buffer"
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
 
-type fakeProcessEntryBatchStore struct {
+// fakeBatchStore 用于测试的 fake store（可被其他 buffer 测试共享）
+type fakeBatchStore struct {
 	mu            sync.Mutex
 	existing      map[int]*store.ProcessEntry
 	upsertBatches [][]*store.ProcessEntry
 }
 
-func (f *fakeProcessEntryBatchStore) ListProcessEntriesByIndexes(_ context.Context, _ string, entryIndexes []int) (map[int]*store.ProcessEntry, error) {
+func (f *fakeBatchStore) ListProcessEntriesByIndexes(_ context.Context, _ string, entryIndexes []int) (map[int]*store.ProcessEntry, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -29,7 +29,7 @@ func (f *fakeProcessEntryBatchStore) ListProcessEntriesByIndexes(_ context.Conte
 	return result, nil
 }
 
-func (f *fakeProcessEntryBatchStore) UpsertProcessEntries(_ context.Context, entries []*store.ProcessEntry) error {
+func (f *fakeBatchStore) UpsertProcessEntries(_ context.Context, entries []*store.ProcessEntry) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -46,8 +46,8 @@ func (f *fakeProcessEntryBatchStore) UpsertProcessEntries(_ context.Context, ent
 	return nil
 }
 
-func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
-	fakeStore := &fakeProcessEntryBatchStore{
+func TestMemoryBufferFlushesLatestEntries(t *testing.T) {
+	fakeStore := &fakeBatchStore{
 		existing: make(map[int]*store.ProcessEntry),
 	}
 
@@ -57,7 +57,7 @@ func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
 		flushedEntryIndex *int
 	)
 
-	buf := buffer.NewMemoryBuffer(20*time.Millisecond, fakeStore, func(_ context.Context, entry *store.ProcessEntry, lastEntryIndex *int) error {
+	buffer := NewMemoryBuffer(20*time.Millisecond, fakeStore, func(_ context.Context, entry *store.ProcessEntry, lastEntryIndex *int) error {
 		mu.Lock()
 		defer mu.Unlock()
 		flushedProcessID = entry.ProcessID
@@ -68,7 +68,8 @@ func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
 		return nil
 	})
 
-	buf.Enqueue("proc-1", &store.ProcessEntry{
+	// 测试同一 entryIndex 的覆盖
+	buffer.Enqueue("proc-1", &store.ProcessEntry{
 		ProcessID:      "proc-1",
 		SessionID:      "session-1",
 		WorkspaceID:    "ws-1",
@@ -79,7 +80,9 @@ func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
 		EntryTimestamp: time.Now(),
 		ContentHash:    "hash-old",
 	}, nil)
-	buf.Enqueue("proc-1", &store.ProcessEntry{
+
+	// 覆盖 entryIndex 1
+	buffer.Enqueue("proc-1", &store.ProcessEntry{
 		ProcessID:      "proc-1",
 		SessionID:      "session-1",
 		WorkspaceID:    "ws-1",
@@ -90,7 +93,9 @@ func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
 		EntryTimestamp: time.Now().Add(time.Second),
 		ContentHash:    "hash-new",
 	}, nil)
-	buf.Enqueue("proc-1", &store.ProcessEntry{
+
+	// 不同 entryIndex 的合并写入
+	buffer.Enqueue("proc-1", &store.ProcessEntry{
 		ProcessID:      "proc-1",
 		SessionID:      "session-1",
 		WorkspaceID:    "ws-1",
@@ -112,8 +117,13 @@ func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
 	if len(fakeStore.upsertBatches[0]) != 2 {
 		t.Fatalf("first batch len = %d, want 2", len(fakeStore.upsertBatches[0]))
 	}
+	// 验证 entryIndex 1 被覆盖为 "new"
 	if fakeStore.upsertBatches[0][0].Content != "new" {
 		t.Fatalf("entry 0 content = %q, want new", fakeStore.upsertBatches[0][0].Content)
+	}
+	// 验证 entryIndex 2 被合并写入
+	if fakeStore.upsertBatches[0][1].Content != "tail" {
+		t.Fatalf("entry 1 content = %q, want tail", fakeStore.upsertBatches[0][1].Content)
 	}
 
 	mu.Lock()
@@ -126,87 +136,114 @@ func TestProcessEntryBufferFlushesLatestEntriesWithinWindow(t *testing.T) {
 	}
 }
 
-func TestProcessEntryBufferFlushProcessAdvancesContiguousIndex(t *testing.T) {
-	fakeStore := &fakeProcessEntryBatchStore{
-		existing: map[int]*store.ProcessEntry{
-			1: {
-				ProcessID:      "proc-1",
-				EntryIndex:     1,
-				EntryTimestamp: time.Now(),
-				ContentHash:    "hash-1",
-			},
-		},
-	}
-
-	var flushedEntryIndex *int
-	buf := buffer.NewMemoryBuffer(200*time.Millisecond, fakeStore, func(_ context.Context, _ *store.ProcessEntry, lastEntryIndex *int) error {
-		if lastEntryIndex != nil {
-			value := *lastEntryIndex
-			flushedEntryIndex = &value
-		}
-		return nil
-	})
-
-	lastEntryIndex := 1
-	buf.Enqueue("proc-1", &store.ProcessEntry{
-		ProcessID:      "proc-1",
-		SessionID:      "session-1",
-		WorkspaceID:    "ws-1",
-		EntryIndex:     2,
-		EntryType:      "assistant_message",
-		Role:           "assistant",
-		Content:        "two",
-		EntryTimestamp: time.Now().Add(time.Second),
-		ContentHash:    "hash-2",
-	}, &lastEntryIndex)
-	buf.Enqueue("proc-1", &store.ProcessEntry{
-		ProcessID:      "proc-1",
-		SessionID:      "session-1",
-		WorkspaceID:    "ws-1",
-		EntryIndex:     4,
-		EntryType:      "assistant_message",
-		Role:           "assistant",
-		Content:        "four",
-		EntryTimestamp: time.Now().Add(2 * time.Second),
-		ContentHash:    "hash-4",
-	}, &lastEntryIndex)
-
-	if err := buf.FlushProcess(context.Background(), "proc-1"); err != nil {
-		t.Fatalf("FlushProcess 返回错误: %v", err)
-	}
-
-	if flushedEntryIndex == nil || *flushedEntryIndex != 2 {
-		t.Fatalf("flushed last entry index = %#v, want 2", flushedEntryIndex)
-	}
-}
-
-func TestSyncServiceStopFlushesBufferedEntries(t *testing.T) {
-	fakeStore := &fakeProcessEntryBatchStore{
+func TestMemoryBufferFlushAll(t *testing.T) {
+	fakeStore := &fakeBatchStore{
 		existing: make(map[int]*store.ProcessEntry),
 	}
 
-	memBuf := buffer.NewMemoryBuffer(time.Hour, fakeStore, func(_ context.Context, _ *store.ProcessEntry, _ *int) error {
-		return nil
-	})
+	buffer := NewMemoryBuffer(time.Hour, fakeStore, nil)
 
-	service := &SyncService{
-		stopCh: make(chan struct{}),
-	}
-	service.SetBuffer(memBuf, memBuf)
-
-	service.msgBuffer.Enqueue("proc-1", &store.ProcessEntry{
+	// 多个 process
+	buffer.Enqueue("proc-1", &store.ProcessEntry{
 		ProcessID:      "proc-1",
 		SessionID:      "session-1",
 		WorkspaceID:    "ws-1",
 		EntryIndex:     1,
 		EntryType:      "assistant_message",
 		Role:           "assistant",
-		Content:        "tail",
+		Content:        "msg1",
 		EntryTimestamp: time.Now(),
-		ContentHash:    "hash-tail",
+		ContentHash:    "hash-1",
 	}, nil)
 
-	service.Stop()
+	buffer.Enqueue("proc-2", &store.ProcessEntry{
+		ProcessID:      "proc-2",
+		SessionID:      "session-2",
+		WorkspaceID:    "ws-2",
+		EntryIndex:     1,
+		EntryType:      "user_message",
+		Role:           "user",
+		Content:        "msg2",
+		EntryTimestamp: time.Now(),
+		ContentHash:    "hash-2",
+	}, nil)
+
+	if err := buffer.FlushAll(context.Background()); err != nil {
+		t.Fatalf("FlushAll 返回错误: %v", err)
+	}
+
+	fakeStore.mu.Lock()
+	defer fakeStore.mu.Unlock()
+	if len(fakeStore.upsertBatches) != 2 {
+		t.Fatalf("upsert batches = %d, want 2", len(fakeStore.upsertBatches))
+	}
+}
+
+func TestMemoryBufferGetProcessEntry(t *testing.T) {
+	fakeStore := &fakeBatchStore{
+		existing: make(map[int]*store.ProcessEntry),
+	}
+
+	buffer := NewMemoryBuffer(time.Hour, fakeStore, nil)
+
+	// 添加到 pending map
+	entry := &store.ProcessEntry{
+		ProcessID:      "proc-1",
+		SessionID:      "session-1",
+		WorkspaceID:    "ws-1",
+		EntryIndex:     5,
+		EntryType:      "assistant_message",
+		Role:           "assistant",
+		Content:        "test",
+		EntryTimestamp: time.Now(),
+		ContentHash:    "hash-test",
+	}
+	buffer.Enqueue("proc-1", entry, nil)
+
+	// 从 pending map 读取
+	got, err := buffer.GetProcessEntry(context.Background(), "proc-1", 5)
+	if err != nil {
+		t.Fatalf("GetProcessEntry 返回错误: %v", err)
+	}
+	if got == nil {
+		t.Fatal("GetProcessEntry 返回 nil")
+	}
+	if got.Content != "test" {
+		t.Fatalf("GetProcessEntry content = %q, want test", got.Content)
+	}
+
+	// 读取不存在的 entry
+	notFound, err := buffer.GetProcessEntry(context.Background(), "proc-1", 999)
+	if err != nil {
+		t.Fatalf("GetProcessEntry 返回错误: %v", err)
+	}
+	if notFound != nil {
+		t.Fatalf("GetProcessEntry 返回 %#v, want nil", notFound)
+	}
+}
+
+func TestMemoryBufferClose(t *testing.T) {
+	fakeStore := &fakeBatchStore{
+		existing: make(map[int]*store.ProcessEntry),
+	}
+
+	buffer := NewMemoryBuffer(time.Hour, fakeStore, nil)
+
+	buffer.Enqueue("proc-1", &store.ProcessEntry{
+		ProcessID:      "proc-1",
+		SessionID:      "session-1",
+		WorkspaceID:    "ws-1",
+		EntryIndex:     1,
+		EntryType:      "assistant_message",
+		Role:           "assistant",
+		Content:        "test",
+		EntryTimestamp: time.Now(),
+		ContentHash:    "hash-test",
+	}, nil)
+
+	if err := buffer.Close(); err != nil {
+		t.Fatalf("Close 返回错误: %v", err)
+	}
 
 	fakeStore.mu.Lock()
 	defer fakeStore.mu.Unlock()

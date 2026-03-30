@@ -1,14 +1,19 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/go-redis/redis/v8"
+	"github.com/huajiejun/kanban-watcher/internal/buffer"
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
 
@@ -33,6 +38,14 @@ type SessionMessagesResponse struct {
 	HasMore       bool              `json:"has_more"`
 }
 
+// WorkspaceMessagesResponse 工作区消息分页响应
+type WorkspaceMessagesResponse struct {
+	WorkspaceID string            `json:"workspace_id"`
+	Messages    []MessageResponse `json:"messages"`
+	HasMore     bool              `json:"has_more"`
+	Cursor      string            `json:"cursor,omitempty"`
+}
+
 // ActiveWorkspaceResponse 活跃工作区响应
 type ActiveWorkspaceResponse struct {
 	Workspaces []LocalWorkspaceSummary `json:"workspaces"`
@@ -54,25 +67,25 @@ type workspaceViewRequest struct {
 
 // LocalWorkspaceSummary 本地数据库中的工作区摘要
 type LocalWorkspaceSummary struct {
-	ID                       string `json:"id"`
-	Name                     string `json:"name"`
-	Branch                   string `json:"branch"`
-	BrowserURL               string `json:"browser_url,omitempty"`
-	LatestSessionID          string `json:"latest_session_id,omitempty"`
-	Status                   string `json:"status"`
-	HasPendingApproval       bool   `json:"has_pending_approval"`
-	HasUnseenTurns           bool   `json:"has_unseen_turns"`
-	HasRunningDevServer      bool   `json:"has_running_dev_server"`
+	ID                        string `json:"id"`
+	Name                      string `json:"name"`
+	Branch                    string `json:"branch"`
+	BrowserURL                string `json:"browser_url,omitempty"`
+	LatestSessionID           string `json:"latest_session_id,omitempty"`
+	Status                    string `json:"status"`
+	HasPendingApproval        bool   `json:"has_pending_approval"`
+	HasUnseenTurns            bool   `json:"has_unseen_turns"`
+	HasRunningDevServer       bool   `json:"has_running_dev_server"`
 	RunningDevServerProcessID string `json:"running_dev_server_process_id,omitempty"`
-	FilesChanged             int    `json:"files_changed"`
-	LinesAdded               int    `json:"lines_added"`
-	LinesRemoved             int    `json:"lines_removed"`
-	PrURL                    string `json:"pr_url,omitempty"`
-	UpdatedAt                string `json:"updated_at,omitempty"`
-	MessageCount             int    `json:"message_count"`
-	LastMessageAt            string `json:"last_message_at,omitempty"`
-	LatestProcessCompletedAt string `json:"latest_process_completed_at,omitempty"`
-	MenuSummary              string `json:"menu_summary,omitempty"`
+	FilesChanged              int    `json:"files_changed"`
+	LinesAdded                int    `json:"lines_added"`
+	LinesRemoved              int    `json:"lines_removed"`
+	PrURL                     string `json:"pr_url,omitempty"`
+	UpdatedAt                 string `json:"updated_at,omitempty"`
+	MessageCount              int    `json:"message_count"`
+	LastMessageAt             string `json:"last_message_at,omitempty"`
+	LatestProcessCompletedAt  string `json:"latest_process_completed_at,omitempty"`
+	MenuSummary               string `json:"menu_summary,omitempty"`
 }
 
 // GetMessageRoutes 注册消息 API 路由
@@ -346,10 +359,10 @@ func getSessionMessagesInternal(w http.ResponseWriter, r *http.Request, dbStore 
 		}
 	}
 
-	var before time.Time
+	var before *store.MessageCursor
 	if raw := r.URL.Query().Get("before"); raw != "" {
 		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
-			before = parsed
+			before = &store.MessageCursor{Timestamp: parsed}
 		}
 	}
 
@@ -437,6 +450,264 @@ func parseTypesFilter(raw string) []string {
 		}
 	}
 	return result
+}
+
+// Redis 最早消息 meta：每个 workspace 记录 MySQL 中最早的一条消息
+// 用于 Redis 缓存不完整时，判断前端是否应显示"加载更早消息"
+const redisEarliestPrefix = "workspace_earliest:"
+const redisEarliestTTL = 7 * 24 * time.Hour
+
+type earliestMsgMeta struct {
+	TsMilli int64  `json:"ts"`
+	Pid     string `json:"pid"`
+	Ei      int    `json:"ei"`
+}
+
+// getWorkspaceEarliest 从 Redis 读取 workspace+session 最早消息 meta
+func getWorkspaceEarliest(ctx context.Context, rdb *redis.Client, workspaceID, sessionID string) (*earliestMsgMeta, error) {
+	if rdb == nil {
+		return nil, nil
+	}
+	data, err := rdb.Get(ctx, redisEarliestPrefix+workspaceID+":"+sessionID).Result()
+	if err != nil {
+		return nil, nil
+	}
+	var meta earliestMsgMeta
+	if err := json.Unmarshal([]byte(data), &meta); err != nil {
+		return nil, nil
+	}
+	return &meta, nil
+}
+
+// setWorkspaceEarliest 将 workspace+session 最早消息 meta 写入 Redis
+func setWorkspaceEarliest(ctx context.Context, rdb *redis.Client, workspaceID, sessionID string, meta *earliestMsgMeta) {
+	if rdb == nil || meta == nil {
+		return
+	}
+	data, _ := json.Marshal(meta)
+	if err := rdb.Set(ctx, redisEarliestPrefix+workspaceID+":"+sessionID, data, redisEarliestTTL).Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "Redis 写入 earliest meta 失败: %v\n", err)
+	}
+}
+
+// resolveWorkspaceEarliest 获取 workspace+session 最早消息 meta
+// Redis 无缓存时从 MySQL 查询并写回 Redis（lazy-loading）
+func resolveWorkspaceEarliest(ctx context.Context, rdb *redis.Client, dbStore *store.Store, workspaceID, sessionID string) (*earliestMsgMeta, error) {
+	meta, _ := getWorkspaceEarliest(ctx, rdb, workspaceID, sessionID)
+	if meta != nil {
+		return meta, nil
+	}
+	earliest, err := dbStore.GetEarliestSessionMessage(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if earliest == nil {
+		return nil, nil
+	}
+	meta = &earliestMsgMeta{
+		TsMilli: earliest.EntryTimestamp.UnixMilli(),
+		Pid:     earliest.ProcessID,
+		Ei:      earliest.EntryIndex,
+	}
+	if rdb != nil {
+		go setWorkspaceEarliest(context.Background(), rdb, workspaceID, sessionID, meta)
+	}
+	return meta, nil
+}
+
+// isEntryAfterEarliest 判断消息是否在最早消息之后（即不是最早消息）
+func isEntryAfterEarliest(entry store.ProcessEntry, meta *earliestMsgMeta) bool {
+	if meta == nil {
+		return true // 无 meta，无法判断，保守返回 true（不标记 hasMore）
+	}
+	entryTS := entry.EntryTimestamp.UnixMilli()
+	if entryTS > meta.TsMilli {
+		return true
+	}
+	if entryTS == meta.TsMilli {
+		// 同一 timestamp，按 processID + entryIndex 区分
+		if entry.ProcessID > meta.Pid {
+			return true
+		}
+		if entry.ProcessID == meta.Pid && entry.EntryIndex > meta.Ei {
+			return true
+		}
+	}
+	return false
+}
+
+// HandleWorkspaceMessages 处理 GET /api/workspaces/{id}/messages
+// Redis 优先 + MySQL 兜底的分页消息查询
+func HandleWorkspaceMessages(w http.ResponseWriter, r *http.Request, dbStore *store.Store, rdb *redis.Client) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if dbStore == nil {
+		http.Error(w, "数据库未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) < 1 || parts[0] == "" {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	workspaceID := parts[0]
+
+	// 解析参数
+	limit := 50
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			if parsed > 200 {
+				parsed = 200
+			}
+			limit = parsed
+		}
+	}
+	beforeCursor := r.URL.Query().Get("cursor")
+
+	// 获取 workspace 以确认 sessionID
+	workspace, err := dbStore.GetWorkspaceByID(r.Context(), workspaceID)
+	if err != nil {
+		http.Error(w, "获取工作区失败", http.StatusInternalServerError)
+		return
+	}
+	if workspace == nil || workspace.LatestSessionID == nil || *workspace.LatestSessionID == "" {
+		writeJSON(w, WorkspaceMessagesResponse{WorkspaceID: workspaceID, Messages: []MessageResponse{}})
+		return
+	}
+	sessionID := *workspace.LatestSessionID
+
+	// Redis 优先查询
+	var allEntries []store.ProcessEntry
+	var hasMore bool
+	var nextCursor string
+
+	if rdb != nil {
+		reader := buffer.NewRedisReader(rdb)
+		redisEntries, redisHasMore, redisCursor, redisErr := reader.FetchWorkspaceMessages(
+			r.Context(), workspaceID, limit, beforeCursor,
+		)
+		if redisErr != nil {
+			fmt.Fprintf(os.Stderr, "Redis 查询失败，降级到 MySQL: %v\n", redisErr)
+		} else if len(redisEntries) > 0 {
+			allEntries = redisEntries
+			hasMore = redisHasMore
+			nextCursor = redisCursor
+		}
+	}
+
+	// MySQL 兜底：Redis 无数据时从 MySQL 查询并异步写回 Redis
+	var mysqlEarliestMeta *earliestMsgMeta
+	if len(allEntries) == 0 && dbStore != nil {
+		var before *store.MessageCursor
+		if beforeCursor != "" {
+			if c, err := buffer.DecodeCursor(beforeCursor); err == nil {
+				before = &store.MessageCursor{
+					Timestamp:  time.UnixMilli(c.TimestampMilli),
+					ProcessID:  c.ProcessID,
+					EntryIndex: c.EntryIndex,
+				}
+			}
+		}
+
+		mysqlEntries, mysqlErr := dbStore.GetSessionMessages(r.Context(), sessionID, limit+1, before, nil)
+		if mysqlErr != nil {
+			http.Error(w, "获取消息失败", http.StatusInternalServerError)
+			return
+		}
+		hasMore = len(mysqlEntries) > limit
+		if hasMore {
+			mysqlEntries = mysqlEntries[:limit]
+		}
+		allEntries = mysqlEntries
+
+		// 如果 MySQL 返回完整批次（hasMore=false），记录最早消息 meta
+		if !hasMore && len(allEntries) > 0 {
+			oldest := allEntries[len(allEntries)-1]
+			mysqlEarliestMeta = &earliestMsgMeta{
+				TsMilli: oldest.EntryTimestamp.UnixMilli(),
+				Pid:     oldest.ProcessID,
+				Ei:      oldest.EntryIndex,
+			}
+			if rdb != nil {
+				go setWorkspaceEarliest(context.Background(), rdb, workspaceID, sessionID, mysqlEarliestMeta)
+			}
+		}
+
+		// 异步写回 Redis，不阻塞 HTTP 响应
+		if rdb != nil && len(allEntries) > 0 {
+			go func() {
+				reader := buffer.NewRedisReader(rdb)
+				if err := reader.WriteBackEntries(context.Background(), allEntries); err != nil {
+					fmt.Fprintf(os.Stderr, "Redis 写回失败: %v\n", err)
+				}
+			}()
+		}
+	}
+
+	// Redis 缓存可能不完整：查询最早消息 meta 判断是否有更早消息
+	if !hasMore && len(allEntries) > 0 && rdb != nil {
+		// 优先使用 MySQL 兜底已计算的 meta，避免重复查 MySQL
+		var earliestMeta *earliestMsgMeta
+		if mysqlEarliestMeta != nil {
+			earliestMeta = mysqlEarliestMeta
+		} else {
+			var metaErr error
+			earliestMeta, metaErr = resolveWorkspaceEarliest(r.Context(), rdb, dbStore, workspaceID, sessionID)
+			if metaErr != nil {
+				fmt.Fprintf(os.Stderr, "查询 earliest meta 失败: %v\n", metaErr)
+			}
+		}
+		if earliestMeta != nil {
+			oldest := allEntries[len(allEntries)-1]
+			if isEntryAfterEarliest(oldest, earliestMeta) {
+				hasMore = true
+			}
+		}
+	}
+
+	// 生成 cursor（如果还没有）
+	if nextCursor == "" && len(allEntries) > 0 {
+		last := allEntries[len(allEntries)-1]
+		c := buffer.Cursor{
+			TimestampMilli: last.EntryTimestamp.UnixMilli(),
+			ProcessID:      last.ProcessID,
+			EntryIndex:     last.EntryIndex,
+		}
+		data, _ := json.Marshal(c)
+		nextCursor = base64.RawURLEncoding.EncodeToString(data)
+	}
+
+	reverseMessages(allEntries)
+
+	resp := WorkspaceMessagesResponse{
+		WorkspaceID: workspaceID,
+		Messages:    make([]MessageResponse, 0, len(allEntries)),
+		HasMore:     hasMore,
+		Cursor:      nextCursor,
+	}
+
+	for _, entry := range allEntries {
+		item := MessageResponse{
+			ID:         entry.ID,
+			SessionID:  entry.SessionID,
+			ProcessID:  entry.ProcessID,
+			EntryIndex: entry.EntryIndex,
+			EntryType:  entry.EntryType,
+			Role:       entry.Role,
+			Content:    entry.Content,
+			Timestamp:  entry.EntryTimestamp.Format(time.RFC3339Nano),
+		}
+		if info := buildToolInfo(entry); len(info) > 0 {
+			item.ToolInfo = info
+		}
+		resp.Messages = append(resp.Messages, item)
+	}
+
+	writeJSON(w, resp)
 }
 
 func reverseMessages(entries []store.ProcessEntry) {

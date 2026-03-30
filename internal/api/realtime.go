@@ -3,11 +3,14 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/huajiejun/kanban-watcher/internal/realtime"
 	"github.com/huajiejun/kanban-watcher/internal/store"
 )
@@ -15,6 +18,7 @@ import (
 type RealtimePublisher struct {
 	store *store.Store
 	hub   *realtime.Hub
+	rdb   *redis.Client
 
 	mu                     sync.Mutex
 	sessionMessageThrottle time.Duration
@@ -28,10 +32,11 @@ type throttledSessionMessage struct {
 	flushTimer *time.Timer
 }
 
-func NewRealtimePublisher(dbStore *store.Store, hub *realtime.Hub) *RealtimePublisher {
+func NewRealtimePublisher(dbStore *store.Store, hub *realtime.Hub, rdb *redis.Client) *RealtimePublisher {
 	return &RealtimePublisher{
 		store:                  dbStore,
 		hub:                    hub,
+		rdb:                    rdb,
 		sessionMessageThrottle: 500 * time.Millisecond,
 		throttledMessages:      make(map[string]*throttledSessionMessage),
 	}
@@ -107,7 +112,7 @@ func (p *RealtimePublisher) PublishWorkspaceViewUpdated(view *store.WorkspaceVie
 
 func (p *RealtimePublisher) publishSessionMessage(sessionID string, message realtime.MessagePayload) {
 	if p.sessionMessageThrottle <= 0 {
-		p.hub.BroadcastSessionMessagesAppended(sessionID, []realtime.MessagePayload{message})
+		p.broadcastSessionMessage(sessionID, message)
 		return
 	}
 
@@ -131,7 +136,7 @@ func (p *RealtimePublisher) publishSessionMessage(sessionID string, message real
 		state.lastSentAt = now
 		p.mu.Unlock()
 
-		p.hub.BroadcastSessionMessagesAppended(sessionID, []realtime.MessagePayload{message})
+		p.broadcastSessionMessage(sessionID, message)
 		return
 	}
 
@@ -168,7 +173,25 @@ func (p *RealtimePublisher) flushThrottledSessionMessage(key string) {
 	state.lastSentAt = time.Now()
 	p.mu.Unlock()
 
-	p.hub.BroadcastSessionMessagesAppended(sessionID, []realtime.MessagePayload{*message})
+	p.broadcastSessionMessage(sessionID, *message)
+}
+
+func (p *RealtimePublisher) broadcastSessionMessage(sessionID string, message realtime.MessagePayload) {
+	if p.rdb != nil {
+		payload, err := json.Marshal([]realtime.MessagePayload{message})
+		if err != nil {
+			log.Printf("[Pub/Sub] 序列化 session 消息失败: %v", err)
+			p.hub.BroadcastSessionMessagesAppended(sessionID, []realtime.MessagePayload{message})
+			return
+		}
+		channel := fmt.Sprintf("push:session:%s", sessionID)
+		if err := p.rdb.Publish(context.Background(), channel, payload).Err(); err != nil {
+			log.Printf("[Pub/Sub] 发布 session 消息失败 [%s]，降级到直推: %v", sessionID, err)
+			p.hub.BroadcastSessionMessagesAppended(sessionID, []realtime.MessagePayload{message})
+		}
+		return
+	}
+	p.hub.BroadcastSessionMessagesAppended(sessionID, []realtime.MessagePayload{message})
 }
 
 func sessionMessageThrottleKey(sessionID string, message realtime.MessagePayload) string {

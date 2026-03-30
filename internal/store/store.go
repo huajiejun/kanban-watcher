@@ -870,15 +870,26 @@ func (s *Store) MarkMissingWorkspacesArchived(ctx context.Context, activeWorkspa
 	return nil
 }
 
+type MessageCursor struct {
+	Timestamp  time.Time
+	ProcessID  string
+	EntryIndex int
+}
+
 // GetSessionMessages 获取会话消息，默认返回最新消息优先
-func (s *Store) GetSessionMessages(ctx context.Context, sessionID string, limit int, before time.Time, types []string) ([]ProcessEntry, error) {
+func (s *Store) GetSessionMessages(ctx context.Context, sessionID string, limit int, before *MessageCursor, types []string) ([]ProcessEntry, error) {
 	var args []interface{}
 	conditions := []string{"session_id = ?"}
 	args = append(args, sessionID)
 
-	if !before.IsZero() {
-		conditions = append(conditions, "entry_timestamp < ?")
-		args = append(args, before)
+	if before != nil && !before.Timestamp.IsZero() {
+		if before.ProcessID != "" {
+			conditions = append(conditions, "(entry_timestamp < ? OR (entry_timestamp = ? AND (process_id < ? OR (process_id = ? AND entry_index < ?))))")
+			args = append(args, before.Timestamp, before.Timestamp, before.ProcessID, before.ProcessID, before.EntryIndex)
+		} else {
+			conditions = append(conditions, "entry_timestamp < ?")
+			args = append(args, before.Timestamp)
+		}
 	}
 
 	if len(types) > 0 {
@@ -894,7 +905,7 @@ func (s *Store) GetSessionMessages(ctx context.Context, sessionID string, limit 
 		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
 		FROM kw_process_entries
 		WHERE ` + strings.Join(conditions, " AND ") + `
-		ORDER BY entry_timestamp DESC, id DESC
+		ORDER BY entry_timestamp DESC, process_id DESC, entry_index DESC
 		LIMIT ?
 	`
 	args = append(args, limit)
@@ -914,6 +925,32 @@ func (s *Store) GetSessionMessages(ctx context.Context, sessionID string, limit 
 		entries = append(entries, entry)
 	}
 	return entries, nil
+}
+
+// GetEarliestSessionMessage 获取 session 中最早的一条消息（用于分页 hasMore 判断）
+func (s *Store) GetEarliestSessionMessage(ctx context.Context, sessionID string) (*ProcessEntry, error) {
+	query := `
+		SELECT id, process_id, session_id, workspace_id, entry_index, entry_type, role, content,
+		       tool_name, action_type_json, status_json, error_type, entry_timestamp, content_hash, created_at
+		FROM kw_process_entries
+		WHERE session_id = ?
+		ORDER BY entry_timestamp ASC, process_id ASC, entry_index ASC
+		LIMIT 1
+	`
+	rows, err := s.db.QueryContext(ctx, query, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("query earliest session message: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, nil
+	}
+	entry, err := scanProcessEntry(rows)
+	if err != nil {
+		return nil, err
+	}
+	return &entry, nil
 }
 
 // GetWorkspaceByID 根据 ID 获取工作区

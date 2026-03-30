@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/huajiejun/kanban-watcher/internal/api"
 	"github.com/huajiejun/kanban-watcher/internal/auth"
@@ -38,6 +39,7 @@ type Server struct {
 	extraRoutes   []routeRegistration
 	staticFS      fs.FS
 	store         *store.Store
+	rdb           *redis.Client
 	portAllocator frontendPortAllocator
 	runtimeInfo   RuntimeInfo
 	projectID     string
@@ -93,6 +95,10 @@ func (s *Server) SetStore(dbStore *store.Store) {
 
 func (s *Server) SetFrontendPortAllocator(allocator frontendPortAllocator) {
 	s.portAllocator = allocator
+}
+
+func (s *Server) SetRedisClient(rdb *redis.Client) {
+	s.rdb = rdb
 }
 
 func (s *Server) SetRuntimeInfo(info RuntimeInfo) {
@@ -949,9 +955,16 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// GET /api/workspaces/{id}/latest-messages
-	if len(parts) == 2 && parts[1] == "latest-messages" && r.Method == http.MethodGet {
-		api.HandleWorkspaceLatestMessages(w, r, s.store)
+	// [已禁用] GET /api/workspaces/{id}/latest-messages - 旧接口，直接查 MySQL
+	// 已迁移到 Redis 优先查询的 /api/workspaces/{id}/messages 接口
+	// if len(parts) == 2 && parts[1] == "latest-messages" && r.Method == http.MethodGet {
+	// 	api.HandleWorkspaceLatestMessages(w, r, s.store)
+	// 	return
+	// }
+
+	// GET /api/workspaces/{id}/messages
+	if len(parts) == 2 && parts[1] == "messages" && r.Method == http.MethodGet {
+		api.HandleWorkspaceMessages(w, r, s.store, s.rdb)
 		return
 	}
 
