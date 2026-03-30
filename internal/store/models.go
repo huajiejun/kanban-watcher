@@ -7,6 +7,7 @@ type Workspace struct {
 	ID                  string     `db:"id"`
 	Name                string     `db:"name"`
 	Branch              string     `db:"branch"`
+	IssueID             *string    `db:"issue_id"`
 	Archived            bool       `db:"archived"`
 	Pinned              bool       `db:"pinned"`
 	LatestSessionID     *string    `db:"latest_session_id"`
@@ -19,6 +20,7 @@ type Workspace struct {
 	FilesChanged        int        `db:"files_changed"`
 	LinesAdded          int        `db:"lines_added"`
 	LinesRemoved        int        `db:"lines_removed"`
+	PrURL               *string    `db:"pr_url"`
 	LastSeenAt          time.Time  `db:"last_seen_at"`
 	CreatedAt           *time.Time `db:"created_at"`
 	UpdatedAt           *time.Time `db:"updated_at"`
@@ -105,6 +107,7 @@ type ActiveWorkspaceSummary struct {
 	FilesChanged              int        `db:"files_changed"`
 	LinesAdded                int        `db:"lines_added"`
 	LinesRemoved              int        `db:"lines_removed"`
+	PrURL                     *string    `db:"pr_url"`
 	UpdatedAt                 *time.Time `db:"updated_at"`
 	MessageCount              int        `db:"message_count"`
 	LastMessageAt             *time.Time `db:"last_message_at"`

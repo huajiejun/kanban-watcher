@@ -1,4 +1,4 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, css, html, nothing } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 
 import { renderMessageMarkdown } from "../lib/render-message-markdown";
@@ -145,6 +145,102 @@ export class WorkspacePreviewCard extends LitElement {
       outline: none;
     }
 
+    .workspace-preview-menu-container {
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .workspace-preview-menu-btn {
+      width: 28px;
+      height: 28px;
+      border: 1px solid color-mix(in srgb, var(--workspace-preview-accent) 78%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--primary-background-color, #0f172a) 82%, transparent);
+      color: var(--secondary-text-color, #e2e8f0);
+      font: inherit;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .workspace-preview-menu-btn:hover,
+    .workspace-preview-menu-btn:focus-visible {
+      background: color-mix(in srgb, var(--workspace-preview-accent) 30%, var(--primary-background-color, #0f172a));
+      border-color: color-mix(in srgb, var(--workspace-preview-accent) 92%, transparent);
+    }
+
+    .workspace-preview-menu-btn:focus-visible {
+      outline: none;
+    }
+
+    .workspace-preview-menu-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 160px;
+      background: var(--primary-background-color, #1e293b);
+      border: 1px solid color-mix(in srgb, var(--workspace-preview-accent) 60%, transparent);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      z-index: 100;
+      overflow: hidden;
+      animation: menuFadeIn 0.12s ease-out forwards;
+    }
+
+    @keyframes menuFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .workspace-preview-menu-item {
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: transparent;
+      color: var(--secondary-text-color, #e2e8f0);
+      font: inherit;
+      font-size: 0.82rem;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .workspace-preview-menu-item:hover,
+    .workspace-preview-menu-item:focus-visible {
+      background: color-mix(in srgb, var(--workspace-preview-accent) 30%, transparent);
+      color: var(--text-color, #f1f5f9);
+    }
+
+    .workspace-preview-menu-item:focus-visible {
+      outline: none;
+    }
+
+    .workspace-preview-menu-item.is-danger {
+      color: var(--error-color, #f87171);
+    }
+
+    .workspace-preview-menu-item.is-danger:hover,
+    .workspace-preview-menu-item.is-danger:focus-visible {
+      background: color-mix(in srgb, var(--error-color, #f87171) 15%, transparent);
+    }
+
+    .workspace-preview-menu-divider {
+      height: 1px;
+      background: color-mix(in srgb, var(--workspace-preview-accent) 50%, transparent);
+      margin: 4px 0;
+    }
+
     .workspace-preview-lines {
       display: grid;
       gap: 6px;
@@ -249,12 +345,16 @@ export class WorkspacePreviewCard extends LitElement {
     workspaceName: { attribute: false },
     statusAccentClass: { attribute: false },
     previewLines: { attribute: false },
+    showMenu: { type: Boolean },
+    prUrl: { attribute: false },
     diffStats: { attribute: false },
   };
 
   workspaceName = "";
   statusAccentClass = "is-idle";
   previewLines: string[] = [];
+  showMenu = false;
+  prUrl = "";
   diffStats: { files_changed: number; lines_added: number; lines_removed: number } | undefined;
   private shouldAutoScroll = true;
   private readonly debugInstanceId = ++previewCardInstanceSeed;
@@ -272,6 +372,7 @@ export class WorkspacePreviewCard extends LitElement {
       instanceId: this.debugInstanceId,
       workspaceName: this.workspaceName,
     });
+    document.removeEventListener("click", this.handleDocumentClick);
     super.disconnectedCallback();
   }
 
@@ -279,6 +380,17 @@ export class WorkspacePreviewCard extends LitElement {
     return html`
       <section class="workspace-preview-card ${this.statusAccentClass}">
         <div class="workspace-preview-header">
+          <div class="workspace-preview-menu-container">
+            <button
+              class="workspace-preview-menu-btn"
+              type="button"
+              aria-label="操作菜单"
+              @click=${this.handleMenuToggle}
+            >
+              ⋮
+            </button>
+            ${this.showMenu ? this.renderMenu() : nothing}
+          </div>
           <button
             class="workspace-preview-activate is-full-bleed"
             type="button"
@@ -346,6 +458,81 @@ export class WorkspacePreviewCard extends LitElement {
   private handleClose = (event: Event) => {
     event.stopPropagation();
     this.dispatchEvent(new CustomEvent("preview-close", {
+      bubbles: true,
+      composed: true,
+    }));
+  };
+
+  private handleMenuToggle = (event: Event) => {
+    event.stopPropagation();
+    this.showMenu = !this.showMenu;
+    if (this.showMenu) {
+      // 点击菜单按钮时，添加文档级点击监听以关闭菜单
+      setTimeout(() => {
+        document.addEventListener("click", this.handleDocumentClick);
+      }, 0);
+    }
+  };
+
+  private handleDocumentClick = (event: MouseEvent) => {
+    const target = event.target as Node;
+    const menuContainer = this.shadowRoot?.querySelector(".workspace-preview-menu-container");
+    if (menuContainer && !menuContainer.contains(target)) {
+      this.showMenu = false;
+      document.removeEventListener("click", this.handleDocumentClick);
+    }
+  };
+
+  private renderMenu() {
+    const hasPr = this.prUrl && this.prUrl.trim() !== "";
+    const prNumber = this.prUrl.match(/\/pull\/(\d+)/)?.[1];
+    return html`
+      <div class="workspace-preview-menu-dropdown" role="menu">
+        ${hasPr
+          ? html`
+            <button
+              class="workspace-preview-menu-item"
+              role="menuitem"
+              @click=${(e: Event) => this.handleMenuItemClick(e, "open-pr")}
+            >
+              <span>🔗</span>
+              <span>打开 Pull Request #${prNumber ?? ""}</span>
+            </button>
+          `
+          : html`
+            <button
+              class="workspace-preview-menu-item"
+              role="menuitem"
+              @click=${(e: Event) => this.handleMenuItemClick(e, "create-pr")}
+            >
+              <span>🔀</span>
+              <span>提交 Pull Request</span>
+            </button>
+          `
+        }
+        <div class="workspace-preview-menu-divider"></div>
+        <button
+          class="workspace-preview-menu-item is-danger"
+          role="menuitem"
+          @click=${(e: Event) => this.handleMenuItemClick(e, "delete")}
+        >
+          <span>🗑️</span>
+          <span>删除工作区</span>
+        </button>
+      </div>
+    `;
+  }
+
+  private handleMenuItemClick = (event: Event, action: string) => {
+    event.stopPropagation();
+    this.showMenu = false;
+    document.removeEventListener("click", this.handleDocumentClick);
+    if (action === "open-pr" && this.prUrl) {
+      window.open(this.prUrl, "_blank");
+      return;
+    }
+    this.dispatchEvent(new CustomEvent("menu-action", {
+      detail: { action },
       bubbles: true,
       composed: true,
     }));

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -27,6 +28,7 @@ const defaultWorktreeBasePath = "/Users/huajiejun/github/vibe-kanban/.vibe-kanba
 // Server HTTP 服务器
 type Server struct {
 	proxy         *api.ProxyClient
+	apiClient     *api.Client // 上游 API 客户端，用于按需同步 issue_id
 	dispatcher    workspaceMessageDispatcher
 	port          int
 	apiKey        string
@@ -40,6 +42,7 @@ type Server struct {
 	rdb           *redis.Client
 	portAllocator frontendPortAllocator
 	runtimeInfo   RuntimeInfo
+	projectID     string
 }
 
 type RuntimeInfo struct {
@@ -102,9 +105,19 @@ func (s *Server) SetRuntimeInfo(info RuntimeInfo) {
 	s.runtimeInfo = info
 }
 
+// SetProjectID 设置关联的 vibe-kanban 项目 ID（用于 Issue API）
+func (s *Server) SetProjectID(id string) {
+	s.projectID = id
+}
+
 // SetAuthHandler 设置认证处理器
 func (s *Server) SetAuthHandler(handler *AuthHandler) {
 	s.authHandler = handler
+}
+
+// SetAPIClient 设置上游 API 客户端
+func (s *Server) SetAPIClient(client *api.Client) {
+	s.apiClient = client
 }
 
 // RegisterRoute 注册额外的路由
@@ -143,6 +156,25 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/execution-processes/", s.handleExecutionProcess)
 	// 工作区已读状态代理接口
 	mux.HandleFunc("/api/workspaces/", s.handleWorkspaces)
+
+	// Issue 任务管理代理接口
+	mux.HandleFunc("/api/issues/", s.handleIssues)
+	mux.HandleFunc("/api/project-statuses", s.handleProjectStatuses)
+
+	// Issue 关联工作区代理接口
+	mux.HandleFunc("/api/issue-workspaces/", s.handleIssueWorkspaces)
+
+	// 组织和项目代理接口
+	mux.HandleFunc("/api/organizations", s.handleOrganizations)
+	mux.HandleFunc("/api/projects", s.handleProjects)
+
+	// 仓库列表代理接口
+	mux.HandleFunc("/api/repos", s.handleRepos)
+	mux.HandleFunc("/api/repos/", s.handleRepos)
+
+	// Agent 配置代理接口
+	mux.HandleFunc("/api/agents/discovery", s.handleAgentDiscovery)
+	mux.HandleFunc("/api/agents/preset-options", s.handleAgentPresetOptions)
 
 	// 注册额外的路由
 	for _, route := range s.extraRoutes {
@@ -902,6 +934,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 }
 
 // handleWorkspaces 处理 /api/workspaces/ 相关请求
+// POST /api/workspaces/start - 创建并启动工作区
 // PUT /api/workspaces/{id}/seen - 标记工作区为已读
 // GET /api/workspaces/{id}/latest-messages - 获取工作区最新消息
 // GET/POST /api/workspaces/{id}/todos - 待办事项列表
@@ -909,6 +942,12 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
 	parts := strings.SplitN(path, "/", 3)
+
+	// POST /api/workspaces/start - 创建并启动工作区
+	if path == "start" && r.Method == http.MethodPost {
+		s.handleCreateAndStartWorkspace(w, r)
+		return
+	}
 
 	// PUT /api/workspaces/{id}/seen
 	if len(parts) == 2 && parts[1] == "seen" && r.Method == http.MethodPut {
@@ -935,13 +974,78 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// GET /api/workspaces/{id}/repos
+	if len(parts) == 2 && parts[1] == "repos" && r.Method == http.MethodGet {
+		s.handleWorkspaceRepos(w, r, parts[0])
+		return
+	}
+
+	// GET /api/workspaces/{id}/messages/first
+	if len(parts) == 3 && parts[1] == "messages" && parts[2] == "first" && r.Method == http.MethodGet {
+		s.handleWorkspaceFirstMessage(w, r, parts[0])
+		return
+	}
+
+	// POST /api/workspaces/{id}/pull-requests
+	if len(parts) == 2 && parts[1] == "pull-requests" && r.Method == http.MethodPost {
+		s.handleCreatePullRequest(w, r, parts[0])
+		return
+	}
+
 	// WebSocket 代理: /api/workspaces/{id}/git/diff/ws
 	if len(parts) == 3 && parts[1] == "git" && parts[2] == "diff/ws" {
 		s.handleGitDiffWsProxy(w, r, parts[0])
 		return
 	}
 
+	// POST /api/workspaces/{id}/links - 关联工作区到任务
+	if len(parts) == 2 && parts[1] == "links" && r.Method == http.MethodPost {
+		s.handleWorkspaceLinks(w, r, parts[0])
+		return
+	}
+
 	http.Error(w, "Invalid path", http.StatusBadRequest)
+}
+
+// handleWorkspaceLinks 处理 POST /api/workspaces/{id}/links - 关联工作区到任务
+func (s *Server) handleWorkspaceLinks(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	// 解析请求体
+	var req struct {
+		RemoteProjectID string `json:"remote_project_id"`
+		IssueID         string `json:"issue_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("解析请求体失败: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("[HTTP Server] 关联工作区到任务: workspace=%s, project=%s, issue=%s", workspaceID, req.RemoteProjectID, req.IssueID)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	if err := s.proxy.LinkWorkspaceToIssue(ctx, workspaceID, req.RemoteProjectID, req.IssueID); err != nil {
+		log.Printf("[HTTP Server] 关联工作区失败: workspace=%s, err=%v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	log.Printf("[HTTP Server] 工作区已关联到任务: workspace=%s", workspaceID)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"workspace_id": workspaceID,
+	})
 }
 
 // handleWorkspaceSeen 标记工作区为已读（代理到 vibe-kanban）
@@ -971,6 +1075,634 @@ func (s *Server) handleWorkspaceSeen(w http.ResponseWriter, r *http.Request, wor
 		"success":      true,
 		"workspace_id": workspaceID,
 	})
+}
+
+// handleCreateAndStartWorkspace 处理 POST /api/workspaces/start - 创建并启动工作区
+func (s *Server) handleCreateAndStartWorkspace(w http.ResponseWriter, r *http.Request) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	// 解析请求体
+	var req api.CreateAndStartWorkspaceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("解析请求体失败: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("[HTTP Server] 创建工作区请求: name=%s, linked_issue=%v", req.Name, req.LinkedIssue)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	result, err := s.proxy.CreateAndStartWorkspace(ctx, &req)
+	if err != nil {
+		log.Printf("[HTTP Server] 创建工作区失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	// 立即将工作区保存到本地数据库，以便前端能立即查询到关联
+	log.Printf("[HTTP Server] 检查是否保存到本地数据库: store=%v, success=%v, workspaceID=%v",
+		s.store != nil, result.Success, result.Data.Workspace.ID)
+	if s.store != nil && result.Success && result.Data.Workspace.ID != "" {
+		log.Printf("[HTTP Server] 触发异步保存工作区到本地数据库: workspace=%s", result.Data.Workspace.ID)
+		go s.saveCreatedWorkspaceToLocalDB(req, result.Data.Workspace.ID)
+	} else {
+		log.Printf("[HTTP Server] 跳过保存到本地数据库: store=%v, success=%v, workspaceID=%v",
+			s.store != nil, result.Success, result.Data.Workspace.ID)
+	}
+
+	// 构建前端期望的响应格式（将 workspace_id 映射为 id）
+	response := map[string]interface{}{
+		"success": result.Success,
+		"data": map[string]interface{}{
+			"workspace": map[string]interface{}{
+				"id":                      result.Data.Workspace.ID,
+				"project_id":              "",
+				"name":                    req.Name,
+				"issue_id":                nil,
+				"local_workspace_id":      nil,
+				"archived":                false,
+				"files_changed":           0,
+				"lines_added":             0,
+				"lines_removed":           0,
+				"created_at":              time.Now().Format(time.RFC3339),
+				"updated_at":              time.Now().Format(time.RFC3339),
+			},
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleIssues 处理 /api/issues/ 相关请求
+//   GET  /api/issues/              - 查询任务列表
+//   POST /api/issues/              - 创建任务
+//   GET  /api/issues/{id}          - 获取单个任务
+//   PATCH /api/issues/{id}         - 更新任务
+//   DELETE /api/issues/{id}        - 删除任务
+func (s *Server) handleIssues(w http.ResponseWriter, r *http.Request) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/api/issues/")
+	path = strings.TrimSuffix(path, "/")
+
+	// 空路径 → 列表或创建
+	if path == "" {
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListIssues(w, r)
+		case http.MethodPost:
+			s.handleCreateIssue(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// 非空路径 → 单个任务 CRUD
+	issueID := path
+	switch r.Method {
+	case http.MethodGet:
+		s.handleGetIssue(w, r, issueID)
+	case http.MethodPatch:
+		s.handleUpdateIssue(w, r, issueID)
+	case http.MethodDelete:
+		s.handleDeleteIssue(w, r, issueID)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleListIssues(w http.ResponseWriter, r *http.Request) {
+	projectID := r.URL.Query().Get("project_id")
+	if projectID == "" {
+		projectID = s.projectID
+	}
+	if projectID == "" {
+		http.Error(w, "缺少 project_id 参数", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	issues, err := s.proxy.ListIssues(ctx, projectID)
+	if err != nil {
+		log.Printf("[HTTP Server] 查询任务列表失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    issues,
+	})
+}
+
+func (s *Server) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
+	var payload api.CreateIssuePayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// 如果请求体未指定 project_id，使用配置的默认值
+	if payload.ProjectID == "" {
+		payload.ProjectID = s.projectID
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	issue, err := s.proxy.CreateIssue(ctx, payload)
+	if err != nil {
+		log.Printf("[HTTP Server] 创建任务失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    issue,
+	})
+}
+
+func (s *Server) handleGetIssue(w http.ResponseWriter, r *http.Request, issueID string) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	issue, err := s.proxy.GetIssue(ctx, issueID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取任务 %s 失败: %v", issueID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    issue,
+	})
+}
+
+func (s *Server) handleUpdateIssue(w http.ResponseWriter, r *http.Request, issueID string) {
+	var payload api.UpdateIssuePayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	issue, err := s.proxy.UpdateIssue(ctx, issueID, payload)
+	if err != nil {
+		log.Printf("[HTTP Server] 更新任务 %s 失败: %v", issueID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    issue,
+	})
+}
+
+func (s *Server) handleDeleteIssue(w http.ResponseWriter, r *http.Request, issueID string) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	err := s.proxy.DeleteIssue(ctx, issueID)
+	if err != nil {
+		log.Printf("[HTTP Server] 删除任务 %s 失败: %v", issueID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+	})
+}
+
+// handleIssueWorkspaces 处理 /api/issue-workspaces/{id} 请求
+// GET /api/issue-workspaces/{id} - 查询指定 Issue 关联的工作区列表
+func (s *Server) handleIssueWorkspaces(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 提取 issue ID
+	path := strings.TrimPrefix(r.URL.Path, "/api/issue-workspaces/")
+	path = strings.TrimSuffix(path, "/")
+	if path == "" {
+		http.Error(w, "Missing issue ID", http.StatusBadRequest)
+		return
+	}
+	issueID := path
+
+	// 优先从本地数据库查询
+	if s.store != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		workspaces, err := s.store.ListWorkspacesByIssueID(ctx, issueID)
+		if err != nil {
+			log.Printf("[HTTP Server] 本地查询工作区失败: %v", err)
+		} else if len(workspaces) > 0 {
+			s.writeIssueWorkspaces(w, workspaces)
+			return
+		}
+
+		// 本地数据库为空时，按需同步 issue_id（worker 模式下同步服务未启动）
+		if s.apiClient != nil {
+			s.syncIssueIDsIfNeeded(ctx)
+			// 同步后重试查询
+			workspaces, err = s.store.ListWorkspacesByIssueID(ctx, issueID)
+			if err == nil && len(workspaces) > 0 {
+				s.writeIssueWorkspaces(w, workspaces)
+				return
+			}
+		}
+	}
+
+	// 降级：数据库不可用时返回空结果
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"workspaces": []api.RemoteWorkspace{},
+	})
+}
+
+// writeIssueWorkspaces 将本地工作区列表转换为前端格式并写入响应
+func (s *Server) writeIssueWorkspaces(w http.ResponseWriter, workspaces []*store.Workspace) {
+	result := make([]api.RemoteWorkspace, 0, len(workspaces))
+	for _, ws := range workspaces {
+		name := ws.Name
+		if name == "" {
+			name = ws.Branch
+		}
+		result = append(result, api.RemoteWorkspace{
+			ID:           ws.ID,
+			Name:         &name,
+			IssueID:      ws.IssueID,
+			Archived:     ws.Archived,
+			FilesChanged: ptrInt(ws.FilesChanged),
+			LinesAdded:   ptrInt(ws.LinesAdded),
+			LinesRemoved: ptrInt(ws.LinesRemoved),
+			CreatedAt:    formatTimePtr(ws.CreatedAt),
+			UpdatedAt:    formatTimePtr(ws.UpdatedAt),
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"workspaces": result,
+	})
+}
+
+// syncIssueIDsIfNeeded 按需同步 issue_id（仅同步空 issue_id 的工作区）
+// 使用 sync.Once 确保整个进程生命周期内只同步一次
+var syncIssueIDsOnce sync.Once
+
+func (s *Server) syncIssueIDsIfNeeded(ctx context.Context) {
+	syncIssueIDsOnce.Do(func() {
+		ids, err := s.store.ListWorkspaceIDsWithNullIssueID(ctx)
+		if err != nil || len(ids) == 0 {
+			return
+		}
+		const maxSync = 20
+		if len(ids) > maxSync {
+			ids = ids[:maxSync]
+		}
+		for _, id := range ids {
+			issueID, err := s.apiClient.FetchWorkspaceIssueID(ctx, id)
+			if err != nil {
+				log.Printf("[HTTP Server] 同步 issue_id 失败 workspace=%s err=%v", id, err)
+				continue
+			}
+			if err := s.store.UpdateWorkspaceIssueID(ctx, id, issueID); err != nil {
+				log.Printf("[HTTP Server] 更新 issue_id 失败 workspace=%s err=%v", id, err)
+			}
+		}
+	})
+}
+
+// handleProjectStatuses 处理 GET /api/project-statuses
+func (s *Server) handleProjectStatuses(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	projectID := r.URL.Query().Get("project_id")
+	if projectID == "" {
+		projectID = s.projectID
+	}
+	if projectID == "" {
+		http.Error(w, "缺少 project_id 参数", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	statuses, err := s.proxy.ListProjectStatuses(ctx, projectID)
+	if err != nil {
+		log.Printf("[HTTP Server] 查询项目状态失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    statuses,
+	})
+}
+
+// handleOrganizations 处理 GET /api/organizations
+func (s *Server) handleOrganizations(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	orgs, err := s.proxy.ListOrganizations(ctx)
+	if err != nil {
+		log.Printf("[HTTP Server] 查询组织列表失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    orgs,
+	})
+}
+
+// handleProjects 处理 GET /api/projects
+func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	orgID := r.URL.Query().Get("organization_id")
+	if orgID == "" {
+		http.Error(w, "缺少 organization_id 参数", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	projects, err := s.proxy.ListProjects(ctx, orgID)
+	if err != nil {
+		log.Printf("[HTTP Server] 查询项目列表失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    projects,
+	})
+}
+
+// handleRepos 处理 /api/repos/ 相关请求
+// GET /api/repos - 获取仓库列表
+// GET /api/repos/{id}/branches - 获取仓库的分支列表
+func (s *Server) handleRepos(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/repos/")
+	if path == "" || path == r.URL.Path {
+		// GET /api/repos - 列出所有仓库
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if s.proxy == nil {
+			http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+		defer cancel()
+
+		repos, err := s.proxy.ListRepos(ctx)
+		if err != nil {
+			log.Printf("[HTTP Server] 查询仓库列表失败: %v", err)
+			statusCode := http.StatusInternalServerError
+			if errors.Is(err, context.DeadlineExceeded) {
+				statusCode = http.StatusGatewayTimeout
+			}
+			http.Error(w, err.Error(), statusCode)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(repos)
+		return
+	}
+
+	// /api/repos/{id}/branches
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) == 2 && parts[1] == "branches" && r.Method == http.MethodGet {
+		s.handleRepoBranches(w, r, parts[0])
+		return
+	}
+
+	http.Error(w, "Invalid path", http.StatusBadRequest)
+}
+
+// handleRepoBranches 获取仓库的分支列表（代理到 vibe-kanban）
+func (s *Server) handleRepoBranches(w http.ResponseWriter, r *http.Request, repoID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	branches, err := s.proxy.GetRepoBranches(ctx, repoID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取仓库 %s 的分支列表失败: %v", repoID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    branches,
+	})
+}
+
+// handleWorkspaceRepos 获取工作区的仓库列表（代理到 vibe-kanban）
+func (s *Server) handleWorkspaceRepos(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	repos, err := s.proxy.GetWorkspaceRepos(ctx, workspaceID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取工作区 %s 的仓库列表失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    repos,
+	})
+}
+
+// handleWorkspaceFirstMessage 获取工作区的第一条用户消息（代理到 vibe-kanban）
+func (s *Server) handleWorkspaceFirstMessage(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	message, err := s.proxy.GetFirstUserMessage(ctx, workspaceID)
+	if err != nil {
+		log.Printf("[HTTP Server] 获取工作区 %s 的第一条消息失败: %v", workspaceID, err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    message,
+	})
+}
+
+// handleCreatePullRequest 创建 Pull Request（代理到 vibe-kanban）
+func (s *Server) handleCreatePullRequest(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if s.proxy == nil {
+		http.Error(w, "代理客户端未初始化", http.StatusInternalServerError)
+		return
+	}
+
+	var body map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "无效的请求体", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	result, err := s.proxy.CreatePullRequest(ctx, workspaceID, body)
+	if err != nil {
+		log.Printf("[HTTP Server] 创建 PR 失败: %v", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func ptrInt(v int) *int {
+	return &v
+}
+
+func formatTimePtr(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(time.RFC3339)
 }
 
 // handleGitDiffWsProxy 将前端 WebSocket 连接代理到主后端的 git diff 流
@@ -1045,4 +1777,229 @@ func (s *Server) handleGitDiffWsProxy(w http.ResponseWriter, r *http.Request, wo
 	// 等待任一方向断开
 	<-errCh
 	log.Printf("[WS Proxy] 连接关闭: workspace=%s", workspaceID)
+}
+
+// AgentDiscoveryResponse Agent 发现响应
+ type AgentDiscoveryResponse struct {
+ 	Success bool              `json:"success"`
+ 	Data    AgentDiscoveryData `json:"data"`
+ }
+
+ type AgentDiscoveryData struct {
+ 	Models  []AgentModel `json:"models"`
+ 	Presets []string      `json:"presets"`
+ }
+
+ type AgentModel struct {
+ 	ID       string `json:"id"`
+ 	Name     string `json:"name"`
+ 	Provider string `json:"provider"`
+ }
+
+ // AgentPresetOptionsResponse 预设选项响应
+ type AgentPresetOptionsResponse struct {
+ 	Success bool                `json:"success"`
+ 	Data    AgentPresetOptions  `json:"data"`
+ }
+
+ type AgentPresetOptions struct {
+ 	ModelID          string  `json:"model_id,omitempty"`
+ 	PermissionPolicy string  `json:"permission_policy,omitempty"`
+ 	Variant          *string `json:"variant,omitempty"`
+ }
+
+ // handleAgentDiscovery 处理 /api/agents/discovery 请求
+ func (s *Server) handleAgentDiscovery(w http.ResponseWriter, r *http.Request) {
+ 	if r.Method != http.MethodGet {
+ 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+ 		return
+ 	}
+
+ 	executor := r.URL.Query().Get("executor")
+ 	if executor == "" {
+ 		http.Error(w, "Missing executor parameter", http.StatusBadRequest)
+ 		return
+ 	}
+
+ 	log.Printf("[AgentDiscovery] 获取 Agent 配置: executor=%s", executor)
+
+ 	// 根据 Agent 类型返回对应的配置
+ 	// 这里硬编码配置，实际可以从配置文件或数据库中获取
+ 	var data AgentDiscoveryData
+
+ 	switch executor {
+ 	case "CLAUDE_CODE":
+ 		data = AgentDiscoveryData{
+ 			Presets: []string{"DEFAULT", "PLAN", "ROUTER", "zhipu", "minimax"},
+ 			Models: []AgentModel{
+ 				{ID: "anthropic/claude-sonnet-4", Name: "Claude Sonnet 4", Provider: "anthropic"},
+ 				{ID: "anthropic/claude-opus-4", Name: "Claude Opus 4", Provider: "anthropic"},
+ 				{ID: "zhipu/glm-4-plus", Name: "GLM-4 Plus", Provider: "zhipu"},
+ 				{ID: "zhipu/glm-4-flash", Name: "GLM-4 Flash", Provider: "zhipu"},
+ 				{ID: "minimax/minimax-text-01", Name: "MiniMax Text", Provider: "minimax"},
+ 			},
+ 		}
+ 	case "CODEX":
+ 		data = AgentDiscoveryData{
+ 			Presets: []string{"DEFAULT", "PLAN"},
+ 			Models: []AgentModel{
+ 				{ID: "openai/gpt-4o", Name: "GPT-4o", Provider: "openai"},
+ 				{ID: "openai/gpt-4o-mini", Name: "GPT-4o Mini", Provider: "openai"},
+ 			},
+ 		}
+ 	case "GEMINI":
+ 		data = AgentDiscoveryData{
+ 			Presets: []string{"DEFAULT"},
+ 			Models: []AgentModel{
+ 				{ID: "google/gemini-1.5-pro", Name: "Gemini 1.5 Pro", Provider: "google"},
+ 				{ID: "google/gemini-1.5-flash", Name: "Gemini 1.5 Flash", Provider: "google"},
+ 			},
+ 		}
+ 	case "QWEN_CODE":
+ 		data = AgentDiscoveryData{
+ 			Presets: []string{"DEFAULT"},
+ 			Models: []AgentModel{
+ 				{ID: "aliyun/qwen-2.5-72b", Name: "Qwen 2.5 72B", Provider: "aliyun"},
+ 				{ID: "aliyun/qwen-2.5-32b", Name: "Qwen 2.5 32B", Provider: "aliyun"},
+ 				{ID: "zhipu/glm-4-plus", Name: "GLM-4 Plus", Provider: "zhipu"},
+ 				{ID: "minimax/minimax-text-01", Name: "MiniMax Text", Provider: "minimax"},
+ 			},
+ 		}
+ 	default:
+ 		// 其他 Agent 使用默认配置
+ 		data = AgentDiscoveryData{
+ 			Presets: []string{"DEFAULT"},
+ 			Models: []AgentModel{
+ 				{ID: "anthropic/claude-sonnet-4", Name: "Claude Sonnet 4", Provider: "anthropic"},
+ 				{ID: "zhipu/glm-4-plus", Name: "GLM-4 Plus", Provider: "zhipu"},
+ 				{ID: "minimax/minimax-text-01", Name: "MiniMax Text", Provider: "minimax"},
+ 			},
+ 		}
+ 	}
+
+ 	response := AgentDiscoveryResponse{
+ 		Success: true,
+ 		Data:    data,
+ 	}
+
+ 	w.Header().Set("Content-Type", "application/json")
+ 	json.NewEncoder(w).Encode(response)
+ }
+
+ // handleAgentPresetOptions 处理 /api/agents/preset-options 请求
+ func (s *Server) handleAgentPresetOptions(w http.ResponseWriter, r *http.Request) {
+ 	if r.Method != http.MethodGet {
+ 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+ 		return
+ 	}
+
+ 	executor := r.URL.Query().Get("executor")
+ 	variant := r.URL.Query().Get("variant")
+
+ 	if executor == "" {
+ 		http.Error(w, "Missing executor parameter", http.StatusBadRequest)
+ 		return
+ 	}
+
+ 	log.Printf("[AgentPresetOptions] 获取预设配置: executor=%s, variant=%s", executor, variant)
+
+ 	// 根据预设返回对应的配置
+ 	options := AgentPresetOptions{}
+
+ 	switch variant {
+ 	case "PLAN":
+ 		options.ModelID = "anthropic/claude-opus-4"
+ 		options.PermissionPolicy = "plan"
+ 	case "ROUTER":
+ 		options.ModelID = "anthropic/claude-sonnet-4"
+ 		options.PermissionPolicy = "auto"
+ 	case "zhipu":
+ 		options.ModelID = "zhipu/glm-4-plus"
+ 		options.PermissionPolicy = "auto"
+ 	defaultVariant := "DEFAULT"
+ 	options.Variant = &defaultVariant
+ 	case "minimax":
+ 		options.ModelID = "minimax/minimax-text-01"
+ 		options.PermissionPolicy = "auto"
+ 	defaultVariant := "DEFAULT"
+ 	options.Variant = &defaultVariant
+ 	default:
+ 		// DEFAULT
+ 		options.ModelID = "anthropic/claude-sonnet-4"
+ 		options.PermissionPolicy = "auto"
+ 	}
+
+ 	// 特定 Agent 的覆盖
+ 	if executor == "QWEN_CODE" {
+ 		options.ModelID = "aliyun/qwen-2.5-72b"
+ 	}
+
+ 	response := AgentPresetOptionsResponse{
+ 		Success: true,
+ 		Data:    options,
+ 	}
+
+ 	w.Header().Set("Content-Type", "application/json")
+ 	json.NewEncoder(w).Encode(response)
+ }
+
+// saveCreatedWorkspaceToLocalDB 将新创建的工作区保存到本地数据库
+// 这样前端可以立即查询到关联的工作区，而不需要等待同步服务
+func (s *Server) saveCreatedWorkspaceToLocalDB(req api.CreateAndStartWorkspaceRequest, workspaceID string) {
+	log.Printf("[HTTP Server] saveCreatedWorkspaceToLocalDB 被调用: workspace=%s", workspaceID)
+
+	if s.store == nil {
+		log.Printf("[HTTP Server] 无法保存工作区: store 为 nil")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	now := time.Now()
+	name := req.Name
+	branch := "main" // 默认分支，可以从 repos 中提取更好的值
+	if len(req.Repos) > 0 {
+		if repoMap, ok := req.Repos[0].(map[string]interface{}); ok {
+			if targetBranch, exists := repoMap["target_branch"].(string); exists && targetBranch != "" {
+				branch = targetBranch
+			}
+		}
+	}
+
+	// 从 linked_issue 中提取 issue_id
+	var issueID *string
+	if req.LinkedIssue != nil && req.LinkedIssue.IssueID != "" {
+		issueID = &req.LinkedIssue.IssueID
+		log.Printf("[HTTP Server] 提取到 issue_id: %s", req.LinkedIssue.IssueID)
+	}
+
+	workspace := &store.Workspace{
+		ID:                  workspaceID,
+		Name:                name,
+		Branch:              branch,
+		IssueID:             issueID,
+		Archived:            false,
+		Pinned:              false,
+		LatestSessionID:     nil,
+		IsRunning:           true, // 刚创建的工作区默认正在运行
+		LatestProcessStatus: nil,
+		HasPendingApproval:  false,
+		HasUnseenTurns:      false,
+		HasRunningDevServer: false,
+		FrontendPort:        nil,
+		FilesChanged:        0,
+		LinesAdded:          0,
+		LinesRemoved:        0,
+		LastSeenAt:          now,
+		CreatedAt:           &now,
+		UpdatedAt:           &now,
+		SyncedAt:            now,
+	}
+
+	if err := s.store.UpsertWorkspace(ctx, workspace); err != nil {
+		log.Printf("[HTTP Server] 保存新创建工作区到本地数据库失败: workspace=%s, err=%v", workspaceID, err)
+	} else {
+		log.Printf("[HTTP Server] 新创建工作区已保存到本地数据库: workspace=%s, issue_id=%v", workspaceID, issueID)
+	}
 }

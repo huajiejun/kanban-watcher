@@ -2,6 +2,9 @@ import { LitElement, html, nothing } from "lit";
 
 import "../components/workspace-conversation-pane";
 import "../components/workspace-preview-card";
+import "../components/mobile-kanban-board";
+import "../components/mobile-project-drawer";
+import "../components/create-pr-dialog";
 import "../components/diff-details-panel";
 import type {
   ConversationPaneAction,
@@ -78,7 +81,6 @@ import {
   getWorkspaceEmbeddedPreviewUrl,
 } from "../lib/workspace-web-preview";
 import {
-  ACTIVE_PANE_MESSAGE_TYPES,
   didSelectedWorkspaceMessageVersionChange,
   getSelectedWorkspaceSessionId,
   loadRealtimeRuntimeInfo,
@@ -151,6 +153,9 @@ export class KanbanWorkspaceHome extends LitElement {
     suggestedButtonsByWorkspace: { attribute: false },
     webPreviewFallbackUrlByWorkspace: { attribute: false },
     todoPendingCountByWorkspace: { attribute: false },
+    mobileActiveTab: { attribute: false },
+    drawerOpen: { type: Boolean, attribute: false },
+    kanbanProjectId: { attribute: false },
   };
 
   mode: WorkspaceHomeMode = resolveWorkspaceHomeMode(window.innerWidth);
@@ -170,6 +175,9 @@ export class KanbanWorkspaceHome extends LitElement {
   devServerProcessStatusByWorkspace: Record<string, string> = {};
   messageErrorByWorkspace: Record<string, string> = {};
   messageDraftByWorkspace: Record<string, string> = {};
+  mobileActiveTab: "workspaces" | "issues" = "workspaces";
+  drawerOpen = false;
+  kanbanProjectId = "";
   actionFeedbackByWorkspace: Record<string, string> = {};
   queueStatusByWorkspace: Record<string, WorkspaceQueueStatusResponse> = {};
   todoPendingCountByWorkspace: Record<string, number> = {};
@@ -177,6 +185,9 @@ export class KanbanWorkspaceHome extends LitElement {
   extractedButtonsByWorkspace: Record<string, string[]> = {};
   suggestedButtonsByWorkspace: Record<string, ButtonWithReason[]> = {};
   webPreviewFallbackUrlByWorkspace: Record<string, string> = {};
+  // PR 对话框状态
+  showCreatePRDialog = false;
+  selectedWorkspaceForPR: KanbanWorkspace | null = null;
   private dynamicButtonsMessageHashByWorkspace: Record<string, string> = {};
   private boardRealtimeRetryTimer?: number;
   private realtimeRetryTimer?: number;
@@ -241,9 +252,74 @@ export class KanbanWorkspaceHome extends LitElement {
     if (this.mode === "mobile-card") {
       return html`
         <main class="workspace-home-shell">
-          <section class="workspace-home-placeholder">
-            <kanban-watcher-card></kanban-watcher-card>
-          </section>
+          <header class="workspace-home-mobile-header">
+            ${this.mobileActiveTab === "issues"
+              ? html`<button
+                  class="mobile-drawer-toggle"
+                  type="button"
+                  @click=${() => { this.drawerOpen = true; }}
+                >
+                  ☰
+                </button>`
+              : nothing}
+            <nav class="mobile-header-nav">
+              <button
+                class="mobile-header-item"
+                type="button"
+                data-tab="workspaces"
+                ?data-active=${this.mobileActiveTab === "workspaces"}
+                @click=${() => this.handleMobileTabSwitch("workspaces")}
+              >
+                <span class="mobile-header-icon">📋</span>
+                <span class="mobile-header-label">工作区</span>
+              </button>
+              <button
+                class="mobile-header-item"
+                type="button"
+                data-tab="issues"
+                ?data-active=${this.mobileActiveTab === "issues"}
+                @click=${() => this.handleMobileTabSwitch("issues")}
+              >
+                <span class="mobile-header-icon">📌</span>
+                <span class="mobile-header-label">任务</span>
+              </button>
+            </nav>
+          </header>
+          ${this.mobileActiveTab === "workspaces"
+            ? html`
+              <section class="workspace-home-placeholder">
+                <kanban-watcher-card
+                  .baseUrl=${this.previewOptions.baseUrl ?? ""}
+                  .apiKey=${this.previewOptions.apiKey}
+                ></kanban-watcher-card>
+              </section>
+            `
+            : html`
+              <section class="mobile-kanban-section" @workspace-selected=${this.handleMobileWorkspaceSelected}>
+                <mobile-kanban-board
+                  baseUrl=${this.previewOptions.baseUrl ?? ""}
+                  apiKey=${this.previewOptions.apiKey}
+                  .selectedProjectId=${this.kanbanProjectId}
+                  @create-workspace-for-issue=${this.handleCreateWorkspaceForIssue}
+                  @link-workspace-to-issue=${this.handleLinkWorkspaceToIssue}
+                  @show-workspace-picker=${this.handleShowWorkspacePicker}
+                ></mobile-kanban-board>
+              </section>
+            `}
+          ${this.mobileActiveTab === "issues"
+            ? html`<mobile-project-drawer
+                baseUrl=${this.previewOptions.baseUrl ?? ""}
+                apiKey=${this.previewOptions.apiKey}
+                .open=${this.drawerOpen}
+                @project-changed=${(e: CustomEvent) => {
+                  this.kanbanProjectId = e.detail.projectId;
+                  this.drawerOpen = false;
+                }}
+                @drawer-closed=${() => {
+                  this.drawerOpen = false;
+                }}
+              ></mobile-project-drawer>`
+            : nothing}
         </main>
       `;
     }
@@ -299,6 +375,7 @@ export class KanbanWorkspaceHome extends LitElement {
           ${this.renderPreviewDrawer()}
           ${this.renderDiffDetailsPanel()}
           ${this.renderWebPreviewOverlay()}
+          ${this.renderCreatePRDialog()}
         </section>
       </main>
     `;
@@ -307,6 +384,13 @@ export class KanbanWorkspaceHome extends LitElement {
   private handleSidebarToggle = () => {
     this.isSidebarCollapsed = !this.isSidebarCollapsed;
     this.lastSidebarSyncPaneCount = this.pageState.openWorkspaceIds.length;
+  };
+
+  private handleMobileTabSwitch = (tab: "workspaces" | "issues") => {
+    this.mobileActiveTab = tab;
+    if (tab === "workspaces") {
+      this.mobileCardConfigSignature = "";
+    }
   };
 
   private handleResize = () => {
@@ -504,6 +588,7 @@ export class KanbanWorkspaceHome extends LitElement {
       files_changed: workspace.files_changed,
       lines_added: workspace.lines_added,
       lines_removed: workspace.lines_removed,
+      pr_url: workspace.pr_url,
       updated_at: workspace.updated_at,
       last_message_at: workspace.last_message_at,
       latest_process_completed_at: workspace.latest_process_completed_at,
@@ -575,7 +660,6 @@ export class KanbanWorkspaceHome extends LitElement {
         return;
       }
 
-      // Redis 优先 + MySQL 兜底查询
       const response = await fetchWorkspaceMessages({
         baseUrl: this.previewOptions.baseUrl!,
         apiKey: this.previewOptions.apiKey,
@@ -635,7 +719,6 @@ export class KanbanWorkspaceHome extends LitElement {
     }
 
     this.setWorkspaceLoading(workspaceId, true);
-
     try {
       const response = await fetchWorkspaceMessages({
         baseUrl: this.previewOptions.baseUrl!,
@@ -662,7 +745,7 @@ export class KanbanWorkspaceHome extends LitElement {
     } catch (error) {
       this.messageErrorByWorkspace = {
         ...this.messageErrorByWorkspace,
-        [workspaceId]: error instanceof Error ? error.message : "加载更多消息失败",
+        [workspaceId]: error instanceof Error ? error.message : "加载更早消息失败",
       };
     } finally {
       this.setWorkspaceLoading(workspaceId, false);
@@ -878,6 +961,35 @@ export class KanbanWorkspaceHome extends LitElement {
       Boolean(workspace.needs_attention || workspace.has_pending_approval || workspace.has_unseen_turns),
     );
   }
+
+  private handleMenuAction(workspace: KanbanWorkspace, action: string) {
+    switch (action) {
+      case "create-pr":
+        this.selectedWorkspaceForPR = workspace;
+        this.showCreatePRDialog = true;
+        break;
+      case "open-pr":
+        if (workspace.pr_url) {
+          window.open(workspace.pr_url, "_blank");
+        }
+        break;
+      case "open-branch":
+        // TODO: 打开分支
+        console.log("打开分支:", workspace.id);
+        break;
+      case "delete":
+        // TODO: 删除工作区
+        console.log("删除工作区:", workspace.id);
+        break;
+      default:
+        console.warn("未知菜单操作:", action);
+    }
+  }
+
+  private handleCloseCreatePRDialog = () => {
+    this.showCreatePRDialog = false;
+    this.selectedWorkspaceForPR = null;
+  };
 
   private async handleTodoSelected(workspace: KanbanWorkspace, detail: { content: string; todoId: string }) {
     if (!this.isApiMode) return;
@@ -1804,6 +1916,8 @@ export class KanbanWorkspaceHome extends LitElement {
               lines_removed: workspace.lines_removed ?? 0,
             }
           : undefined}
+        .hasMore=${this.hasMoreByWorkspace[workspace.id] ?? false}
+        .onLoadMore=${() => void this.loadMoreMessages(workspace.id)}
         @draft-change=${(event: CustomEvent<string>) =>
           this.handleDraftChange(workspace.id, event.detail)}
         @action-click=${(event: CustomEvent<ConversationPaneAction>) =>
@@ -1909,6 +2023,25 @@ export class KanbanWorkspaceHome extends LitElement {
     `;
   }
 
+  private renderCreatePRDialog() {
+    if (!this.showCreatePRDialog || !this.selectedWorkspaceForPR) {
+      return nothing;
+    }
+
+    const workspace = this.selectedWorkspaceForPR;
+    return html`
+      <create-pr-dialog
+        .open=${this.showCreatePRDialog}
+        .workspaceId=${workspace.id}
+        .repoId=${""}
+        .targetBranch=${workspace.branch ?? ""}
+        .baseUrl=${this.previewOptions.baseUrl ?? ""}
+        .apiKey=${this.previewOptions.apiKey ?? ""}
+        @close=${this.handleCloseCreatePRDialog}
+      ></create-pr-dialog>
+    `;
+  }
+
   private handleWebPreviewOverlayClick = (event: Event) => {
     if ((event.target as HTMLElement | null)?.classList.contains("workspace-home-web-preview-overlay")) {
       this.handleCloseWebPreview();
@@ -1928,6 +2061,7 @@ export class KanbanWorkspaceHome extends LitElement {
         .workspaceName=${workspace.name}
         .statusAccentClass=${statusAccentClass}
         .previewLines=${previewLines}
+        .prUrl=${workspace.pr_url ?? ""}
         .diffStats=${workspace.files_changed
           ? {
               files_changed: workspace.files_changed,
@@ -1937,6 +2071,7 @@ export class KanbanWorkspaceHome extends LitElement {
           : undefined}
         @preview-activate=${() => this.handleOpenWorkspace(workspace)}
         @preview-close=${() => this.handleCloseWorkspace(workspace)}
+        @menu-action=${(e: CustomEvent) => this.handleMenuAction(workspace, e.detail.action)}
         @diff-details-request=${(e: CustomEvent) => {
           e.stopPropagation();
           this.handleOpenDiffDetails(workspace, e.detail);

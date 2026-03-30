@@ -80,6 +80,7 @@ type LocalWorkspaceSummary struct {
 	FilesChanged              int    `json:"files_changed"`
 	LinesAdded                int    `json:"lines_added"`
 	LinesRemoved              int    `json:"lines_removed"`
+	PrURL                     string `json:"pr_url,omitempty"`
 	UpdatedAt                 string `json:"updated_at,omitempty"`
 	MessageCount              int    `json:"message_count"`
 	LastMessageAt             string `json:"last_message_at,omitempty"`
@@ -244,6 +245,9 @@ func handleActiveWorkspaces(w http.ResponseWriter, r *http.Request, dbStore *sto
 		if summary.LatestProcessCompletedAt != nil {
 			item.LatestProcessCompletedAt = summary.LatestProcessCompletedAt.Format(time.RFC3339)
 		}
+		if summary.PrURL != nil && *summary.PrURL != "" {
+			item.PrURL = *summary.PrURL
+		}
 		resp.Workspaces = append(resp.Workspaces, item)
 	}
 
@@ -355,10 +359,10 @@ func getSessionMessagesInternal(w http.ResponseWriter, r *http.Request, dbStore 
 		}
 	}
 
-	var before time.Time
+	var before *store.MessageCursor
 	if raw := r.URL.Query().Get("before"); raw != "" {
 		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
-			before = parsed
+			before = &store.MessageCursor{Timestamp: parsed}
 		}
 	}
 
@@ -598,10 +602,14 @@ func HandleWorkspaceMessages(w http.ResponseWriter, r *http.Request, dbStore *st
 	// MySQL 兜底：Redis 无数据时从 MySQL 查询并异步写回 Redis
 	var mysqlEarliestMeta *earliestMsgMeta
 	if len(allEntries) == 0 && dbStore != nil {
-		var before time.Time
+		var before *store.MessageCursor
 		if beforeCursor != "" {
 			if c, err := buffer.DecodeCursor(beforeCursor); err == nil {
-				before = time.UnixMilli(c.TimestampMilli)
+				before = &store.MessageCursor{
+					Timestamp:  time.UnixMilli(c.TimestampMilli),
+					ProcessID:  c.ProcessID,
+					EntryIndex: c.EntryIndex,
+				}
 			}
 		}
 

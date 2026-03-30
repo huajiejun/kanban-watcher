@@ -212,6 +212,9 @@ func toRealtimeWorkspace(summary store.ActiveWorkspaceSummary) realtime.Workspac
 		LinesRemoved:        summary.LinesRemoved,
 		MessageCount:        summary.MessageCount,
 	}
+	if summary.PrURL != nil && *summary.PrURL != "" {
+		payload.PrURL = *summary.PrURL
+	}
 	if summary.LatestSessionID != nil {
 		payload.LatestSessionID = *summary.LatestSessionID
 	}
